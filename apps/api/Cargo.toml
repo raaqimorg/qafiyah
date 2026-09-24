@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 axum = "0.8"
-base64 = "0.22"
+base64 = "0.23"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
 sqlx = { version = "0.9", default-features = false, features = [
   "runtime-tokio",

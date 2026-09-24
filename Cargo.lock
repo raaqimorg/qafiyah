@@ -1522,7 +1522,7 @@ name = "qafiyah-api"
 version = "0.0.0"
 dependencies = [
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "form_urlencoded",
  "http-body-util",
  "qafiyah-elasticsearch",
