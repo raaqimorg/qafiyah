@@ -27,7 +27,7 @@ utoipa-axum = "0.2.0"
 rand = "0.10"
 thiserror = "2"
 subtle = "2"
-sha2 = "0.10"
+sha2 = "0.11"
 sentry = { version = "0.49", default-features = false, features = [
   "backtrace",
   "contexts",
