@@ -233,8 +233,7 @@ pub async fn list_slugs(pg: &PgPool, page: u32, page_size: u32) -> Result<Vec<St
 }
 
 struct Clauses<'a> {
-    row_joins: String,
-    count_joins: String,
+    filter_joins: String,
     where_clause: String,
     bound: Vec<&'a Vec<String>>,
 }
@@ -242,7 +241,6 @@ struct Clauses<'a> {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Table {
     Poets,
-    Meters,
     Eras,
 }
 
@@ -250,7 +248,6 @@ impl Table {
     fn join(self) -> &'static str {
         match self {
             Table::Poets => "JOIN public.poets pt ON p.poet_id = pt.id",
-            Table::Meters => "JOIN public.meters m ON p.meter_id = m.id",
             Table::Eras => "JOIN public.eras e ON pt.era_id = e.id",
         }
     }
@@ -355,34 +352,29 @@ fn clauses(facets: &Facets) -> Clauses<'_> {
         format!("WHERE {}", conditions.join(" AND "))
     };
 
-    let mut for_rows = filtered.clone();
-    for_rows.insert(Table::Poets);
-    for_rows.insert(Table::Meters);
-
     Clauses {
-        row_joins: join_sql(&for_rows),
-        count_joins: join_sql(&filtered),
+        filter_joins: join_sql(&filtered),
         where_clause,
         bound,
     }
 }
 
-fn list_sql(
-    row_joins: &str,
-    count_joins: &str,
-    where_clause: &str,
-    bind_count: usize,
-) -> (String, String) {
+fn list_sql(filter_joins: &str, where_clause: &str, bind_count: usize) -> (String, String) {
     let rows_sql = format!(
         "SELECT p.title AS title, p.slug AS slug, pt.name AS poet_name, pt.slug AS poet_slug, \
          pt.has_avatar AS poet_has_avatar, \
          m.name AS meter_name, m.slug AS meter_slug \
-         FROM public.poems p {row_joins} {where_clause} ORDER BY p.id LIMIT ${} OFFSET ${}",
+         FROM (SELECT p.id FROM public.poems p {filter_joins} {where_clause} \
+         ORDER BY p.id LIMIT ${} OFFSET ${}) page \
+         JOIN public.poems p ON p.id = page.id \
+         JOIN public.poets pt ON p.poet_id = pt.id \
+         JOIN public.meters m ON p.meter_id = m.id \
+         ORDER BY p.id",
         bind_count.saturating_add(1),
         bind_count.saturating_add(2)
     );
     let count_sql =
-        format!("SELECT COUNT(*)::int AS total FROM public.poems p {count_joins} {where_clause}");
+        format!("SELECT COUNT(*)::int AS total FROM public.poems p {filter_joins} {where_clause}");
     (rows_sql, count_sql)
 }
 
@@ -393,12 +385,11 @@ pub async fn list(
     page_size: u32,
 ) -> Result<(Vec<PoemListItem>, i32), AppError> {
     let Clauses {
-        row_joins,
-        count_joins,
+        filter_joins,
         where_clause,
         bound,
     } = clauses(facets);
-    let (rows_sql, count_sql) = list_sql(&row_joins, &count_joins, &where_clause, bound.len());
+    let (rows_sql, count_sql) = list_sql(&filter_joins, &where_clause, bound.len());
 
     let mut rows_query = sqlx::query_as::<_, PoemListRow>(AssertSqlSafe(rows_sql));
     let mut count_query = sqlx::query_scalar::<_, Option<i32>>(AssertSqlSafe(count_sql));
@@ -644,23 +635,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_count_joins_only_what_a_filter_reads() {
+    fn the_filter_joins_only_what_a_filter_reads() {
         let unfiltered = Facets::default();
         let none = clauses(&unfiltered);
-        assert_eq!(none.count_joins, "");
-        assert_eq!(
-            none.row_joins,
-            "JOIN public.poets pt ON p.poet_id = pt.id JOIN public.meters m ON p.meter_id = m.id"
-        );
+        assert_eq!(none.filter_joins, "");
 
         let era_only = Facets {
             era: vec!["abbasi".into()],
             ..Facets::default()
         };
         let by_era = clauses(&era_only);
-        assert!(by_era.count_joins.contains("public.eras"));
-        assert!(by_era.count_joins.contains("public.poets"));
-        assert!(!by_era.count_joins.contains("public.meters"));
+        assert!(by_era.filter_joins.contains("public.eras"));
+        assert!(by_era.filter_joins.contains("public.poets"));
+        assert!(!by_era.filter_joins.contains("public.meters"));
     }
 
     #[test]
@@ -689,7 +676,7 @@ mod tests {
             single.where_clause,
             "WHERE p.meter_id = (SELECT id FROM public.meters WHERE slug = ($1)[1])"
         );
-        assert!(single.count_joins.is_empty());
+        assert!(single.filter_joins.is_empty());
     }
 
     #[test]
@@ -703,7 +690,7 @@ mod tests {
             multi.where_clause,
             "WHERE p.meter_id IN (SELECT id FROM public.meters WHERE slug = ANY($1))"
         );
-        assert!(multi.count_joins.is_empty());
+        assert!(multi.filter_joins.is_empty());
     }
 
     #[test]
@@ -802,13 +789,7 @@ mod tests {
              AND p.collection_id = (SELECT id FROM public.collections WHERE slug = ($6)[1])"
         );
         assert_eq!(
-            all.row_joins,
-            "JOIN public.poets pt ON p.poet_id = pt.id \
-             JOIN public.meters m ON p.meter_id = m.id \
-             JOIN public.eras e ON pt.era_id = e.id"
-        );
-        assert_eq!(
-            all.count_joins,
+            all.filter_joins,
             "JOIN public.poets pt ON p.poet_id = pt.id JOIN public.eras e ON pt.era_id = e.id"
         );
     }
@@ -817,14 +798,13 @@ mod tests {
     fn the_list_sql_numbers_limit_and_offset_after_the_facet_binds() {
         let unfiltered = Facets::default();
         let none = clauses(&unfiltered);
-        let (rows, count) = list_sql(
-            &none.row_joins,
-            &none.count_joins,
-            &none.where_clause,
-            none.bound.len(),
-        );
+        let (rows, count) = list_sql(&none.filter_joins, &none.where_clause, none.bound.len());
         assert!(rows.starts_with("SELECT p.title AS title, p.slug AS slug, pt.name AS poet_name"));
-        assert!(rows.ends_with("ORDER BY p.id LIMIT $1 OFFSET $2"), "{rows}");
+        assert!(
+            rows.contains("ORDER BY p.id LIMIT $1 OFFSET $2) page"),
+            "{rows}"
+        );
+        assert!(rows.ends_with("ORDER BY p.id"), "{rows}");
         assert!(rows.contains("JOIN public.poets pt") && rows.contains("JOIN public.meters m"));
         assert!(!rows.contains("WHERE"));
         assert!(count.starts_with("SELECT COUNT(*)::int AS total FROM public.poems p"));
@@ -836,15 +816,15 @@ mod tests {
         };
         let by_era = clauses(&era_only);
         let (rows, count) = list_sql(
-            &by_era.row_joins,
-            &by_era.count_joins,
+            &by_era.filter_joins,
             &by_era.where_clause,
             by_era.bound.len(),
         );
         assert!(
-            rows.ends_with("WHERE e.slug = ANY($1) ORDER BY p.id LIMIT $2 OFFSET $3"),
+            rows.contains("WHERE e.slug = ANY($1) ORDER BY p.id LIMIT $2 OFFSET $3) page"),
             "{rows}"
         );
+        assert_eq!(rows.matches("JOIN public.eras").count(), 1, "{rows}");
         assert!(count.ends_with("JOIN public.poets pt ON p.poet_id = pt.id JOIN public.eras e ON pt.era_id = e.id WHERE e.slug = ANY($1)"), "{count}");
     }
 
