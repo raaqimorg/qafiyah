@@ -34,10 +34,10 @@ fi
 echo "  newest dump: ${newest}"
 trap 'echo "✗ restore failed, the API is still stopped: fix the cause and rerun bun run db:reseed" >&2' ERR
 docker compose stop api
-docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh
+docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh </dev/null
 docker compose up -d --no-deps --wait api
 trap - ERR
-docker compose run --rm -e SEARCH_INDEXER_FORCE=true search-indexer
+docker compose run --rm -T -e SEARCH_INDEXER_FORCE=true search-indexer </dev/null
 tag_db_container "$(docker compose ps -q db)"
 echo ""
 echo "=== prod status ==="
