@@ -79,7 +79,7 @@ pub(crate) async fn list(
     path = "/poets/slugs",
     tag = "poets",
     operation_id = "poets.listSlugs",
-    description = "Paginated stream of poet slugs with an avatar flag, intended for sitemap generation and incremental crawling.",
+    description = "Paginated stream of the slugs of poets with at least one poem, each with an avatar flag, intended for sitemap generation and incremental crawling.",
     params(
         ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
     ),
@@ -96,7 +96,7 @@ pub(crate) async fn list_slugs(
     let page = Query::parse(raw.as_deref()).unbounded_page()?;
     let (data, total) = tokio::try_join!(
         poets::list_slugs(&state.pg, page, SITEMAP_POETS_PER_SHARD),
-        poets::count(&state.pg)
+        poets::count_with_poems(&state.pg)
     )?;
     log.set(
         "result_count",

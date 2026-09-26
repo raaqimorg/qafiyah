@@ -249,6 +249,35 @@ async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() 
 }
 
 #[tokio::test]
+async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
+    let Some(h) = h().await else { return };
+    let with_poems: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM public.poets pt WHERE EXISTS \
+         (SELECT 1 FROM public.poems p WHERE p.poet_id = pt.id AND p.recension_of_id IS NULL)",
+    )
+    .fetch_one(&h.pg)
+    .await
+    .expect("poets with poems");
+    let stream = h.get("/v1/poets/slugs").await.json();
+    assert_eq!(
+        total_items(&stream),
+        u64::try_from(with_poems).expect("fits u64")
+    );
+    let empty: Option<String> = sqlx::query_scalar(
+        "SELECT pt.slug FROM public.poets pt WHERE NOT EXISTS \
+         (SELECT 1 FROM public.poems p WHERE p.poet_id = pt.id AND p.recension_of_id IS NULL) \
+         ORDER BY pt.slug LIMIT 1",
+    )
+    .fetch_optional(&h.pg)
+    .await
+    .expect("poet without poems");
+    if let Some(empty) = empty {
+        let listed = stream["data"].as_array().expect("slugs");
+        assert!(listed.iter().all(|entry| entry["slug"] != empty.as_str()));
+    }
+}
+
+#[tokio::test]
 async fn a_retired_poet_slug_redirects_permanently_to_the_poet_that_absorbed_it() {
     let Some(h) = h().await else { return };
     let pair: Option<(String, String)> = sqlx::query_as(

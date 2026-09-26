@@ -18,7 +18,7 @@ Base URL: {BASE}
 - [GET /v1/poems/random]({BASE}/poems/random): Random poem as text/plain (append ?option=lines for verse content)
 - [GET /v1/poets]({BASE}/poets): List poets. Query params: page, era
 - [GET /v1/poets/{slug}]({BASE}/poets): Poet by slug
-- [GET /v1/poets/slugs]({BASE}/poets/slugs): Poet slugs, paginated (for sitemaps)
+- [GET /v1/poets/slugs]({BASE}/poets/slugs): Slugs of poets with at least one poem, paginated (for sitemaps)
 - [GET /v1/eras]({BASE}/eras): List historical eras with counts
 - [GET /v1/eras/{slug}]({BASE}/eras): Era by slug
 - [GET /v1/meters]({BASE}/meters): List classical Arabic meters with counts

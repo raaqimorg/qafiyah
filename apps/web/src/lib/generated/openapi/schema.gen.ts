@@ -196,7 +196,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Paginated stream of poet slugs with an avatar flag, intended for sitemap generation and incremental crawling. */
+        /** @description Paginated stream of the slugs of poets with at least one poem, each with an avatar flag, intended for sitemap generation and incremental crawling. */
         get: operations["poets.listSlugs"];
         put?: never;
         post?: never;

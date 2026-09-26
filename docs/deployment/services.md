@@ -26,7 +26,7 @@ Cloudflare caches pages too, through a Cache Rule set in the dashboard (host `qa
 
 ### Sitemap
 
-`/sitemap-index.xml` is generated on demand (poems sharded per `SITEMAP_POEMS_PER_SHARD` from `config.ts`, plus poets and collection landing pages) and cached like any route. `pages/robots.txt.ts` (rendered from `well-known/robots.web.txt`) references it.
+`/sitemap-index.xml` is generated on demand (poems sharded per `SITEMAP_POEMS_PER_SHARD` from `config.ts`, plus poets and collection landing pages; a poet with no poems keeps their page but is left out, since `GET /v1/poets/slugs` lists only poets whose `poet_stats` count is above zero) and cached like any route. `pages/robots.txt.ts` (rendered from `well-known/robots.web.txt`) references it.
 
 ### nginx & TLS
 

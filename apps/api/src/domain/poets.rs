@@ -90,10 +90,13 @@ pub async fn alias_target(pg: &PgPool, slug: &str) -> Result<Option<String>, App
     .await?)
 }
 
-pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
-    let total: Option<i32> = sqlx::query_scalar("SELECT COUNT(*)::int AS total FROM public.poets")
-        .fetch_one(pg)
-        .await?;
+pub async fn count_with_poems(pg: &PgPool) -> Result<i32, AppError> {
+    let total: Option<i32> = sqlx::query_scalar(
+        "SELECT COUNT(*)::int AS total FROM public.poets p \
+         JOIN public.poet_stats ps ON ps.id = p.id WHERE ps.poems_count > 0",
+    )
+    .fetch_one(pg)
+    .await?;
     Ok(total.unwrap_or(0))
 }
 
@@ -103,7 +106,9 @@ pub async fn list_slugs(
     page_size: u32,
 ) -> Result<Vec<PoetSlugEntry>, AppError> {
     Ok(sqlx::query_as::<_, PoetSlugEntry>(
-        "SELECT slug, has_avatar FROM public.poets ORDER BY slug LIMIT $1 OFFSET $2",
+        "SELECT p.slug, p.has_avatar FROM public.poets p \
+         JOIN public.poet_stats ps ON ps.id = p.id WHERE ps.poems_count > 0 \
+         ORDER BY p.slug LIMIT $1 OFFSET $2",
     )
     .bind(i64::from(page_size))
     .bind(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
