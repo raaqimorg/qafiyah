@@ -38,6 +38,10 @@ DELETE FROM verses v WHERE NOT EXISTS (
   SELECT 1 FROM poem_verses pv WHERE pv.verse_id = v.id
 );
 
+DELETE FROM poet_aliases a WHERE NOT EXISTS (
+  SELECT 1 FROM poems p WHERE p.poet_id = a.poet_id
+);
+
 DELETE FROM poets pt WHERE NOT EXISTS (
   SELECT 1 FROM poems p WHERE p.poet_id = pt.id
 );

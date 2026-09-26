@@ -173,6 +173,20 @@ poets, which is an attribution question rather than a duplicate. A poem in a col
 curated Mu'allaqat) always survives and is always the primary; otherwise the survivor is the
 longest text, then the most vocalized, then the one with the most known fields, then the lowest id.
 
+## Merged poets and re-attribution
+
+A poem moves to another poet with `reattribute_poem(poem, poet)`
+(`scripts/db/sql/merge-poet.sql`), which moves a primary together with its recensions and gives
+them the new poet's era; a recension never moves alone. When two poet rows are one person,
+`merge_poet(keep, absorb)` moves all of the absorbed poet's poems, fills the survivor's empty
+fields (and an unknown era) from it, deletes it and records its slug in `poet_aliases`, so
+`GET /v1/poets/<old slug>` answers `301` to the survivor and the web redirects the page, keeping
+`?page`. It refuses anonymous poets, a pair with two different known eras, and absorbing the poet
+that holds the avatar (avatars are stored under the slug). A named poet beats an anonymous one: an
+anonymous copy of a poem a named poet has is moved to that poet and then merged or linked as a
+recension like any same-poet duplicate. A poem that the sources attribute to two poets stays under
+both.
+
 ## Recension (رواية, riwaya)
 
 One poem is often transmitted in more than one reading: a word differs, a verse is missing or

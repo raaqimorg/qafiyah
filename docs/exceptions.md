@@ -858,7 +858,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 ### Restores apply schema SQL instead of migrations
 
-- **What:** `scripts/db/init.sh` runs idempotent SQL files on every restore: `poem-aliases.sql`, `merge-poem.sql` and `poem-recensions.sql` create the `poem_aliases` table, the `poems.recension_of_id` column, their constraints and the primaries-only partial indexes if missing, drop the indexes those replace, and replace the maintenance functions, beside the existing `refresh-poem-relations.sql` and `refresh-taxonomy-stats.sql`.
+- **What:** `scripts/db/init.sh` runs idempotent SQL files on every restore: `poem-aliases.sql`, `merge-poem.sql`, `poem-recensions.sql`, `poet-aliases.sql` and `merge-poet.sql` create the `poem_aliases` and `poet_aliases` tables, the `poems.recension_of_id` column, their constraints and the primaries-only partial indexes if missing, drop the indexes those replace, and replace the maintenance functions, beside the existing `refresh-poem-relations.sql` and `refresh-taxonomy-stats.sql`.
 - **Where:** `scripts/db/init.sh`, `scripts/db/sql/`
 - **Why:** the corpus database is shipped as whole dumps and has no migrations (`apps/api/CLAUDE.md`), so a restore is the one moment a schema change can meet an existing dump. Applying the files there lets current code run against an older dump, and keeps the functions reviewable as files instead of living only inside dumps. A new dump already carries the same schema, so on it every statement is a no-op.
 - **Normal approach:** versioned migrations run on deploy, the way `apps/api/migrations/` manages the accounts database.
