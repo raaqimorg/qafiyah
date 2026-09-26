@@ -2,19 +2,26 @@ CREATE OR REPLACE FUNCTION public.refresh_poem_relations()
 RETURNS void
 LANGUAGE plpgsql
 SET search_path TO ''
+SET work_mem TO '64MB'
 AS $function$
 BEGIN
   CREATE TEMP TABLE tmp_base ON COMMIT DROP AS
-  SELECT p.id, p.poet_id, p.era_id, p.theme_id, p.meter_id, p.rhyme_id, p.recension_of_id
+  SELECT p.id, p.poet_id, p.era_id, p.theme_id, p.meter_id, p.rhyme_id, p.poem_type_id, p.recension_of_id
   FROM public.poems p;
   CREATE INDEX ON tmp_base (id);
 
   CREATE TEMP TABLE tmp_pool ON COMMIT DROP AS
   SELECT b.id, b.poet_id, b.era_id, b.theme_id, b.meter_id, b.rhyme_id
   FROM tmp_base b
-  JOIN public.poets pt ON pt.id = b.poet_id
-  JOIN public.eras  e  ON e.id  = b.era_id
-  WHERE NOT pt.is_anonymous AND e.slug <> 'ghayrmaruf' AND b.recension_of_id IS NULL;
+  JOIN public.poets      pt ON pt.id = b.poet_id
+  JOIN public.eras       e  ON e.id  = b.era_id
+  JOIN public.meters     m  ON m.id  = b.meter_id
+  JOIN public.poem_types ty ON ty.id = b.poem_type_id
+  WHERE NOT pt.is_anonymous
+    AND e.slug IN ('jahili', 'islami', 'umawi', 'abbasi', 'andalusi', 'fatimi', 'ayyubi', 'mamluki')
+    AND m.slug <> 'ghayrmaruf'
+    AND ty.slug = 'amudi'
+    AND b.recension_of_id IS NULL;
   CREATE INDEX ON tmp_pool (id);
 
   CREATE TEMP TABLE tmp_ranked ON COMMIT DROP AS
@@ -50,9 +57,7 @@ BEGIN
   ANALYZE tmp_ranked;
   ANALYZE tmp_sizes;
 
-  TRUNCATE public.poem_relations;
-
-  INSERT INTO public.poem_relations (poem_id, related_id, score, rank)
+  CREATE TEMP TABLE tmp_relations ON COMMIT DROP AS
   WITH
   targets AS (
     SELECT
@@ -117,5 +122,21 @@ BEGIN
   SELECT poem_id, related_id, (6 - grp)::smallint AS score, rank
   FROM ranked_final
   WHERE rank <= 10;
+
+  ALTER TABLE public.poem_relations
+    DROP CONSTRAINT poem_relations_poem_id_fkey,
+    DROP CONSTRAINT poem_relations_related_id_fkey;
+
+  TRUNCATE public.poem_relations;
+
+  INSERT INTO public.poem_relations (poem_id, related_id, score, rank)
+  SELECT poem_id, related_id, score, rank
+  FROM tmp_relations;
+
+  ALTER TABLE public.poem_relations
+    ADD CONSTRAINT poem_relations_poem_id_fkey
+      FOREIGN KEY (poem_id) REFERENCES public.poems (id) ON DELETE CASCADE,
+    ADD CONSTRAINT poem_relations_related_id_fkey
+      FOREIGN KEY (related_id) REFERENCES public.poems (id) ON DELETE CASCADE;
 END;
 $function$;
