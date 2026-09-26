@@ -155,10 +155,14 @@ Each poem has a precomputed list of up to 10 related poems (`poem_relations` tab
 `related_id`, `rank`), refreshed by `refresh_poem_relations()` before every DB dump snapshot, see
 `data/db/MAINTAINERS_GUIDE.md`.
 
-A poem whose era is unknown or whose poet is anonymous is never _suggested_: the generator draws
-its candidates from a pool that excludes them (`tmp_pool` in `scripts/db/sql/refresh-poem-relations.sql`). Such a poem
-still _gets_ a list of its own, just a shorter one, since its poet and era buckets contribute
-nothing.
+Only a primary عمودي (`amudi`) poem with a known meter, a poet who isn't anonymous, and an era
+search selects by default (`DEFAULT_ERA_SLUGS` in `apps/web/src/lib/constants/taxonomy-data.ts`:
+jahili through mamluki) is ever _suggested_: the generator draws its candidates from a pool that
+holds only those (`tmp_pool` in `scripts/db/sql/refresh-poem-relations.sql`, which repeats the era
+slug list, so change both together). A poem outside that pool still _gets_ a list of its own, just
+a shorter one, since any bucket pointing outside the pool contributes nothing: an Ottoman, modern,
+contemporary or unknown-era poem gets only classical poems that share its theme, meter or rhyme,
+and a poem of unknown meter gets no meter matches.
 
 ## Merged poems and aliases
 

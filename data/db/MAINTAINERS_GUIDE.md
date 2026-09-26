@@ -14,7 +14,7 @@ Any of: a schema change (columns, tables, indexes); a significant data-quality p
 
 ## Create the dump
 
-Two sets of derived rows must be fresh before `pg_dump`: `poem_relations` (`refresh_poem_relations()`, TRUNCATE + INSERT, a few minutes on the full corpus) and the `*_stats` count tables (`refresh_taxonomy_stats()`, a few seconds). `docs/domain.md` explains both.
+Two sets of derived rows must be fresh before `pg_dump`: `poem_relations` (`refresh_poem_relations()`, TRUNCATE + INSERT, under a minute on the full corpus; it drops and re-adds the table's two foreign keys around the insert, which locks `poems` against reads for its last ~15 seconds, so on a live database it briefly stalls every poem query) and the `*_stats` count tables (`refresh_taxonomy_stats()`, a few seconds). `docs/domain.md` explains both.
 
 - **From the local dev database**, the usual path after an ad-hoc edit: `.claude/skills/local-db-edit/SKILL.md` is the ordered runbook. It refreshes, dumps inside the `db` container straight into the new directory, and captures a `CHANGES.md` diff of the tables you touched.
 - **From a Postgres reachable over the network** (production over an SSH tunnel, for instance): `scripts/db/create-dump.sh <host>` refreshes and dumps into the current directory; move the file into the new directory. Needs `psql`/`pg_dump` whose major version is at least the server's.
