@@ -258,14 +258,6 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** a `<dialog>` opened with `showModal()`, which provides the focus trap, Escape, an inert background, and focus return. A shadcn Sheet also works.
 - **Status:** Needs review
 
-### The Elasticsearch client re-implements URL credential handling
-
-- **What:** `Endpoint::new` strips `user:password@` from `ELASTICSEARCH_URL` and applies `basic_auth` itself.
-- **Where:** `crates/elasticsearch/src/endpoint.rs`
-- **Why it's unusual:** reqwest already lifts credentials from the URL and percent-decodes them. The hand-written version sends `p%40ss` literally, which is the wrong password for any credential containing a reserved character, and it drops a password that has no username. Tests pin both behaviors as `_pinned_not_endorsed`.
-- **Normal approach:** keep the base as a `Url`, pass `base.join(path)` to `client.request(..)`, and let reqwest handle the credentials.
-- **Status:** Needs review
-
 ### `issue-key` bypasses the library's key invariants
 
 - **What:** the CLI inlines its own `INSERT INTO users` and `INSERT INTO api_keys` instead of calling `users::upsert` and `keys::create_for`.

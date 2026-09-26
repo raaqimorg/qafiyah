@@ -3,42 +3,21 @@ use reqwest::{Client, Method, RequestBuilder};
 pub struct Endpoint {
     client: Client,
     base: String,
-    user: Option<(String, String)>,
 }
 
 impl Endpoint {
     pub fn new(url: &str) -> Result<Self, String> {
         let parsed = reqwest::Url::parse(url).map_err(|e| format!("bad ELASTICSEARCH_URL: {e}"))?;
-        let user = if parsed.username().is_empty() {
-            None
-        } else {
-            Some((
-                parsed.username().to_string(),
-                parsed.password().unwrap_or_default().to_string(),
-            ))
-        };
-        let mut clean = parsed.clone();
-        clean
-            .set_username("")
-            .map_err(|()| "cannot clear username".to_string())?;
-        clean
-            .set_password(None)
-            .map_err(|()| "cannot clear password".to_string())?;
         Ok(Self {
             client: Client::builder()
                 .build()
                 .map_err(|e| format!("http client: {e}"))?,
-            base: clean.to_string().trim_end_matches('/').to_string(),
-            user,
+            base: parsed.as_str().trim_end_matches('/').to_string(),
         })
     }
 
     pub fn request(&self, method: Method, path: &str) -> RequestBuilder {
-        let builder = self.client.request(method, format!("{}{path}", self.base));
-        match &self.user {
-            Some((user, password)) => builder.basic_auth(user, Some(password)),
-            None => builder,
-        }
+        self.client.request(method, format!("{}{path}", self.base))
     }
 }
 
@@ -46,32 +25,66 @@ impl Endpoint {
 mod tests {
     use super::*;
 
+    fn built(url: &str, path: &str) -> reqwest::Request {
+        Endpoint::new(url)
+            .expect("parses")
+            .request(Method::GET, path)
+            .build()
+            .expect("a request")
+    }
+
+    fn authorization(request: &reqwest::Request) -> Option<&str> {
+        request
+            .headers()
+            .get("authorization")
+            .map(|value| value.to_str().expect("an ascii header"))
+    }
+
     #[test]
-    fn lifts_credentials_out_of_the_url() {
-        let endpoint = Endpoint::new("http://reader:secret@es.internal:9200").expect("parses");
-        assert_eq!(endpoint.base, "http://es.internal:9200");
+    fn a_request_joins_the_path_and_carries_the_urls_credentials_as_basic_auth() {
+        let request = built("http://reader:secret@es.internal:9200", "/poems/_search");
         assert_eq!(
-            endpoint.user,
-            Some(("reader".to_string(), "secret".to_string()))
+            request.url().as_str(),
+            "http://es.internal:9200/poems/_search"
         );
+        assert_eq!(authorization(&request), Some("Basic cmVhZGVyOnNlY3JldA=="));
     }
 
     #[test]
     fn leaves_an_anonymous_url_unauthenticated() {
-        let endpoint = Endpoint::new("http://localhost:9200").expect("parses");
-        assert_eq!(endpoint.user, None);
+        assert_eq!(authorization(&built("http://localhost:9200", "/x")), None);
     }
 
     #[test]
     fn trims_a_trailing_slash_from_the_base() {
-        let endpoint = Endpoint::new("http://localhost:9200/").expect("parses");
-        assert_eq!(endpoint.base, "http://localhost:9200");
+        assert_eq!(
+            built("http://localhost:9200/", "/_cat").url().as_str(),
+            "http://localhost:9200/_cat"
+        );
     }
 
     #[test]
     fn a_password_free_userinfo_still_authenticates() {
-        let endpoint = Endpoint::new("http://reader@localhost:9200").expect("parses");
-        assert_eq!(endpoint.user, Some(("reader".to_string(), String::new())));
+        assert_eq!(
+            authorization(&built("http://reader@localhost:9200", "/x")),
+            Some("Basic cmVhZGVyOg==")
+        );
+    }
+
+    #[test]
+    fn a_percent_encoded_password_is_decoded_before_it_is_sent() {
+        assert_eq!(
+            authorization(&built("http://u:p%40ss@h:9200", "/x")),
+            Some("Basic dTpwQHNz")
+        );
+    }
+
+    #[test]
+    fn a_password_without_a_username_still_authenticates() {
+        assert_eq!(
+            authorization(&built("http://:secret@h:9200", "/x")),
+            Some("Basic OnNlY3JldA==")
+        );
     }
 
     #[test]
@@ -80,56 +93,10 @@ mod tests {
     }
 
     #[test]
-    fn a_request_joins_the_path_to_the_base_and_carries_basic_auth() {
-        let endpoint = Endpoint::new("http://reader:secret@es.internal:9200").expect("parses");
-        let request = endpoint
-            .request(Method::POST, "/poems/_search")
-            .build()
-            .expect("a request");
-        assert_eq!(
-            request.url().as_str(),
-            "http://es.internal:9200/poems/_search"
-        );
-        assert_eq!(
-            request.headers()["authorization"],
-            "Basic cmVhZGVyOnNlY3JldA=="
-        );
-        let anonymous = Endpoint::new("http://localhost:9200").expect("parses");
-        assert!(
-            anonymous
-                .request(Method::GET, "/x")
-                .build()
-                .expect("a request")
-                .headers()
-                .get("authorization")
-                .is_none()
-        );
-    }
-
-    #[test]
     fn a_base_with_a_path_keeps_it_without_the_trailing_slash() {
-        let endpoint = Endpoint::new("http://h/es/").expect("parses");
-        assert_eq!(endpoint.base, "http://h/es");
         assert_eq!(
-            endpoint
-                .request(Method::GET, "/_cat")
-                .build()
-                .expect("a request")
-                .url()
-                .as_str(),
+            built("http://h/es/", "/_cat").url().as_str(),
             "http://h/es/_cat"
         );
-    }
-
-    #[test]
-    fn a_percent_encoded_password_is_sent_encoded_pinned_not_endorsed() {
-        let endpoint = Endpoint::new("http://u:p%40ss@h:9200").expect("parses");
-        assert_eq!(endpoint.user, Some(("u".to_string(), "p%40ss".to_string())));
-    }
-
-    #[test]
-    fn a_password_without_a_username_is_dropped_pinned_not_endorsed() {
-        let endpoint = Endpoint::new("http://:secret@h:9200").expect("parses");
-        assert_eq!(endpoint.user, None);
     }
 }
