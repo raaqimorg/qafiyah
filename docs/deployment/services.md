@@ -18,6 +18,8 @@ Astro SSR: every route renders on demand by calling the internal `api` container
 
 Browser and server errors go to Sentry only from builds that carry a release: `bun run deploy` builds with `SENTRY_RELEASE` set to the commit, and the Dockerfile passes it to Astro as `PUBLIC_SENTRY_RELEASE`, which switches reporting on. Dev servers and local Docker builds have no release, so they never report to the production project.
 
+Sentry's one uptime monitor (the plan includes one) requests `https://qafiyah.com/api/v1/poems/random?option=slug` every minute from several regions. The response is `no-store`, so every check passes Cloudflare, the tunnel, the edge gateway, the web nginx and its API proxy, the API and Postgres, and the proxy answers 502 when the API is down. Three failures in a row open an uptime issue in the `javascript-astro` project. The homepage is the wrong target: Cloudflare and nginx keep serving it from cache while the origin is down.
+
 ### Caching & freshness
 
 Each route sets `Cache-Control` from `apps/web/src/lib/server/cache.ts`: HTML is held one day at nginx (`s-maxage`) but only one minute in the browser (a deploy wipes nginx's cache, it cannot wipe a browser's), sitemaps five minutes, well-known files one day, and 404 and authenticated pages `no-store`. nginx (`proxy_cache`) honors it, collapses concurrent misses (`proxy_cache_lock`), and serves stale on upstream errors or during background refresh. New/edited poems appear within the TTL, no rebuild. nginx also canonicalizes URLs to the https apex (www→apex + trailing slashes), sets baseline security headers, gzips text, and serves `/_astro/` immutably.

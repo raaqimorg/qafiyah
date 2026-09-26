@@ -36,7 +36,7 @@ Every **dev-facing** command (`bun run dev` / `up` / `down` / `db:up` / `db:rese
 
 ## Deploy mechanics (what `bun run deploy` automates)
 
-The ordered procedure is in `.claude/skills/deploy/SKILL.md`; this is what happens inside it. It SSHes to the host and runs, in `/opt/qafiyah`:
+The ordered procedure is in `.claude/skills/deploy/SKILL.md`; this is what happens inside it. It uploads its steps over SSH to a temporary file on the host and runs that file with stdin from `/dev/null` (`remote_exec` in `scripts/lib/remote.sh`, shared with `db:reseed` and `reindex:prod`), so a step that reads stdin, such as `docker compose exec`, cannot swallow the steps after it. In `/opt/qafiyah` it runs:
 
 ```bash
 git fetch --depth 1 origin main
@@ -52,6 +52,8 @@ curl -fsS -H 'Host: api.qafiyah.com' http://127.0.0.1:80/healthz -o /dev/null
 docker compose ps
 docker builder prune -f --max-used-space 5GB   # cap build cache so it can't fill the disk
 ```
+
+Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) requests `https://qafiyah.com/healthz` and `https://api.qafiyah.com/healthz` through Cloudflare with a few retries and fails the deploy if either does not answer 200; `db:reseed` ends with the same check.
 
 Afterward the script caps the Docker **build cache** at ~5GB (keeps recent layers so incremental builds stay fast) and prints a one-line summary of remaining reclaimable leftovers. This is the **only** thing a deploy ever deletes, and only build cache (never images in use, containers, or named volumes; db/es data untouched). Reclaim everything else by hand with `docker system prune` (still volume-safe).
 

@@ -107,3 +107,5 @@ docker builder prune -f --max-used-space 5GB 2>&1 | tail -1 || true
 
 print_reclaimable
 REMOTE
+
+check_public_health

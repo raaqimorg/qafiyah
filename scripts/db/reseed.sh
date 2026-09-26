@@ -13,7 +13,7 @@ case "${1:-}" in
     ;;
 esac
 
-echo "→ Restoring the newest dump into ${REMOTE_HOST}'s corpus database (the API is down during the restore; qafiyah_accounts is untouched)."
+echo "→ Building api and search-indexer from origin/main, then restoring the newest dump into ${REMOTE_HOST}'s corpus database (the API is down during the restore; qafiyah_accounts is untouched)."
 if [[ "$assume_yes" != true ]]; then
   read -r -p "  Continue? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || { echo "  aborted"; exit 1; }
@@ -32,12 +32,15 @@ if ! compgen -G "${newest}/*.dump" >/dev/null && ! compgen -G "${newest}/*.dump.
   exit 1
 fi
 echo "  newest dump: ${newest}"
+SENTRY_RELEASE=$(git rev-parse --short HEAD)
+export SENTRY_RELEASE
+docker compose build api search-indexer
 trap 'echo "✗ restore failed, the API is still stopped: fix the cause and rerun bun run db:reseed" >&2' ERR
 docker compose stop api
-docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh </dev/null
+docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh
 docker compose up -d --no-deps --wait api
 trap - ERR
-docker compose run --rm -T -e SEARCH_INDEXER_FORCE=true search-indexer </dev/null
+docker compose run --rm -e SEARCH_INDEXER_FORCE=true search-indexer
 tag_db_container "$(docker compose ps -q db)"
 echo ""
 echo "=== prod status ==="
@@ -45,3 +48,5 @@ docker compose ps
 echo ""
 echo "✓ restored ${newest} ($(git rev-parse --short HEAD))"
 REMOTE
+
+check_public_health
