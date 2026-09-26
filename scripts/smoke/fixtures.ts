@@ -1,6 +1,6 @@
 export const FIXTURE_POET = {
-  slug: 'IBDU',
-  poems: ['wKbM', 'ROgG', 'mnCQ', 'uWro', 'OHjV'],
+  slug: 'oNbs',
+  poems: ['kdmy', 'ILje', 'mAqs', 'XhCC', 'MrIA'],
 } as const;
 
 export const ONE_POEM_FIXTURE_POET = {
