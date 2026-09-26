@@ -80,6 +80,16 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoetStats, AppError> {
     .ok_or(AppError::NotFound(Resource::Poet))
 }
 
+pub async fn alias_target(pg: &PgPool, slug: &str) -> Result<Option<String>, AppError> {
+    Ok(sqlx::query_scalar(
+        "SELECT p.slug FROM public.poet_aliases a \
+         JOIN public.poets p ON p.id = a.poet_id WHERE a.slug = $1",
+    )
+    .bind(slug)
+    .fetch_optional(pg)
+    .await?)
+}
+
 pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
     let total: Option<i32> = sqlx::query_scalar("SELECT COUNT(*)::int AS total FROM public.poets")
         .fetch_one(pg)

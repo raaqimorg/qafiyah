@@ -249,6 +249,48 @@ async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() 
 }
 
 #[tokio::test]
+async fn a_retired_poet_slug_redirects_permanently_to_the_poet_that_absorbed_it() {
+    let Some(h) = h().await else { return };
+    let pair: Option<(String, String)> = sqlx::query_as(
+        "SELECT a.slug, p.slug FROM public.poet_aliases a \
+         JOIN public.poets p ON p.id = a.poet_id ORDER BY a.slug LIMIT 1",
+    )
+    .fetch_optional(&h.pg)
+    .await
+    .expect("alias query");
+    let Some((alias, survivor)) = pair else {
+        return;
+    };
+
+    let moved = h.get(&format!("/v1/poets/{alias}")).await;
+    assert_eq!(moved.status, StatusCode::MOVED_PERMANENTLY);
+    let expected = format!("/v1/poets/{survivor}");
+    assert_eq!(moved.header("location"), Some(expected.as_str()));
+
+    let landed = h.get(&expected).await;
+    assert_eq!(landed.status, StatusCode::OK);
+    assert_eq!(landed.json()["data"]["slug"], survivor.as_str());
+}
+
+#[tokio::test]
+async fn a_slug_that_is_neither_a_poet_nor_an_alias_is_still_not_found() {
+    let Some(h) = h().await else { return };
+    let free: Option<String> = sqlx::query_scalar(
+        "SELECT c FROM unnest(ARRAY['Qzqz','Zqzq','Xqxq','Qxqx']) AS c \
+         WHERE NOT EXISTS (SELECT 1 FROM public.poets WHERE slug = c) \
+         AND NOT EXISTS (SELECT 1 FROM public.poet_aliases WHERE slug = c) LIMIT 1",
+    )
+    .fetch_optional(&h.pg)
+    .await
+    .expect("free slug query");
+    let Some(free) = free else { return };
+    assert_eq!(
+        h.get(&format!("/v1/poets/{free}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
 async fn search_returns_both_envelopes_with_the_documented_hit_shape() {
     let Some(h) = h().await else { return };
     let sent = h.get("/v1/search?q=%D8%AD%D8%A8").await;
