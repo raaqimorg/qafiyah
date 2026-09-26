@@ -38,8 +38,10 @@ The website's `/api/v1/search` proxy drops those headers, so every visitor gets
 the same response; it sets its own `public` policy on successful searches, and
 the website's nginx caches them for five minutes.
 
-Anonymous callers share a per-IP hourly bucket. Keyed callers get their own
-bucket and their own number. Exceeding either returns `429` as
+Anonymous callers share a per-IP hourly bucket. An IPv6 caller is bucketed by
+its /64, the block one subscriber is usually handed, so rotating addresses
+inside it earns no extra allowance. Keyed callers get their own bucket and
+their own number. Exceeding either returns `429` as
 `application/problem+json` with `Retry-After`, and every response carries
 `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
 

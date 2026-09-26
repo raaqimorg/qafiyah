@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::extract::{ConnectInfo, OriginalUri, Request, State};
@@ -63,7 +63,18 @@ fn hour_of(now: i64) -> i64 {
     now.div_euclid(SECONDS_PER_HOUR)
 }
 
+fn bucket_address(address: IpAddr) -> IpAddr {
+    match address.to_canonical() {
+        IpAddr::V4(v4) => IpAddr::V4(v4),
+        IpAddr::V6(v6) => {
+            let [a, b, c, d, ..] = v6.segments();
+            IpAddr::V6(Ipv6Addr::new(a, b, c, d, 0, 0, 0, 0))
+        }
+    }
+}
+
 fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec<Limit> {
+    let address = address.map(bucket_address);
     let Some(caller) = caller else {
         return vec![Limit {
             bucket: address.map_or(Bucket::Unknown, Bucket::Ip),
@@ -567,6 +578,51 @@ mod tests {
         assert_eq!(limits.len(), 1);
         assert_eq!(limits[0].ceiling, 60);
         assert_eq!(limits[0].bucket, Bucket::Ip(address));
+    }
+
+    fn anonymous_bucket(address: &str) -> Bucket {
+        limits_for(None, address.parse().ok(), 60)[0].bucket
+    }
+
+    #[test]
+    fn ipv6_callers_in_one_slash_64_share_a_bucket() {
+        assert_eq!(
+            anonymous_bucket("2001:db8:1:2::1"),
+            anonymous_bucket("2001:db8:1:2:ffff:ffff:ffff:ffff")
+        );
+        assert_eq!(
+            anonymous_bucket("2001:db8:1:2::1"),
+            Bucket::Ip("2001:db8:1:2::".parse().expect("an address"))
+        );
+    }
+
+    #[test]
+    fn ipv6_callers_in_different_slash_64s_do_not_share_a_bucket() {
+        assert_ne!(
+            anonymous_bucket("2001:db8:1:2::1"),
+            anonymous_bucket("2001:db8:1:3::1")
+        );
+    }
+
+    #[test]
+    fn an_ipv4_mapped_address_shares_the_ipv4_bucket() {
+        assert_eq!(
+            anonymous_bucket("::ffff:192.0.2.7"),
+            anonymous_bucket("192.0.2.7")
+        );
+    }
+
+    #[test]
+    fn a_keyed_callers_address_limit_is_also_bucketed_by_slash_64() {
+        let limits = limits_for(
+            Some(caller(Some(1_500))),
+            "2001:db8:1:2::1".parse().ok(),
+            60,
+        );
+        assert_eq!(
+            limits[2].bucket,
+            Bucket::KeyedIp("2001:db8:1:2::".parse().expect("an address"))
+        );
     }
 
     fn full_map(expires: i64) -> HashMap<Bucket, Window> {
