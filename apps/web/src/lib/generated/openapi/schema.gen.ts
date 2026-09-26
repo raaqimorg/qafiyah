@@ -162,7 +162,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full poem detail by slug, including verses, prosody metadata, and related poems. */
+        /** @description Full poem detail by slug, including verses, prosody metadata, related poems, and the previous and next poems. Neighbors follow `id` order within the same poet by default, or within the poem's theme, meter, rhyme, or collection when `by` names one. */
         get: operations["poems.get"];
         put?: never;
         post?: never;
@@ -312,6 +312,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CollectionRef: {
+            name: string;
+            /** @example almuallaqat */
+            slug: string;
+        };
         CountedStats: {
             name: string;
             /**
@@ -366,6 +371,7 @@ export interface components {
         };
         ItemEnvelope_PoemDetail: {
             data: {
+                collection?: components["schemas"]["CollectionRef"];
                 era: components["schemas"]["EraRef"];
                 keywords: string;
                 meter: components["schemas"]["MeterRef"];
@@ -517,6 +523,8 @@ export interface components {
             /** @example altawil */
             slug: string;
         };
+        /** @enum {string} */
+        NavScopeParam: "theme" | "meter" | "rhyme" | "collection";
         Pagination: {
             /**
              * Format: int32
@@ -550,6 +558,7 @@ export interface components {
             slug: string;
         };
         PoemDetail: {
+            collection?: components["schemas"]["CollectionRef"];
             era: components["schemas"]["EraRef"];
             keywords: string;
             meter: components["schemas"]["MeterRef"];
@@ -1255,7 +1264,13 @@ export interface operations {
     };
     "poems.get": {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Grouping that `prev` and `next` step through, in the same order as GET /poems filtered by it. Defaults to the poem's poet when omitted.
+                 * @example theme
+                 */
+                by?: components["schemas"]["NavScopeParam"];
+            };
             header?: never;
             path: {
                 /**

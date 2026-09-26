@@ -31,6 +31,23 @@ describe('deriveAdjacentPoems', () => {
     expect(view.hidden).toBe(false);
   });
 
+  it('keeps the listing context in both links and names it in the label', () => {
+    const view = deriveAdjacentPoems(
+      {
+        prev: { title: 'قصيدة سابقة', slug: 'UmlG' },
+        next: { title: 'قصيدة تالية', slug: 'SOeo' },
+      },
+      'themes'
+    );
+    expect(view.prevHref).toBe('/poems/UmlG?from=themes');
+    expect(view.nextHref).toBe('/poems/SOeo?from=themes');
+    expect(view.label).toBe('تصفح قصائد الغرض');
+  });
+
+  it('labels the navigation by poet without a listing context', () => {
+    expect(deriveAdjacentPoems({}).label).toBe('تصفح قصائد الشاعر');
+  });
+
   it('hides entirely when the poet has only one poem', () => {
     const view = deriveAdjacentPoems({});
     expect(view.prevHref).toBeUndefined();

@@ -1,5 +1,6 @@
 ---
 interface Props {
+  label: string;
   prevHref: string | undefined;
   prevTitle: string | undefined;
   nextHref: string | undefined;
@@ -7,15 +8,12 @@ interface Props {
   hidden: boolean;
 }
 
-const { prevHref, prevTitle, nextHref, nextTitle, hidden } = Astro.props;
+const { label, prevHref, prevTitle, nextHref, nextTitle, hidden } = Astro.props;
 ---
 
 {
   !hidden && (
-    <nav
-      class="flex w-full flex-row-reverse items-center justify-between gap-4"
-      aria-label="تصفح قصائد الشاعر"
-    >
+    <nav class="flex w-full flex-row-reverse items-center justify-between gap-4" aria-label={label}>
       {nextHref ? (
         <a
           href={nextHref}

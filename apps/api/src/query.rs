@@ -144,6 +144,16 @@ impl Query {
         }
     }
 
+    pub fn scalar_parsed<T>(
+        &self,
+        name: &str,
+        parse: fn(&str) -> Option<T>,
+    ) -> Result<Option<T>, AppError> {
+        self.scalar(name)?
+            .map(|raw| parse(raw).ok_or(AppError::BadRequest))
+            .transpose()
+    }
+
     pub fn text(&self, name: &str, max_len: usize) -> Result<Option<String>, AppError> {
         match self.scalar(name)? {
             None => Ok(None),
@@ -307,6 +317,23 @@ mod tests {
         assert!(query("exact=true").boolean("exact").unwrap());
         assert!(!query("exact=false").boolean("exact").unwrap());
         assert!(query("exact=1").boolean("exact").is_err());
+    }
+
+    #[test]
+    fn a_parsed_scalar_is_absent_parsed_or_rejected() {
+        let parse = |raw: &str| (raw == "theme").then_some(1);
+        assert_eq!(query("").scalar_parsed("by", parse).unwrap(), None);
+        assert_eq!(
+            query("by=theme").scalar_parsed("by", parse).unwrap(),
+            Some(1)
+        );
+        assert!(query("by=era").scalar_parsed("by", parse).is_err());
+        assert!(
+            query("by=theme&by=theme")
+                .scalar_parsed("by", parse)
+                .is_err()
+        );
+        assert!(query("by[]=theme").scalar_parsed("by", parse).is_err());
     }
 
     #[test]

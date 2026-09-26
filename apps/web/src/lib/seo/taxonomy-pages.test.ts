@@ -83,6 +83,19 @@ describe('buildTaxonomyTermView', () => {
   });
 
   it.each(['meters', 'rhymes', 'themes', 'collections'] as const)(
+    '%s term cards open the poem in that listing while the structured data keeps the bare URL',
+    (section) => {
+      const { layout, body } = buildTaxonomyTermView(section, {
+        term: { name: 'ب', slug: 'x', poemsCount: 1 },
+        poems,
+        pagination: { page: 1, totalPages: 1 },
+      });
+      expect(body.items[0]?.href).toBe(`/poems/p1?from=${section}`);
+      expect(JSON.stringify(layout.jsonLd[0])).toContain('/poems/p1"');
+    }
+  );
+
+  it.each(['meters', 'rhymes', 'themes', 'collections'] as const)(
     '%s term description clears the 60-char SEO minimum even with the shortest name, a single poem, and no sample poet',
     (section) => {
       const { layout } = buildTaxonomyTermView(section, {

@@ -22,6 +22,15 @@ pub enum SearchTypeParam {
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+pub enum NavScopeParam {
+    Theme,
+    Meter,
+    Rhyme,
+    Collection,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum ExactFlag {
     True,
     False,
@@ -217,6 +226,7 @@ Conventions:
         FourLetterSlug,
         TransliteratedSlug,
         SearchTypeParam,
+        NavScopeParam,
         ExactFlag,
     )),
 )]

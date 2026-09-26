@@ -18,7 +18,13 @@ import {
 } from '@/lib/seo/json-ld/thing-ref';
 import { websiteRef } from '@/lib/seo/json-ld/website';
 import { listPoems } from '@/lib/server/poems';
-import { poemUrl, type TaxonomySection, taxonomyIndexUrl, taxonomyUrl } from '@/lib/urls';
+import {
+  poemInSectionUrl,
+  poemUrl,
+  type TaxonomySection,
+  taxonomyIndexUrl,
+  taxonomyUrl,
+} from '@/lib/urls';
 
 import {
   INDEX_PAGE_CONFIG,
@@ -94,7 +100,7 @@ export function buildTaxonomyTermView(section: TaxonomySection, load: TaxonomyTe
   const items: readonly ListCardItem[] = poems.map((poem) => ({
     title: poem.title,
     subtitle: cfg.secondary(poem),
-    href: poemUrl(poem.slug),
+    href: poemInSectionUrl(poem.slug, section),
   }));
 
   const layout: LayoutView = {

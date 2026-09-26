@@ -8,11 +8,15 @@ import RelatedPoems from '@/components/related-poems.astro';
 import Layout from '@/layouts/layout.astro';
 import { buildPoemLayout } from '@/lib/seo/poem-page';
 import { CACHE_HTML } from '@/lib/server/cache';
+import { POEM_CONTEXTS, parsePoemContext } from '@/lib/poem-context';
 import { getPoem, movedPoemPath } from '@/lib/server/poems';
 import { poemUrl } from '@/lib/urls';
 
 const { slug } = Astro.params;
-const detail = slug ? await getPoem(slug as PoemSlug) : null;
+const from = parsePoemContext(Astro.url.searchParams.get('from'));
+const detail = slug
+  ? await getPoem(slug as PoemSlug, from === undefined ? undefined : POEM_CONTEXTS[from].by)
+  : null;
 if (!detail) return Astro.rewrite('/404');
 const moved = movedPoemPath(slug as string, detail);
 if (moved) {
@@ -23,7 +27,7 @@ if (moved) {
 
 Astro.response.headers.set('Cache-Control', CACHE_HTML);
 const poem = detail;
-const layout = buildPoemLayout(detail, slug as PoemSlug);
+const layout = buildPoemLayout(detail, slug as PoemSlug, from);
 ---
 
 <Layout
@@ -70,6 +74,7 @@ const layout = buildPoemLayout(detail, slug as PoemSlug);
         />
       </div>
       <AdjacentPoems
+        label={layout.adjacentPoems.label}
         prevHref={layout.adjacentPoems.prevHref}
         prevTitle={layout.adjacentPoems.prevTitle}
         nextHref={layout.adjacentPoems.nextHref}

@@ -62,6 +62,22 @@ async fn a_malformed_slug_is_refused_before_any_backend_is_asked() {
 }
 
 #[tokio::test]
+async fn an_unknown_neighbor_scope_is_refused_before_any_backend_is_asked() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in [
+        "/v1/poems/TnKK?by=era",
+        "/v1/poems/TnKK?by=poet",
+        "/v1/poems/TnKK?by=theme&by=meter",
+        "/v1/poems/TnKK?by[]=theme",
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
+        assert_eq!(sent.json()["code"], "BAD_REQUEST");
+    }
+    assert!(es.requests().await.is_empty());
+}
+
+#[tokio::test]
 async fn every_problem_has_the_six_members_in_contract_order() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let sent = send(app_with(&es), request("GET", "/v1/poems/abc")).await;

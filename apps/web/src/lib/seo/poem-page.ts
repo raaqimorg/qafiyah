@@ -3,6 +3,7 @@ import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
 import { POEM_LANGUAGE, SITE_NAME_AR } from '@/lib/constants/site-meta';
 import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
+import { POEM_CONTEXTS, resolvePoemContext } from '@/lib/poem-context';
 import {
   type BreadcrumbItem,
   buildBreadcrumbList,
@@ -17,7 +18,14 @@ import {
   UNKNOWN_ENTITY_NAME,
   withBrand,
 } from '@/lib/seo/meta-text';
-import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
+import {
+  poemUrl,
+  poetsUrl,
+  poetUrl,
+  type TaxonomySection,
+  taxonomyIndexUrl,
+  taxonomyUrl,
+} from '@/lib/urls';
 
 import type { PoemSlug } from '@/lib/api/brands';
 import type { Poem } from '@/lib/api/result-types';
@@ -54,13 +62,23 @@ type PoemLayoutProps = {
   readonly jsonLd: readonly [PoemArticleDoc, BreadcrumbListDoc];
 };
 
-function buildCrumbItems(poem: Poem, slug: string): readonly BreadcrumbItem[] {
-  return [
-    { name: SITE_NAME_AR, path: '/' },
-    { name: 'الشعراء', path: poetsUrl() },
-    { name: poem.poet.name, path: poetUrl(poem.poet.slug) },
-    { name: poem.title, path: poemUrl(slug) },
-  ];
+function buildCrumbItems(
+  poem: Poem,
+  slug: string,
+  context: TaxonomySection | undefined
+): readonly BreadcrumbItem[] {
+  const term = context === undefined ? undefined : POEM_CONTEXTS[context].term(poem);
+  const parents: readonly BreadcrumbItem[] =
+    context === undefined || term === undefined
+      ? [
+          { name: 'الشعراء', path: poetsUrl() },
+          { name: poem.poet.name, path: poetUrl(poem.poet.slug) },
+        ]
+      : [
+          { name: POEM_CONTEXTS[context].crumbLabel, path: taxonomyIndexUrl(context) },
+          { name: term.name, path: taxonomyUrl(context, term.slug) },
+        ];
+  return [{ name: SITE_NAME_AR, path: '/' }, ...parents, { name: poem.title, path: poemUrl(slug) }];
 }
 
 function buildPoemText(poem: Poem): string {
@@ -103,7 +121,12 @@ function buildJsonLd(
   return [article, buildBreadcrumbList(crumbItems)];
 }
 
-export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
+export function buildPoemLayout(
+  poem: Poem,
+  slug: PoemSlug,
+  from?: TaxonomySection
+): PoemLayoutProps {
+  const context = resolvePoemContext(poem, from);
   const displayTitle = poem.title;
   const poetName = poem.poet.name;
   const versesLabel = formatArabicCount({ count: poem.verseCount, nounForms: VERSES_NOUN_FORMS });
@@ -116,8 +139,8 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
   const muallaqaTitle = MUALLAQA_SEARCH_TITLES[slug];
   const canonicalSlug = poem.recensionOf?.slug ?? slug;
   const pageUrl = `${SITE_URL}${poemUrl(canonicalSlug)}`;
-  const crumbItems = buildCrumbItems(poem, canonicalSlug);
-  const adjacentPoems = deriveAdjacentPoems(poem);
+  const crumbItems = buildCrumbItems(poem, canonicalSlug, context);
+  const adjacentPoems = deriveAdjacentPoems(poem, context);
   return {
     title: muallaqaTitle === undefined ? pageTitle : withBrand(muallaqaTitle),
     description,

@@ -60,6 +60,10 @@ export function poetAvatarUrl(slug: string): string {
   return `${CDN_URL}/poets/${slug}/avatar.webp`;
 }
 
+export function poemInSectionUrl(slug: string, section: TaxonomySection | undefined): string {
+  return section === undefined ? poemUrl(slug) : `${poemUrl(slug)}?from=${section}`;
+}
+
 export function poemUrl(slug: string, highlights?: readonly string[]): string {
   const base = `/poems/${slug}`;
   const terms = highlights?.map((term) => term.trim()).filter(Boolean) ?? [];

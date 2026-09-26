@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 use utoipa::openapi::Schema;
 
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
-use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
+use crate::domain::{CollectionRef, EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
 use crate::error::{AppError, Resource, RouteProblem};
 use crate::js;
 
@@ -78,6 +78,9 @@ pub struct PoemDetail {
     pub poem_type: PoemTypeRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
+    pub collection: Option<CollectionRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
     pub prev: Option<PoemNavRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
@@ -93,6 +96,47 @@ pub struct PoemDetail {
 pub struct Total {
     #[schema(example = 394174)]
     pub total: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NavScope {
+    Poet,
+    Theme,
+    Meter,
+    Rhyme,
+    Collection,
+}
+
+impl NavScope {
+    pub fn from_param(value: &str) -> Option<Self> {
+        match value {
+            "theme" => Some(Self::Theme),
+            "meter" => Some(Self::Meter),
+            "rhyme" => Some(Self::Rhyme),
+            "collection" => Some(Self::Collection),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Poet => "poet",
+            Self::Theme => "theme",
+            Self::Meter => "meter",
+            Self::Rhyme => "rhyme",
+            Self::Collection => "collection",
+        }
+    }
+
+    fn column(self) -> &'static str {
+        match self {
+            Self::Poet => "poet_id",
+            Self::Theme => "theme_id",
+            Self::Meter => "meter_id",
+            Self::Rhyme => "rhyme_id",
+            Self::Collection => "collection_id",
+        }
+    }
 }
 
 #[derive(Default)]
@@ -206,6 +250,8 @@ struct PoemDetailRow {
     rhyme_slug: String,
     poem_type_name: String,
     poem_type_slug: String,
+    collection_name: Option<String>,
+    collection_slug: Option<String>,
     prev_poem: Option<sqlx::types::Json<PoemNavRow>>,
     next_poem: Option<sqlx::types::Json<PoemNavRow>>,
     recension_of: Option<sqlx::types::Json<PoemNavRow>>,
@@ -387,8 +433,9 @@ pub async fn list(
     ))
 }
 
-pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
-    let row = sqlx::query_as::<_, PoemDetailRow>(
+fn detail_sql(scope: NavScope) -> String {
+    let column = scope.column();
+    format!(
         r#"
       SELECT
         p.slug,
@@ -403,13 +450,13 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
         (
           SELECT jsonb_build_object('title', pp.title, 'slug', pp.slug)
           FROM public.poems pp
-          WHERE pp.poet_id = p.poet_id AND pp.id < p.id AND pp.recension_of_id IS NULL
+          WHERE pp.{column} = p.{column} AND pp.id < p.id AND pp.recension_of_id IS NULL
           ORDER BY pp.id DESC LIMIT 1
         ) AS prev_poem,
         (
           SELECT jsonb_build_object('title', np.title, 'slug', np.slug)
           FROM public.poems np
-          WHERE np.poet_id = p.poet_id AND np.id > p.id AND np.recension_of_id IS NULL
+          WHERE np.{column} = p.{column} AND np.id > p.id AND np.recension_of_id IS NULL
           ORDER BY np.id ASC LIMIT 1
         ) AS next_poem,
         (
@@ -440,6 +487,8 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
         r.slug   AS rhyme_slug,
         ty.name  AS poem_type_name,
         ty.slug  AS poem_type_slug,
+        c.name   AS collection_name,
+        c.slug   AS collection_slug,
         COALESCE(
           jsonb_agg(
             jsonb_build_object(
@@ -464,6 +513,7 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
       JOIN  public.themes th  ON th.id = p.theme_id
       JOIN  public.rhymes r   ON r.id  = p.rhyme_id
       JOIN  public.poem_types ty ON ty.id = p.poem_type_id
+      LEFT JOIN public.collections     c   ON c.id = p.collection_id
       LEFT JOIN public.poem_relations  pr  ON pr.poem_id = p.id
       LEFT JOIN public.poems           rp  ON rp.id = pr.related_id
       LEFT JOIN public.poets           rpt ON rpt.id = rp.poet_id
@@ -473,13 +523,18 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
       GROUP BY
         p.id, p.slug, p.title, p.verse_count,
         pt.name, pt.slug, pt.has_avatar, pt.is_anonymous, m.name, m.slug,
-        th.name, th.slug, e.name, e.slug, r.name, r.slug, ty.name, ty.slug
-    "#,
+        th.name, th.slug, e.name, e.slug, r.name, r.slug, ty.name, ty.slug,
+        c.name, c.slug
+    "#
     )
-    .bind(slug)
-    .fetch_optional(pg)
-    .await?
-    .ok_or(AppError::NotFound(Resource::Poem))?;
+}
+
+pub async fn get(pg: &PgPool, slug: &str, scope: NavScope) -> Result<PoemDetail, AppError> {
+    let row = sqlx::query_as::<_, PoemDetailRow>(AssertSqlSafe(detail_sql(scope)))
+        .bind(slug)
+        .fetch_optional(pg)
+        .await?
+        .ok_or(AppError::NotFound(Resource::Poem))?;
 
     let content = row.content.ok_or(AppError::PoemParse)?;
     let related: Vec<RelatedRow> =
@@ -519,6 +574,10 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
             name: row.poem_type_name,
             slug: row.poem_type_slug,
         },
+        collection: row
+            .collection_name
+            .zip(row.collection_slug)
+            .map(|(name, slug)| CollectionRef { name, slug }),
         prev: row.prev_poem.map(|j| PoemNavRef {
             title: j.0.title,
             slug: j.0.slug,
@@ -807,6 +866,35 @@ mod tests {
              AND p.rhyme_id = (SELECT id FROM public.rhymes WHERE slug = ($5)[1]) \
              AND p.collection_id = (SELECT id FROM public.collections WHERE slug = ($6)[1])"
         );
+    }
+
+    #[test]
+    fn the_detail_neighbors_step_through_the_requested_scope_only() {
+        for (scope, column) in [
+            (NavScope::Poet, "poet_id"),
+            (NavScope::Theme, "theme_id"),
+            (NavScope::Meter, "meter_id"),
+            (NavScope::Rhyme, "rhyme_id"),
+            (NavScope::Collection, "collection_id"),
+        ] {
+            let sql = detail_sql(scope);
+            assert!(sql.contains(&format!("WHERE pp.{column} = p.{column} AND pp.id < p.id")));
+            assert!(sql.contains(&format!("WHERE np.{column} = p.{column} AND np.id > p.id")));
+        }
+    }
+
+    #[test]
+    fn the_by_param_names_every_scope_but_the_default_poet() {
+        assert_eq!(NavScope::from_param("theme"), Some(NavScope::Theme));
+        assert_eq!(NavScope::from_param("meter"), Some(NavScope::Meter));
+        assert_eq!(NavScope::from_param("rhyme"), Some(NavScope::Rhyme));
+        assert_eq!(
+            NavScope::from_param("collection"),
+            Some(NavScope::Collection)
+        );
+        assert_eq!(NavScope::from_param("poet"), None);
+        assert_eq!(NavScope::from_param("era"), None);
+        assert_eq!(NavScope::from_param("Theme"), None);
     }
 
     #[test]

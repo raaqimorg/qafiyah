@@ -117,6 +117,56 @@ describe('buildPoemLayout', () => {
     expect(layout.twitterTitle).toBe(layout.ogTitle);
   });
 
+  it('trails the poet by default and keeps the canonical URL bare', () => {
+    const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.crumbItems.map((item) => item.name)).toEqual([
+      'قافية',
+      'الشعراء',
+      'المتنبي',
+      'البردة',
+    ]);
+    expect(layout.canonical).toBe('/poems/brda');
+  });
+
+  it('trails the theme when opened from a theme listing, with next and previous kept in it', () => {
+    const poem = {
+      ...basePoem,
+      prev: { title: 'قصيدة سابقة', slug: 'UmlG' },
+      next: { title: 'قصيدة تالية', slug: 'SOeo' },
+    };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1], 'themes');
+    expect(layout.crumbItems).toEqual([
+      { name: 'قافية', path: '/' },
+      { name: 'الأغراض', path: '/themes' },
+      { name: 'المديح', path: '/themes/almadih' },
+      { name: 'البردة', path: '/poems/brda' },
+    ]);
+    expect(layout.adjacentPoems.nextHref).toBe('/poems/SOeo?from=themes');
+    expect(layout.adjacentPoems.prevHref).toBe('/poems/UmlG?from=themes');
+    expect(layout.canonical).toBe('/poems/brda');
+  });
+
+  it('falls back to the poet when opened from a collection the poem is not in', () => {
+    const layout = buildPoemLayout(
+      basePoem,
+      'brda' as Parameters<typeof buildPoemLayout>[1],
+      'collections'
+    );
+    expect(layout.crumbItems[1]).toEqual({ name: 'الشعراء', path: '/poets' });
+    expect(layout.adjacentPoems.label).toBe('تصفح قصائد الشاعر');
+  });
+
+  it('trails the collection when the poem is in one', () => {
+    const poem = { ...basePoem, collection: { name: 'المعلقات', slug: 'almuallaqat' } };
+    const layout = buildPoemLayout(
+      poem,
+      'brda' as Parameters<typeof buildPoemLayout>[1],
+      'collections'
+    );
+    expect(layout.crumbItems[1]).toEqual({ name: 'الدواوين', path: '/collections' });
+    expect(layout.crumbItems[2]).toEqual({ name: 'المعلقات', path: '/collections/almuallaqat' });
+  });
+
   it('hides adjacent-poems entirely when the poet has only one poem', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     expect(layout.adjacentPoems.hidden).toBe(true);

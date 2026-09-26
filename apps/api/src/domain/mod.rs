@@ -45,6 +45,13 @@ pub struct RhymeRef {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct CollectionRef {
+    pub name: String,
+    #[schema(pattern = "^[a-z][a-z-]*$", example = "almuallaqat")]
+    pub slug: String,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct PoemTypeRef {
     pub name: String,
     #[schema(pattern = "^[a-z][a-z-]*$", example = "amudi")]

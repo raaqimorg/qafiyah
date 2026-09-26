@@ -873,7 +873,7 @@
         "tags": [
           "poems"
         ],
-        "description": "Full poem detail by slug, including verses, prosody metadata, and related poems.",
+        "description": "Full poem detail by slug, including verses, prosody metadata, related poems, and the previous and next poems. Neighbors follow `id` order within the same poet by default, or within the poem's theme, meter, rhyme, or collection when `by` names one.",
         "operationId": "poems.get",
         "parameters": [
           {
@@ -886,6 +886,16 @@
               "pattern": "^[a-zA-Z]{4}$"
             },
             "example": "TnKK"
+          },
+          {
+            "name": "by",
+            "in": "query",
+            "description": "Grouping that `prev` and `next` step through, in the same order as GET /poems filtered by it. Defaults to the poem's poet when omitted.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/NavScopeParam"
+            },
+            "example": "theme"
           }
         ],
         "responses": {
@@ -1855,6 +1865,23 @@
   },
   "components": {
     "schemas": {
+      "CollectionRef": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "almuallaqat",
+            "pattern": "^[a-z][a-z-]*$"
+          }
+        }
+      },
       "CountedStats": {
         "type": "object",
         "required": [
@@ -2005,6 +2032,9 @@
               "relatedPoems"
             ],
             "properties": {
+              "collection": {
+                "$ref": "#/components/schemas/CollectionRef"
+              },
               "era": {
                 "$ref": "#/components/schemas/EraRef"
               },
@@ -2483,6 +2513,15 @@
           }
         }
       },
+      "NavScopeParam": {
+        "type": "string",
+        "enum": [
+          "theme",
+          "meter",
+          "rhyme",
+          "collection"
+        ]
+      },
       "Pagination": {
         "type": "object",
         "required": [
@@ -2560,6 +2599,9 @@
           "relatedPoems"
         ],
         "properties": {
+          "collection": {
+            "$ref": "#/components/schemas/CollectionRef"
+          },
           "era": {
             "$ref": "#/components/schemas/EraRef"
           },

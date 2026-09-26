@@ -44,7 +44,17 @@ describe('getPoem', () => {
     get.mockResolvedValue(ok({ data: POEM }));
     const result = await getPoem('a-poem' as PoemSlug);
     expect(result).toEqual(POEM);
-    expect(get).toHaveBeenCalledWith('/poems/{slug}', { params: { path: { slug: 'a-poem' } } });
+    expect(get).toHaveBeenCalledWith('/poems/{slug}', {
+      params: { path: { slug: 'a-poem' }, query: {} },
+    });
+  });
+
+  it('asks for neighbors within a grouping when one is named', async () => {
+    get.mockResolvedValue(ok({ data: POEM }));
+    await getPoem('a-poem' as PoemSlug, 'theme');
+    expect(get).toHaveBeenCalledWith('/poems/{slug}', {
+      params: { path: { slug: 'a-poem' }, query: { by: 'theme' } },
+    });
   });
 
   it('returns null on a 404', async () => {

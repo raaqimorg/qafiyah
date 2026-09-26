@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dbDumpsUrl,
   githubUrl,
+  poemInSectionUrl,
   poemUrl,
   poetAvatarUrl,
   poetsUrl,
@@ -69,6 +70,16 @@ describe('poemUrl', () => {
     expect(url.startsWith('/poems/TnKK#h=')).toBe(true);
     const encoded = url.slice('/poems/TnKK#h='.length);
     expect(encoded.split(',').map((part) => decodeURIComponent(part))).toEqual(['يا ليت', 'هذا']);
+  });
+});
+
+describe('poemInSectionUrl', () => {
+  it('marks the listing the poem was opened from', () => {
+    expect(poemInSectionUrl('TnKK', 'themes')).toBe('/poems/TnKK?from=themes');
+    expect(poemInSectionUrl('TnKK', 'collections')).toBe('/poems/TnKK?from=collections');
+  });
+  it('returns the bare poem URL without a listing', () => {
+    expect(poemInSectionUrl('TnKK', undefined)).toBe('/poems/TnKK');
   });
 });
 

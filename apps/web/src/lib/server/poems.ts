@@ -14,6 +14,7 @@ import type {
   RhymeSlug,
   ThemeSlug,
 } from '@/lib/api/brands';
+import type { PoemNavScope } from '@/lib/poem-context';
 
 export type Poem = Ok<'/poems/{slug}'>['data'];
 
@@ -28,8 +29,12 @@ export type PoemFilters = {
 
 type PoemsList = Ok<'/poems'>;
 
-export const getPoem = (slug: PoemSlug): Promise<Poem | null> =>
-  getOrNull(() => apiServer.GET('/poems/{slug}', { params: { path: { slug } } }));
+export const getPoem = (slug: PoemSlug, by?: PoemNavScope): Promise<Poem | null> =>
+  getOrNull(() =>
+    apiServer.GET('/poems/{slug}', {
+      params: { path: { slug }, query: by === undefined ? {} : { by } },
+    })
+  );
 
 export function movedPoemPath(requested: string, poem: Pick<Poem, 'slug'>): string | null {
   return poem.slug === requested ? null : poemUrl(poem.slug);

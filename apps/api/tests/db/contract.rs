@@ -153,6 +153,67 @@ async fn a_poem_detail_carries_verses_prosody_and_navigation_consistent_with_its
 }
 
 #[tokio::test]
+async fn poem_neighbors_by_a_grouping_follow_that_grouping_list_order() {
+    let Some(h) = h().await else { return };
+    let first = h.get("/v1/poems").await.json()["data"][0].clone();
+    let slug = first["slug"].as_str().expect("slug").to_string();
+    let poem = h.get(&format!("/v1/poems/{slug}")).await.json()["data"].clone();
+    let mut cases = vec![
+        ("theme", slug.clone(), poem["theme"]["slug"].clone()),
+        ("meter", slug.clone(), poem["meter"]["slug"].clone()),
+        ("rhyme", slug.clone(), poem["rhyme"]["slug"].clone()),
+    ];
+    let collections = h.get("/v1/collections").await.json()["data"].clone();
+    let populated = collections
+        .as_array()
+        .expect("collections")
+        .iter()
+        .find(|c| c["poemsCount"].as_u64().is_some_and(|n| n > 0))
+        .cloned();
+    if let Some(collection) = populated {
+        let group = collection["slug"].as_str().expect("collection slug");
+        let collected =
+            h.get(&format!("/v1/poems?collection={group}")).await.json()["data"][0]["slug"]
+                .as_str()
+                .expect("collected poem slug")
+                .to_string();
+        cases.push(("collection", collected, collection["slug"].clone()));
+    }
+    for (by, slug, group) in cases {
+        let group = group.as_str().expect("group slug");
+        let listed: Vec<String> = h.get(&format!("/v1/poems?{by}={group}")).await.json()["data"]
+            .as_array()
+            .expect("list")
+            .iter()
+            .map(|p| p["slug"].as_str().expect("slug").to_string())
+            .collect();
+        let at = listed
+            .iter()
+            .position(|s| *s == slug)
+            .expect("poem in its group list");
+        let sent = h.get(&format!("/v1/poems/{slug}?by={by}")).await;
+        assert_eq!(sent.status, StatusCode::OK, "{by}: {}", sent.body);
+        let detail = sent.json()["data"].clone();
+        assert_eq!(detail[by]["slug"], group, "{by}: detail names its group");
+        if let Some(expected) = listed.get(at.saturating_add(1)) {
+            assert_eq!(
+                detail["next"]["slug"],
+                expected.as_str(),
+                "{by}: next is the next listed"
+            );
+            let neighbor =
+                h.get(&format!("/v1/poems/{expected}?by={by}")).await.json()["data"].clone();
+            assert_eq!(
+                neighbor["prev"]["slug"],
+                slug.as_str(),
+                "{by}: next.prev points back"
+            );
+            assert_eq!(neighbor[by]["slug"], group, "{by}: next stays in the group");
+        }
+    }
+}
+
+#[tokio::test]
 async fn every_poem_facet_narrows_the_list_to_a_subset_of_the_unfiltered_total() {
     let Some(h) = h().await else { return };
     let unfiltered = h.get("/v1/poems").await.json();

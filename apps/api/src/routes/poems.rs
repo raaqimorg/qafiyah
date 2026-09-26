@@ -9,13 +9,15 @@ use crate::constants::{
     API_V1_PREFIX, MAX_FILTER_SLUGS, NO_STORE_CACHE_CONTROL, POEMS_PER_PAGE, READ_CACHE_CONTROL,
     SITEMAP_POEMS_PER_SHARD,
 };
-use crate::domain::poems::{self, Facets, PoemDetail, PoemListItem, RandomPoemOption, Total};
+use crate::domain::poems::{
+    self, Facets, NavScope, PoemDetail, PoemListItem, RandomPoemOption, Total,
+};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
 use crate::openapi::{
-    FilteredListErrors, FourLetterSlug, ListErrors, LookupErrors, TransliteratedSlug,
+    FilteredListErrors, FourLetterSlug, ListErrors, LookupErrors, NavScopeParam, TransliteratedSlug,
 };
 use crate::query::Query;
 use crate::routes::permanent_redirect;
@@ -136,9 +138,10 @@ pub(crate) async fn count(
     path = "/poems/{slug}",
     tag = "poems",
     operation_id = "poems.get",
-    description = "Full poem detail by slug, including verses, prosody metadata, and related poems.",
+    description = "Full poem detail by slug, including verses, prosody metadata, related poems, and the previous and next poems. Neighbors follow `id` order within the same poet by default, or within the poem's theme, meter, rhyme, or collection when `by` names one.",
     params(
         ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-zA-Z]{4}$", example = "TnKK"),
+        ("by" = Option<NavScopeParam>, Query, description = "Grouping that `prev` and `next` step through, in the same order as GET /poems filtered by it. Defaults to the poem's poet when omitted.", example = "theme"),
     ),
     responses(
         (status = 200, description = "The requested poem.", body = ItemEnvelope<PoemDetail>),
@@ -150,9 +153,13 @@ pub(crate) async fn detail(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
+    RawQuery(query): RawQuery,
 ) -> Result<Response, AppError> {
     let slug = slug::four_letters(&raw)?;
-    let poem = match poems::get(&state.pg, slug).await {
+    let scope = Query::parse(query.as_deref())
+        .scalar_parsed("by", NavScope::from_param)?
+        .unwrap_or(NavScope::Poet);
+    let poem = match poems::get(&state.pg, slug, scope).await {
         Ok(poem) => poem,
         Err(AppError::NotFound(Resource::Poem)) => {
             let Some(survivor) = poems::alias_target(&state.pg, slug).await? else {
@@ -168,6 +175,7 @@ pub(crate) async fn detail(
         Err(error) => return Err(error),
     };
     log.set("poem_id", slug);
+    log.set("nav_scope", scope.as_str());
     log.set("poet_id", poem.poet.slug.clone());
     log.set("era", poem.era.slug.clone());
     log.set("meter", poem.meter.slug.clone());
