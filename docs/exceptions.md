@@ -194,12 +194,12 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** `<form role="search" onSubmit>` around `<input type="search" enterKeyHint="search">`, submitting only on Enter or the button, an `aria-live` region to announce results, and `history: 'push'` for the committed query.
 - **Status:** Needs review
 
-### Arabic plurals and digits are hand-rolled instead of using `Intl`
+### Arabic digits are converted two ways
 
-- **What:** `formatArabicCount` hard-codes "0, 1, 2, then 3 to 10 plural, otherwise singular", and digits are converted both by a lookup table and by `Intl.NumberFormat('ar-SA')`.
-- **Where:** `apps/web/src/lib/arabic.ts` (`formatArabicCount`, `toArabicDigits`), `apps/web/src/lib/pagination.ts`
-- **Why it's unusual:** Arabic returns to the plural when the last two digits are 03 to 10, which `Intl.PluralRules('ar')` already encodes as `few`, so counts such as 103 and 105 render with the singular noun. Pagination shows ungrouped digits ("١٢٣٤") while counts show grouped ones ("١٬٣٣٨").
-- **Normal approach:** map `new Intl.PluralRules('ar').select(n)` to the noun forms, and format every number with one `Intl.NumberFormat`.
+- **What:** digits are converted both by a lookup table (`toArabicDigits`) and by `Intl.NumberFormat('ar-SA')` (`formatArabicNumber`).
+- **Where:** `apps/web/src/lib/arabic.ts`, `apps/web/src/lib/pagination.ts`
+- **Why it's unusual:** pagination shows ungrouped digits ("١٢٣٤") while counts show grouped ones ("١٬٣٣٨").
+- **Normal approach:** format every number with one `Intl.NumberFormat`.
 - **Status:** Needs review
 
 ### JavaScript runtime semantics spread beyond `js.rs`

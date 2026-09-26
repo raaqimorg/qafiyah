@@ -1,3 +1,5 @@
+import { match } from 'ts-pattern';
+
 export type ArabicNounForms = {
   readonly singular: string;
   readonly dual: string;
@@ -27,6 +29,8 @@ export function formatArabicNumber(value: number): string {
   return ARABIC_NUMBER_FORMAT.format(value);
 }
 
+const ARABIC_PLURAL_RULES = new Intl.PluralRules('ar');
+
 export function formatArabicCount({
   count,
   nounForms,
@@ -36,24 +40,14 @@ export function formatArabicCount({
 }): string {
   const { singular, dual, plural } = nounForms;
   const absoluteCount = Math.abs(count);
-  const formattedNumber = formatArabicNumber(absoluteCount);
 
-  if (!Number.isInteger(absoluteCount)) {
-    return `${formattedNumber} ${singular}`;
-  }
-
-  switch (true) {
-    case absoluteCount === 0:
-      return `لا ${singular}`;
-    case absoluteCount === 1:
-      return singular;
-    case absoluteCount === 2:
-      return dual;
-    case absoluteCount <= 10:
-      return `${formattedNumber} ${plural}`;
-    default:
-      return `${formattedNumber} ${singular}`;
-  }
+  return match(ARABIC_PLURAL_RULES.select(absoluteCount))
+    .with('zero', () => `لا ${singular}`)
+    .with('one', () => singular)
+    .with('two', () => dual)
+    .with('few', () => `${formatArabicNumber(absoluteCount)} ${plural}`)
+    .with('many', 'other', () => `${formatArabicNumber(absoluteCount)} ${singular}`)
+    .exhaustive();
 }
 
 const NON_ARABIC_AND_SPACE_REGEX = /[^؀-ۿݐ-ݿࢠ-ࣿ\s]/g;
