@@ -7,7 +7,7 @@ import { buildPoetLayout } from '@/lib/seo/poets-page';
 import { parsePageQuery } from '@/lib/pagination';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { listPoems } from '@/lib/server/poems';
-import { getPoet } from '@/lib/server/poets';
+import { getPoet, movedPoetPath } from '@/lib/server/poets';
 import { poetUrl } from '@/lib/urls';
 import { CDN_URL } from '@qafiyah/config';
 
@@ -18,7 +18,14 @@ const [poet, list] =
   page === null || !poetSlug
     ? [null, null]
     : await Promise.all([getPoet(poetSlug), listPoems({ poetSlugs: [poetSlug] }, page)]);
-if (!(poet && list)) return Astro.rewrite('/404');
+if (!poet) return Astro.rewrite('/404');
+const moved = movedPoetPath(slugParam as string, poet, page ?? 1);
+if (moved) {
+  const redirect = Astro.redirect(moved, 301);
+  redirect.headers.set('Cache-Control', CACHE_HTML);
+  return redirect;
+}
+if (!list) return Astro.rewrite('/404');
 Astro.response.headers.set('Cache-Control', CACHE_HTML);
 const { poems, pagination } = list;
 const slug = poet.slug;

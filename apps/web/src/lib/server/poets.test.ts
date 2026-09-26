@@ -9,7 +9,7 @@ vi.mock('./client', () => ({
 import { failure, ok } from '@/test/api-results';
 
 import { apiServer } from './client';
-import { getPoet, getPoetSlugsPage, getPoetsPage } from './poets';
+import { getPoet, getPoetSlugsPage, getPoetsPage, movedPoetPath } from './poets';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
@@ -88,5 +88,19 @@ describe('getPoet', () => {
   it('rethrows on a 500', async () => {
     get.mockResolvedValue(failure(500));
     await expect(getPoet('boom' as PoetSlug)).rejects.toThrow();
+  });
+});
+
+describe('movedPoetPath', () => {
+  it('is null when the poet answered under the slug that was asked for', () => {
+    expect(movedPoetPath('yoFB', { slug: 'yoFB' }, 1)).toBeNull();
+  });
+
+  it('is the canonical path when the API followed an alias to another slug', () => {
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, 1)).toBe('/poets/yoFB');
+  });
+
+  it('keeps the page number the old URL asked for', () => {
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, 3)).toBe('/poets/yoFB?page=3');
   });
 });

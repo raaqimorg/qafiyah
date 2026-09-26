@@ -1488,6 +1488,15 @@ export interface operations {
                     "application/json": components["schemas"]["ItemEnvelope_PoetStats"];
                 };
             };
+            /** @description The slug belongs to a poet merged into another; `Location` names the surviving poet. */
+            301: {
+                headers: {
+                    /** @description Path of the surviving poet */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
