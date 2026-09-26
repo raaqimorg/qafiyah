@@ -15,7 +15,7 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   site: PROD_SITE_URL,
   security: { allowedDomains: [{ hostname: new URL(PROD_SITE_URL).hostname, protocol: 'https' }] },
-  server: { port: Number(process.env.WEB_PORT ?? DEV_WEB_PORT) },
+  server: { port: Number(process.env.WEB_PORT ?? DEV_WEB_PORT), host: true },
   build: { inlineStylesheets: 'always' },
   fonts: [
     {
