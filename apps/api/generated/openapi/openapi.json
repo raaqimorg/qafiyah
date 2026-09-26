@@ -1212,6 +1212,17 @@
               }
             }
           },
+          "301": {
+            "description": "The slug belongs to a poet merged into another; `Location` names the surviving poet.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Path of the surviving poet"
+              }
+            }
+          },
           "400": {
             "description": "Input validation failed",
             "content": {
