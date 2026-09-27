@@ -10,12 +10,48 @@ body:
     validations:
       required: true
   - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who needs this, and what happens without it?
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ### If you plan to build it
+
+        Fill in the fields below. A pull request needs them, and for a larger change we agree on the approach here before any code is written. See [CONTRIBUTING.md](https://github.com/raaqimorg/qafiyah/blob/main/.github/CONTRIBUTING.md).
+  - type: textarea
+    id: limitation
+    attributes:
+      label: Limitation
+      description: Which code stands in the way today? Link the file and lines.
+  - type: textarea
     id: proposal
     attributes:
-      label: What you have in mind
-      description: Optional. If you already have an approach in mind, describe it.
+      label: Proposed approach
+      description: A snippet or a clear description.
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning
+      description: Why this approach addresses the need.
+  - type: textarea
+    id: trade-offs
+    attributes:
+      label: Trade-offs
+      description: Could it introduce new bugs, mask others, or only work around the issue? What else does the changed code touch (blast radius)?
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives you considered
-      description: Optional.
+  - type: textarea
+    id: demo
+    attributes:
+      label: Mockup
+      description: For a UI change, drop a screenshot of today into Before and a sketch or mockup of what you have in mind into After.
+      value: |
+        | Before | After |
+        | ------ | ----- |
+        |        |       |

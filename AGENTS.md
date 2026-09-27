@@ -33,7 +33,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 - Rust: see `docs/rust-conventions.md`, read before writing or changing Rust code.
 - Code conventions (architecture, naming, errors, style): see `docs/code-conventions.md`, read before structuring or reviewing any code.
 - Testing: see `docs/testing.md`, read before writing or changing tests.
-- Pull requests: see `docs/pull-requests.md`, read when submitting a PR or finishing a feature.
+- Pull requests: see `docs/pull-requests.md`, read before filing an issue, opening a PR, or finishing a feature.
 - Deployment: when changing CI/CD, infrastructure, or environment config, read `docs/deployment/`.
 
 ## Agent workflow

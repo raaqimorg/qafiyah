@@ -14,6 +14,7 @@ Local development workflow for this monorepo. For architecture and per-app inter
   without that shortcut.
 - Rust (`rust-toolchain.toml` pins the version; `bun run check:rust-toolchain` verifies it matches)
 - [ShellCheck](https://www.shellcheck.net), [actionlint](https://github.com/rhysd/actionlint), and [hadolint](https://github.com/hadolint/hadolint) for the static phase of the gate (`brew install shellcheck actionlint hadolint`)
+- Optional: the [GitHub CLI](https://cli.github.com) (`gh`, then `gh auth login`). Recommended when working with an AI agent, so it can read and file issues and open pull requests itself (`.github/CONTRIBUTING.md`, "Working with an AI agent").
 
 ## Getting started
 

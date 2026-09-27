@@ -37,7 +37,49 @@ body:
     validations:
       required: true
   - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What breaks, and what is the worst case if it stays unfixed?
+    validations:
+      required: true
+  - type: textarea
     id: environment
     attributes:
       label: Environment
       description: Browser and version, or OS and Bun version for a local dev issue. Skip if it is a data issue.
+  - type: markdown
+    attributes:
+      value: |
+        ### If you plan to send the fix
+
+        Fill in the fields below. A pull request needs them, and for a larger change we agree on the approach here before any code is written. See [CONTRIBUTING.md](https://github.com/raaqimorg/qafiyah/blob/main/.github/CONTRIBUTING.md).
+  - type: textarea
+    id: root-cause
+    attributes:
+      label: Root cause
+      description: Which code causes the bug? Link the file and lines.
+  - type: textarea
+    id: proposed-fix
+    attributes:
+      label: Proposed fix
+      description: A snippet or a clear description.
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning
+      description: Why the fix addresses the underlying problem rather than the symptom.
+  - type: textarea
+    id: trade-offs
+    attributes:
+      label: Trade-offs
+      description: Could it introduce new bugs, mask others, or only work around the issue? What else does the changed code touch (blast radius)?
+  - type: textarea
+    id: demo
+    attributes:
+      label: Screenshots or video
+      description: For a UI bug, drop what you see into Before and, if you have one, a mockup of the fixed version into After.
+      value: |
+        | Before | After |
+        | ------ | ----- |
+        |        |       |

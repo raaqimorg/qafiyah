@@ -107,7 +107,7 @@ Production is one VPS running six containers behind a Cloudflare Tunnel, with no
 
 ## Contributing
 
-Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/issues). To change code, fork the repo, branch off `main`, run `bun run ci`, and open a pull request; [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) walks through it. Good places to start are the web app, search relevance, and the repo tooling. Every component has an `AGENTS.md` describing its shape, and [`docs/exceptions.md`](docs/exceptions.md) lists where the code departs from the usual approach, and why.
+Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/issues). To change code, open an issue first, then fork the repo, branch off `main`, run `bun run ci`, and open a pull request linked to the issue; [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) walks through it. Good places to start are the web app, search relevance, and the repo tooling. Every component has an `AGENTS.md` describing its shape, and [`docs/exceptions.md`](docs/exceptions.md) lists where the code departs from the usual approach, and why.
 
 <details>
 <summary><b>What <code>bun run ci</code> checks</b></summary>
