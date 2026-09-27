@@ -71,6 +71,7 @@ jobs:
                 - "!.github/ISSUE_TEMPLATE/**"
                 - "!.github/workflows/gitleaks.yml"
                 - "!.github/workflows/images.yml"
+                - "!.github/workflows/labeler.yml"
                 - "!.claude/**"
                 - "!.vscode/**"
                 - "!.husky/**"

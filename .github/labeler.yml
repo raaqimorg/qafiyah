@@ -1,0 +1,64 @@
+"🌐 web":
+  - changed-files:
+      - any-glob-to-any-file: apps/web/**
+
+"⚙️ api":
+  - changed-files:
+      - any-glob-to-any-file: apps/api/**
+
+"🗂️ indexer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/search-indexer/**
+          - crates/elasticsearch/**
+
+"🏗️ infra":
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/edge-gateway/**
+          - apps/telemetry-proxy/**
+          - docker-compose.yml
+          - docs/deployment/**
+          - scripts/deploy/**
+          - scripts/secrets/**
+          - scripts/accounts/**
+          - secrets/**
+          - .sops.yaml
+
+"🧰 tooling":
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/inspector/**
+          - scripts/**
+          - .github/workflows/**
+          - .husky/**
+          - docker-compose.dev.yml
+          - turbo.json
+
+"📜 data":
+  - changed-files:
+      - any-glob-to-any-file: data/**
+
+"🔍 search":
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/api/src/es/**
+          - apps/api/src/domain/search.rs
+          - apps/api/src/routes/search.rs
+          - crates/elasticsearch/**
+          - docs/search.md
+
+"📈 seo":
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/web/src/lib/seo/**
+          - apps/web/src/pages/sitemap/**
+          - apps/web/src/pages/sitemap-index.xml.ts
+          - apps/web/src/pages/robots.txt.ts
+          - apps/web/src/pages/llms.txt.ts
+          - well-known/robots.*
+          - well-known/llms.*
+
+"📝 documentation":
+  - changed-files:
+      - any-glob-to-all-files: "**/*.md"
