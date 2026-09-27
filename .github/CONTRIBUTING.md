@@ -17,6 +17,13 @@ of the form:
   issue, and what else the changed code touches.
 - **Demo:** for UI changes, screenshots or a video in the form's Before and After table.
 
+Labels scope an issue or pull request: one type (`🐛 bug`, `✨ enhancement`, ...) plus every
+component and topic it touches, from the [label list](https://github.com/raaqimorg/qafiyah/labels).
+GitHub lets only people with write or triage access set labels, so list the ones that fit in the
+form's Labels field or the pull request template's Labels section, and a maintainer applies them.
+The form adds its type label by itself when you submit it in the browser, and a pull request gets
+its component and topic labels automatically from the files it changes.
+
 For a large or significant change, wait until the maintainers agree on the approach in the issue
 before writing code, so your effort isn't wasted. They mark that agreement with the `✅ accepted`
 label. Keep each pull request small and focused on one concern; split unrelated changes into

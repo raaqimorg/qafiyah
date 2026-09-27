@@ -83,3 +83,9 @@ body:
         | Before | After |
         | ------ | ----- |
         |        |       |
+  - type: input
+    id: labels
+    attributes:
+      label: Labels
+      description: Every other label that fits, from the [label list](https://github.com/raaqimorg/qafiyah/labels), each component and topic this touches. A maintainer applies them.
+      placeholder: "🌐 web, 🔍 search"

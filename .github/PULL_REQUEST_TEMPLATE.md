@@ -6,6 +6,10 @@ Closes #
 
 <!-- One or two sentences. What does this do, and why. -->
 
+## Labels
+
+<!-- Every label that fits, from https://github.com/raaqimorg/qafiyah/labels: one type plus each component and topic this touches. A maintainer applies them. -->
+
 ## Screenshots
 
 <!-- For UI changes, drop a screenshot or video into each cell. Delete this section if there is no UI change. -->
