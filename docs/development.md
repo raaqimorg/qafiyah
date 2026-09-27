@@ -86,7 +86,7 @@ bun run rust:lint         # cargo clippy, workspace, -D warnings; cargo's own wa
 bun run rust:test         # cargo test, workspace
 bun run rust:test:db      # database-backed API tests against the dev stack (needs Docker)
 bun run smoke:dev         # black-box HTTP probes against a locally-managed dev server
-bun run ci                # the full gate (GitHub Actions runs all of it); --no-docker skips db and smoke, --docker-only runs just those
+bun run ci                # the full gate (GitHub Actions runs it scoped to the change); --no-docker skips db and smoke, --docker-only runs just those
 ```
 
 Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
@@ -95,7 +95,8 @@ Deliberate, non-obvious behavior of the static checks is in the Static checks se
 `apps/api/tests/db.rs` with the same connection strings `bun run dev` uses. Without the
 `QAFIYAH_TEST_*` variables that target skips itself, which is why plain `cargo test` stays pure.
 
-Run `bun run ci` before opening a PR; it's the full gate, the same one GitHub Actions runs. `bun run ci --no-docker`
+Run `bun run ci` before opening a PR; it's the full gate. GitHub Actions runs the same gate, skipping a Docker
+phase when the change touches nothing it uses (`docs/topology.md`, "CI/CD topology"). `bun run ci --no-docker`
 skips the Docker-dependent steps (the database-backed tests and both smokes) if Docker isn't
 available, and `bun run ci --docker-only` runs only those. The stack smoke builds the three images
 through `compose up --build`, so a full run still proves every image builds.
@@ -130,7 +131,7 @@ worktree's own API port, handled automatically).
 
 ## Committing
 
-Commit messages follow `docs/pull-requests.md` (one subject line, nothing else). The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only (oxlint, oxfmt, prettier for `.astro`, rustfmt, and ShellCheck, per the `lint-staged` block in `package.json`), in about a second. The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, about 30 seconds. GitHub Actions runs the whole gate, Docker phases included, on every push and PR to `main`, and `bun run deploy` refuses a commit whose CI run did not pass. `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook when you have already run the gate.
+Commit messages follow `docs/pull-requests.md` (one subject line, nothing else). The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only (oxlint, oxfmt, prettier for `.astro`, rustfmt, and ShellCheck, per the `lint-staged` block in `package.json`), in about a second. The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, about 30 seconds. GitHub Actions runs the gate on every push and PR to `main`, and each Docker phase when the change touches what it uses; `bun run deploy` refuses a commit whose CI run did not pass (a skipped phase does not count as a failure). `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook when you have already run the gate.
 
 Both hooks first run `scripts/check/commit-identity.sh`, an optional guard against committing with the wrong email. It does nothing until you opt in, per clone, with `git config --local qafiyah.allowedEmail "$(git config --local user.email)"`; the address stays in `.git/config`, which is never committed. From then on a commit is refused unless its author and committer use that address, and a push is refused if any new commit's author, committer, or `*-by:` trailer (such as `Co-authored-by:`) uses another one. It reads the key with `git config --local`, so `git -c` overrides cannot satisfy it, but `--no-verify` or `HUSKY=0` skip it like any hook; GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account on the server side.
 

@@ -23,14 +23,99 @@ env:
   HADOLINT_SHA256: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      docker-phases: ${{ github.event_name == 'workflow_dispatch' && '["db","origin","stack"]' || steps.filter.outputs.changes }}
+
+    steps:
+      - name: Checkout code without the production dumps and avatars
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/data/avatars/
+            !/data/db/*/
+            /data/db/0000_default/
+
+      - name: Pick the Docker phases the changed files affect
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: |
+            db:
+              - &outside-every-docker-phase
+                - "**"
+                - "!*.md"
+                - "!LICENSE"
+                - "!**/AGENTS.md"
+                - "!**/CLAUDE.md"
+                - "!**/GEMINI.md"
+                - "!docs/**"
+                - "!data/LICENSE"
+                - "!data/**/*.md"
+                - "!data/db/keys.manifest"
+                - "!data/db/[0-9]*_[0-9]*/**"
+                - "!data/avatars/**"
+                - "!secrets/**"
+                - "!.sops.yaml"
+                - "!.github/*"
+                - "!.github/ISSUE_TEMPLATE/**"
+                - "!.github/workflows/gitleaks.yml"
+                - "!.github/workflows/images.yml"
+                - "!.claude/**"
+                - "!.vscode/**"
+                - "!.husky/**"
+                - "!.gitleaksignore"
+                - "!.mcp.json"
+                - "!.ignore"
+                - "!.oxlintrc.json"
+                - "!.oxfmtrc.json"
+                - "!.prettierrc.json"
+                - "!.prettierignore"
+                - "!knip.json"
+                - "!.dependency-cruiser.cjs"
+                - "!clippy.toml"
+                - "!.squawk.toml"
+                - "!.hadolint.yaml"
+                - "!scripts/check/**"
+              - "!apps/web/**"
+              - "!apps/inspector/**"
+              - "!apps/telemetry-proxy/**"
+              - "!apps/edge-gateway/**"
+              - "!scripts/smoke/**"
+            origin:
+              - *outside-every-docker-phase
+              - "!apps/inspector/**"
+              - "!apps/telemetry-proxy/**"
+            stack:
+              - *outside-every-docker-phase
+              - "!apps/inspector/**"
+              - "!apps/telemetry-proxy/**"
+
   gate:
     name: Gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Checkout code
+      - name: Checkout code without the production dumps and avatars
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/data/avatars/
+            !/data/db/*/
+            /data/db/0000_default/
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -61,16 +146,25 @@ jobs:
 
   docker:
     name: Docker (${{ matrix.phase }})
+    needs: changes
+    if: needs.changes.outputs.docker-phases != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        phase: [db, origin, stack]
+        phase: ${{ fromJSON(needs.changes.outputs.docker-phases) }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout code without the production dumps and avatars
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/data/avatars/
+            !/data/db/*/
+            /data/db/0000_default/
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
