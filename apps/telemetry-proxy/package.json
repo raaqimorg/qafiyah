@@ -8,8 +8,8 @@
     "types": "tsc --noEmit --pretty"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260922.1",
+    "@cloudflare/workers-types": "^5.20260924.1",
     "@qafiyah/tsconfig": "workspace:*",
-    "wrangler": "^4.136.1"
+    "wrangler": "^4.139.0"
   }
 }
