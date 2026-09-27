@@ -10,9 +10,9 @@ use axum::response::Response;
 use crate::accounts::keys::Caller;
 use crate::client_ip;
 use crate::constants::{
-    API_KEY_HEADER, BURST_WINDOW_SECONDS, RATE_LIMIT_LIMIT_HEADER, RATE_LIMIT_MAX_TRACKED,
-    RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER, RATE_LIMIT_SWEEP_SECONDS,
-    SECONDS_PER_HOUR, WINDOW_SECONDS,
+    ANON_IPV6_BLOCK_MULTIPLIER, API_KEY_HEADER, BURST_WINDOW_SECONDS, RATE_LIMIT_LIMIT_HEADER,
+    RATE_LIMIT_MAX_TRACKED, RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER,
+    RATE_LIMIT_SWEEP_SECONDS, SECONDS_PER_HOUR, WINDOW_SECONDS,
 };
 use crate::error::AppError;
 use crate::log::LogHandle;
@@ -24,6 +24,7 @@ pub enum Bucket {
     UserBurst(i64),
     KeyedIp(IpAddr),
     Ip(IpAddr),
+    Ipv6Block(Ipv6Addr),
     Unknown,
 }
 
@@ -76,11 +77,20 @@ fn bucket_address(address: IpAddr) -> IpAddr {
 fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec<Limit> {
     let address = address.map(bucket_address);
     let Some(caller) = caller else {
-        return vec![Limit {
+        let mut limits = vec![Limit {
             bucket: address.map_or(Bucket::Unknown, Bucket::Ip),
             ceiling: anon,
             window: WINDOW_SECONDS,
         }];
+        if let Some(IpAddr::V6(v6)) = address {
+            let [a, b, c, ..] = v6.segments();
+            limits.push(Limit {
+                bucket: Bucket::Ipv6Block(Ipv6Addr::new(a, b, c, 0, 0, 0, 0, 0)),
+                ceiling: anon.saturating_mul(ANON_IPV6_BLOCK_MULTIPLIER),
+                window: WINDOW_SECONDS,
+            });
+        }
+        return limits;
     };
 
     let mut limits = vec![
@@ -623,6 +633,52 @@ mod tests {
             limits[2].bucket,
             Bucket::KeyedIp("2001:db8:1:2::".parse().expect("an address"))
         );
+    }
+
+    #[test]
+    fn an_anonymous_ipv6_caller_also_shares_ten_times_the_allowance_with_its_slash_48() {
+        let limits = limits_for(None, "2001:db8:1:2::1".parse().ok(), 60);
+        assert_eq!(limits.len(), 2);
+        assert_eq!(
+            limits[1].bucket,
+            Bucket::Ipv6Block("2001:db8:1::".parse().expect("an address"))
+        );
+        assert_eq!(limits[1].ceiling, 600);
+    }
+
+    #[test]
+    fn ipv4_and_keyed_callers_get_no_slash_48_limit() {
+        assert_eq!(limits_for(None, "192.0.2.7".parse().ok(), 60).len(), 1);
+        let keyed = limits_for(
+            Some(caller(Some(1_500))),
+            "2001:db8:1:2::1".parse().ok(),
+            60,
+        );
+        assert!(
+            keyed
+                .iter()
+                .all(|limit| !matches!(limit.bucket, Bucket::Ipv6Block(_)))
+        );
+    }
+
+    #[test]
+    fn rotating_slash_64s_inside_one_slash_48_runs_out_at_the_block_ceiling() {
+        let limiter = Limiter::default();
+        let from = |subnet: u16| {
+            limits_for(
+                None,
+                Some(IpAddr::V6(Ipv6Addr::new(
+                    0x2001, 0xdb8, 1, subnet, 0, 0, 0, 1,
+                ))),
+                1,
+            )
+        };
+        for subnet in 0..10 {
+            assert!(limiter.check_all(&from(subnet), 0).allowed);
+        }
+        let refused = limiter.check_all(&from(10), 0);
+        assert!(!refused.allowed);
+        assert_eq!(refused.refused.expect("a refusing limit").limit, 10);
     }
 
     fn full_map(expires: i64) -> HashMap<Bucket, Window> {

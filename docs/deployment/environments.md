@@ -40,7 +40,10 @@ the website's nginx caches them for five minutes.
 
 Anonymous callers share a per-IP hourly bucket. An IPv6 caller is bucketed by
 its /64, the block one subscriber is usually handed, so rotating addresses
-inside it earns no extra allowance. Keyed callers get their own bucket and
+inside it earns no extra allowance, and its /48 shares a second bucket of ten
+times the anonymous limit, so rotating across /64s stops there. Website
+visitors never reach either, since the site calls the API with
+`API_KEY_INTERNAL`. Keyed callers get their own bucket and
 their own number. Exceeding either returns `429` as
 `application/problem+json` with `Retry-After`, and every response carries
 `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
