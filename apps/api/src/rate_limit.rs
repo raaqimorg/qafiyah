@@ -135,45 +135,53 @@ impl Limiter {
 
     #[expect(
         clippy::expect_used,
-        reason = "the pass above inserts every bucket, and limits always carries the sustained limit"
+        reason = "limits always carries the sustained limit as its first entry"
     )]
     pub fn check_all(&self, limits: &[Limit], now: i64) -> Outcome {
         let mut windows = self.windows();
         Self::bound(&mut windows, now);
-        let mut allowed = true;
 
-        for limit in limits {
-            let expires = now
-                .div_euclid(limit.window)
-                .saturating_add(1)
-                .saturating_mul(limit.window);
-            let window = windows
-                .entry(limit.bucket)
-                .or_insert(Window { expires, count: 0 });
-            if window.expires != expires {
-                window.expires = expires;
-                window.count = 0;
-            }
-            if window.count >= limit.ceiling {
-                allowed = false;
-            }
-        }
+        let current: Vec<(i64, u32)> = limits
+            .iter()
+            .map(|limit| {
+                let expires = now
+                    .div_euclid(limit.window)
+                    .saturating_add(1)
+                    .saturating_mul(limit.window);
+                let count = windows
+                    .get(&limit.bucket)
+                    .filter(|window| window.expires == expires)
+                    .map_or(0, |window| window.count);
+                (expires, count)
+            })
+            .collect();
+        let allowed = limits
+            .iter()
+            .zip(&current)
+            .all(|(limit, &(_, count))| count < limit.ceiling);
 
         let decisions: Vec<Decision> = limits
             .iter()
-            .map(|limit| {
-                let window = windows
-                    .get_mut(&limit.bucket)
-                    .expect("every bucket was inserted in the pass above");
-                let refused = window.count >= limit.ceiling;
-                if allowed {
-                    window.count = window.count.saturating_add(1);
-                }
+            .zip(current)
+            .map(|(limit, (expires, count))| {
+                let used = if allowed {
+                    let used = count.saturating_add(1);
+                    windows.insert(
+                        limit.bucket,
+                        Window {
+                            expires,
+                            count: used,
+                        },
+                    );
+                    used
+                } else {
+                    count
+                };
                 Decision {
-                    allowed: !refused,
+                    allowed: count < limit.ceiling,
                     limit: limit.ceiling,
-                    remaining: limit.ceiling.saturating_sub(window.count),
-                    reset: window.expires,
+                    remaining: limit.ceiling.saturating_sub(used),
+                    reset: expires,
                 }
             })
             .collect();
@@ -693,6 +701,28 @@ mod tests {
             (refused.reported.limit, refused.reported.remaining),
             (10, 0)
         );
+    }
+
+    #[test]
+    fn refused_requests_from_new_slash_64s_add_nothing_to_the_map() {
+        let limiter = Limiter::default();
+        let from = |subnet: u16| {
+            limits_for(
+                None,
+                Some(IpAddr::V6(Ipv6Addr::new(
+                    0x2001, 0xdb8, 1, subnet, 0, 0, 0, 1,
+                ))),
+                1,
+            )
+        };
+        for subnet in 0..10 {
+            assert!(limiter.check_all(&from(subnet), 0).allowed);
+        }
+        assert_eq!(limiter.tracked(), 11);
+        for subnet in 10..100 {
+            assert!(!limiter.check_all(&from(subnet), 0).allowed);
+        }
+        assert_eq!(limiter.tracked(), 11);
     }
 
     #[test]
