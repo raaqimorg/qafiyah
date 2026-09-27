@@ -12,7 +12,7 @@ const basePoem = {
     ['صدر ثان', 'عجز ثان'],
   ],
   verseCount: 2,
-  poet: { name: 'المتنبي', slug: 'mtnb' },
+  poet: { name: 'المتنبي', slug: 'mtnb', hasAvatar: false },
   era: { name: 'العباسي', slug: 'abbasi' },
   meter: { name: 'الطويل', slug: 'altawil' },
   rhyme: { name: 'الراء', slug: 'r' },
@@ -115,6 +115,24 @@ describe('buildPoemLayout', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     expect(layout.twitterDescription).toBe(layout.ogDescription);
     expect(layout.twitterTitle).toBe(layout.ogTitle);
+  });
+
+  it("shares the poet's avatar on both cards when the poet has one", () => {
+    const poem = {
+      ...basePoem,
+      poet: { name: 'المتنبي', slug: 'mtnb', hasAvatar: true },
+    } as Parameters<typeof buildPoemLayout>[0];
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.socialImage).toEqual({
+      url: 'https://cdn.qafiyah.com/poets/mtnb/avatar.webp',
+      alt: 'المتنبي',
+      mimeType: 'image/webp',
+    });
+  });
+
+  it('leaves both cards at the site defaults when the poet has no avatar', () => {
+    const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.socialImage).toBeUndefined();
   });
 
   it('hides adjacent-poems entirely when the poet has only one poem', () => {

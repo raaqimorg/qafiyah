@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/server/client', () => ({ apiServer: {} }));
 
-import { LOGO_SOCIAL_IMAGE } from '@/lib/constants/site-meta';
-
 import { buildPoetLayout, buildPoetsIndexView } from './poets-page';
 
 const basePoet = {
@@ -146,35 +144,14 @@ describe('buildPoetLayout', () => {
       poems: [],
       pagination: { page: 1, totalPages: 1 },
     });
-    const avatar = {
+    expect(layout.socialImage).toEqual({
       url: 'https://cdn.qafiyah.com/poets/CCMr/avatar.webp',
       alt: basePoet.name,
       mimeType: 'image/webp',
-    };
-    expect(layout.socialImage).toEqual(avatar);
-    expect(layout.twitterImage).toEqual(avatar);
-  });
-
-  it('omits avatar dimensions so scrapers measure the varying source sizes', () => {
-    const layout = buildPoetLayout({
-      poet: { ...basePoet, hasAvatar: true },
-      poems: [],
-      pagination: { page: 1, totalPages: 1 },
     });
-    expect(layout.socialImage?.width).toBeUndefined();
-    expect(layout.socialImage?.height).toBeUndefined();
   });
 
-  it('falls back to the square logo on the twitter card when the poet has no avatar', () => {
-    const layout = buildPoetLayout({
-      poet: { ...basePoet, hasAvatar: false },
-      poems: [],
-      pagination: { page: 1, totalPages: 1 },
-    });
-    expect(layout.twitterImage).toEqual(LOGO_SOCIAL_IMAGE);
-  });
-
-  it('leaves the open graph image at the site default when the poet has no avatar', () => {
+  it('leaves both cards at the site defaults when the poet has no avatar', () => {
     const layout = buildPoetLayout({
       poet: { ...basePoet, hasAvatar: false },
       poems: [],

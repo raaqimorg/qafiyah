@@ -1,7 +1,7 @@
 import { deriveAdjacentPoems, type AdjacentPoemsView } from '@/lib/adjacent-poems';
 import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
-import { POEM_LANGUAGE, SITE_NAME_AR } from '@/lib/constants/site-meta';
+import { POEM_LANGUAGE, SITE_NAME_AR, type SocialImage } from '@/lib/constants/site-meta';
 import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import {
   type BreadcrumbItem,
@@ -17,6 +17,7 @@ import {
   UNKNOWN_ENTITY_NAME,
   withBrand,
 } from '@/lib/seo/meta-text';
+import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
 
 import type { PoemSlug } from '@/lib/api/brands';
@@ -45,6 +46,7 @@ type PoemLayoutProps = {
   readonly canonical: string;
   readonly ogTitle: string;
   readonly ogDescription: string;
+  readonly socialImage: SocialImage | undefined;
   readonly twitterTitle: string;
   readonly twitterDescription: string;
   readonly articleAuthor: string;
@@ -124,6 +126,7 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
     canonical: poemUrl(canonicalSlug),
     ogTitle: pageTitle,
     ogDescription: description,
+    socialImage: poetAvatarImage(poem.poet),
     twitterTitle: pageTitle,
     twitterDescription: description,
     articleAuthor: poetUrl(poem.poet.slug),

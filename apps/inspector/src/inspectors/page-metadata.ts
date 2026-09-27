@@ -11,10 +11,7 @@ const DESC_MIN = 60;
 const DESC_MAX = 320;
 
 const ERROR_SHAPE = '404';
-const DEFAULT_TWITTER_CARD = 'summary_large_image';
-const TWITTER_CARD_BY_SHAPE: Record<string, string> = {
-  'poets/[slug]': 'summary',
-};
+const TWITTER_CARD = 'summary';
 
 const RX = {
   title: /<title[^>]*>([\s\S]*?)<\/title>/i,
@@ -92,9 +89,8 @@ export function inspectPageMetadata(html: string, shape: string): PageMetadataRe
   const ogType = RX.ogType.exec(html)?.[1]?.trim();
   fields.push(field('og:type', ogType, Boolean(ogType)));
 
-  const expectedCard = TWITTER_CARD_BY_SHAPE[shape] ?? DEFAULT_TWITTER_CARD;
   const twitterCard = RX.twitterCard.exec(html)?.[1]?.trim();
-  fields.push(field('twitter:card', twitterCard, twitterCard === expectedCard));
+  fields.push(field('twitter:card', twitterCard, twitterCard === TWITTER_CARD));
 
   const twitterTitle = RX.twitterTitle.exec(html)?.[1]?.trim();
   fields.push(field('twitter:title', twitterTitle, Boolean(twitterTitle)));

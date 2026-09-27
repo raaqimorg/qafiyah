@@ -1,11 +1,6 @@
 import { formatArabicCount, toArabicDigits } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
-import {
-  LOGO_SOCIAL_IMAGE,
-  POET_AVATAR_MIME_TYPE,
-  SITE_NAME_AR,
-  type SocialImage,
-} from '@/lib/constants/site-meta';
+import { SITE_NAME_AR, type SocialImage } from '@/lib/constants/site-meta';
 import { POEMS_NOUN_FORMS, POETS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { derivePagination, type PaginationView } from '@/lib/pagination';
 import {
@@ -25,7 +20,8 @@ import {
   UNKNOWN_ENTITY_NAME,
   withBrand,
 } from '@/lib/seo/meta-text';
-import { poemUrl, poetAvatarUrl, poetsUrl, poetUrl } from '@/lib/urls';
+import { poetAvatarImage } from '@/lib/seo/social-images';
+import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
 
 import type { Poet } from '@/lib/server/poets';
 import type { Ok } from '@/lib/server/types';
@@ -140,7 +136,6 @@ export type PoetLayoutView = {
   readonly subtitle: string;
   readonly avatarUrl: string | undefined;
   readonly socialImage: SocialImage | undefined;
-  readonly twitterImage: SocialImage;
   readonly bio: BioView | undefined;
   readonly pag: PaginationView;
   readonly personJsonLd: PersonDoc;
@@ -195,12 +190,8 @@ export function buildPoetLayout(input: {
   const subtitle = [poemsLabel, knownEra, pickAdditiveNickname(poet)]
     .filter((part): part is string => part !== undefined)
     .join(` ${SUBTITLE_SEPARATOR} `);
-  const avatarUrl = poet.hasAvatar ? poetAvatarUrl(slug) : undefined;
-  const socialImage: SocialImage | undefined =
-    avatarUrl === undefined
-      ? undefined
-      : { url: avatarUrl, alt: poet.name, mimeType: POET_AVATAR_MIME_TYPE };
-  const twitterImage: SocialImage = socialImage ?? LOGO_SOCIAL_IMAGE;
+  const socialImage = poetAvatarImage(poet);
+  const avatarUrl = socialImage?.url;
   const rawBio = poet.bio?.trim();
   const bioText = rawBio === undefined || rawBio === '' ? undefined : rawBio;
   const bio = bioText === undefined ? undefined : buildBioView(bioText);
@@ -249,7 +240,6 @@ export function buildPoetLayout(input: {
     subtitle,
     avatarUrl,
     socialImage,
-    twitterImage,
     bio,
     pag,
     personJsonLd,

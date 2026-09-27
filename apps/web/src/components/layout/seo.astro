@@ -1,6 +1,5 @@
 ---
 import {
-  DEFAULT_SOCIAL_IMAGE,
   SITE_DESCRIPTION,
   SITE_LANGUAGE,
   SITE_NAME_AR,
@@ -9,10 +8,10 @@ import {
   TWITTER_HANDLE,
   TWITTER_ID,
   type SocialImage,
-  type TwitterCard,
 } from '@/lib/constants/site-meta';
 import { SITE_URL } from '@/lib/constants/config';
 import { serializeJsonLd, type AnyJsonLdDoc } from '@/lib/seo/serialize-json-ld';
+import { resolveSocialImages } from '@/lib/seo/social-images';
 
 type OgType = 'website' | 'article' | 'profile' | 'book';
 
@@ -24,8 +23,6 @@ export interface Props {
   ogTitle?: string | undefined;
   ogDescription?: string | undefined;
   socialImage?: SocialImage | undefined;
-  twitterImage?: SocialImage | undefined;
-  twitterCard?: TwitterCard | undefined;
   twitterTitle?: string | undefined;
   twitterDescription?: string | undefined;
   articleAuthor?: string | undefined;
@@ -44,9 +41,7 @@ const {
   ogType = 'website',
   ogTitle,
   ogDescription,
-  socialImage = DEFAULT_SOCIAL_IMAGE,
-  twitterImage,
-  twitterCard = 'summary_large_image',
+  socialImage,
   twitterTitle,
   twitterDescription,
   articleAuthor,
@@ -62,9 +57,9 @@ const absolutize = (value: string): string =>
   value.startsWith('http') ? value : `${SITE_URL}${value}`;
 
 const canonicalUrl = absolutize(canonical);
-const resolvedOgImageUrl = absolutize(socialImage.url);
-const resolvedTwitterImage = twitterImage ?? socialImage;
-const resolvedTwitterImageUrl = absolutize(resolvedTwitterImage.url);
+const { openGraph: ogImage, twitter: twitterImage } = resolveSocialImages(socialImage);
+const resolvedOgImageUrl = absolutize(ogImage.url);
+const resolvedTwitterImageUrl = absolutize(twitterImage.url);
 const resolvedOgTitle = ogTitle ?? title;
 const resolvedOgDescription = ogDescription ?? description;
 const resolvedTwitterTitle = twitterTitle ?? title;
@@ -102,18 +97,14 @@ const isArticle = ogType === 'article';
 <meta property="og:description" content={resolvedOgDescription} />
 <meta property="og:image" content={resolvedOgImageUrl} />
 <meta property="og:image:secure_url" content={resolvedOgImageUrl} />
+{ogImage.width !== undefined && <meta property="og:image:width" content={String(ogImage.width)} />}
 {
-  socialImage.width !== undefined && (
-    <meta property="og:image:width" content={String(socialImage.width)} />
+  ogImage.height !== undefined && (
+    <meta property="og:image:height" content={String(ogImage.height)} />
   )
 }
-{
-  socialImage.height !== undefined && (
-    <meta property="og:image:height" content={String(socialImage.height)} />
-  )
-}
-<meta property="og:image:type" content={socialImage.mimeType} />
-<meta property="og:image:alt" content={socialImage.alt} />
+<meta property="og:image:type" content={ogImage.mimeType} />
+<meta property="og:image:alt" content={ogImage.alt} />
 
 {
   isArticle && articleAuthor && (
@@ -122,14 +113,14 @@ const isArticle = ogType === 'article';
 }
 {isArticle && articleSection && <meta property="article:section" content={articleSection} />}
 
-<meta name="twitter:card" content={twitterCard} />
+<meta name="twitter:card" content="summary" />
 <meta name="twitter:site" content={TWITTER_HANDLE} />
 <meta name="twitter:creator" content={TWITTER_HANDLE} />
 <meta name="twitter:creator:id" content={TWITTER_ID} />
 <meta name="twitter:title" content={resolvedTwitterTitle} />
 <meta name="twitter:description" content={resolvedTwitterDescription} />
 <meta name="twitter:image" content={resolvedTwitterImageUrl} />
-<meta name="twitter:image:alt" content={resolvedTwitterImage.alt} />
+<meta name="twitter:image:alt" content={twitterImage.alt} />
 
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <link rel="icon" type="image/svg+xml" href="/logo.svg" />

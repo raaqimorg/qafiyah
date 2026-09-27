@@ -24,9 +24,9 @@ describe('buildReportForShapes', () => {
 <meta property="og:url" content="https://qafiyah.com/poets/al-mutanabbi" />
 <meta property="og:image" content="/open-graph.png" />
 <meta property="og:type" content="profile" />
-<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="a" /><meta name="twitter:description" content="a" />
-<meta name="twitter:image" content="/open-graph.png" />
+<meta name="twitter:image" content="/organization-logo.png" />
 <script type="application/ld+json">{"@type":"Person"}</script>
 <h1>المتنبي</h1>`,
     };

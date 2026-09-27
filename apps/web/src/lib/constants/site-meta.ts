@@ -8,8 +8,6 @@ export const SITE_LOGO_PATH = '/organization-logo.png';
 export const SITE_TAGLINE_AR = 'مرجع الشعر العربي';
 export const SITE_TITLE = `${SITE_NAME_AR} | ${SITE_TAGLINE_AR}`;
 
-export type TwitterCard = 'summary' | 'summary_large_image';
-
 export type SocialImage = {
   readonly url: string;
   readonly alt: string;

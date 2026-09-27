@@ -16,10 +16,10 @@ const GOOD_HTML = `<html><head>
 <meta property="og:url" content="https://qafiyah.com/poems/x" />
 <meta property="og:image" content="https://qafiyah.com/open-graph.png" />
 <meta property="og:type" content="article" />
-<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="قصيدة قصيرة" />
 <meta name="twitter:description" content="وصف" />
-<meta name="twitter:image" content="https://qafiyah.com/open-graph.png" />
+<meta name="twitter:image" content="https://qafiyah.com/organization-logo.png" />
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"CreativeWork"}</script>
 </head><body><h1>قصيدة قصيرة</h1></body></html>`;
 
@@ -45,18 +45,9 @@ describe('inspectPageMetadata', () => {
     expect(fieldFor(inspectPageMetadata(shortDesc, POEM_SHAPE), 'description')?.ok).toBe(false);
   });
 
-  it('fails twitter:card when it is not summary_large_image', () => {
-    const html = '<meta name="twitter:card" content="summary" />';
-    expect(fieldFor(inspectPageMetadata(html, POEM_SHAPE), 'twitter:card')?.ok).toBe(false);
-  });
-
-  it('expects summary on a poet page, where the avatar drives a square card', () => {
-    const html = '<meta name="twitter:card" content="summary" />';
-    expect(fieldFor(inspectPageMetadata(html, POET_SHAPE), 'twitter:card')?.ok).toBe(true);
-  });
-
-  it('fails a poet page still serving the large card', () => {
+  it('fails twitter:card on any page still serving the large card', () => {
     const html = '<meta name="twitter:card" content="summary_large_image" />';
+    expect(fieldFor(inspectPageMetadata(html, POEM_SHAPE), 'twitter:card')?.ok).toBe(false);
     expect(fieldFor(inspectPageMetadata(html, POET_SHAPE), 'twitter:card')?.ok).toBe(false);
   });
 
