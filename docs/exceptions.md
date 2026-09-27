@@ -772,8 +772,8 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 ### Taxonomy options are regenerated before every deploy
 
-- **What:** unlike the other generated files, `taxonomy-options.gen.ts` is regenerated and committed by the deploy skill before each deploy, not just when its generator script changes.
-- **Where:** `lib/generated/taxonomy/taxonomy-options.gen.ts`, `.claude/skills/deploy/SKILL.md`
+- **What:** unlike the other generated files, `taxonomy-options.gen.ts` is regenerated and committed with every new dump (the post-dump checklist in `data/db/MAINTAINERS_GUIDE.md`) and by the deploy skill before each deploy, not just when its generator script changes. The pre-push gate's `check:taxonomy-dump` refuses a push whose newest dump directory was committed after the file's last regeneration (it compares git history, so it skips in CI's shallow clone).
+- **Where:** `lib/generated/taxonomy/taxonomy-options.gen.ts`, `scripts/check/taxonomy-dump.ts`, `data/db/MAINTAINERS_GUIDE.md`, `.claude/skills/deploy/SKILL.md`
 - **Why:** eras, meters, rhymes, themes, and collections rows change independently of any code change, so the file drifts from the database on its own.
 - **Normal approach:** regenerate only when the generator changes, or fetch the options at runtime.
 - **Date:** 2026-09-16

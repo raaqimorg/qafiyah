@@ -52,7 +52,7 @@ Replaces the corpus database (`qafiyah`) only; `qafiyah_accounts` is untouched. 
 
 **A new dump together with code changes** (the usual case: every dump changes the filter options' counts), in this order:
 
-1. `bun run taxonomy:generate:dev` against the local stack running the new dump, commit, push, and let CI pass.
+1. `bun run taxonomy:generate:dev` against the local stack running the new dump, committed with the snapshot (the post-dump checklist in `data/db/MAINTAINERS_GUIDE.md`; the pre-push gate's `check:taxonomy-dump` refuses the push without it), push, and let CI pass.
 2. `bun run db:reseed`. The API it starts is already the new build, so a schema change the old API cannot read, or a new API that needs the new schema, is safe.
 3. `bun run deploy` to roll out `web` (it also replaces `api` with the same build). No separate reindex: the reseed already rebuilt search with the new indexer.
 4. Verify: `bun run api:conformance prod` and `bun run taxonomy:generate:check`.
