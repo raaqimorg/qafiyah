@@ -11,7 +11,7 @@ the big picture.
 
 ```mermaid
 flowchart LR
-    browser["Browser"] -->|"qafiyah.com / www<br/>api.qafiyah.com<br/>ssh.qafiyah.com"| cf["Cloudflare edge (TLS)"]
+    browser["Browser"] -->|"qafiyah.com / www<br/>api.qafiyah.com<br/>ssh.qafiyah.com"| cf["Cloudflare edge<br/>(TLS, cache, rate limit)"]
     cf --> tunnel["Cloudflare Tunnel<br/>(cloudflared, egress-only)"]
     tunnel -->|"127.0.0.1:80"| edge["edge-gateway<br/>ModSecurity + OWASP CRS"]
     tunnel -->|"127.0.0.1:22"| sshd["sshd"]
@@ -118,12 +118,12 @@ Conventions: `docs/code-conventions.md`, `docs/typescript-conventions.md`,
 
 ## External services
 
-| Service    | Role                                                     | Reached via                              |
-| ---------- | -------------------------------------------------------- | ---------------------------------------- |
-| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), Workers | all subdomains, `cdn.`, `t.`             |
-| Sentry     | Error/session tracking for api + web                     | `t.qafiyah.com` (`apps/telemetry-proxy`) |
-| PostHog    | Product analytics                                        | `ix.qafiyah.com` (Cloudflare-managed)    |
-| GitHub     | Source hosting, Actions CI, secret scanning              | `.github/workflows/`                     |
+| Service    | Role                                                                                 | Reached via                              |
+| ---------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), Workers, cache and rate limit rules | all subdomains, `cdn.`, `t.`             |
+| Sentry     | Error/session tracking for api + web                                                 | `t.qafiyah.com` (`apps/telemetry-proxy`) |
+| PostHog    | Product analytics                                                                    | `ix.qafiyah.com` (Cloudflare-managed)    |
+| GitHub     | Source hosting, Actions CI, secret scanning                                          | `.github/workflows/`                     |
 
 ## See also
 

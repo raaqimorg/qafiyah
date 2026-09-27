@@ -48,6 +48,29 @@ their own number. Exceeding either returns `429` as
 `application/problem+json` with `Retry-After`, and every response carries
 `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
 
+### Where requests are limited
+
+Three layers, outermost first:
+
+- **Cloudflare**, one rate limiting rule set in the dashboard (the Free plan
+  allows only one): a client IP that sends more than 100 requests in 10
+  seconds, to any path on the zone, is blocked for 10 seconds with
+  Cloudflare's own `429` (error 1015). Verified bots are exempt, and counts are
+  kept per Cloudflare data center. It is a flood guard far above what a visitor
+  sends, and a full `bun run smoke:prod` from one address can trip it. It
+  counts each IPv6 address on its own, not by /64, so it does nothing against
+  rotation inside a block: on 2026-09-28, 182 requests from two addresses in
+  one /64 through one data center passed, while 180 from one address were
+  blocked after about 110. A client's new connections can also land on
+  different data centers, which splits its count.
+- **The web nginx**, `limit_req` in `apps/web/nginx.conf`: 60 requests a
+  minute per address with a burst of 30, on `/api/v1/`, `/account`, `/api/me`,
+  and `/auth/`. It keys on the exact address, so an IPv6 client rotating inside
+  its /64 gets a fresh allowance each time. It is the only per-visitor limit on
+  the website's search proxy.
+- **The API**, the hourly buckets above, for callers of `api.qafiyah.com`. The
+  website's calls carry `API_KEY_INTERNAL` and skip them.
+
 ### Environment keys (bypass the limiter)
 
 Two values, each generated with `openssl rand -hex 32`, live in the API's
