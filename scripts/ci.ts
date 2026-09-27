@@ -59,7 +59,6 @@ const CHECKS: Task[] = [
   { name: 'no-parent-imports', cmd: ['bun', 'run', 'check:no-parent-imports'] },
   { name: 'constants', cmd: ['bun', 'run', 'check:constants'] },
   { name: 'secrets', cmd: ['bun', 'run', 'secrets:check'] },
-  { name: 'taxonomy-dump', cmd: ['bun', 'run', 'check:taxonomy-dump'] },
   { name: 'syncpack', cmd: ['bun', 'run', 'check:syncpack'] },
   { name: 'rust-toolchain', cmd: ['bun', 'run', 'check:rust-toolchain'] },
   { name: 'depcruise', cmd: ['bun', 'run', 'depcruise'] },

@@ -6,6 +6,14 @@ export type SelectOption = {
   readonly poemsCount?: number;
 };
 
+export type SearchFilterOptions = {
+  readonly eras: readonly SelectOption[];
+  readonly meters: readonly SelectOption[];
+  readonly rhymes: readonly SelectOption[];
+  readonly themes: readonly SelectOption[];
+  readonly collections: readonly SelectOption[];
+};
+
 export const ERAS_NOUN_FORMS = {
   singular: 'عصر',
   dual: 'عصران',

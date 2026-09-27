@@ -7,9 +7,27 @@ import { TYPE } from '@/lib/constants/design-tokens';
 import Layout from '@/layouts/layout.astro';
 import { organizationNode } from '@/lib/seo/json-ld/organization';
 import { websiteNode } from '@/lib/seo/json-ld/website';
-import { CACHE_HTML } from '@/lib/server/cache';
+import { reportError } from '@/lib/observability/report-error';
+import { CACHE_HTML, CACHE_NONE } from '@/lib/server/cache';
+import {
+  loadSearchFilterOptions,
+  NO_SEARCH_FILTER_OPTIONS,
+} from '@/lib/server/search-filter-options';
 
-Astro.response.headers.set('Cache-Control', CACHE_HTML);
+const filterOptions = await loadSearchFilterOptions().match(
+  (options) => {
+    Astro.response.headers.set('Cache-Control', CACHE_HTML);
+    return options;
+  },
+  (error) => {
+    reportError('search filter options failed', error, {
+      feature: 'search',
+      tags: { surface: 'server' },
+    });
+    Astro.response.headers.set('Cache-Control', CACHE_NONE);
+    return NO_SEARCH_FILTER_OPTIONS;
+  }
+);
 
 const jsonLd = [websiteNode(), organizationNode()];
 ---
@@ -82,7 +100,7 @@ const jsonLd = [websiteNode(), organizationNode()];
       </section>
     </div>
 
-    <SearchWithProviders client:only="react" />
+    <SearchWithProviders client:only="react" filterOptions={filterOptions} />
     <noscript>
       <div
         class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-surface px-4 text-center"

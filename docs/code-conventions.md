@@ -22,7 +22,7 @@ Cross-language engineering conventions (not TypeScript- or Rust-specific, see `d
 ## Generated files
 
 - Anything mechanically produced by a script from another source of truth (not hand-authored) lives under a `generated/` directory, never flat alongside hand-written source: `apps/web/src/lib/generated/` for the web app, `apps/api/generated/` for the API crate.
-- One subdirectory per kind of generated artifact, named for what it's generated from, e.g. `generated/openapi/`, `generated/taxonomy/`, `generated/well-known/`, `generated/es/`. Files never sit directly under `generated/` itself. That just recreates the flat dumping-ground problem one level down.
+- One subdirectory per kind of generated artifact, named for what it's generated from, e.g. `generated/openapi/`, `generated/well-known/`, `generated/es/`. Files never sit directly under `generated/` itself. That just recreates the flat dumping-ground problem one level down.
 - Keep the `.gen.<ext>` suffix (or, for a non-code artifact like a committed JSON snapshot, a `// Do not edit` / commit-message-documented header where the format allows comments) so a generated file is unambiguous even outside its folder.
 - The generating script owns the exact output path as a constant; when moving a generated file, update that constant (and any header text embedding the old path) and rerun the generator rather than hand-editing the moved file.
 

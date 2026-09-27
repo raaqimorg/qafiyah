@@ -1,21 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { erasOptions } from '@/lib/generated/taxonomy/taxonomy-options.gen';
-
 import { DEFAULT_ERA_SLUGS, sortMeterOptions } from './taxonomy-data';
 
 describe('DEFAULT_ERA_SLUGS', () => {
-  it('only names eras the generated taxonomy still exposes', () => {
-    const known = new Set(erasOptions.map((option) => option.value));
-    const missing = DEFAULT_ERA_SLUGS.filter((slug) => !known.has(slug));
-    expect(missing).toEqual([]);
-  });
-
-  it('narrows the era list rather than covering all of it', () => {
-    expect(DEFAULT_ERA_SLUGS.length).toBeGreaterThan(0);
-    expect(DEFAULT_ERA_SLUGS.length).toBeLessThan(erasOptions.length);
-  });
-
   it('lists each era once', () => {
     expect(new Set(DEFAULT_ERA_SLUGS).size).toBe(DEFAULT_ERA_SLUGS.length);
   });

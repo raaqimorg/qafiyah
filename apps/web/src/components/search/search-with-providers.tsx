@@ -19,7 +19,13 @@ import { reportError } from '@/lib/observability/report-error';
 
 import { SearchContainer } from './search-container';
 
-export function SearchWithProviders() {
+import type { SearchFilterOptions } from '@/lib/constants/taxonomy-data';
+
+export function SearchWithProviders({
+  filterOptions,
+}: {
+  readonly filterOptions: SearchFilterOptions;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -64,7 +70,7 @@ export function SearchWithProviders() {
         fallback={<ErrorState onRetry={() => window.location.reload()} />}
       >
         <NuqsAdapter>
-          <SearchContainer />
+          <SearchContainer filterOptions={filterOptions} />
         </NuqsAdapter>
       </IslandErrorBoundary>
     </QueryClientProvider>

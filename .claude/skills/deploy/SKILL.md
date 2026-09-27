@@ -10,18 +10,6 @@ Full architecture and "why" live in `docs/deployment/`. This is only the ordered
 
 From a dev machine with the repo checked out and SSH access:
 
-**First, refresh the taxonomy filter options** (`apps/web/src/lib/generated/taxonomy/taxonomy-options.gen.ts`, the eras/meters/rhymes/themes/collections shown in the home page search filters) so they reflect what's actually in the production database, then commit and push before shipping:
-
-```bash
-bun run taxonomy:generate:check   # fails if the committed file is stale against the live prod API
-bun run taxonomy:generate         # regenerates it from https://api.qafiyah.com/v1
-# if it changed: commit apps/web/src/lib/generated/taxonomy/taxonomy-options.gen.ts and push to main
-```
-
-This is a separate step from the build below because it runs from a dev machine against the public prod API (`bun` is not installed on the host, and the file must already be on `origin/main` before the deploy builds the `web` image from it). When the release also ships a new dump, production still serves the old data until the reseed, so generate from the local stack running the new dump instead (`bun run taxonomy:generate:dev`), and confirm with `bun run taxonomy:generate:check` once the reseed is done (step 3).
-
-Then:
-
 ```bash
 bun run deploy        # scripts/deploy/vps.sh
 ```
@@ -50,12 +38,12 @@ bun run db:reseed     # push-button: syncs to origin/main, builds api and search
 
 Replaces the corpus database (`qafiyah`) only; `qafiyah_accounts` is untouched. It builds `api` and `search-indexer` from `origin/main` while the old stack serves, stops the API for the restore (a few minutes, nginx keeps serving cached pages), starts the freshly built API on the restored data, then rebuilds Elasticsearch with the freshly built indexer and an alias swap while the API serves. It ends with the same public health check as the deploy. It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env` and refuses to start without it. Prompts for confirmation unless run with `-y`. Details: `docs/deployment/environments.md`.
 
-**A new dump together with code changes** (the usual case: every dump changes the filter options' counts), in this order:
+**A new dump together with code changes**, in this order:
 
-1. `bun run taxonomy:generate:dev` against the local stack running the new dump, committed with the snapshot (the post-dump checklist in `data/db/MAINTAINERS_GUIDE.md`; the pre-push gate's `check:taxonomy-dump` refuses the push without it), push, and let CI pass.
+1. Push the snapshot and the code, and let CI pass.
 2. `bun run db:reseed`. The API it starts is already the new build, so a schema change the old API cannot read, or a new API that needs the new schema, is safe.
 3. `bun run deploy` to roll out `web` (it also replaces `api` with the same build). No separate reindex: the reseed already rebuilt search with the new indexer.
-4. Verify: `bun run api:conformance prod` and `bun run taxonomy:generate:check`.
+4. Verify: `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump on their own.
 
 ## 4. Rebuild the search index only (fix ES drift, no data change)
 

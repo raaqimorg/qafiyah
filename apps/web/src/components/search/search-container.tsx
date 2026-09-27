@@ -21,24 +21,19 @@ import {
   ERAS_NOUN_FORMS,
   METERS_NOUN_FORMS,
   RHYMES_NOUN_FORMS,
-  sortMeterOptions,
+  type SearchFilterOptions,
   THEMES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
-import {
-  collectionsOptions,
-  erasOptions,
-  metersOptions,
-  rhymesOptions,
-  themesOptions,
-} from '@/lib/generated/taxonomy/taxonomy-options.gen';
 import { cn } from '@/lib/utils';
 
 import { ExactToggle, FilterBadges, Filters, FiltersButton } from './filters';
 import { SearchSection } from './sections';
 
-const orderedMetersOptions = sortMeterOptions(metersOptions);
-
-export function SearchContainer() {
+export function SearchContainer({
+  filterOptions,
+}: {
+  readonly filterOptions: SearchFilterOptions;
+}) {
   const { input, status, sections, flags, selection, handlers } = useSearch();
 
   const poetsHeaderRef = useRef<HTMLHeadingElement>(null);
@@ -145,27 +140,27 @@ export function SearchContainer() {
                     filters={{
                       eras: {
                         selected: selection.eras,
-                        options: erasOptions,
+                        options: filterOptions.eras,
                         onChange: handlers.onErasChange,
                       },
                       meters: {
                         selected: selection.meters,
-                        options: orderedMetersOptions,
+                        options: filterOptions.meters,
                         onChange: handlers.onMetersChange,
                       },
                       themes: {
                         selected: selection.themes,
-                        options: themesOptions,
+                        options: filterOptions.themes,
                         onChange: handlers.onThemesChange,
                       },
                       rhymes: {
                         selected: selection.rhymes,
-                        options: rhymesOptions,
+                        options: filterOptions.rhymes,
                         onChange: handlers.onRhymesChange,
                       },
                       collections: {
                         selected: selection.collections,
-                        options: collectionsOptions,
+                        options: filterOptions.collections,
                         onChange: handlers.onCollectionsChange,
                       },
                     }}

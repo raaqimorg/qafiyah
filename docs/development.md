@@ -79,7 +79,6 @@ bun run check:shell       # ShellCheck on every tracked shell script, warnings f
 bun run check:workflows   # actionlint on .github/workflows
 bun run check:dockerfiles # hadolint on every Dockerfile, warnings fail
 bun run check:sql         # PostgreSQL 18 parser on every .sql file, squawk on migrations
-bun run check:taxonomy-dump  # taxonomy filter options regenerated with or after the newest dump
 bun run types             # turbo run types (TypeScript, per app/package)
 bun run test              # turbo run test (TypeScript, per app/package)
 bun run rust:fmt          # cargo fmt --check
