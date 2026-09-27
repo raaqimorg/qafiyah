@@ -145,8 +145,7 @@ if (POET_SLUG)
   EXPECTED_JSON_LD_TYPES[`/poets/${POET_SLUG}`] = ['Person', 'ItemList', 'BreadcrumbList'];
 if (POEM_SLUG) EXPECTED_JSON_LD_TYPES[`/poems/${POEM_SLUG}`] = ['CreativeWork', 'BreadcrumbList'];
 
-const EXPECTED_TWITTER_CARD: Record<string, string> = {};
-if (POET_SLUG) EXPECTED_TWITTER_CARD[`/poets/${POET_SLUG}`] = 'summary';
+const TWITTER_CARD = 'summary';
 
 const paths = ['/', '/meters', '/rhymes', '/themes', '/collections', '/poets', '/404'];
 if (ERA_SLUG) paths.push(`/poets?era=${ERA_SLUG}`);
@@ -166,7 +165,7 @@ function checksFor(path: string): readonly Check[] {
     hasCanonical,
     selfReferencingHreflang,
     hasOgTags,
-    twitterCardIs(EXPECTED_TWITTER_CARD[path] ?? 'summary_large_image'),
+    twitterCardIs(TWITTER_CARD),
     exactlyOneH1,
     ...(expectedTypes ? [jsonLdHasTypes(expectedTypes)] : []),
   ];
