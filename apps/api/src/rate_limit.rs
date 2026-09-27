@@ -39,6 +39,7 @@ pub struct Limit {
 pub struct Outcome {
     pub allowed: bool,
     pub sustained: Decision,
+    pub reported: Decision,
     pub refused: Option<Decision>,
 }
 
@@ -181,9 +182,18 @@ impl Limiter {
             .first()
             .copied()
             .expect("limits always carries the sustained limit as its first entry");
+        let sustained_window = limits.first().map(|limit| limit.window);
+        let reported = limits
+            .iter()
+            .zip(&decisions)
+            .filter(|(limit, _)| Some(limit.window) == sustained_window)
+            .map(|(_, decision)| *decision)
+            .min_by_key(|decision| decision.remaining)
+            .unwrap_or(sustained);
         Outcome {
             allowed,
             sustained,
+            reported,
             refused: decisions.into_iter().find(|decision| !decision.allowed),
         }
     }
@@ -267,7 +277,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
     if let Some(log) = request.extensions().get::<LogHandle>() {
         log.set(
             "rate_limit_remaining",
-            i64::from(outcome.sustained.remaining),
+            i64::from(outcome.reported.remaining),
         );
         log.set("keyed", caller.is_some());
         if let Some(caller) = caller {
@@ -282,7 +292,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         );
         let refused = outcome.refused.unwrap_or(outcome.sustained);
         let mut response = AppError::TooManyRequests.render_at(&path);
-        annotate(response.headers_mut(), &outcome.sustained);
+        annotate(response.headers_mut(), &outcome.reported);
         set(
             response.headers_mut(),
             header::RETRY_AFTER,
@@ -292,7 +302,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
     }
 
     let mut response = next.run(request).await;
-    annotate(response.headers_mut(), &outcome.sustained);
+    annotate(response.headers_mut(), &outcome.reported);
     response
 }
 
@@ -679,6 +689,32 @@ mod tests {
         let refused = limiter.check_all(&from(10), 0);
         assert!(!refused.allowed);
         assert_eq!(refused.refused.expect("a refusing limit").limit, 10);
+        assert_eq!(
+            (refused.reported.limit, refused.reported.remaining),
+            (10, 0)
+        );
+    }
+
+    #[test]
+    fn the_reported_limit_is_the_hourly_one_closest_to_running_out() {
+        let limiter = Limiter::default();
+        let limits = limits_for(Some(caller(Some(3))), "192.0.2.7".parse().ok(), 60);
+        let outcome = limiter.check_all(&limits, 0);
+        assert_eq!((outcome.reported.limit, outcome.reported.remaining), (3, 2));
+    }
+
+    #[test]
+    fn the_burst_limit_is_never_reported() {
+        let limiter = Limiter::default();
+        for _ in 0..2 {
+            limiter.check_all(&keyed(1, 100, 2), 0);
+        }
+        let refused = limiter.check_all(&keyed(1, 100, 2), 0);
+        assert!(!refused.allowed);
+        assert_eq!(
+            (refused.reported.limit, refused.reported.remaining),
+            (100, 98)
+        );
     }
 
     fn full_map(expires: i64) -> HashMap<Bucket, Window> {
