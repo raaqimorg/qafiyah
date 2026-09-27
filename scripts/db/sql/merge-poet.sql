@@ -6,6 +6,7 @@ AS $function$
 DECLARE
   v_recension_of integer;
   v_era          integer;
+  v_hidden       boolean;
 BEGIN
   SELECT recension_of_id INTO v_recension_of FROM public.poems WHERE id = p_poem;
   IF NOT FOUND THEN
@@ -14,11 +15,11 @@ BEGIN
   IF v_recension_of IS NOT NULL THEN
     RAISE EXCEPTION 'reattribute_poem: % is a recension of %; move its primary', p_poem, v_recension_of;
   END IF;
-  SELECT era_id INTO v_era FROM public.poets WHERE id = p_poet;
+  SELECT era_id, is_hidden INTO v_era, v_hidden FROM public.poets WHERE id = p_poet;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'reattribute_poem: poet % does not exist', p_poet;
   END IF;
-  UPDATE public.poems SET poet_id = p_poet, era_id = v_era
+  UPDATE public.poems SET poet_id = p_poet, era_id = v_era, is_hidden = v_hidden
   WHERE id = p_poem OR recension_of_id = p_poem;
 END;
 $function$;
@@ -46,6 +47,9 @@ BEGIN
   END IF;
   IF a.has_avatar AND NOT k.has_avatar THEN
     RAISE EXCEPTION 'merge_poet: % holds the avatar, so it must survive', p_absorb;
+  END IF;
+  IF k.is_hidden <> a.is_hidden THEN
+    RAISE EXCEPTION 'merge_poet: one of % and % is hidden; a person decides', p_keep, p_absorb;
   END IF;
   SELECT id INTO v_unknown FROM public.eras WHERE slug = 'ghayrmaruf';
   IF k.era_id <> a.era_id AND k.era_id <> v_unknown AND a.era_id <> v_unknown THEN

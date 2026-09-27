@@ -7,7 +7,8 @@ AS $function$
 BEGIN
   CREATE TEMP TABLE tmp_base ON COMMIT DROP AS
   SELECT p.id, p.poet_id, p.era_id, p.theme_id, p.meter_id, p.rhyme_id, p.poem_type_id, p.recension_of_id
-  FROM public.poems p;
+  FROM public.poems p
+  WHERE NOT p.is_hidden;
   CREATE INDEX ON tmp_base (id);
 
   CREATE TEMP TABLE tmp_pool ON COMMIT DROP AS

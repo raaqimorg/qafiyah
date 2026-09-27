@@ -252,7 +252,7 @@ async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() 
 async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
     let Some(h) = h().await else { return };
     let with_poems: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.poets pt WHERE EXISTS \
+        "SELECT count(*) FROM public.poets pt WHERE NOT pt.is_hidden AND EXISTS \
          (SELECT 1 FROM public.poems p WHERE p.poet_id = pt.id AND p.recension_of_id IS NULL)",
     )
     .fetch_one(&h.pg)
@@ -383,6 +383,30 @@ async fn the_random_poem_answers_in_both_shapes() {
 }
 
 #[tokio::test]
+async fn every_random_poem_is_a_named_classical_amudi_poem_of_four_verses_or_more_with_a_known_meter()
+ {
+    let Some(h) = h().await else { return };
+    for _ in 0..25 {
+        let slug = h.get("/v1/poems/random").await;
+        assert_eq!(slug.status, StatusCode::OK, "{}", slug.body);
+        let breaks_a_rule: bool = sqlx::query_scalar(
+            "SELECT p.recension_of_id IS NOT NULL OR p.is_hidden OR po.is_anonymous \
+             OR e.slug NOT IN ('jahili', 'islami', 'umawi', 'abbasi') OR ty.slug <> 'amudi' \
+             OR p.verse_count < 4 OR m.slug = 'ghayrmaruf' \
+             FROM public.poems p JOIN public.poets po ON po.id = p.poet_id \
+             JOIN public.eras e ON e.id = po.era_id \
+             JOIN public.poem_types ty ON ty.id = p.poem_type_id \
+             JOIN public.meters m ON m.id = p.meter_id WHERE p.slug = $1",
+        )
+        .bind(&slug.body)
+        .fetch_one(&h.pg)
+        .await
+        .expect("random poem lookup");
+        assert!(!breaks_a_rule, "{} breaks a random poem rule", slug.body);
+    }
+}
+
+#[tokio::test]
 async fn every_json_success_carries_the_read_cache_policy_and_a_matching_conditional_is_304() {
     let Some(h) = h().await else { return };
     let first = h.get("/v1/meters").await;
@@ -471,13 +495,36 @@ async fn a_slug_that_is_neither_a_poem_nor_an_alias_is_still_not_found() {
 }
 
 #[tokio::test]
+async fn a_hidden_poet_and_their_poems_are_not_found_or_listed() {
+    let Some(h) = h().await else { return };
+    let hidden: Option<(String, String)> = sqlx::query_as(
+        "SELECT pt.slug, p.slug FROM public.poets pt JOIN public.poems p ON p.poet_id = pt.id \
+         WHERE pt.is_hidden ORDER BY p.id LIMIT 1",
+    )
+    .fetch_optional(&h.pg)
+    .await
+    .expect("hidden poet query");
+    let Some((poet, poem)) = hidden else { return };
+    assert_eq!(
+        h.get(&format!("/v1/poets/{poet}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        h.get(&format!("/v1/poems/{poem}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+    let listed = h.get(&format!("/v1/poems?poet={poet}")).await.json();
+    assert_eq!(total_items(&listed), 0);
+}
+
+#[tokio::test]
 async fn a_single_term_total_from_the_stats_table_equals_a_live_count_of_primaries() {
     let Some(h) = h().await else { return };
     let body = h.get("/v1/poems?theme=almutafarriqat").await.json();
     let stats_total = total_items(&body);
     let live: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM public.poems p JOIN public.themes t ON t.id = p.theme_id \
-         WHERE t.slug = 'almutafarriqat' AND p.recension_of_id IS NULL",
+         WHERE t.slug = 'almutafarriqat' AND p.recension_of_id IS NULL AND NOT p.is_hidden",
     )
     .fetch_one(&h.pg)
     .await

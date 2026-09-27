@@ -48,6 +48,14 @@ echo "[db-init] ensuring merge_poem() exists..."
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
   -f /docker-entrypoint-initdb.d/sql/merge-poem.sql
 
+echo "[db-init] ensuring poets.is_hidden and poems.is_hidden exist..."
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
+  -f /docker-entrypoint-initdb.d/sql/hidden-poets.sql
+
+echo "[db-init] ensuring random_poem_pool and random_poem_json() exist..."
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
+  -f /docker-entrypoint-initdb.d/sql/random-poem.sql
+
 echo "[db-init] ensuring poems.recension_of_id exists..."
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
   -f /docker-entrypoint-initdb.d/sql/poem-recensions.sql
@@ -65,6 +73,10 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
   -f /docker-entrypoint-initdb.d/sql/refresh-taxonomy-stats.sql
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
   -c 'SELECT public.refresh_taxonomy_stats();'
+
+echo "[db-init] filling random_poem_pool from the restored data..."
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
+  -c 'SELECT public.refresh_random_poem_pool();'
 
 if [[ -n "${PG_READER_PASSWORD:-}" ]]; then
   echo "[db-init] provisioning read-only role qafiyah_api..."

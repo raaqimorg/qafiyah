@@ -30,7 +30,7 @@ const POEM_SELECT: &str = "
   JOIN public.themes t ON p.theme_id = t.id
   JOIN public.rhymes r ON p.rhyme_id = r.id
   LEFT JOIN public.collections c ON p.collection_id = c.id
-  WHERE p.id > $1 AND p.recension_of_id IS NULL ORDER BY p.id ASC LIMIT $2
+  WHERE p.id > $1 AND p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY p.id ASC LIMIT $2
 ";
 
 const POET_SELECT: &str = "
@@ -40,7 +40,7 @@ const POET_SELECT: &str = "
   FROM public.poets pt
   JOIN public.eras e ON pt.era_id = e.id
   LEFT JOIN public.poet_stats ps ON ps.slug = pt.slug
-  WHERE pt.id > $1 ORDER BY pt.id ASC LIMIT $2
+  WHERE pt.id > $1 AND NOT pt.is_hidden ORDER BY pt.id ASC LIMIT $2
 ";
 
 #[expect(

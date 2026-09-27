@@ -242,7 +242,7 @@ pub fn parse_poem_content(content: &str) -> ParsedContent {
 
 pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
     let total: Option<i32> = sqlx::query_scalar(
-        "SELECT COUNT(*)::int AS total FROM poems WHERE recension_of_id IS NULL",
+        "SELECT COUNT(*)::int AS total FROM poems WHERE recension_of_id IS NULL AND NOT is_hidden",
     )
     .fetch_one(pg)
     .await?;
@@ -251,7 +251,8 @@ pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
 
 pub async fn list_slugs(pg: &PgPool, page: u32, page_size: u32) -> Result<Vec<String>, AppError> {
     Ok(sqlx::query_scalar(
-        "SELECT slug FROM poems WHERE recension_of_id IS NULL ORDER BY slug LIMIT $1 OFFSET $2",
+        "SELECT slug FROM poems WHERE recension_of_id IS NULL AND NOT is_hidden \
+         ORDER BY slug LIMIT $1 OFFSET $2",
     )
     .bind(i64::from(page_size))
     .bind(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
@@ -266,7 +267,10 @@ struct Clauses<'a> {
 }
 
 fn clauses(facets: &Facets) -> Clauses<'_> {
-    let mut conditions: Vec<String> = vec!["p.recension_of_id IS NULL".to_string()];
+    let mut conditions: Vec<String> = vec![
+        "p.recension_of_id IS NULL".to_string(),
+        "NOT p.is_hidden".to_string(),
+    ];
     let mut bound: Vec<&Vec<String>> = Vec::new();
     let mut stats: Vec<&'static str> = Vec::new();
     for (column, table, stats_table, values) in [
@@ -387,9 +391,7 @@ pub async fn list(
     ))
 }
 
-pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
-    let row = sqlx::query_as::<_, PoemDetailRow>(
-        r#"
+const DETAIL_SQL: &str = r#"
       SELECT
         p.slug,
         p.title,
@@ -403,13 +405,13 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
         (
           SELECT jsonb_build_object('title', pp.title, 'slug', pp.slug)
           FROM public.poems pp
-          WHERE pp.poet_id = p.poet_id AND pp.id < p.id AND pp.recension_of_id IS NULL
+          WHERE pp.poet_id = p.poet_id AND pp.id < p.id AND pp.recension_of_id IS NULL AND NOT pp.is_hidden
           ORDER BY pp.id DESC LIMIT 1
         ) AS prev_poem,
         (
           SELECT jsonb_build_object('title', np.title, 'slug', np.slug)
           FROM public.poems np
-          WHERE np.poet_id = p.poet_id AND np.id > p.id AND np.recension_of_id IS NULL
+          WHERE np.poet_id = p.poet_id AND np.id > p.id AND np.recension_of_id IS NULL AND NOT np.is_hidden
           ORDER BY np.id ASC LIMIT 1
         ) AS next_poem,
         (
@@ -469,17 +471,19 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
       LEFT JOIN public.poets           rpt ON rpt.id = rp.poet_id
       LEFT JOIN public.eras            re  ON re.id = rpt.era_id
       LEFT JOIN public.meters          rm  ON rm.id = rp.meter_id
-      WHERE p.slug = $1
+      WHERE p.slug = $1 AND NOT p.is_hidden
       GROUP BY
         p.id, p.slug, p.title, p.verse_count,
         pt.name, pt.slug, pt.has_avatar, pt.is_anonymous, m.name, m.slug,
         th.name, th.slug, e.name, e.slug, r.name, r.slug, ty.name, ty.slug
-    "#,
-    )
-    .bind(slug)
-    .fetch_optional(pg)
-    .await?
-    .ok_or(AppError::NotFound(Resource::Poem))?;
+"#;
+
+pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
+    let row = sqlx::query_as::<_, PoemDetailRow>(DETAIL_SQL)
+        .bind(slug)
+        .fetch_optional(pg)
+        .await?
+        .ok_or(AppError::NotFound(Resource::Poem))?;
 
     let content = row.content.ok_or(AppError::PoemParse)?;
     let related: Vec<RelatedRow> =
@@ -548,7 +552,7 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
 pub async fn alias_target(pg: &PgPool, slug: &str) -> Result<Option<String>, AppError> {
     Ok(sqlx::query_scalar(
         "SELECT p.slug FROM public.poem_aliases a \
-         JOIN public.poems p ON p.id = a.poem_id WHERE a.slug = $1",
+         JOIN public.poems p ON p.id = a.poem_id WHERE a.slug = $1 AND NOT p.is_hidden",
     )
     .bind(slug)
     .fetch_optional(pg)
@@ -664,7 +668,7 @@ mod tests {
         assert_eq!(
             count,
             "SELECT COUNT(*)::int AS total FROM public.poems p \
-             WHERE p.recension_of_id IS NULL AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"
+             WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"
         );
         assert_eq!(rows.matches("JOIN public.poets").count(), 1, "{rows}");
         assert!(!rows.contains("public.eras e"), "{rows}");
@@ -680,7 +684,7 @@ mod tests {
         let both = clauses(&facets);
         assert_eq!(
             both.where_clause,
-            "WHERE p.recension_of_id IS NULL AND p.era_id = (SELECT id FROM public.eras WHERE slug = ($1)[1]) \
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = (SELECT id FROM public.eras WHERE slug = ($1)[1]) \
              AND p.rhyme_id = (SELECT id FROM public.rhymes WHERE slug = ($2)[1])"
         );
         assert_eq!(both.bound.len(), 2);
@@ -695,7 +699,7 @@ mod tests {
         let single = clauses(&facets);
         assert_eq!(
             single.where_clause,
-            "WHERE p.recension_of_id IS NULL AND p.meter_id = (SELECT id FROM public.meters WHERE slug = ($1)[1])"
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = (SELECT id FROM public.meters WHERE slug = ($1)[1])"
         );
     }
 
@@ -708,7 +712,7 @@ mod tests {
         let multi = clauses(&facets);
         assert_eq!(
             multi.where_clause,
-            "WHERE p.recension_of_id IS NULL AND p.meter_id IN (SELECT id FROM public.meters WHERE slug = ANY($1))"
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id IN (SELECT id FROM public.meters WHERE slug = ANY($1))"
         );
     }
 
@@ -800,7 +804,7 @@ mod tests {
         assert_eq!(all.bound.len(), 6);
         assert_eq!(
             all.where_clause,
-            "WHERE p.recension_of_id IS NULL AND p.poet_id = (SELECT id FROM public.poets WHERE slug = ($1)[1]) \
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.poet_id = (SELECT id FROM public.poets WHERE slug = ($1)[1]) \
              AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($2)) \
              AND p.meter_id = (SELECT id FROM public.meters WHERE slug = ($3)[1]) \
              AND p.theme_id = (SELECT id FROM public.themes WHERE slug = ($4)[1]) \
@@ -821,7 +825,7 @@ mod tests {
         );
         assert!(rows.ends_with("ORDER BY p.id"), "{rows}");
         assert!(rows.contains("JOIN public.poets pt") && rows.contains("JOIN public.meters m"));
-        assert!(rows.contains("WHERE p.recension_of_id IS NULL ORDER BY"));
+        assert!(rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY"));
         assert!(count.starts_with("SELECT COUNT(*)::int AS total FROM public.poems p"));
         assert!(!count.contains("JOIN"));
 
@@ -836,21 +840,21 @@ mod tests {
             "{rows}"
         );
         assert!(
-            count.ends_with("WHERE p.recension_of_id IS NULL AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"),
+            count.ends_with("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"),
             "{count}"
         );
     }
 
     #[test]
-    fn every_list_query_hides_recensions_even_without_a_facet() {
+    fn every_list_query_hides_recensions_and_hidden_poets_even_without_a_facet() {
         let (rows, count) = list_sql(&clauses(&Facets::default()));
         assert!(
-            rows.contains("WHERE p.recension_of_id IS NULL ORDER BY p.id"),
+            rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY p.id"),
             "{rows}"
         );
         assert_eq!(
             count,
-            "SELECT COUNT(*)::int AS total FROM public.poems p WHERE p.recension_of_id IS NULL"
+            "SELECT COUNT(*)::int AS total FROM public.poems p WHERE p.recension_of_id IS NULL AND NOT p.is_hidden"
         );
         let two = Facets {
             theme: vec!["alnasib".into()],
@@ -859,13 +863,26 @@ mod tests {
         };
         let (rows, count) = list_sql(&clauses(&two));
         assert!(
-            rows.contains("WHERE p.recension_of_id IS NULL AND p.meter_id"),
+            rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id"),
             "{rows}"
         );
         assert!(
-            count.contains("WHERE p.recension_of_id IS NULL AND p.meter_id"),
+            count.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id"),
             "{count}"
         );
+    }
+
+    #[test]
+    fn the_detail_query_finds_prev_and_next_through_the_shown_primaries_index() {
+        for alias in ["pp", "np"] {
+            let predicate = format!("{alias}.recension_of_id IS NULL AND NOT {alias}.is_hidden");
+            assert!(DETAIL_SQL.contains(&predicate), "missing: {predicate}");
+        }
+    }
+
+    #[test]
+    fn the_detail_query_never_returns_a_hidden_poem() {
+        assert!(DETAIL_SQL.contains("WHERE p.slug = $1 AND NOT p.is_hidden"));
     }
 
     #[test]

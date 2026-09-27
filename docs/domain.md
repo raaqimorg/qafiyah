@@ -75,8 +75,8 @@ reindex. Treat that as a fact about the current application surface, not a promi
 ## Poet
 
 `name`, `slug`, an optional `nickname` and `bio`, one `era`, a precomputed `poems_count`,
-`has_avatar` (whether an image exists for them, served from R2, see `data/avatars/README.md`), and
-`is_anonymous` (see "The unknown value" below). A poet has exactly one era; poems don't carry era
+`has_avatar` (whether an image exists for them, served from R2, see `data/avatars/README.md`),
+`is_anonymous` (see "The unknown value" below), and `is_hidden` (see "Hidden poets" below). A poet has exactly one era; poems don't carry era
 independently.
 
 `nickname` holds whatever a poet is otherwise known by, a kunya (أبو سعيد), a laqab (سراج الهند),
@@ -123,13 +123,15 @@ compilations (`apps/web/src/lib/seo/taxonomy-copy.ts` describes this taxonomy as
 
 ## The "unknown" value
 
-Every taxonomy (poet, meter, era, theme, rhyme, collection) has a real row for **unknown**
-(`غير معروف`), not a nullable foreign key. A poem or poet lands there when the classical sourcing
-doesn't record that attribute.
+Poet, meter and era have a real row for **unknown** (`غير معروف`), not a nullable foreign key. A
+poem or poet lands there when the classical sourcing doesn't record that attribute. Theme and
+rhyme have no such row: every poem carries a rhyme letter, and `المتفرقات` (miscellany) is an
+ordinary theme, the one most of the corpus falls under. Collection is simply optional
+(`poems.collection_id` is nullable).
 
-The slug is `ghayrmaruf` for every taxonomy _except poets_, whose slugs are always four random
-letters, so a `poets.slug = 'ghayrmaruf'` test silently matches nothing. The web matches the
-other taxonomies' unknown row on `name` (`UNKNOWN_ENTITY_NAME`, `apps/web/src/lib/seo/meta-text.ts`).
+The slug is `ghayrmaruf` for meter and era; poets' slugs are always four random letters, so a
+`poets.slug = 'ghayrmaruf'` test silently matches nothing. The web matches the meter and era
+unknown rows on `name` (`UNKNOWN_ENTITY_NAME`, `apps/web/src/lib/seo/meta-text.ts`).
 
 Poets have one anonymous poet per era instead of a single unknown row: `غير معروف` / `JJHE`
 holds the anonymous poems whose era is unknown too, and `مجهول (عباسي)` and its siblings hold
@@ -164,6 +166,25 @@ a shorter one, since any bucket pointing outside the pool contributes nothing: a
 contemporary or unknown-era poem gets only classical poems that share its theme, meter or rhyme,
 and a poem of unknown meter gets no meter matches.
 
+## Random poem
+
+`GET /v1/poems/random` (the site's random-poem button) picks a poet first and then one of their
+poems, so every eligible poet is equally likely however many poems they have. A poem is eligible
+when it is a primary, not hidden, by a named (not anonymous) poet of the jahili, islami, umawi or
+abbasi era, عمودي, at least four verses long, and of a known meter. The eligible set is
+precomputed into `random_poem_pool` (`poet_rank`, `poem_id`) by `refresh_random_poem_pool()`
+(`scripts/db/sql/random-poem.sql`), which runs on every restore, so a request is two index lookups
+(a random `poet_rank`, then a random poem of that poet) rather than a filter over the corpus.
+`?option=lines` then takes one verse of the poem, trying up to five poems until the verse and the
+poet's name fit in 280 characters.
+
+The pool is only as fresh as its last refresh. Deleting a poem cascades out of it, so a manual
+edit between refreshes (a `merge_poem` absorbing a poet's only eligible poem, for one) can leave a
+`poet_rank` with no poems, and a request that lands on it fails until the next refresh; hiding a
+poet in place likewise leaves their poems in the pool. Production never sees either, because data
+changes reach it only through a dump, and every restore refills the pool. After such an edit on a
+running database, run `SELECT public.refresh_random_poem_pool();`.
+
 ## Merged poems and aliases
 
 When two rows hold the same poem by the same poet, one survives and the other is merged into it
@@ -190,6 +211,23 @@ that holds the avatar (avatars are stored under the slug). A named poet beats an
 anonymous copy of a poem a named poet has is moved to that poet and then merged or linked as a
 recension like any same-poet duplicate. A poem that the sources attribute to two poets stays under
 both.
+
+## Hidden poets
+
+A poet with `poets.is_hidden` set does not exist as far as the site is concerned: the poet and
+every one of their poems answer 404, their old slugs stop redirecting, and they are left out of
+every list, search result, sitemap, random poem, related-poems list and taxonomy count. The rows
+stay in the database, so unhiding brings everything back. Hiding is editorial; a removal request
+is a deletion, since the encrypted dumps are handed out on request.
+
+`poems.is_hidden` is a copy of the poet's flag, kept equal by the composite foreign key
+`(poet_id, is_hidden) REFERENCES poets (id, is_hidden) ON UPDATE CASCADE`, the same arrangement as
+`era_id`: `UPDATE poets SET is_hidden = true WHERE slug = '<slug>'` hides the poems in the same
+statement, and the primaries-only partial indexes (`recension_of_id IS NULL AND NOT is_hidden`)
+keep the list queries index-only. `reattribute_poem` gives a moved poem its new poet's flag, and
+`merge_poet` refuses to merge a hidden poet with a shown one. A change takes effect on the site
+with the next dump, whose snapshot steps refresh the counts and related poems and whose reseed
+rebuilds search.
 
 ## Recension (رواية, riwaya)
 

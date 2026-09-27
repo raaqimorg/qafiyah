@@ -69,7 +69,7 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoetStats, AppError> {
       FROM public.poets p
       JOIN public.eras e ON e.id = p.era_id
       LEFT JOIN public.poet_stats ps ON ps.slug = p.slug
-      WHERE p.slug = $1
+      WHERE p.slug = $1 AND NOT p.is_hidden
       LIMIT 1
     "#,
     )
@@ -83,7 +83,7 @@ pub async fn get(pg: &PgPool, slug: &str) -> Result<PoetStats, AppError> {
 pub async fn alias_target(pg: &PgPool, slug: &str) -> Result<Option<String>, AppError> {
     Ok(sqlx::query_scalar(
         "SELECT p.slug FROM public.poet_aliases a \
-         JOIN public.poets p ON p.id = a.poet_id WHERE a.slug = $1",
+         JOIN public.poets p ON p.id = a.poet_id WHERE a.slug = $1 AND NOT p.is_hidden",
     )
     .bind(slug)
     .fetch_optional(pg)
