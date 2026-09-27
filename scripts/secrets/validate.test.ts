@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { checkDecryptedValues, checkEncryptedNames } from './validate';
+import { checkDecryptedValues, checkEncryptedNames, dumpDirectories } from './validate';
 
 const HEX_A = 'a'.repeat(64);
 const HEX_B = 'b'.repeat(64);
@@ -151,5 +151,23 @@ describe('checkEncryptedNames', () => {
     expect(checkEncryptedNames('prod', 'sops_version=3.13.3', DUMP_DIRS)).toContain(
       'API_KEY_INTERNAL is required in prod'
     );
+  });
+});
+
+describe('dumpDirectories', () => {
+  test('a dump directory counts when git tracks it but a sparse checkout left it off disk', () => {
+    expect(
+      dumpDirectories(['data/db/0031_23_09_2026/CHANGES.md.enc', 'data/db/README.md'], [])
+    ).toEqual(['0031_23_09_2026']);
+  });
+
+  test('a dump directory counts when it is on disk but not committed yet', () => {
+    expect(dumpDirectories([], ['0037_01_10_2026'])).toEqual(['0037_01_10_2026']);
+  });
+
+  test('the fallback sample is not a dump directory', () => {
+    expect(
+      dumpDirectories(['data/db/0000_default/manifest.json'], ['0000_default', '0031_23_09_2026'])
+    ).toEqual(['0031_23_09_2026']);
   });
 });

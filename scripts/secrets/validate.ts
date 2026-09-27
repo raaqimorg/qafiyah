@@ -13,6 +13,8 @@ import {
 
 const SOPS_METADATA_PREFIX = 'sops_';
 const ENCRYPTED_VALUE_PREFIX = 'ENC[';
+const DUMPS_PATH_PREFIX = 'data/db/';
+const DEFAULT_DUMP_DIR = '0000_default';
 
 type FormatCheck = (value: string, env: SecretsEnvironment) => string | undefined;
 
@@ -137,4 +139,18 @@ export function checkDecryptedValues(
   }
 
   return problems;
+}
+
+export function dumpDirectories(
+  trackedPaths: readonly string[],
+  directoriesOnDisk: readonly string[]
+): readonly string[] {
+  const tracked = trackedPaths
+    .filter((path) => path.startsWith(DUMPS_PATH_PREFIX))
+    .map((path) => path.slice(DUMPS_PATH_PREFIX.length).split('/'))
+    .filter((segments) => segments.length > 1)
+    .map(([directory]) => directory ?? '');
+  return [...new Set([...tracked, ...directoriesOnDisk])].filter(
+    (directory) => directory !== '' && directory !== DEFAULT_DUMP_DIR
+  );
 }

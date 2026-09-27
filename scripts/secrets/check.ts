@@ -9,10 +9,9 @@ import { err, ok, type Result } from 'neverthrow';
 import { ROOT } from '../lib/root';
 
 import { SECRETS_ENVIRONMENTS, type SecretsEnvironment } from './schema';
-import { checkDecryptedValues, checkEncryptedNames } from './validate';
+import { checkDecryptedValues, checkEncryptedNames, dumpDirectories } from './validate';
 
 const DUMPS_DIR = join(ROOT, 'data/db');
-const DEFAULT_DUMP_DIR = '0000_default';
 const AGE_KEY_PATHS = [
   join(homedir(), '.config/sops/age/keys.txt'),
   join(homedir(), 'Library/Application Support/sops/age/keys.txt'),
@@ -29,9 +28,15 @@ function hasAgeKey(): boolean {
 }
 
 function listDumpDirs(): readonly string[] {
-  return readdirSync(DUMPS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name !== DEFAULT_DUMP_DIR)
+  const tracked = Bun.spawnSync(['git', 'ls-files', '-z', '--', 'data/db'], { cwd: ROOT });
+  if (tracked.exitCode !== 0) {
+    console.error(`git ls-files failed: ${tracked.stderr.toString().trim()}`);
+    process.exit(1);
+  }
+  const onDisk = readdirSync(DUMPS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
+  return dumpDirectories(tracked.stdout.toString().split('\0'), onDisk);
 }
 
 async function decrypt(path: string): Promise<Result<string, string>> {
