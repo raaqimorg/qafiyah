@@ -18,9 +18,9 @@ of the form:
 - **Demo:** for UI changes, screenshots or a video in the form's Before and After table.
 
 For a large or significant change, wait until the maintainers agree on the approach in the issue
-before writing code, so your effort isn't wasted. They mark that agreement with the `accepted`
-label. Keep each pull request small and focused on one
-concern; split unrelated changes into separate issues and pull requests.
+before writing code, so your effort isn't wasted. They mark that agreement with the `✅ accepted`
+label. Keep each pull request small and focused on one concern; split unrelated changes into
+separate issues and pull requests.
 
 ## Making changes
 

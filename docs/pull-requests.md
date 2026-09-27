@@ -10,6 +10,6 @@ These rules apply to any change that will be opened as a pull request. `.github/
 
 - Every pull request links an issue. Read it and its comments first: `gh issue view <number> --comments`.
 - If there is no issue, create one with `gh issue create` before writing code. Use the headings of the matching form in `.github/ISSUE_TEMPLATE/` as the body, and fill in impact, root cause, proposed fix, reasoning, and trade-offs (new bugs it could introduce, bugs it could mask, whether it only works around the issue, and what else the changed code touches).
-- For a large or significant change, stop after creating or commenting on the issue and wait until the maintainers agree on the approach there, which they mark with the `accepted` label (`gh issue view <number> --json labels`).
+- For a large or significant change, stop after creating or commenting on the issue and wait until the maintainers agree on the approach there, which they mark with the `✅ accepted` label (`gh issue view <number> --json labels`).
 - One concern per pull request. If the work turns up an unrelated problem, open a separate issue for it instead of folding it in.
 - Open the pull request with `gh pr create`, filling in `.github/PULL_REQUEST_TEMPLATE.md` with `Closes #<number>` as its first line. UI changes need before and after screenshots; `gh` cannot upload images, so ask the person you are working with to add them.
