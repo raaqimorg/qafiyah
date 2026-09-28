@@ -47,3 +47,4 @@ Safe only while production stays read-only. Once it takes real writes, use `pg_u
 - **Cloudflare is the DNS authority**, DNS changes are instant, no registrar propagation wait.
 - **Major-version bumps need a volume wipe**, see above.
 - **Website searches answering 429.** Either nginx's `limit_req` (60 a minute per address, an HTML 429) or the API's website-visitor limit (3,600 an hour per /64 or IPv4 address, 36,000 per /48, a `problem+json` 429). The API's log line for a proxied `/v1/search` carries `rate_limit_remaining`. See `docs/deployment/environments.md` ("Where requests are limited").
+- **`/healthz` never reaches the app through the edge.** The ModSecurity image answers `/healthz` with `OK` itself on every host, so check routing with `/api/v1/poems/random?option=slug` (site) or `/v1/poems/random?option=slug` (api), as the deploy does.

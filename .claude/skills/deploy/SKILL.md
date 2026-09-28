@@ -66,7 +66,7 @@ Only when logs are clean against real Arabic-query traffic (background/validatio
 docker compose logs -f edge-gateway | grep -i modsecurity   # esp. /v1/search and Arabic query strings
 
 # 2. Sanity-check routing still works:
-curl -s -H 'Host: qafiyah.com'     http://127.0.0.1:80/healthz -o /dev/null -w 'apex %{http_code}\n'
+curl -s -H 'Host: qafiyah.com'     'http://127.0.0.1:80/api/v1/poems/random?option=slug' -o /dev/null -w 'apex %{http_code}\n'
 curl -s -H 'Host: api.qafiyah.com' http://127.0.0.1:80/v1/docs -o /dev/null -w 'api  %{http_code}\n'
 
 # 3. When clean, flip it:

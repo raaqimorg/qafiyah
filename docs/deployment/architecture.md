@@ -47,13 +47,13 @@ docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway     
 #   docker compose up -d --no-deps --no-recreate --scale api=2 api   # add new replica
 #   <wait for the new replica's healthcheck to pass>                 # old keeps serving
 #   docker stop/rm <old api id>                                      # drain old
-curl -fsS -H 'Host: qafiyah.com' http://127.0.0.1:80/healthz -o /dev/null      # edge smoke gate
-curl -fsS -H 'Host: api.qafiyah.com' http://127.0.0.1:80/healthz -o /dev/null
+curl -fsS -H 'Host: qafiyah.com' 'http://127.0.0.1:80/api/v1/poems/random?option=slug' -o /dev/null   # edge smoke gate
+curl -fsS -H 'Host: api.qafiyah.com' 'http://127.0.0.1:80/v1/poems/random?option=slug' -o /dev/null
 docker compose ps
 docker builder prune -f --max-used-space 5GB   # cap build cache so it can't fill the disk
 ```
 
-Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) requests `https://qafiyah.com/healthz` and `https://api.qafiyah.com/healthz` through Cloudflare with a few retries and fails the deploy if either does not answer 200; `db:reseed` ends with the same check.
+Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) requests `https://qafiyah.com/api/v1/poems/random?option=slug` and `https://api.qafiyah.com/v1/poems/random?option=slug` through Cloudflare with a few retries and fails the deploy if either does not answer 200; `db:reseed` ends with the same check. Both checks, like the edge smoke gate, use a path that reaches the API and Postgres: the edge gateway image answers `/healthz` itself for every host, so a `/healthz` check would pass with `web` or `api` down. The live random poem is `no-store`, so no cache can answer it either.
 
 Afterward the script caps the Docker **build cache** at ~5GB (keeps recent layers so incremental builds stay fast) and prints a one-line summary of remaining reclaimable leftovers. This is the **only** thing a deploy ever deletes, and only build cache (never images in use, containers, or named volumes; db/es data untouched). Reclaim everything else by hand with `docker system prune` (still volume-safe).
 

@@ -72,9 +72,11 @@ rollout api
 rollout web
 
 echo ""
-echo "→ edge smoke test (through the edge gateway on 127.0.0.1:80)"
-curl -fsS -H 'Host: qafiyah.com'     http://127.0.0.1:80/healthz -o /dev/null && echo "  apex /healthz   ok"
-curl -fsS -H 'Host: api.qafiyah.com' http://127.0.0.1:80/healthz -o /dev/null && echo "  api  /healthz    ok"
+echo "→ edge smoke test (through the edge gateway on 127.0.0.1:80 to the API and database)"
+curl -fsS -H 'Host: qafiyah.com' 'http://127.0.0.1:80/api/v1/poems/random?option=slug' -o /dev/null
+echo "  apex search proxy ok"
+curl -fsS -H 'Host: api.qafiyah.com' 'http://127.0.0.1:80/v1/poems/random?option=slug' -o /dev/null
+echo "  api  random poem  ok"
 
 echo ""
 echo "→ purging the Cloudflare cache (cached pages still point at the previous build's scripts)"
