@@ -212,7 +212,7 @@ export function useSearch() {
     }
     setValidationError(null);
     if (filtersVisible) setFiltersVisible(false);
-    void setQuery(trimmed);
+    if (trimmed !== query) void setQuery(trimmed, { history: 'push' });
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {

@@ -190,8 +190,8 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** the home search is a bare input with no `<form>`. It submits on Enter through a `keydown` handler, on the icon button, and on blur, and it places the caret and focus by hand.
 - **Where:** `apps/web/src/components/search/use-search.tsx`, `apps/web/src/components/ui-extended/search-input.tsx`, `apps/web/src/components/search/search-container.tsx`
-- **Why it's unusual:** tapping elsewhere or dismissing the mobile keyboard runs a search, and the clear button needs `onMouseDown={preventDefault}` to avoid it. The first click moves the caret to the end by hand, and focus jumps from the input to a results heading after every search. `tabIndex={-1}` on wrapper elements makes them take focus on click, which blurs the input and fires a search. nuqs's default `replace` means searches add no history entries. The poets page, by contrast, uses a plain `<form method="GET" role="search">`.
-- **Normal approach:** `<form role="search" onSubmit>` around `<input type="search" enterKeyHint="search">`, submitting only on Enter or the button, an `aria-live` region to announce results, and `history: 'push'` for the committed query.
+- **Why it's unusual:** tapping elsewhere or dismissing the mobile keyboard runs a search, and the clear button needs `onMouseDown={preventDefault}` to avoid it. The first click moves the caret to the end by hand, and focus jumps from the input to a results heading after every search. `tabIndex={-1}` on wrapper elements makes them take focus on click, which blurs the input and fires a search. The poets page, by contrast, uses a plain `<form method="GET" role="search">`.
+- **Normal approach:** `<form role="search" onSubmit>` around `<input type="search" enterKeyHint="search">`, submitting only on Enter or the button, and an `aria-live` region to announce results.
 - **Status:** Needs review
 
 ### Arabic digits are converted two ways
