@@ -104,6 +104,12 @@ describe('formatArabicCount', () => {
     [11, '١١ سيارة'],
     [15, '١٥ سيارة'],
     [-3, '٣ سيارات'],
+    [100, '١٠٠ سيارة'],
+    [102, '١٠٢ سيارة'],
+    [103, '١٠٣ سيارات'],
+    [110, '١١٠ سيارات'],
+    [111, '١١١ سيارة'],
+    [1005, '١٬٠٠٥ سيارات'],
   ])('handles count %d', (count, expected) => {
     expect(formatArabicCount({ count, nounForms: carForms })).toBe(expected);
   });
