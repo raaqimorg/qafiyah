@@ -135,6 +135,9 @@ fn cap_facet_arrays(doc: &mut Document) {
             continue;
         };
         for parameter in parameters {
+            let RefOr::T(parameter) = parameter else {
+                continue;
+            };
             if parameter.parameter_in != ParameterIn::Query {
                 continue;
             }

@@ -667,8 +667,8 @@ export interface components {
             slug: string;
         };
         SearchResponse: {
-            poems?: null | components["schemas"]["ListEnvelope_PoemResult"];
-            poets?: null | components["schemas"]["ListEnvelope_PoetResult"];
+            poems?: components["schemas"]["ListEnvelope_PoemResult"] | null;
+            poets?: components["schemas"]["ListEnvelope_PoetResult"] | null;
             q: string;
         };
         /** @enum {string} */

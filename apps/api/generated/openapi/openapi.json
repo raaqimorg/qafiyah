@@ -2911,20 +2911,20 @@
           "poems": {
             "oneOf": [
               {
-                "type": "null"
+                "$ref": "#/components/schemas/ListEnvelope_PoemResult"
               },
               {
-                "$ref": "#/components/schemas/ListEnvelope_PoemResult"
+                "type": "null"
               }
             ]
           },
           "poets": {
             "oneOf": [
               {
-                "type": "null"
+                "$ref": "#/components/schemas/ListEnvelope_PoetResult"
               },
               {
-                "$ref": "#/components/schemas/ListEnvelope_PoetResult"
+                "type": "null"
               }
             ]
           },
