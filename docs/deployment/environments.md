@@ -138,8 +138,9 @@ production the API refuses to start without `API_KEY_INTERNAL` and
 `API_KEY_FULL`, and the web container refuses to start without
 `INTERNAL_API_KEY` and `SESSION_STATE_SECRET`.
 
-Client IP comes from `X-Forwarded-For` (the Cloudflare tunnel does not send
-`CF-Connecting-IP`), which the web container's nginx resolves and re-sends as
+Client IP comes from `X-Forwarded-For`, where Cloudflare appends the visitor
+as the last entry (see `services.md`), which the web container's nginx
+resolves and re-sends as
 `CF-Connecting-IP` over the dedicated `backend` network. The API honors that
 header only from the `backend` subnet (`client_ip.rs`), so a lateral container on
 the default bridge is bucketed on its own address rather than a spoofed header.

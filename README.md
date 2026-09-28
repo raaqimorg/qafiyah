@@ -58,11 +58,11 @@ The first run starts Postgres and Elasticsearch in Docker, restores a 100-poem s
 
 `https://api.qafiyah.com/v1` serves read-only JSON for poems, poets, eras, meters, rhymes, themes, collections, and full-text search. Explore the [interactive docs](https://api.qafiyah.com/v1/docs), the [OpenAPI document](https://api.qafiyah.com/v1/openapi.json), or [llms.txt](https://api.qafiyah.com/llms.txt).
 
-| Access   | Limit                                              |
-| -------- | -------------------------------------------------- |
-| No key   | 60 requests per hour per address                   |
-| Free key | 500 requests per hour, burst of 10 per second      |
-| Higher   | write to [api@qafiyah.com](mailto:api@qafiyah.com) |
+| Access   | Limit                                                         |
+| -------- | ------------------------------------------------------------- |
+| No key   | 60 requests per hour per address (an IPv6 /64 is one address) |
+| Free key | 500 requests per hour, burst of 10 per second                 |
+| Higher   | write to [api@qafiyah.com](mailto:api@qafiyah.com)            |
 
 Sign in with Google or GitHub on the [developers page](https://qafiyah.com/developers) to create a key, and send it as the `x-api-key` header. Responses report `x-ratelimit-remaining`, a refused request returns 429 with `Retry-After`, and errors are RFC 9457 problem+json.
 

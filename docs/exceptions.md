@@ -70,7 +70,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** edge-gateway runs ModSecurity with OWASP CRS behind Cloudflare, and it has been in `DetectionOnly` since 2026-06-17.
 - **Where:** `docker-compose.yml` (`edge-gateway`, `MODSEC_RULE_ENGINE`), `apps/edge-gateway/`, `docs/deployment/services.md`, `.claude/skills/deploy/SKILL.md`
-- **Why it's unusual:** it is an extra nginx hop that blocks nothing. `services.md` records enforcement as validated safe on 2026-06-18, yet it stays off. Each image bump needs the vendor template re-copied and re-patched by hand. The documented WAF rollback puts a host port on `web`, which conflicts with `rollout()` scaling `web` to two replicas and moves web's peer outside the trusted subnet. Its real-IP setting reads `CF-Connecting-IP`, which the Cloudflare tunnel never sends, so it scores and logs every request as the Docker gateway address.
+- **Why it's unusual:** it is an extra nginx hop that blocks nothing. `services.md` records enforcement as validated safe on 2026-06-18, yet it stays off. Each image bump needs the vendor template re-copied and re-patched by hand. The documented WAF rollback puts a host port on `web`, which conflicts with `rollout()` scaling `web` to two replicas and moves web's peer outside the trusted subnet.
 - **Normal approach:** Cloudflare's managed WAF rules and rate limiting, which are already in the path, with one reverse proxy at the origin.
 - **Status:** Needs review
 
@@ -568,7 +568,7 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 
 ### The anonymous limit depends on the environment
 
-- **What:** callers without a key share a per-address bucket sized by `ANON_REQUESTS`, which defaults to 60 under `ENVIRONMENT=production` and to effectively unlimited elsewhere.
+- **What:** callers without a key share a per-address bucket (a /64 for an IPv6 caller, with its /48 sharing ten times that) sized by `ANON_REQUESTS`, which defaults to 60 under `ENVIRONMENT=production` and to effectively unlimited elsewhere.
 - **Where:** `apps/api/src/config.rs::anon_requests`
 - **Why:** outside production there is no Cloudflare in front, so every caller would share one bucket.
 - **Normal approach:** one fixed default in every environment.
@@ -594,7 +594,7 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 
 - **What:** denied at the edge, guarded by `API_KEY_INTERNAL` alone, and merged outside both the `cached` and `limited` routers, with `no-store` on every response.
 - **Where:** `apps/web/nginx.conf` (404 for `^~ /account` on `api.qafiyah.com`), `apps/api/src/routes/account.rs::guard`, `apps/api/src/auth.rs::Keys::is_internal`
-- **Why:** `guard` accepts only what `Keys::is_internal` matches, so neither a user's own API key nor `API_KEY_FULL` opens it, even though both bypass the limiter on `/v1`. Staying outside `cached` means `cache::layer` never stamps `private, max-age=300` on a session payload. Any one of the three would usually be enough; the point is that a mistake in one is survivable, because a shared-cache hit is served without ever reaching the origin.
+- **Why:** `guard` accepts only what `Keys::is_internal` matches, so neither a user's own API key nor `API_KEY_FULL` opens it, even though `API_KEY_FULL` bypasses the limiter on `/v1` and a user's key raises its quota there. Staying outside `cached` means `cache::layer` never stamps `private, max-age=300` on a session payload. Any one of the three would usually be enough; the point is that a mistake in one is survivable, because a shared-cache hit is served without ever reaching the origin.
 - **Normal approach:** a single auth middleware on the routes.
 - **Date:** 2026-09-21
 
