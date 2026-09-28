@@ -100,9 +100,9 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### The search filters use a hand-built multi-select combobox
 
-- **What:** `Select` is a 283-line homemade ARIA combobox, and its keyboard handling is a `window` `keydown` listener that stays active whenever the list is open.
+- **What:** `Select` is a 283-line homemade ARIA combobox.
 - **Where:** `apps/web/src/components/ui-extended/select.tsx`, `apps/web/src/components/search/filters.tsx`
-- **Why it's unusual:** Enter or Space toggles an option and also closes the list. After Tab moves focus away the list stays open, so the next Enter or Space anywhere on the page toggles an option. All five filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control. Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
+- **Why it's unusual:** All five filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control. Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
 - **Normal approach:** a maintained primitive (shadcn Popover with cmdk, Headless UI `Listbox multiple`, or React Aria), or a checkbox group in a `<fieldset>` with a `<legend>`.
 - **Status:** Needs review
 

@@ -141,37 +141,41 @@ export function Select({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handler = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setHighlightedIndex((prev) => (prev + 1) % displayedOptions.length);
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setHighlightedIndex(
-            (prev) => (prev - 1 + displayedOptions.length) % displayedOptions.length
-          );
-          break;
-        case 'Enter':
-        case ' ':
-          e.preventDefault();
-          if (displayedOptions[highlightedIndex] !== undefined)
-            toggleOption(displayedOptions[highlightedIndex]);
-          break;
-        case 'Escape':
-          e.preventDefault();
-          setIsOpen(false);
-          break;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleOpen();
       }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, displayedOptions, highlightedIndex, toggleOption]);
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % displayedOptions.length);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(
+          (prev) => (prev - 1 + displayedOptions.length) % displayedOptions.length
+        );
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (displayedOptions[highlightedIndex] !== undefined)
+          toggleOption(displayedOptions[highlightedIndex]);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        break;
+    }
+  };
 
   return (
     <div ref={containerRef} className={cn('relative w-full min-w-0', className)}>
@@ -186,12 +190,7 @@ export function Select({
           { 'border-text': isOpen }
         )}
         onClick={toggleOpen}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            toggleOpen();
-          }
-        }}
+        onKeyDown={handleKeyDown}
         tabIndex={disabled ? -1 : 0}
         aria-label={multiple ? 'اختيار متعدد' : 'اختيار'}
         aria-activedescendant={isOpen ? `option-${highlightedIndex}` : undefined}
@@ -249,6 +248,7 @@ export function Select({
                   isSelected && 'text-text'
                 )}
                 onClick={() => toggleOption(option)}
+                onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <div className="flex items-center gap-2">
