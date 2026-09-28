@@ -39,3 +39,4 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 ## Agent workflow
 
 - When executing a written implementation plan, prefer `superpowers:executing-plans` (inline, batch execution with checkpoints in the current session) over `superpowers:subagent-driven-development` (fresh subagent per task), unless the user asks for the latter.
+- When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`): one light sanity pass done yourself in the current session, never a subagent, workflow, `/code-review`, or `superpowers:requesting-code-review` unless the user names them.
