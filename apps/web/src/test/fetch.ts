@@ -15,3 +15,16 @@ export function fakeFetch(routes: Readonly<Record<string, RouteHandler>>) {
   vi.stubGlobal('fetch', mock);
   return mock;
 }
+
+export function failedBody(cause: unknown): Response {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('ab'));
+      },
+      pull(controller) {
+        controller.error(cause);
+      },
+    })
+  );
+}

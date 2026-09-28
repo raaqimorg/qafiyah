@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { failedBody } from '@/test/fetch';
+
 import {
   buildRandomPoemUrl,
   fetchRandomPoemSlugWithRetry,
@@ -90,6 +92,31 @@ describe('fetchRandomPoemText outcomes', () => {
     const error = (await fetchRandomPoemText(BASE, 'slug'))._unsafeUnwrapErr();
     expect(error).toMatchObject({ kind: 'network', message: 'Failed to fetch' });
   });
+
+  it.each([
+    new TypeError('Connection closed'),
+    new DOMException('The operation was aborted', 'AbortError'),
+    new DOMException('The operation timed out', 'TimeoutError'),
+  ])('maps a failed response body to network and preserves $name', async (cause) => {
+    stubFetch(async () => failedBody(cause));
+    const error = (await fetchRandomPoemText(BASE, 'slug'))._unsafeUnwrapErr();
+    expect(error).toEqual({
+      kind: 'network',
+      url: `${BASE}/v1/poems/random?option=slug`,
+      message: cause.message,
+      name: cause.name,
+    });
+  });
+
+  it('maps a non-Error body rejection to a network error without a name', async () => {
+    stubFetch(async () => failedBody('Connection closed'));
+    const error = (await fetchRandomPoemText(BASE, 'lines'))._unsafeUnwrapErr();
+    expect(error).toEqual({
+      kind: 'network',
+      url: `${BASE}/v1/poems/random?option=lines`,
+      message: 'Connection closed',
+    });
+  });
 });
 
 describe('fetchRandomPoemText timeout', () => {
@@ -173,6 +200,19 @@ describe('fetchRandomPoemSlugWithRetry retry logic', () => {
     expect(mock).toHaveBeenCalledTimes(3);
   });
 
+  it('returns the last network error after all response bodies fail', async () => {
+    const { mock } = stubFetchSteps([
+      async () => failedBody(new TypeError('First connection closed')),
+      async () => failedBody(new TypeError('Last connection closed')),
+    ]);
+    const result = await fetchRandomPoemSlugWithRetry(BASE, { ...FAST, attempts: 3 });
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      kind: 'network',
+      message: 'Last connection closed',
+    });
+    expect(mock).toHaveBeenCalledTimes(3);
+  });
+
   it('stops issuing requests the moment one succeeds', async () => {
     const { mock } = stubFetchSteps([withStatus(500), withStatus(500), ok('abcd')]);
     const result = await fetchRandomPoemSlugWithRetry(BASE, { ...FAST, attempts: 10 });
@@ -188,6 +228,7 @@ describe('fetchRandomPoemSlugWithRetry retry logic', () => {
 
   const retryableFailures: readonly (readonly [string, Step])[] = [
     ['network', rejectWith(new TypeError('offline'))],
+    ['response body', async () => failedBody(new TypeError('Connection closed'))],
     ['rate_limited', withStatus(429)],
     ['http_error', withStatus(500)],
     ['empty_response', emptyBody()],

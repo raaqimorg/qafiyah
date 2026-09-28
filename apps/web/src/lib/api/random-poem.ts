@@ -1,4 +1,4 @@
-import { err, ok, type Result, ResultAsync } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 import * as v from 'valibot';
 
 import { type PoemSlug, poemSlugSchema } from '@/lib/api/brands';
@@ -31,22 +31,21 @@ export async function fetchRandomPoemText(
   headers?: Readonly<Record<string, string>>
 ): Promise<Result<string, RandomPoemTransportError>> {
   const url = buildRandomPoemUrl(baseUrl, option);
-  const fetchResult = await ResultAsync.fromPromise(
-    fetch(url, headers ? { signal, headers } : { signal }),
-    (cause): RandomPoemTransportError => ({
+  try {
+    const response = await fetch(url, headers ? { signal, headers } : { signal });
+    if (response.status === 429) return err({ kind: 'rate_limited', url });
+    if (!response.ok) return err({ kind: 'http_error', url, status: response.status });
+    const text = (await response.text()).trim();
+    if (!text) return err({ kind: 'empty_response', url });
+    return ok(text);
+  } catch (cause) {
+    return err({
       kind: 'network',
       url,
       message: cause instanceof Error ? cause.message : String(cause),
       ...(cause instanceof Error && cause.name ? { name: cause.name } : {}),
-    })
-  );
-  if (fetchResult.isErr()) return err(fetchResult.error);
-  const response = fetchResult.value;
-  if (response.status === 429) return err({ kind: 'rate_limited', url });
-  if (!response.ok) return err({ kind: 'http_error', url, status: response.status });
-  const text = (await response.text()).trim();
-  if (!text) return err({ kind: 'empty_response', url });
-  return ok(text);
+    });
+  }
 }
 
 type FetchRandomPoemSlugError =
