@@ -48,6 +48,7 @@ export function Select({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const comboboxRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
   const selectedValues = useMemo(() => (typeof value === 'string' ? [value] : value), [value]);
@@ -112,6 +113,7 @@ export function Select({
   const clearSelection = (e?: React.SyntheticEvent) => {
     e?.stopPropagation();
     onChange(multiple ? [] : (clearValue ?? ''));
+    comboboxRef.current?.focus();
   };
 
   const getDisplayValue = () => {
@@ -180,6 +182,7 @@ export function Select({
   return (
     <div ref={containerRef} className={cn('relative w-full min-w-0', className)}>
       <div
+        ref={comboboxRef}
         role="combobox"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
