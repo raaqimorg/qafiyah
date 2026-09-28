@@ -43,7 +43,8 @@ its /64, the block one subscriber is usually handed, so rotating addresses
 inside it earns no extra allowance, and its /48 shares a second bucket of ten
 times the anonymous limit, so rotating across /64s stops there. Website
 visitors never reach either, since the site calls the API with
-`API_KEY_INTERNAL`. Keyed callers get their own bucket and
+`API_KEY_INTERNAL`; a visitor's search through the site gets its own
+buckets instead (below). Keyed callers get their own bucket and
 their own number. Exceeding either returns `429` as
 `application/problem+json` with `Retry-After`, and every response carries
 `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
@@ -66,10 +67,20 @@ Three layers, outermost first:
 - **The web nginx**, `limit_req` in `apps/web/nginx.conf`: 60 requests a
   minute per address with a burst of 30, on `/api/v1/`, `/account`, `/api/me`,
   and `/auth/`. It keys on the exact address, so an IPv6 client rotating inside
-  its /64 gets a fresh allowance each time. It is the only per-visitor limit on
-  the website's search proxy.
+  its /64 gets a fresh allowance each time.
 - **The API**, the hourly buckets above, for callers of `api.qafiyah.com`. The
-  website's calls carry `API_KEY_INTERNAL` and skip them.
+  website's server-side calls carry `API_KEY_INTERNAL` and skip them. The
+  website's search proxy (`/api/v1/search` and `/api/v1/poems/random`) also
+  sends the visitor's address, from the `X-Real-IP` nginx sets, as
+  `CF-Connecting-IP`. The API counts those requests per visitor:
+  `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour per /64 or IPv4
+  address and ten times that per /48, in buckets separate from anonymous
+  callers. Only an address forwarded by the web container counts, so page
+  renders, which forward none, stay unlimited. Locally, `bun run dev` has no
+  nginx to set the address, so its proxy stays unlimited; in the Docker stack
+  every local request reaches nginx as one address, which nginx already holds
+  to 60 a minute, the same 3,600 an hour. A refused search is a `429`
+  marked `no-store`, which the proxy passes through and nginx does not cache.
 
 ### Environment keys (bypass the limiter)
 
@@ -77,7 +88,9 @@ Two values, each generated with `openssl rand -hex 32`, live in the API's
 environment and are checked before the accounts database is consulted:
 
 - `API_KEY_INTERNAL` (secret): unlimited, and the only key that opens
-  `/account`. The web SSR server and the same-origin search proxy present it.
+  `/account`. The web SSR server and the same-origin search proxy present it;
+  a proxied request that carries a visitor's address counts against that
+  visitor (above).
 - `API_KEY_FULL` (secret): unlimited on `/v1` only, for trusted server clients,
   smoke tests, and admin tooling. It does **not** open `/account`, so a leak
   costs corpus reads and never account administration.

@@ -544,9 +544,9 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 
 ### Client address comes from proxy headers only behind the web nginx
 
-- **What:** `client_ip.rs` resolves the caller from `CF-Connecting-IP`, falling back to the last `X-Forwarded-For` hop, and to a single shared bucket when neither is present.
+- **What:** `client_ip.rs` resolves the caller from `CF-Connecting-IP`, falling back to the last `X-Forwarded-For` hop, and to a single shared bucket when neither is present. For an internal-key request, `forwarded` reads only `CF-Connecting-IP`, and a missing header means no visitor limit rather than a shared bucket.
 - **Where:** `apps/api/src/client_ip.rs`
-- **Why:** the headers are honored only when the connection's immediate peer is the web nginx on the dedicated `backend` network. A caller outside that subnet is bucketed on its own peer address, so a lateral container on the default bridge cannot spoof the header.
+- **Why:** the headers are honored only when the connection's immediate peer is on the dedicated `backend` network, which carries only the API and the web container: the web nginx sets the header for `api.qafiyah.com`, and its Astro proxy sets it for website visitors. A caller outside that subnet is bucketed on its own peer address, so a lateral container on the default bridge cannot spoof the header.
 - **Normal approach:** trust the forwarding headers from any peer behind a single reverse proxy.
 - **Date:** 2025-04-13
 
@@ -560,7 +560,7 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 
 ### Every rate limit is checked in one pass
 
-- **What:** `Limiter::check_all` evaluates every applicable limit together and increments every bucket or none. A refused request adds no bucket, so a caller rotating addresses past a ceiling cannot grow the map toward its flush.
+- **What:** `Limiter::check_all` evaluates every applicable limit together and increments every bucket or none. A refused request adds no bucket, so a caller rotating addresses past a ceiling cannot grow the map toward its flush. When the map still fills with live windows, the per-address buckets (`Ip`, `KeyedIp`, `Visitor`) are dropped first, so users' quotas and the /48 caps survive, and only a map still full after that is cleared. IPv4 has no aggregate bucket, so its per-address counts do reset on such a drop; forcing one takes about 14 fresh /48s' worth of allowed requests, and spends those /48s for the rest of the hour.
 - **Where:** `apps/api/src/rate_limit.rs`
 - **Why:** a keyed caller faces three limits: the plan's `requests` per `WINDOW_SECONDS` bucketed on `users.id`, the plan's `burst` per `BURST_WINDOW_SECONDS` bucketed on the same user, and the plan's `ip_ceiling` bucketed on the client address (omitted when the plan carries no ceiling, only `free` does, and omitted when the address cannot be resolved rather than collapsing every such caller into one bucket). Three sequential `check` calls would let an address refusal silently burn the caller's own hourly allowance, so a refused request consumes none of the limits that allowed it. Response headers describe whichever hourly limit is closest to running out (the one-second burst is left out, so they always mean requests per hour), while `Retry-After` on a 429 follows whichever limit actually refused. Quota is bucketed on the user, never the key, so rotating keys or holding several grants no extra allowance.
 - **Normal approach:** one limiter middleware per limit, each checked in turn.
@@ -576,11 +576,11 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 
 ### Internal keys bypass rate limiting and the accounts database
 
-- **What:** `API_KEY_INTERNAL` and `API_KEY_FULL` bypass every limit and never touch the accounts database, and every caller receives identical response bodies (no scope, no capping, no `Vary: x-api-key`).
-- **Where:** `apps/api/src/auth.rs`, `apps/api/src/rate_limit.rs`
-- **Why:** an accounts outage degrades the portal and not the website; a keyed caller during such an outage falls back to the anonymous bucket rather than being refused. Matches the crawler policy the API serves from `well-known/robots.api.txt`.
+- **What:** `API_KEY_INTERNAL` and `API_KEY_FULL` bypass every limit and never touch the accounts database, and every caller receives identical response bodies (no scope, no capping, no `Vary: x-api-key`). One exception: an internal-key request carrying a visitor address forwarded by a trusted peer (the website's search proxy sets it) counts against that visitor, `VISITOR_REQUESTS` an hour per /64 or IPv4 address and ten times that per /48, in buckets separate from anonymous callers.
+- **Where:** `apps/api/src/auth.rs`, `apps/api/src/rate_limit.rs`, `apps/api/src/client_ip.rs`
+- **Why:** an accounts outage degrades the portal and not the website; a keyed caller during such an outage falls back to the anonymous bucket rather than being refused. Matches the crawler policy the API serves from `well-known/robots.api.txt`. The visitor limit exists because the proxy's only other per-visitor limit, nginx's `limit_req`, keys on the exact address, so an IPv6 visitor could rotate inside a /64 without bound. Only a forwarded address counts, never the connection's own, so the site's server-side renders stay unlimited and crawlers are never throttled.
 - **Normal approach:** resolve every key, internal ones included, through the same accounts lookup and plan limits.
-- **Date:** 2026-06-30
+- **Date:** 2026-06-30, visitor limit 2026-09-28
 
 ### Key revocation, plan changes, and usage are eventually consistent
 
@@ -660,8 +660,8 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 ### Two API clients, and no key ever reaches the browser
 
-- **What:** `apiServer` calls the internal API URL with `INTERNAL_API_KEY` for SSR; `apiBrowser` is keyless and calls `/api/v1` on the page's own origin, a proxy that forwards only the two paths in the allowlist (`search`, `poems/random`) and attaches the internal key server-side.
-- **Where:** `lib/server/client.ts`, `lib/api/browser-client.ts`, `pages/api/v1/[...path].ts`, `lib/api/proxy-allowlist.ts`
+- **What:** `apiServer` calls the internal API URL with `INTERNAL_API_KEY` for SSR; `apiBrowser` is keyless and calls `/api/v1` on the page's own origin, a proxy that forwards only the two paths in the allowlist (`search`, `poems/random`) and attaches the internal key server-side, along with the visitor's address from the `X-Real-IP` nginx sets, which the API rate-limits.
+- **Where:** `lib/server/client.ts`, `lib/api/browser-client.ts`, `pages/api/v1/[...path].ts`, `lib/api/proxy-handler.ts`, `lib/api/proxy-allowlist.ts`
 - **Why:** the allowlist is the security boundary: without it the route would be an unauthenticated tunnel to the whole corpus. Don't use one client from the other's context, and don't widen the allowlist without reading the API rate-limiting entries above.
 - **Normal approach:** the browser calls the public API directly.
 - **Date:** 2026-09-21

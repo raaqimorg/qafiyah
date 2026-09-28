@@ -1,7 +1,12 @@
 import { resolveProxyPath } from '@/lib/api/proxy-allowlist';
 import { CACHE_SEARCH } from '@/lib/server/cache';
 import { INTERNAL_API_KEY, INTERNAL_API_URL } from '@/lib/server/env';
-import { API_KEY_HEADER, API_V1_PREFIX } from '@qafiyah/config';
+import {
+  API_KEY_HEADER,
+  API_V1_PREFIX,
+  CF_CONNECTING_IP_HEADER,
+  VISITOR_ADDRESS_HEADER,
+} from '@qafiyah/config';
 
 const PROXY_TIMEOUT_MS = 8000;
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control', 'etag'] as const;
@@ -22,6 +27,8 @@ export async function proxyRequest({ params, request, url }: ProxyContext): Prom
   if (INTERNAL_API_KEY) headers.set(API_KEY_HEADER, INTERNAL_API_KEY);
   const ifNoneMatch = request.headers.get('if-none-match');
   if (ifNoneMatch !== null) headers.set('if-none-match', ifNoneMatch);
+  const visitor = request.headers.get(VISITOR_ADDRESS_HEADER);
+  if (visitor !== null) headers.set(CF_CONNECTING_IP_HEADER, visitor);
 
   const target = `${INTERNAL_API_URL}${API_V1_PREFIX}/${path}${url.search}`;
   let upstream: Response;

@@ -65,6 +65,34 @@ describe('the api proxy', () => {
     expect((init.headers as Headers).get('if-none-match')).toBe('"abc"');
   });
 
+  it('forwards the visitor address nginx set as the address the api trusts', async () => {
+    const { proxyRequest } = await import('./proxy-handler');
+    await proxyRequest(call('search', { 'x-real-ip': '2001:db8::7' }));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).get('cf-connecting-ip')).toBe('2001:db8::7');
+  });
+
+  it('forwards no visitor address when nginx set none', async () => {
+    const { proxyRequest } = await import('./proxy-handler');
+    await proxyRequest(call('search'));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).has('cf-connecting-ip')).toBe(false);
+  });
+
+  it('never forwards a client-supplied cf-connecting-ip', async () => {
+    const { proxyRequest } = await import('./proxy-handler');
+    await proxyRequest(call('search', { 'cf-connecting-ip': '198.51.100.9' }));
+    await proxyRequest(
+      call('search', { 'cf-connecting-ip': '198.51.100.9', 'x-real-ip': '2001:db8::7' })
+    );
+    const [[, alone], [, withNginx]] = fetchMock.mock.calls as [
+      [string, RequestInit],
+      [string, RequestInit],
+    ];
+    expect((alone.headers as Headers).has('cf-connecting-ip')).toBe(false);
+    expect((withNginx.headers as Headers).get('cf-connecting-ip')).toBe('2001:db8::7');
+  });
+
   it('copies only the three safe response headers', async () => {
     fetchMock.mockResolvedValue(
       new Response('{}', {

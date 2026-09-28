@@ -10,9 +10,9 @@ use axum::response::Response;
 use crate::accounts::keys::Caller;
 use crate::client_ip;
 use crate::constants::{
-    ANON_IPV6_BLOCK_MULTIPLIER, API_KEY_HEADER, BURST_WINDOW_SECONDS, RATE_LIMIT_LIMIT_HEADER,
+    API_KEY_HEADER, BURST_WINDOW_SECONDS, IPV6_BLOCK_MULTIPLIER, RATE_LIMIT_LIMIT_HEADER,
     RATE_LIMIT_MAX_TRACKED, RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER,
-    RATE_LIMIT_SWEEP_SECONDS, SECONDS_PER_HOUR, WINDOW_SECONDS,
+    RATE_LIMIT_SWEEP_SECONDS, SECONDS_PER_HOUR, VISITOR_REQUESTS, WINDOW_SECONDS,
 };
 use crate::error::AppError;
 use crate::log::LogHandle;
@@ -25,7 +25,15 @@ pub enum Bucket {
     KeyedIp(IpAddr),
     Ip(IpAddr),
     Ipv6Block(Ipv6Addr),
+    Visitor(IpAddr),
+    VisitorBlock(Ipv6Addr),
     Unknown,
+}
+
+impl Bucket {
+    fn is_per_address(self) -> bool {
+        matches!(self, Self::Ip(_) | Self::KeyedIp(_) | Self::Visitor(_))
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -75,6 +83,28 @@ fn bucket_address(address: IpAddr) -> IpAddr {
     }
 }
 
+fn slash_48(address: Ipv6Addr) -> Ipv6Addr {
+    let [a, b, c, ..] = address.segments();
+    Ipv6Addr::new(a, b, c, 0, 0, 0, 0, 0)
+}
+
+fn visitor_limits(address: IpAddr) -> Vec<Limit> {
+    let address = bucket_address(address);
+    let mut limits = vec![Limit {
+        bucket: Bucket::Visitor(address),
+        ceiling: VISITOR_REQUESTS,
+        window: WINDOW_SECONDS,
+    }];
+    if let IpAddr::V6(v6) = address {
+        limits.push(Limit {
+            bucket: Bucket::VisitorBlock(slash_48(v6)),
+            ceiling: VISITOR_REQUESTS.saturating_mul(IPV6_BLOCK_MULTIPLIER),
+            window: WINDOW_SECONDS,
+        });
+    }
+    limits
+}
+
 fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec<Limit> {
     let address = address.map(bucket_address);
     let Some(caller) = caller else {
@@ -84,10 +114,9 @@ fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec
             window: WINDOW_SECONDS,
         }];
         if let Some(IpAddr::V6(v6)) = address {
-            let [a, b, c, ..] = v6.segments();
             limits.push(Limit {
-                bucket: Bucket::Ipv6Block(Ipv6Addr::new(a, b, c, 0, 0, 0, 0, 0)),
-                ceiling: anon.saturating_mul(ANON_IPV6_BLOCK_MULTIPLIER),
+                bucket: Bucket::Ipv6Block(slash_48(v6)),
+                ceiling: anon.saturating_mul(IPV6_BLOCK_MULTIPLIER),
                 window: WINDOW_SECONDS,
             });
         }
@@ -128,6 +157,9 @@ impl Limiter {
             return;
         }
         windows.retain(|_, window| now < window.expires);
+        if windows.len() >= RATE_LIMIT_MAX_TRACKED {
+            windows.retain(|bucket, _| !bucket.is_per_address());
+        }
         if windows.len() >= RATE_LIMIT_MAX_TRACKED {
             windows.clear();
         }
@@ -246,7 +278,16 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         .headers()
         .get(API_KEY_HEADER)
         .and_then(|value| value.to_str().ok());
-    if state.keys.is_unlimited(key) {
+    let peer = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(peer)| peer.ip());
+    let visitor = if state.keys.is_internal(key) {
+        client_ip::forwarded(request.headers(), peer)
+    } else {
+        None
+    };
+    if state.keys.is_unlimited(key) && visitor.is_none() {
         if let Some(log) = request.extensions().get::<LogHandle>() {
             log.set("keyed", true);
         }
@@ -255,7 +296,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
 
     let now = now_seconds();
     let caller = match key {
-        Some(key) if crate::accounts::keys::is_well_formed(key) => state
+        Some(key) if visitor.is_none() && crate::accounts::keys::is_well_formed(key) => state
             .key_cache
             .resolve(&state.accounts, key, now)
             .await
@@ -263,17 +304,14 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         _ => None,
     };
 
-    let limits = limits_for(
-        caller,
-        client_ip::resolve_from(
-            request.headers(),
-            request
-                .extensions()
-                .get::<ConnectInfo<SocketAddr>>()
-                .map(|ConnectInfo(peer)| peer.ip()),
+    let limits = match visitor {
+        Some(visitor) => visitor_limits(visitor),
+        None => limits_for(
+            caller,
+            client_ip::resolve_from(request.headers(), peer),
+            state.anon_requests,
         ),
-        state.anon_requests,
-    );
+    };
     let outcome = state.limiter.check_all(&limits, now);
 
     if let Some(caller) = caller
@@ -287,7 +325,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
             "rate_limit_remaining",
             i64::from(outcome.reported.remaining),
         );
-        log.set("keyed", caller.is_some());
+        log.set("keyed", caller.is_some() || visitor.is_some());
         if let Some(caller) = caller {
             log.set("api_key_id", caller.key_id);
         }
@@ -704,6 +742,65 @@ mod tests {
     }
 
     #[test]
+    fn a_website_visitor_is_bucketed_by_slash_64_and_shares_its_slash_48() {
+        let limits = visitor_limits("2001:db8:1:2::1".parse().expect("an address"));
+        assert_eq!(limits.len(), 2);
+        assert_eq!(
+            limits[0].bucket,
+            Bucket::Visitor("2001:db8:1:2::".parse().expect("an address"))
+        );
+        assert_eq!(limits[0].ceiling, VISITOR_REQUESTS);
+        assert_eq!(
+            limits[1].bucket,
+            Bucket::VisitorBlock("2001:db8:1::".parse().expect("an address"))
+        );
+        assert_eq!(limits[1].ceiling, VISITOR_REQUESTS * IPV6_BLOCK_MULTIPLIER);
+        assert!(limits.iter().all(|limit| limit.window == WINDOW_SECONDS));
+    }
+
+    #[test]
+    fn an_ipv4_website_visitor_gets_one_bucket_even_when_mapped_into_ipv6() {
+        let limits = visitor_limits("::ffff:192.0.2.7".parse().expect("an address"));
+        assert_eq!(limits.len(), 1);
+        assert_eq!(
+            limits[0].bucket,
+            Bucket::Visitor("192.0.2.7".parse().expect("an address"))
+        );
+    }
+
+    #[test]
+    fn a_website_visitor_never_shares_a_bucket_with_an_anonymous_caller() {
+        let address = "2001:db8:1:2::1".parse().ok();
+        let visitor = visitor_limits(address.expect("an address"));
+        let anonymous = limits_for(None, address, 60);
+        assert!(
+            visitor
+                .iter()
+                .all(|limit| anonymous.iter().all(|other| other.bucket != limit.bucket))
+        );
+    }
+
+    #[test]
+    fn rotating_addresses_inside_one_slash_64_runs_out_at_the_visitor_ceiling() {
+        let limiter = Limiter::default();
+        let from = |host: u16| {
+            visitor_limits(IpAddr::V6(Ipv6Addr::new(
+                0x2001, 0xdb8, 1, 2, 0, 0, 0, host,
+            )))
+        };
+        let ceiling = u16::try_from(VISITOR_REQUESTS).expect("the ceiling fits a u16");
+        for host in 0..ceiling {
+            assert!(limiter.check_all(&from(host), 0).allowed);
+        }
+        let refused = limiter.check_all(&from(ceiling), 0);
+        assert!(!refused.allowed);
+        assert_eq!(
+            (refused.reported.limit, refused.reported.remaining),
+            (VISITOR_REQUESTS, 0)
+        );
+    }
+
+    #[test]
     fn refused_requests_from_new_slash_64s_add_nothing_to_the_map() {
         let limiter = Limiter::default();
         let from = |subnet: u16| {
@@ -846,6 +943,80 @@ mod tests {
         Limiter::bound(&mut windows, 5_000);
         assert_eq!(windows.len(), 1);
         assert!(windows.contains_key(&Bucket::User(-1)));
+    }
+
+    fn visitor_map(expires: i64) -> HashMap<Bucket, Window> {
+        (0..RATE_LIMIT_MAX_TRACKED)
+            .map(|i| {
+                let prefix = u128::try_from(i).expect("fits u128") << 64;
+                (
+                    Bucket::Visitor(IpAddr::V6(Ipv6Addr::from(prefix))),
+                    Window { expires, count: 1 },
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_full_map_drops_per_address_windows_before_users_and_blocks() {
+        let mut windows = visitor_map(1_001);
+        let kept = [
+            Bucket::User(7),
+            Bucket::UserBurst(7),
+            Bucket::Ipv6Block("2001:db8:5::".parse().expect("an address")),
+            Bucket::VisitorBlock("2001:db8:6::".parse().expect("an address")),
+            Bucket::Unknown,
+        ];
+        for bucket in kept {
+            windows.insert(
+                bucket,
+                Window {
+                    expires: 1_001,
+                    count: 3,
+                },
+            );
+        }
+        for bucket in [
+            Bucket::Ip("192.0.2.1".parse().expect("an address")),
+            Bucket::KeyedIp("192.0.2.2".parse().expect("an address")),
+        ] {
+            windows.insert(
+                bucket,
+                Window {
+                    expires: 1_001,
+                    count: 1,
+                },
+            );
+        }
+        Limiter::bound(&mut windows, 1_000);
+        assert_eq!(windows.len(), kept.len());
+        for bucket in kept {
+            assert_eq!(
+                windows.get(&bucket).map(|window| window.count),
+                Some(3),
+                "{bucket:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn filling_the_map_does_not_reset_a_capped_slash_48() {
+        let mut windows = visitor_map(WINDOW_SECONDS);
+        windows.insert(
+            Bucket::VisitorBlock("2001:db8:5::".parse().expect("an address")),
+            Window {
+                expires: WINDOW_SECONDS,
+                count: VISITOR_REQUESTS * IPV6_BLOCK_MULTIPLIER,
+            },
+        );
+        let limiter = Limiter {
+            windows: Mutex::new(windows),
+        };
+        let outcome = limiter.check_all(
+            &visitor_limits("2001:db8:5:9::1".parse().expect("an address")),
+            0,
+        );
+        assert!(!outcome.allowed);
     }
 
     #[test]

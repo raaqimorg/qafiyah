@@ -5,6 +5,7 @@ use axum::extract::ConnectInfo;
 use axum::http::{HeaderValue, Request, StatusCode};
 
 use crate::auth::Keys;
+use crate::constants::VISITOR_REQUESTS;
 use crate::http_tests::empty_hits;
 use crate::test_support::{FakeEs, request, send, state_with};
 
@@ -24,11 +25,19 @@ fn from(path: &str, ip: &str, key: Option<&str>) -> Request<Body> {
     builder.body(Body::empty()).expect("a request")
 }
 
-fn from_peer(peer: &str, claimed_ip: &str) -> Request<Body> {
-    let mut request = from("/v1/openapi.json", claimed_ip, None);
+fn from_peer(peer: &str, claimed_ip: &str, key: Option<&str>) -> Request<Body> {
+    let mut request = from("/v1/openapi.json", claimed_ip, key);
     let address: SocketAddr = format!("{peer}:40000").parse().expect("a socket address");
     request.extensions_mut().insert(ConnectInfo(address));
     request
+}
+
+fn unforwarded(path: &str, key: &str) -> Request<Body> {
+    Request::builder()
+        .uri(path)
+        .header("x-api-key", key)
+        .body(Body::empty())
+        .expect("a request")
 }
 
 #[tokio::test]
@@ -71,9 +80,9 @@ async fn anonymous_callers_are_counted_per_address_and_refused_at_the_ceiling() 
 async fn an_untrusted_peer_is_counted_on_its_own_address_whatever_address_it_claims() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let app = app(&es, 1);
-    let first = send(app.clone(), from_peer("198.51.100.7", "203.0.113.10")).await;
+    let first = send(app.clone(), from_peer("198.51.100.7", "203.0.113.10", None)).await;
     assert_eq!(first.status, StatusCode::OK);
-    let second = send(app, from_peer("198.51.100.7", "203.0.113.11")).await;
+    let second = send(app, from_peer("198.51.100.7", "203.0.113.11", None)).await;
     assert_eq!(
         second.status,
         StatusCode::TOO_MANY_REQUESTS,
@@ -82,20 +91,117 @@ async fn an_untrusted_peer_is_counted_on_its_own_address_whatever_address_it_cla
 }
 
 #[tokio::test]
-async fn the_unlimited_keys_bypass_the_limiter_and_carry_no_headers() {
+async fn the_full_key_and_the_sites_own_calls_bypass_the_limiter_and_carry_no_headers() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let app = app(&es, 1);
-    for key in ["internal", "full"] {
-        for _ in 0..3 {
-            let sent = send(
-                app.clone(),
-                from("/v1/openapi.json", "203.0.113.3", Some(key)),
-            )
-            .await;
-            assert_eq!(sent.status, StatusCode::OK, "{key}");
-            assert!(sent.header("x-ratelimit-limit").is_none(), "{key}");
+    for _ in 0..3 {
+        for (label, request) in [
+            (
+                "full key with an address",
+                from("/v1/openapi.json", "203.0.113.3", Some("full")),
+            ),
+            (
+                "internal key with no forwarded address",
+                unforwarded("/v1/openapi.json", "internal"),
+            ),
+            (
+                "internal key from an untrusted peer",
+                from_peer("127.0.0.1", "203.0.113.3", Some("internal")),
+            ),
+        ] {
+            let sent = send(app.clone(), request).await;
+            assert_eq!(sent.status, StatusCode::OK, "{label}");
+            assert!(sent.header("x-ratelimit-limit").is_none(), "{label}");
         }
     }
+}
+
+#[tokio::test]
+async fn a_visitor_the_website_forwards_is_counted_per_slash_64_at_the_visitor_ceiling() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let app = app(&es, 1);
+    let ceiling = VISITOR_REQUESTS.to_string();
+    for (ip, remaining) in [
+        ("2001:db8:7:7::1", VISITOR_REQUESTS - 1),
+        ("2001:db8:7:7::2", VISITOR_REQUESTS - 2),
+        ("2001:db8:7:8::1", VISITOR_REQUESTS - 1),
+    ] {
+        let sent = send(app.clone(), from("/v1/openapi.json", ip, Some("internal"))).await;
+        assert_eq!(sent.status, StatusCode::OK, "{ip}");
+        assert_eq!(
+            sent.header("x-ratelimit-limit"),
+            Some(ceiling.as_str()),
+            "{ip}"
+        );
+        assert_eq!(
+            sent.header("x-ratelimit-remaining"),
+            Some(remaining.to_string().as_str()),
+            "{ip}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_visitor_forwarded_by_the_trusted_web_container_is_counted() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let app = app(&es, 1);
+    let sent = send(
+        app,
+        from_peer("172.26.0.5", "2001:db8:9:9::1", Some("internal")),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(
+        sent.header("x-ratelimit-limit"),
+        Some(VISITOR_REQUESTS.to_string().as_str())
+    );
+    assert_eq!(
+        sent.header("x-ratelimit-remaining"),
+        Some((VISITOR_REQUESTS - 1).to_string().as_str())
+    );
+}
+
+#[tokio::test]
+async fn a_forwarded_visitor_never_touches_the_key_cache_even_with_a_key_shaped_internal_key() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let internal = "qaf_abcdefghijklmnopqrstuvwxyz012345";
+    let state = state_with(
+        &es,
+        Keys::new(Some(internal.into()), Some("full".into())),
+        1,
+    );
+    let app = crate::app(state.clone());
+    let sent = send(
+        app,
+        from("/v1/openapi.json", "2001:db8:9:9::1", Some(internal)),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(
+        sent.header("x-ratelimit-limit"),
+        Some(VISITOR_REQUESTS.to_string().as_str())
+    );
+    assert!(state.key_cache.is_empty());
+}
+
+#[tokio::test]
+async fn website_visitors_and_anonymous_callers_are_counted_apart() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let app = app(&es, 1);
+    let first = send(app.clone(), from("/v1/openapi.json", "203.0.113.40", None)).await;
+    assert_eq!(first.status, StatusCode::OK);
+    let second = send(app.clone(), from("/v1/openapi.json", "203.0.113.40", None)).await;
+    assert_eq!(second.status, StatusCode::TOO_MANY_REQUESTS);
+    let visitor = send(
+        app,
+        from("/v1/openapi.json", "203.0.113.40", Some("internal")),
+    )
+    .await;
+    assert_eq!(visitor.status, StatusCode::OK);
+    assert_eq!(
+        visitor.header("x-ratelimit-limit"),
+        Some(VISITOR_REQUESTS.to_string().as_str())
+    );
 }
 
 #[tokio::test]

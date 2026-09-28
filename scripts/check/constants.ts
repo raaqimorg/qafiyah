@@ -7,6 +7,7 @@ import {
   API_KEY_HEADER,
   API_RANDOM_POEM_PATH,
   API_V1_PREFIX,
+  CF_CONNECTING_IP_HEADER,
   DEV_API_PORT,
   DEV_POSTGRES_PORT,
   DEV_WEB_PORT,
@@ -35,6 +36,7 @@ import {
   SITEMAP_POEMS_PER_SHARD,
   SITEMAP_POETS_PER_SHARD,
   TELEGRAM_URL,
+  VISITOR_ADDRESS_HEADER,
   X_INTENT_TWEET_URL,
   X_PROFILE_URL,
 } from '@qafiyah/config';
@@ -132,6 +134,11 @@ const PINNED: readonly { constant: string; value: string; files: readonly string
     value: PROD_SITE_URL,
     files: ['apps/web/astro.config.mjs'],
   },
+  {
+    constant: 'VISITOR_ADDRESS_HEADER',
+    value: `proxy_set_header ${VISITOR_ADDRESS_HEADER} $remote_addr;`,
+    files: ['apps/web/nginx.conf'],
+  },
 ];
 
 type Drift = { file: string; constant: string; value: string };
@@ -172,6 +179,7 @@ const RUST_CONSTANTS: readonly {
       MAX_TWEET_LENGTH,
       API_V1_PREFIX,
       API_KEY_HEADER,
+      CF_CONNECTING_IP_HEADER,
       MAX_ACTIVE_KEYS_PER_USER,
       PROD_DOMAIN,
       PROD_SITE_URL,

@@ -52,6 +52,8 @@ export const API_EMAIL = `api@${PROD_DOMAIN}`;
 export const API_V1_PREFIX = '/v1';
 export const API_RANDOM_POEM_PATH = `${API_V1_PREFIX}/poems/random`;
 export const API_KEY_HEADER = 'x-api-key';
+export const CF_CONNECTING_IP_HEADER = 'cf-connecting-ip';
+export const VISITOR_ADDRESS_HEADER = 'x-real-ip';
 export const MAX_ACTIVE_KEYS_PER_USER = 2;
 
 export const DEV_WEB_PORT = 4321;

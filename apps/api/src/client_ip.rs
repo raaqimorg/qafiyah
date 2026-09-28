@@ -3,9 +3,8 @@ use std::sync::OnceLock;
 
 use axum::http::HeaderMap;
 
-use crate::constants::TRUSTED_PROXY_NETWORKS;
+use crate::constants::{CF_CONNECTING_IP_HEADER, TRUSTED_PROXY_NETWORKS};
 
-const CF_CONNECTING_IP: &str = "cf-connecting-ip";
 const X_FORWARDED_FOR: &str = "x-forwarded-for";
 
 pub fn resolve(headers: &HeaderMap) -> Option<IpAddr> {
@@ -16,6 +15,13 @@ pub fn resolve_from(headers: &HeaderMap, peer: Option<IpAddr>) -> Option<IpAddr>
     match peer {
         Some(peer) if !is_trusted_proxy(peer) => Some(peer),
         _ => resolve(headers),
+    }
+}
+
+pub fn forwarded(headers: &HeaderMap, peer: Option<IpAddr>) -> Option<IpAddr> {
+    match peer {
+        Some(peer) if !is_trusted_proxy(peer) => None,
+        _ => cloudflare(headers),
     }
 }
 
@@ -70,7 +76,7 @@ pub fn is_trusted_proxy(peer: IpAddr) -> bool {
 
 fn cloudflare(headers: &HeaderMap) -> Option<IpAddr> {
     headers
-        .get(CF_CONNECTING_IP)?
+        .get(CF_CONNECTING_IP_HEADER)?
         .to_str()
         .ok()?
         .trim()
@@ -187,6 +193,35 @@ mod tests {
     fn a_missing_peer_falls_back_to_the_header() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
         assert_eq!(resolve_from(&map, None), "203.0.113.7".parse().ok());
+    }
+
+    #[test]
+    fn a_forwarded_address_is_read_from_a_trusted_peer_or_a_missing_one() {
+        let map = headers(&[("cf-connecting-ip", "2001:db8::7")]);
+        let peer = "172.27.0.9".parse::<IpAddr>().ok();
+        assert_eq!(forwarded(&map, peer), "2001:db8::7".parse().ok());
+        assert_eq!(forwarded(&map, None), "2001:db8::7".parse().ok());
+    }
+
+    #[test]
+    fn an_untrusted_peer_never_forwards_an_address_not_even_its_own() {
+        let map = headers(&[("cf-connecting-ip", "2001:db8::7")]);
+        let peer = "127.0.0.1".parse::<IpAddr>().ok();
+        assert_eq!(forwarded(&map, peer), None);
+        assert_eq!(forwarded(&HeaderMap::new(), peer), None);
+    }
+
+    #[test]
+    fn a_forwarded_address_is_never_read_from_x_forwarded_for() {
+        let map = headers(&[("x-forwarded-for", "2001:db8::7")]);
+        let peer = "172.27.0.9".parse::<IpAddr>().ok();
+        assert_eq!(forwarded(&map, peer), None);
+    }
+
+    #[test]
+    fn a_trusted_peer_without_a_forwarding_header_forwards_nothing() {
+        let peer = "172.27.0.9".parse::<IpAddr>().ok();
+        assert_eq!(forwarded(&HeaderMap::new(), peer), None);
     }
 
     #[test]
