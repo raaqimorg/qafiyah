@@ -8,11 +8,12 @@ import {
 import { SUPPORT_EMAIL } from '@/lib/constants/config';
 import Layout from '@/layouts/layout.astro';
 import { CACHE_NONE } from '@/lib/server/cache';
+import { retryUrl } from '@/lib/urls';
 
 Astro.response.status = 500;
 Astro.response.headers.set('Cache-Control', CACHE_NONE);
 
-const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
+const retryHref = retryUrl(Astro.originPathname, Astro.url);
 ---
 
 <Layout title={SERVER_ERROR_TITLE} description={SERVER_ERROR_MESSAGE_AR} robotsIndex={false}>

@@ -7,6 +7,7 @@ import {
   poetAvatarUrl,
   poetsUrl,
   poetUrl,
+  retryUrl,
   taxonomyIndexUrl,
   taxonomyUrl,
   xProfileUrl,
@@ -69,6 +70,15 @@ describe('poemUrl', () => {
     expect(url.startsWith('/poems/TnKK#h=')).toBe(true);
     const encoded = url.slice('/poems/TnKK#h='.length);
     expect(encoded.split(',').map((part) => decodeURIComponent(part))).toEqual(['يا ليت', 'هذا']);
+  });
+});
+
+describe('retryUrl', () => {
+  it('points at the original path when the error page is a rewrite of another route', () => {
+    expect(retryUrl('/poems/random', new URL('https://qafiyah.com/500'))).toBe('/poems/random');
+  });
+  it('keeps the query string of the failed request', () => {
+    expect(retryUrl('/poets', new URL('https://qafiyah.com/poets?page=2'))).toBe('/poets?page=2');
   });
 });
 

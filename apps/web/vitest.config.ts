@@ -1,8 +1,9 @@
 import { resolve } from 'node:path';
 
-import { defineConfig } from 'vitest/config';
+import { getViteConfig } from 'astro/config';
 
-export default defineConfig({
+export default getViteConfig({
+  envDir: false,
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

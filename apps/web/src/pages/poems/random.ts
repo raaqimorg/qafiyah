@@ -8,7 +8,7 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ rewrite }) => {
   const result = await fetchRandomPoemSlugWithRetry(
     INTERNAL_API_URL,
     INTERNAL_API_KEY ? { headers: { [API_KEY_HEADER]: INTERNAL_API_KEY } } : {}
@@ -19,10 +19,7 @@ export const GET: APIRoute = async () => {
       feature: 'random-poem',
       tags: { surface: 'server', kind: result.error.kind },
     });
-    return new Response(null, {
-      status: 302,
-      headers: { Location: '/500', 'Cache-Control': 'no-store' },
-    });
+    return await rewrite('/500');
   }
   return new Response(null, {
     status: 302,

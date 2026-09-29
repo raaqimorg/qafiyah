@@ -27,6 +27,10 @@ export function raaqimUrl(): string {
   return `${API_URL}${API_V1_PREFIX}/go/raaqim`;
 }
 
+export function retryUrl(originPathname: string, url: URL): string {
+  return `${originPathname}${url.search}`;
+}
+
 function withPage(path: string, page?: number): string {
   return page !== undefined && page > 1 ? `${path}?page=${page}` : path;
 }
