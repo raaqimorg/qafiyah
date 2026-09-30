@@ -42,6 +42,22 @@
                           "query": "حب"
                         }
                       }
+                    },
+                    {
+                      "match": {
+                        "title": {
+                          "operator": "and",
+                          "query": "حب"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "content": {
+                          "operator": "and",
+                          "query": "حب"
+                        }
+                      }
                     }
                   ]
                 }
@@ -154,6 +170,180 @@
         "page": 1,
         "poetSlugs": [],
         "q": "حب",
+        "rhymeSlugs": [],
+        "themeSlugs": []
+      }
+    },
+    {
+      "body": {
+        "from": 0,
+        "highlight": {
+          "fields": {
+            "content": {
+              "matched_fields": [
+                "content",
+                "content.stemmed"
+              ]
+            }
+          },
+          "number_of_fragments": 0,
+          "post_tags": [
+            "</mark>"
+          ],
+          "pre_tags": [
+            "<mark>"
+          ]
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "match": {
+                        "title.stemmed": {
+                          "minimum_should_match": "1<75%",
+                          "query": "هذا"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "content.stemmed": {
+                          "minimum_should_match": "1<75%",
+                          "query": "هذا"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "title": {
+                          "operator": "and",
+                          "query": "هذا"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "content": {
+                          "operator": "and",
+                          "query": "هذا"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "should": [
+              {
+                "term": {
+                  "title.exact": {
+                    "boost": 131072,
+                    "value": "هذا"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "title": {
+                    "boost": 16384,
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "title.stemmed": {
+                    "boost": 2048,
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "title": {
+                    "boost": 256,
+                    "operator": "and",
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "title.stemmed": {
+                    "boost": 32,
+                    "operator": "and",
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "title.stemmed": {
+                    "boost": 4,
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "content": {
+                    "boost": 4096,
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "content.stemmed": {
+                    "boost": 512,
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "content": {
+                    "boost": 64,
+                    "operator": "and",
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "content.stemmed": {
+                    "boost": 8,
+                    "operator": "and",
+                    "query": "هذا"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "content.stemmed": {
+                    "boost": 1,
+                    "query": "هذا"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "track_total_hits": 10000
+      },
+      "note": "stopword-only query",
+      "params": {
+        "collectionSlugs": [],
+        "eraSlugs": [],
+        "meterSlugs": [],
+        "page": 1,
+        "poetSlugs": [],
+        "q": "هذا",
         "rhymeSlugs": [],
         "themeSlugs": []
       }
@@ -313,6 +503,22 @@
                       "match": {
                         "content.stemmed": {
                           "minimum_should_match": "1<75%",
+                          "query": "دمع"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "title": {
+                          "operator": "and",
+                          "query": "دمع"
+                        }
+                      }
+                    },
+                    {
+                      "match": {
+                        "content": {
+                          "operator": "and",
                           "query": "دمع"
                         }
                       }

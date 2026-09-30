@@ -65,6 +65,13 @@ const POEMS: &[(&str, PoemCase)] = &[
             ..NO_SLUGS
         },
     ),
+    (
+        "stopword-only query",
+        PoemCase {
+            q: "هذا",
+            ..NO_SLUGS
+        },
+    ),
     ("browse, no text", PoemCase { ..NO_SLUGS }),
     (
         "browse, later page",

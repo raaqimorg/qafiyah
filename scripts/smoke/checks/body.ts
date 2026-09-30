@@ -26,6 +26,18 @@ export const expectJsonObject: Check = {
   },
 };
 
+export const expectPoemHits: Check = {
+  name: 'at least one poem hit',
+  run: (body) => {
+    const parsed = parseJsonObject(body);
+    if (parsed.isErr()) return err(parsed.error);
+    const poems = parsed.value['poems'];
+    const hits = typeof poems === 'object' && poems !== null && 'data' in poems ? poems.data : null;
+    if (!Array.isArray(hits)) return err('poems.data is not an array');
+    return hits.length > 0 ? ok(undefined) : err('no poems came back');
+  },
+};
+
 export const notContainsText = (needle: string): Check => ({
   name: `does not contain ${JSON.stringify(needle)}`,
   run: (body) =>

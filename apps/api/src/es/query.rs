@@ -64,6 +64,11 @@ fn recall_gate(q: &str, fields: &[FieldSpec]) -> Value {
     should.extend(
         fields
             .iter()
+            .map(|field| json!({ "match": { field.name: { "query": q, "operator": "and" } } })),
+    );
+    should.extend(
+        fields
+            .iter()
             .filter(|field| field.supports_autocomplete)
             .map(|field| {
                 json!({ "match": { format!("{}.autocomplete", field.name): { "query": q } } })
@@ -334,6 +339,19 @@ mod tests {
             should[10]["match"]["content.stemmed"]["boost"],
             tier::STEM_SOME
         );
+    }
+
+    #[test]
+    fn the_recall_gate_also_matches_every_term_on_the_surface_fields() {
+        let body = poem_search_body(&poems("هذا", 1, false));
+        let gate = &body["query"]["bool"]["filter"][0]["bool"]["should"];
+        for field in ["title", "content"] {
+            assert!(
+                gate.as_array().expect("gate").iter().any(|clause| clause
+                    == &json!({ "match": { field: { "query": "هذا", "operator": "and" } } })),
+                "{field} has no surface clause in the recall gate"
+            );
+        }
     }
 
     #[test]

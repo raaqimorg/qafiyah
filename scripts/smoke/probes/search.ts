@@ -26,6 +26,7 @@ import {
   TATWEEL_AR,
   ZWNJ_AR,
 } from '../checks';
+import { expectJsonObject, expectPoemHits } from '../checks/body';
 import { FIXTURE_POET } from '../fixtures';
 import { SEARCH } from '../target';
 
@@ -34,6 +35,12 @@ import type { Probe } from '../types';
 export const searchOkProbes: readonly Probe[] = [
   { url: searchUrl({ q: QUERY_AR }), expect: 'ok', note: 'bare query, both sections' },
   { url: searchUrl({ q: QUERY_AR, types: ['poems'] }), expect: 'ok', note: 'poems only' },
+  {
+    url: searchUrl({ q: 'هذا', types: ['poems'] }),
+    expect: 'ok',
+    checks: [expectJsonObject, expectPoemHits],
+    note: 'stopword-only query still finds poems',
+  },
   { url: searchUrl({ q: POET_QUERY_AR, types: ['poets'] }), expect: 'ok', note: 'poets only' },
   {
     url: searchUrl({ q: QUERY_AR, exact: 'false' }),
