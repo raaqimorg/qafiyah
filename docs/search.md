@@ -62,6 +62,13 @@ Multi-fields: `title` and the name fields get `.exact` (keyword), `.stemmed`, an
 `.autocomplete`. **`content` gets `.stemmed` only**, no `.exact` and no `.autocomplete`, which is
 asserted in the schema code. Both mappings are `dynamic: "strict"`.
 
+The `.exact` keywords use the `arabic_exact` normalizer: the same char filter and token filters as
+`arabic_normalized`, applied to the whole value. A `term` query on a normalized keyword is
+normalized too, so an exact title match ignores hamza forms and diacritics (`امي` matches the title
+`أمي`) with no change to the query code. It inherits the folding's side effects as well: the `ء`
+deletion makes `ماء` and `ما` the same keyword, as they already are on every analyzed field, and
+`على` and `علي` match each other through the alef maqsura fold.
+
 ## Relevance
 
 Membership and ranking are decided separately, which is the single most important thing to
