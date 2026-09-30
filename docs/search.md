@@ -16,11 +16,16 @@ a reindex is invisible to it. Poems and poets are **separate indices**.
 
 The poems index holds every reading that isn't hidden: primaries and their alternate readings
 (recensions, see `docs/domain.md`), each with `primaryId` (its primary's id, its own id for a
-primary) and `isPrimary`. Every poem query leaves the alternates out for now, with a `must_not` on
-`isPrimary: false`. That clause also works on an index built before those fields existed, where it
-excludes nothing, so the API can ship before or after the reindex. The alternates still count in
-the index's term statistics, so their words shift scores slightly even though they are never
-returned.
+primary) and `isPrimary`. A ranked or exact poem search matches every reading and collapses the
+results on `primaryId`, so each poem appears once, represented by its best-scoring reading, and a
+line that exists only in an alternate still finds the poem. An alternate's score counts half
+(`ALTERNATE_READING_WEIGHT`), so the primary represents its poem unless an alternate matches at
+least twice as well; without that, the shorter reading would usually win on length alone. The result
+links to that reading's page. Totals count poems, not readings: a `cardinality` aggregation on
+`primaryId` (an estimate, close to exact below its `precision_threshold` of 10,000, the same cap
+totals already have). Browsing with no text lists primaries only (`isPrimary: true`). Collapsing
+needs `primaryId` in the live index, so this API must not be deployed before the reindex that adds
+it.
 
 ## Arabic text handling
 

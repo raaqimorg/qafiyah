@@ -8,6 +8,7 @@ const CLASSICAL_ERA_SLUGS: [&str; 8] = [
     "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
 ];
 const CLASSICAL_ERA_WEIGHT: f64 = 1.1;
+const ALTERNATE_READING_WEIGHT: f64 = 0.5;
 
 mod tier {
     pub(super) const SURFACE_EXACT: i64 = 32768;
@@ -181,38 +182,35 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         ("collectionSlug", &params.collection_slugs),
     ]);
 
-    let alternates = json!([{ "term": { "isPrimary": false } }]);
     let favor_classical = params.era_slugs.is_empty();
     let query = if !has_text {
-        let browse = json!({ "bool": {
-            "must": [{ "match_all": {} }],
-            "filter": filters,
-            "must_not": alternates,
-        } });
+        let mut primaries = filters;
+        primaries.push(json!({ "term": { "isPrimary": true } }));
+        let browse = json!({ "bool": { "must": [{ "match_all": {} }], "filter": primaries } });
         if favor_classical {
-            favor_classical_eras(browse)
+            scored(browse, vec![classical_era_function()])
         } else {
             browse
         }
     } else if params.exact {
-        json!({ "bool": {
+        let exact = json!({ "bool": {
             "must": [{ "match_phrase": { "content": { "query": params.q } } }],
             "filter": filters,
-            "must_not": alternates,
-        } })
+        } });
+        scored(exact, vec![alternate_reading_function()])
     } else {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
         gate.extend(filters);
         let ranked = json!({ "bool": {
             "filter": gate,
             "should": ranking_clauses(&params.q, &POEM_FIELDS),
-            "must_not": alternates,
         } });
+        let mut functions = Vec::new();
         if favor_classical {
-            favor_classical_eras(ranked)
-        } else {
-            ranked
+            functions.push(classical_era_function());
         }
+        functions.push(alternate_reading_function());
+        scored(ranked, functions)
     };
 
     let browse_sort = if favor_classical {
@@ -221,7 +219,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         json!([{ "id": "desc" }])
     };
 
-    body(
+    let mut request = body(
         params
             .page
             .saturating_sub(1)
@@ -231,16 +229,39 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         query,
         (!has_text).then_some(browse_sort),
         has_text.then(|| highlight(0, None, "content", &["content", "content.stemmed"])),
-    )
+    );
+    if let (true, Some(map)) = (has_text, request.as_object_mut()) {
+        map.insert("collapse".into(), json!({ "field": "primaryId" }));
+        map.insert(
+            "aggs".into(),
+            json!({ "poems": { "cardinality": {
+                "field": "primaryId",
+                "precision_threshold": ES_MAX_RESULT_WINDOW,
+            } } }),
+        );
+    }
+    request
 }
 
-fn favor_classical_eras(query: Value) -> Value {
+fn classical_era_function() -> Value {
+    json!({
+        "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
+        "weight": CLASSICAL_ERA_WEIGHT,
+    })
+}
+
+fn alternate_reading_function() -> Value {
+    json!({
+        "filter": { "term": { "isPrimary": false } },
+        "weight": ALTERNATE_READING_WEIGHT,
+    })
+}
+
+fn scored(query: Value, functions: Vec<Value>) -> Value {
     json!({ "function_score": {
         "query": query,
-        "functions": [{
-            "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
-            "weight": CLASSICAL_ERA_WEIGHT,
-        }],
+        "functions": functions,
+        "score_mode": "multiply",
         "boost_mode": "multiply",
     } })
 }
@@ -362,7 +383,10 @@ mod tests {
         assert_eq!(body["query"]["bool"]["must"], json!([{ "match_all": {} }]));
         assert_eq!(
             body["query"]["bool"]["filter"],
-            json!([{ "terms": { "eraSlug": ["hadith"] } }])
+            json!([
+                { "terms": { "eraSlug": ["hadith"] } },
+                { "term": { "isPrimary": true } },
+            ])
         );
     }
 
@@ -393,8 +417,10 @@ mod tests {
             scored["query"],
             json!({ "bool": {
                 "must": [{ "match_all": {} }],
-                "filter": [{ "terms": { "meterSlug": ["altawil"] } }],
-                "must_not": [{ "term": { "isPrimary": false } }],
+                "filter": [
+                    { "terms": { "meterSlug": ["altawil"] } },
+                    { "term": { "isPrimary": true } },
+                ],
             } })
         );
     }
@@ -402,11 +428,12 @@ mod tests {
     #[test]
     fn an_exact_poem_query_is_a_single_phrase_on_content() {
         let body = poem_search_body(&poems("يا رب", 1, true));
+        let exact = &body["query"]["function_score"]["query"]["bool"];
         assert_eq!(
-            body["query"]["bool"]["must"],
+            exact["must"],
             json!([{ "match_phrase": { "content": { "query": "يا رب" } } }])
         );
-        assert!(body["query"]["bool"].get("should").is_none());
+        assert!(exact.get("should").is_none());
         assert_eq!(body["highlight"]["number_of_fragments"], 0);
     }
 
@@ -452,62 +479,100 @@ mod tests {
         let scored = &body["query"]["function_score"];
         assert_eq!(scored["boost_mode"], "multiply");
         assert_eq!(
-            scored["functions"],
-            json!([{
+            scored["functions"][0],
+            json!({
                 "filter": { "terms": { "eraSlug": [
                     "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
                 ] } },
                 "weight": 1.1,
-            }])
+            })
         );
     }
 
-    #[test]
-    fn every_poem_query_leaves_alternate_readings_out() {
-        let with_era = |q: &str, exact: bool| PoemSearchParams {
+    fn with_era(q: &str, exact: bool) -> PoemSearchParams {
+        PoemSearchParams {
             q: q.into(),
             page: 1,
             exact,
             era_slugs: vec!["abbasi".into()],
             ..PoemSearchParams::default()
-        };
-        let alternates_out = json!([{ "term": { "isPrimary": false } }]);
-        for body in [
-            poem_search_body(&poems("حب", 1, false)),
-            poem_search_body(&poems("حب", 1, true)),
-            poem_search_body(&poems("", 1, false)),
-            poem_search_body(&with_era("حب", false)),
-            poem_search_body(&with_era("حب", true)),
-            poem_search_body(&with_era("", false)),
-        ] {
-            let query = &body["query"];
-            let bool_query = if query["function_score"].is_object() {
-                &query["function_score"]["query"]["bool"]
-            } else {
-                &query["bool"]
-            };
-            assert_eq!(bool_query["must_not"], alternates_out, "{query}");
         }
     }
 
     #[test]
-    fn a_ranked_poem_query_with_an_era_filter_is_not_boosted() {
+    fn ranked_and_exact_poem_queries_count_an_alternate_reading_at_half_its_score() {
+        let half = json!({ "filter": { "term": { "isPrimary": false } }, "weight": 0.5 });
+        for body in [
+            poem_search_body(&poems("حب", 1, false)),
+            poem_search_body(&poems("حب", 1, true)),
+            poem_search_body(&with_era("حب", false)),
+            poem_search_body(&with_era("حب", true)),
+        ] {
+            let scored = &body["query"]["function_score"];
+            let functions = scored["functions"].as_array().expect("functions");
+            assert_eq!(functions.last(), Some(&half), "{scored}");
+            assert_eq!(scored["score_mode"], "multiply");
+            assert_eq!(scored["boost_mode"], "multiply");
+            assert!(scored["query"]["bool"].get("must_not").is_none());
+        }
+    }
+
+    #[test]
+    fn ranked_and_exact_poem_queries_show_each_poem_once_and_count_poems_not_readings() {
+        for body in [
+            poem_search_body(&poems("حب", 1, false)),
+            poem_search_body(&poems("حب", 1, true)),
+            poem_search_body(&with_era("حب", false)),
+        ] {
+            assert_eq!(body["collapse"], json!({ "field": "primaryId" }));
+            assert_eq!(
+                body["aggs"],
+                json!({ "poems": { "cardinality": {
+                    "field": "primaryId",
+                    "precision_threshold": ES_MAX_RESULT_WINDOW,
+                } } })
+            );
+        }
+    }
+
+    #[test]
+    fn a_poem_browse_lists_primary_readings_only_without_collapsing() {
+        for body in [
+            poem_search_body(&poems("", 1, false)),
+            poem_search_body(&with_era("", false)),
+        ] {
+            let browse = if body["query"]["function_score"].is_object() {
+                &body["query"]["function_score"]["query"]["bool"]
+            } else {
+                &body["query"]["bool"]
+            };
+            let filter = browse["filter"].as_array().expect("filters");
+            assert_eq!(
+                filter.last(),
+                Some(&json!({ "term": { "isPrimary": true } }))
+            );
+            assert!(body.get("collapse").is_none());
+            assert!(body.get("aggs").is_none());
+        }
+    }
+
+    #[test]
+    fn a_ranked_poem_query_with_an_era_filter_is_not_boosted_by_era() {
         let body = poem_search_body(&PoemSearchParams {
             q: "حب".into(),
             page: 1,
             era_slugs: vec!["hadith".into()],
             ..PoemSearchParams::default()
         });
-        assert!(body["query"].get("function_score").is_none());
-        let filter = body["query"]["bool"]["filter"].as_array().expect("filters");
-        assert_eq!(filter[1], json!({ "terms": { "eraSlug": ["hadith"] } }));
+        let scored = &body["query"]["function_score"];
         assert_eq!(
-            body["query"]["bool"]["should"]
-                .as_array()
-                .expect("ranking")
-                .len(),
-            11
+            scored["functions"],
+            json!([{ "filter": { "term": { "isPrimary": false } }, "weight": 0.5 }])
         );
+        let ranked = &scored["query"]["bool"];
+        let filter = ranked["filter"].as_array().expect("filters");
+        assert_eq!(filter[1], json!({ "terms": { "eraSlug": ["hadith"] } }));
+        assert_eq!(ranked["should"].as_array().expect("ranking").len(), 11);
     }
 
     #[test]
