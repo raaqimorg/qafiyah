@@ -181,8 +181,14 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         ("collectionSlug", &params.collection_slugs),
     ]);
 
+    let favor_classical = params.era_slugs.is_empty();
     let query = if !has_text {
-        json!({ "bool": { "must": [{ "match_all": {} }], "filter": filters } })
+        let browse = json!({ "bool": { "must": [{ "match_all": {} }], "filter": filters } });
+        if favor_classical {
+            favor_classical_eras(browse)
+        } else {
+            browse
+        }
     } else if params.exact {
         json!({ "bool": {
             "must": [{ "match_phrase": { "content": { "query": params.q } } }],
@@ -195,18 +201,17 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
             "filter": gate,
             "should": ranking_clauses(&params.q, &POEM_FIELDS),
         } });
-        if params.era_slugs.is_empty() {
-            json!({ "function_score": {
-                "query": ranked,
-                "functions": [{
-                    "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
-                    "weight": CLASSICAL_ERA_WEIGHT,
-                }],
-                "boost_mode": "multiply",
-            } })
+        if favor_classical {
+            favor_classical_eras(ranked)
         } else {
             ranked
         }
+    };
+
+    let browse_sort = if favor_classical {
+        json!([{ "_score": "desc" }, { "id": "desc" }])
+    } else {
+        json!([{ "id": "desc" }])
     };
 
     body(
@@ -217,9 +222,20 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         SEARCH_POEMS_PER_PAGE,
         ES_MAX_RESULT_WINDOW,
         query,
-        (!has_text).then(|| json!([{ "id": "desc" }])),
+        (!has_text).then_some(browse_sort),
         has_text.then(|| highlight(0, None, "content", &["content", "content.stemmed"])),
     )
+}
+
+fn favor_classical_eras(query: Value) -> Value {
+    json!({ "function_score": {
+        "query": query,
+        "functions": [{
+            "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
+            "weight": CLASSICAL_ERA_WEIGHT,
+        }],
+        "boost_mode": "multiply",
+    } })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -325,14 +341,54 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_poem_query_browses_by_id_without_highlighting() {
-        let body = poem_search_body(&poems("", 1, false));
+    fn an_empty_poem_query_with_an_era_filter_browses_by_id_without_highlighting() {
+        let body = poem_search_body(&PoemSearchParams {
+            page: 1,
+            era_slugs: vec!["hadith".into()],
+            ..PoemSearchParams::default()
+        });
         assert_eq!(body["from"], 0);
         assert_eq!(body["size"], SEARCH_POEMS_PER_PAGE);
         assert_eq!(body["track_total_hits"], ES_MAX_RESULT_WINDOW);
         assert_eq!(body["sort"], json!([{ "id": "desc" }]));
         assert!(body.get("highlight").is_none());
         assert_eq!(body["query"]["bool"]["must"], json!([{ "match_all": {} }]));
+        assert_eq!(
+            body["query"]["bool"]["filter"],
+            json!([{ "terms": { "eraSlug": ["hadith"] } }])
+        );
+    }
+
+    #[test]
+    fn an_empty_poem_query_with_no_era_filter_lists_classical_poems_first_then_by_id() {
+        let body = poem_search_body(&PoemSearchParams {
+            page: 1,
+            meter_slugs: vec!["altawil".into()],
+            ..PoemSearchParams::default()
+        });
+        assert_eq!(
+            body["sort"],
+            json!([{ "_score": "desc" }, { "id": "desc" }])
+        );
+        assert!(body.get("highlight").is_none());
+        let scored = &body["query"]["function_score"];
+        assert_eq!(scored["boost_mode"], "multiply");
+        assert_eq!(
+            scored["functions"],
+            json!([{
+                "filter": { "terms": { "eraSlug": [
+                    "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
+                ] } },
+                "weight": 1.1,
+            }])
+        );
+        assert_eq!(
+            scored["query"],
+            json!({ "bool": {
+                "must": [{ "match_all": {} }],
+                "filter": [{ "terms": { "meterSlug": ["altawil"] } }],
+            } })
+        );
     }
 
     #[test]
