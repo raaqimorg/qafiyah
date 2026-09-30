@@ -73,6 +73,13 @@
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
           }
+        },
+        "normalizer": {
+          "arabic_exact": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding"],
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
+          }
         }
       }
     },
@@ -91,6 +98,7 @@
           "fields": {
             "exact": {
               "type": "keyword",
+              "normalizer": "arabic_exact",
               "ignore_above": 256
             },
             "stemmed": {
@@ -120,6 +128,7 @@
           "fields": {
             "exact": {
               "type": "keyword",
+              "normalizer": "arabic_exact",
               "ignore_above": 256
             },
             "stemmed": {
@@ -257,6 +266,13 @@
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
           }
+        },
+        "normalizer": {
+          "arabic_exact": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding"],
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
+          }
         }
       }
     },
@@ -275,6 +291,7 @@
           "fields": {
             "exact": {
               "type": "keyword",
+              "normalizer": "arabic_exact",
               "ignore_above": 256
             },
             "stemmed": {
