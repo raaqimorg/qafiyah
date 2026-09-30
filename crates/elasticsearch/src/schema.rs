@@ -144,6 +144,13 @@ mod tests {
     }
 
     #[test]
+    fn poems_carry_the_id_of_their_primary_and_a_primary_flag_for_grouping_readings() {
+        let poems = &load().poems["mappings"]["properties"];
+        assert_eq!(poems["primaryId"]["type"], "integer");
+        assert_eq!(poems["isPrimary"]["type"], "boolean");
+    }
+
+    #[test]
     fn poets_store_a_count_and_a_sortable_name() {
         let poets = &load().poets["mappings"]["properties"];
         assert_eq!(poets["poemsCount"]["type"], "integer");

@@ -181,9 +181,14 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         ("collectionSlug", &params.collection_slugs),
     ]);
 
+    let alternates = json!([{ "term": { "isPrimary": false } }]);
     let favor_classical = params.era_slugs.is_empty();
     let query = if !has_text {
-        let browse = json!({ "bool": { "must": [{ "match_all": {} }], "filter": filters } });
+        let browse = json!({ "bool": {
+            "must": [{ "match_all": {} }],
+            "filter": filters,
+            "must_not": alternates,
+        } });
         if favor_classical {
             favor_classical_eras(browse)
         } else {
@@ -193,6 +198,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         json!({ "bool": {
             "must": [{ "match_phrase": { "content": { "query": params.q } } }],
             "filter": filters,
+            "must_not": alternates,
         } })
     } else {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
@@ -200,6 +206,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         let ranked = json!({ "bool": {
             "filter": gate,
             "should": ranking_clauses(&params.q, &POEM_FIELDS),
+            "must_not": alternates,
         } });
         if favor_classical {
             favor_classical_eras(ranked)
@@ -387,6 +394,7 @@ mod tests {
             json!({ "bool": {
                 "must": [{ "match_all": {} }],
                 "filter": [{ "terms": { "meterSlug": ["altawil"] } }],
+                "must_not": [{ "term": { "isPrimary": false } }],
             } })
         );
     }
@@ -452,6 +460,34 @@ mod tests {
                 "weight": 1.1,
             }])
         );
+    }
+
+    #[test]
+    fn every_poem_query_leaves_alternate_readings_out() {
+        let with_era = |q: &str, exact: bool| PoemSearchParams {
+            q: q.into(),
+            page: 1,
+            exact,
+            era_slugs: vec!["abbasi".into()],
+            ..PoemSearchParams::default()
+        };
+        let alternates_out = json!([{ "term": { "isPrimary": false } }]);
+        for body in [
+            poem_search_body(&poems("حب", 1, false)),
+            poem_search_body(&poems("حب", 1, true)),
+            poem_search_body(&poems("", 1, false)),
+            poem_search_body(&with_era("حب", false)),
+            poem_search_body(&with_era("حب", true)),
+            poem_search_body(&with_era("", false)),
+        ] {
+            let query = &body["query"];
+            let bool_query = if query["function_score"].is_object() {
+                &query["function_score"]["query"]["bool"]
+            } else {
+                &query["bool"]
+            };
+            assert_eq!(bool_query["must_not"], alternates_out, "{query}");
+        }
     }
 
     #[test]

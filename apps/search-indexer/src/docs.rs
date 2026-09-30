@@ -18,6 +18,8 @@ pub(crate) struct PoemSource {
     pub theme_slug: String,
     pub rhyme_slug: String,
     pub collection_slug: String,
+    pub primary_id: i32,
+    pub is_primary: bool,
 }
 
 pub(crate) struct PoetSource {
@@ -50,6 +52,8 @@ pub(crate) struct PoemDoc {
     pub theme_slug: String,
     pub rhyme_slug: String,
     pub collection_slug: String,
+    pub primary_id: i32,
+    pub is_primary: bool,
 }
 
 #[derive(Serialize)]
@@ -85,6 +89,8 @@ pub(crate) fn to_poem_doc(src: PoemSource) -> PoemDoc {
         theme_slug: src.theme_slug,
         rhyme_slug: src.rhyme_slug,
         collection_slug: src.collection_slug,
+        primary_id: src.primary_id,
+        is_primary: src.is_primary,
     }
 }
 
@@ -124,6 +130,8 @@ mod tests {
             theme_slug: "alnasib".into(),
             rhyme_slug: "meem".into(),
             collection_slug: String::new(),
+            primary_id: 7,
+            is_primary: true,
         }
     }
 
@@ -157,6 +165,21 @@ mod tests {
         );
         assert!(doc.poet_has_avatar);
         assert!(!doc.poet_is_anonymous);
+    }
+
+    #[test]
+    fn a_poem_document_carries_the_id_of_its_primary_and_whether_it_is_the_primary() {
+        let primary = to_poem_doc(poem());
+        assert_eq!((primary.primary_id, primary.is_primary), (7, true));
+        let mut reading = poem();
+        reading.id = 9;
+        reading.primary_id = 7;
+        reading.is_primary = false;
+        let alternate = to_poem_doc(reading);
+        assert_eq!(
+            (alternate.id, alternate.primary_id, alternate.is_primary),
+            (9, 7, false)
+        );
     }
 
     #[test]

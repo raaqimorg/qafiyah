@@ -85,6 +85,13 @@
                     }
                   }
                 ],
+                "must_not": [
+                  {
+                    "term": {
+                      "isPrimary": false
+                    }
+                  }
+                ],
                 "should": [
                   {
                     "term": {
@@ -283,6 +290,13 @@
                     }
                   }
                 ],
+                "must_not": [
+                  {
+                    "term": {
+                      "isPrimary": false
+                    }
+                  }
+                ],
                 "should": [
                   {
                     "term": {
@@ -428,6 +442,13 @@
                   {
                     "match_all": {}
                   }
+                ],
+                "must_not": [
+                  {
+                    "term": {
+                      "isPrimary": false
+                    }
+                  }
                 ]
               }
             }
@@ -488,6 +509,13 @@
                   {
                     "match_all": {}
                   }
+                ],
+                "must_not": [
+                  {
+                    "term": {
+                      "isPrimary": false
+                    }
+                  }
                 ]
               }
             }
@@ -545,6 +573,13 @@
                   "content": {
                     "query": "يا رب"
                   }
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "term": {
+                  "isPrimary": false
                 }
               }
             ]
@@ -633,6 +668,13 @@
                   "eraSlug": [
                     "jahili"
                   ]
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "term": {
+                  "isPrimary": false
                 }
               }
             ],
@@ -803,6 +845,13 @@
               {
                 "match_all": {}
               }
+            ],
+            "must_not": [
+              {
+                "term": {
+                  "isPrimary": false
+                }
+              }
             ]
           }
         },
@@ -876,6 +925,13 @@
                   "content": {
                     "query": "صبر"
                   }
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "term": {
+                  "isPrimary": false
                 }
               }
             ]
