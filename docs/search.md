@@ -119,14 +119,18 @@ Highlighting asks for `number_of_fragments: 0`, so ES returns the **whole** cont
 `content.stemmed` so a stem hit still highlights the surface form.
 
 The API then picks one verse to show. It splits content on `*` and walks **two hemistichs at a
-time**, one verse per step, scoring each verse by its longest single `<mark>` run. Two details
+time**, one verse per step, scoring each verse by its longest single `<mark>` run. Three details
 worth knowing:
 
+- A phrase can be highlighted across the `*` (the tokenizer treats it as an ordinary separator),
+  so one `<mark>` may open in one hemistich and close in the next. Before scoring, the API closes
+  such a mark at the end of its hemistich and reopens it at the start of the next, so every
+  hemistich has balanced tags and each part of the mark counts for its own verse.
 - The run is measured in **UTF-16 code units**, for parity with the JavaScript client.
 - The comparison is strictly greater, so on a tie the **earlier** verse wins. That is what the
   `keeps_the_first_of_two_equal_spans` test pins.
 
-With no highlight, it falls back to the opening verse. An unclosed `<mark>` scores zero.
+With no highlight, it falls back to the opening verse.
 
 ## What search deliberately does not do
 
