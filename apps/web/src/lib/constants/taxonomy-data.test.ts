@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_ERA_SLUGS, sortMeterOptions } from './taxonomy-data';
-
-describe('DEFAULT_ERA_SLUGS', () => {
-  it('lists each era once', () => {
-    expect(new Set(DEFAULT_ERA_SLUGS).size).toBe(DEFAULT_ERA_SLUGS.length);
-  });
-});
+import { sortMeterOptions } from './taxonomy-data';
 
 describe('sortMeterOptions', () => {
   it('orders the standard meters by their classical order first', () => {

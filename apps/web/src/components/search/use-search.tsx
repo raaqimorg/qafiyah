@@ -8,7 +8,6 @@ import { apiBrowser } from '@/lib/api/browser-client';
 import { searchQueryKey, searchQueryParams } from '@/lib/api/search-query';
 import { sanitizeArabicInput, stripInputNoise } from '@/lib/arabic';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
-import { DEFAULT_ERA_SLUGS } from '@/lib/constants/taxonomy-data';
 import { createCsvFilterSetter, splitCsvIds, validateText } from '@/lib/search/csv-filters';
 
 import { deriveSearchStatus, deriveSectionStatus } from './search-status';
@@ -94,21 +93,19 @@ export function useSearch() {
   const wantPoems = true;
   const wantPoets = true;
 
-  const erasFromUrl = splitCsvIds(eraIds);
-  const erasCustomized = erasFromUrl.length > 0;
-  const selectedEras = erasCustomized ? erasFromUrl : DEFAULT_ERA_SLUGS;
+  const selectedEras = splitCsvIds(eraIds);
   const selectedRhymes = splitCsvIds(rhymeIds);
   const selectedMeters = splitCsvIds(meterIds);
   const selectedThemes = splitCsvIds(themeIds);
   const selectedCollections = splitCsvIds(collectionIds);
 
   const hasFilters =
-    erasCustomized ||
+    selectedEras.length > 0 ||
     selectedRhymes.length > 0 ||
     selectedMeters.length > 0 ||
     selectedThemes.length > 0 ||
     selectedCollections.length > 0;
-  const hasPoetFilters = erasCustomized;
+  const hasPoetFilters = selectedEras.length > 0;
   const hasCommittedQuery = query.trim().length > 0;
   const hasInputText = inputValue.trim().length > 0;
   const canSearchPoems = hasCommittedQuery || hasFilters;
@@ -118,7 +115,7 @@ export function useSearch() {
     q: query,
     type,
     page,
-    eras: type === 'poets' && !erasCustomized ? [] : selectedEras,
+    eras: selectedEras,
     meters: selectedMeters,
     rhymes: selectedRhymes,
     themes: selectedThemes,
@@ -282,7 +279,6 @@ export function useSearch() {
       hasCommittedQuery,
       hasInputText,
       hasFilters,
-      erasCustomized,
       wantPoems,
       wantPoets,
       exactEnabled: exact,

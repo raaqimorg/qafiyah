@@ -51,7 +51,6 @@ export function Filters({ filters, wantPoems }: Props) {
             onChange={filters.eras.onChange}
             placeholder={SEARCH_TEXTS.allPlaceholder}
             allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-            allOptionMode="every"
             multiple={true}
             sortOptions={false}
             showCounts={true}

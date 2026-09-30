@@ -67,8 +67,6 @@ export function SearchContainer({
   const poemsResultText = getSectionResultText({ count: sections.poems.total });
   const poetsResultText = getSectionResultText({ count: sections.poets.total });
 
-  const erasBadgeLength = flags.erasCustomized ? selection.eras.length : 0;
-
   const placeholder = flags.wantPoems
     ? SEARCH_TEXTS.poemsSearchPlaceholder
     : SEARCH_TEXTS.poetsSearchPlaceholder;
@@ -119,7 +117,7 @@ export function SearchContainer({
                   </div>
 
                   <FilterBadges
-                    erasCount={getBadgeCount(erasBadgeLength, ERAS_NOUN_FORMS)}
+                    erasCount={getBadgeCount(selection.eras.length || 0, ERAS_NOUN_FORMS)}
                     metersCount={getBadgeCount(selection.meters.length || 0, METERS_NOUN_FORMS)}
                     themesCount={getBadgeCount(selection.themes.length || 0, THEMES_NOUN_FORMS)}
                     rhymesCount={getBadgeCount(selection.rhymes.length || 0, RHYMES_NOUN_FORMS)}
@@ -127,7 +125,7 @@ export function SearchContainer({
                       selection.collections.length || 0,
                       COLLECTIONS_NOUN_FORMS
                     )}
-                    selectedErasLength={erasBadgeLength}
+                    selectedErasLength={selection.eras.length}
                     selectedMetersLength={selection.meters.length}
                     selectedRhymesLength={selection.rhymes.length}
                     selectedThemesLength={selection.themes.length}

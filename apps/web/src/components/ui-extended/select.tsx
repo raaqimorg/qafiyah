@@ -12,8 +12,6 @@ import type React from 'react';
 
 const ALL_OPTION_VALUE = '__all__';
 
-type AllOptionMode = 'clear' | 'every';
-
 type Props = {
   readonly options: readonly SelectOption[];
   readonly value: string | readonly string[];
@@ -26,7 +24,6 @@ type Props = {
   readonly sortOptions?: boolean;
   readonly clearValue?: string;
   readonly allOptionLabel?: string;
-  readonly allOptionMode?: AllOptionMode;
   readonly showCounts?: boolean;
 };
 
@@ -42,7 +39,6 @@ export function Select({
   sortOptions = true,
   clearValue,
   allOptionLabel,
-  allOptionMode = 'clear',
   showCounts = false,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
@@ -69,13 +65,7 @@ export function Select({
     [visibleOptions, multiple, allOptionLabel]
   );
 
-  const isAllSelected = useMemo(
-    () =>
-      allOptionMode === 'every'
-        ? selectedValues.length === options.length
-        : selectedValues.length === 0,
-    [allOptionMode, selectedValues.length, options.length]
-  );
+  const isAllSelected = useMemo(() => selectedValues.length === 0, [selectedValues.length]);
 
   const isOptionSelected = useCallback(
     (option: SelectOption) =>
@@ -94,7 +84,7 @@ export function Select({
     (option: SelectOption) => {
       if (multiple) {
         if (option.value === ALL_OPTION_VALUE) {
-          onChange(allOptionMode === 'every' ? options.map((entry) => entry.value) : []);
+          onChange([]);
         } else if (selectedValues.includes(option.value)) {
           onChange(selectedValues.filter((v) => v !== option.value));
         } else {
@@ -105,7 +95,7 @@ export function Select({
         setIsOpen(false);
       }
     },
-    [multiple, onChange, selectedValues, allOptionMode, options]
+    [multiple, onChange, selectedValues]
   );
 
   const canClear = multiple ? selectedValues.length > 0 : value !== (clearValue ?? '');

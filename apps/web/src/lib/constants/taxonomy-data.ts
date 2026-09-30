@@ -20,17 +20,6 @@ export const ERAS_NOUN_FORMS = {
   plural: 'عصور',
 } as const satisfies ArabicNounForms;
 
-export const DEFAULT_ERA_SLUGS: readonly string[] = [
-  'jahili',
-  'islami',
-  'umawi',
-  'abbasi',
-  'andalusi',
-  'fatimi',
-  'ayyubi',
-  'mamluki',
-];
-
 export const METERS_NOUN_FORMS = {
   singular: 'بحر',
   dual: 'بحران',
