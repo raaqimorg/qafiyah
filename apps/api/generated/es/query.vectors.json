@@ -21,142 +21,166 @@
           ]
         },
         "query": {
-          "bool": {
-            "filter": [
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
               {
-                "bool": {
-                  "minimum_should_match": 1,
-                  "should": [
-                    {
-                      "match": {
-                        "title.stemmed": {
-                          "minimum_should_match": "1<75%",
-                          "query": "حب"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "content.stemmed": {
-                          "minimum_should_match": "1<75%",
-                          "query": "حب"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "title": {
-                          "operator": "and",
-                          "query": "حب"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "content": {
-                          "operator": "and",
-                          "query": "حب"
-                        }
-                      }
-                    }
-                  ]
-                }
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
               }
             ],
-            "should": [
-              {
-                "term": {
-                  "title.exact": {
-                    "boost": 131072,
-                    "value": "حب"
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "match": {
+                            "title.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "حب"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "حب"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "title": {
+                              "operator": "and",
+                              "query": "حب"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content": {
+                              "operator": "and",
+                              "query": "حب"
+                            }
+                          }
+                        }
+                      ]
+                    }
                   }
-                }
-              },
-              {
-                "match_phrase": {
-                  "title": {
-                    "boost": 16384,
-                    "query": "حب"
+                ],
+                "should": [
+                  {
+                    "term": {
+                      "title.exact": {
+                        "boost": 131072,
+                        "value": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title": {
+                        "boost": 16384,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title.stemmed": {
+                        "boost": 2048,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title": {
+                        "boost": 256,
+                        "operator": "and",
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 32,
+                        "operator": "and",
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 4,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content": {
+                        "boost": 4096,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content.stemmed": {
+                        "boost": 512,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content": {
+                        "boost": 64,
+                        "operator": "and",
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 8,
+                        "operator": "and",
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 1,
+                        "query": "حب"
+                      }
+                    }
                   }
-                }
-              },
-              {
-                "match_phrase": {
-                  "title.stemmed": {
-                    "boost": 2048,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title": {
-                    "boost": 256,
-                    "operator": "and",
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title.stemmed": {
-                    "boost": 32,
-                    "operator": "and",
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title.stemmed": {
-                    "boost": 4,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "content": {
-                    "boost": 4096,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "content.stemmed": {
-                    "boost": 512,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content": {
-                    "boost": 64,
-                    "operator": "and",
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content.stemmed": {
-                    "boost": 8,
-                    "operator": "and",
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content.stemmed": {
-                    "boost": 1,
-                    "query": "حب"
-                  }
-                }
+                ]
               }
-            ]
+            }
           }
         },
         "size": 20,
@@ -195,142 +219,166 @@
           ]
         },
         "query": {
-          "bool": {
-            "filter": [
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
               {
-                "bool": {
-                  "minimum_should_match": 1,
-                  "should": [
-                    {
-                      "match": {
-                        "title.stemmed": {
-                          "minimum_should_match": "1<75%",
-                          "query": "هذا"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "content.stemmed": {
-                          "minimum_should_match": "1<75%",
-                          "query": "هذا"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "title": {
-                          "operator": "and",
-                          "query": "هذا"
-                        }
-                      }
-                    },
-                    {
-                      "match": {
-                        "content": {
-                          "operator": "and",
-                          "query": "هذا"
-                        }
-                      }
-                    }
-                  ]
-                }
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
               }
             ],
-            "should": [
-              {
-                "term": {
-                  "title.exact": {
-                    "boost": 131072,
-                    "value": "هذا"
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "match": {
+                            "title.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "هذا"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "هذا"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "title": {
+                              "operator": "and",
+                              "query": "هذا"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content": {
+                              "operator": "and",
+                              "query": "هذا"
+                            }
+                          }
+                        }
+                      ]
+                    }
                   }
-                }
-              },
-              {
-                "match_phrase": {
-                  "title": {
-                    "boost": 16384,
-                    "query": "هذا"
+                ],
+                "should": [
+                  {
+                    "term": {
+                      "title.exact": {
+                        "boost": 131072,
+                        "value": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title": {
+                        "boost": 16384,
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title.stemmed": {
+                        "boost": 2048,
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title": {
+                        "boost": 256,
+                        "operator": "and",
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 32,
+                        "operator": "and",
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 4,
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content": {
+                        "boost": 4096,
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content.stemmed": {
+                        "boost": 512,
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content": {
+                        "boost": 64,
+                        "operator": "and",
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 8,
+                        "operator": "and",
+                        "query": "هذا"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 1,
+                        "query": "هذا"
+                      }
+                    }
                   }
-                }
-              },
-              {
-                "match_phrase": {
-                  "title.stemmed": {
-                    "boost": 2048,
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title": {
-                    "boost": 256,
-                    "operator": "and",
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title.stemmed": {
-                    "boost": 32,
-                    "operator": "and",
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "title.stemmed": {
-                    "boost": 4,
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "content": {
-                    "boost": 4096,
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "content.stemmed": {
-                    "boost": 512,
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content": {
-                    "boost": 64,
-                    "operator": "and",
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content.stemmed": {
-                    "boost": 8,
-                    "operator": "and",
-                    "query": "هذا"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "content.stemmed": {
-                    "boost": 1,
-                    "query": "هذا"
-                  }
-                }
+                ]
               }
-            ]
+            }
           }
         },
         "size": 20,
