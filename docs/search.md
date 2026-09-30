@@ -87,8 +87,9 @@ A ranked poem search with no era filter then multiplies the score of a poem from
 (jahili through mamluki, `CLASSICAL_ERA_SLUGS`) by `CLASSICAL_ERA_WEIGHT` (1.1) in a
 `function_score`, and leaves every other poem's score unchanged, so a classical poem passes a later
 one only when its score was already within about 9% of it. It never changes which poems match. A
-search with an era filter, the empty-`q` browse and `exact=true` are not boosted. The list is the
-same eight eras as the related-poems pool (`tmp_pool` in
+search with an era filter and `exact=true` are not boosted. The empty-`q` browse with no era filter
+uses the same weight (see below), where it becomes a strict order because every browsed poem scores
+the same. The list is the same eight eras as the related-poems pool (`tmp_pool` in
 `scripts/db/sql/refresh-poem-relations.sql`); change both together.
 
 Poets use a flatter, independent ladder: exact 12, phrase 6, stemmed 3, prefix/autocomplete 2,
@@ -104,8 +105,13 @@ interleave them.
 Facets: poems filter by poet, era, meter, theme, rhyme, and collection; poets filter by era only.
 Combining a poem-only facet with `types=poets` is a 400, not a silent no-op.
 
-An empty `q` becomes `match_all` sorted by `id desc` (the `/poets` list: `poemsCount desc`, then
-`nameSort asc`, then `id asc`) with no highlighting.
+An empty `q` becomes `match_all` with no highlighting. For poems with an era filter it is sorted by
+`id desc`. With no era filter it is wrapped in the classical-era `function_score` and sorted by
+`_score desc`, then `id desc`: every browsed poem scores the same, so every classical poem comes
+first, then the rest, each group newest id first. With the 10,000-result window, a large filter such
+as meter `altawil` (about 26,900 classical poems) then only reaches its classical poems by paging;
+the rest need an era filter. Poets browse by `id desc`, and the `/poets` list by `poemsCount desc`,
+then `nameSort asc`, then `id asc`.
 `exact=true` drops the whole ladder for a single `match_phrase`, with no tiers, fuzziness, or
 ngrams, though letter folding still applies because it is a char filter, not a query option.
 
