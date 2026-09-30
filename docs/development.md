@@ -60,7 +60,7 @@ bun run db:up           # start just Postgres + Elasticsearch (docker compose up
 bun run db:reset        # wipe the local Postgres volume, restore the dump fresh
 bun run down            # stop the Docker Compose stack
 bun run clean           # kill stray astro/qafiyah-api processes from a previous run
-bun run reindex         # force-rebuild the Elasticsearch indices from Postgres
+bun run reindex         # rebuild the indexer image, then force-rebuild the Elasticsearch indices from Postgres
 ```
 
 The sample dataset needs no credentials: `scripts/dev/compose.sh` and `scripts/dev/run.ts` default every dev database and Elasticsearch password, so a fresh clone has no `.env` at all. Two things change that:
