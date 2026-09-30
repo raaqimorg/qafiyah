@@ -14,6 +14,14 @@ rows to documents, bulk-writes them into a fresh versioned index (`poems_v<N>`, 
 then atomically swaps the `poems`/`poets` alias onto it. The API only ever queries the alias, so
 a reindex is invisible to it. Poems and poets are **separate indices**.
 
+The poems index holds every reading that isn't hidden: primaries and their alternate readings
+(recensions, see `docs/domain.md`), each with `primaryId` (its primary's id, its own id for a
+primary) and `isPrimary`. Every poem query leaves the alternates out for now, with a `must_not` on
+`isPrimary: false`. That clause also works on an index built before those fields existed, where it
+excludes nothing, so the API can ship before or after the reindex. The alternates still count in
+the index's term statistics, so their words shift scores slightly even though they are never
+returned.
+
 ## Arabic text handling
 
 Two layers, and the split matters: **what gets searched is not what gets displayed.**

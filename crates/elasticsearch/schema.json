@@ -172,6 +172,12 @@
         },
         "collectionSlug": {
           "type": "keyword"
+        },
+        "primaryId": {
+          "type": "integer"
+        },
+        "isPrimary": {
+          "type": "boolean"
         }
       }
     }
