@@ -84,6 +84,27 @@ mod tests {
     }
 
     #[test]
+    fn every_exact_field_folds_letters_like_the_normalized_analyzer() {
+        let schema = load();
+        for (body, fields) in [
+            (&schema.poems, vec!["title", "poetName"]),
+            (&schema.poets, vec!["name"]),
+        ] {
+            let analysis = &body["settings"]["analysis"];
+            let normalizer = &analysis["normalizer"]["arabic_exact"];
+            let analyzer = &analysis["analyzer"]["arabic_normalized"];
+            assert_eq!(normalizer["type"], "custom");
+            assert_eq!(normalizer["char_filter"], analyzer["char_filter"]);
+            assert_eq!(normalizer["filter"], analyzer["filter"]);
+            for field in fields {
+                let exact = &body["mappings"]["properties"][field]["fields"]["exact"];
+                assert_eq!(exact["type"], "keyword", "{field}");
+                assert_eq!(exact["normalizer"], "arabic_exact", "{field}");
+            }
+        }
+    }
+
+    #[test]
     fn the_char_filter_folds_ta_marbuta_ya_and_hamza_carriers() {
         let mappings = folding_mappings(&load().poems);
         for rule in ["ة => ه", "ى => ي", "ؤ => و", "ئ => ي", "ء => "] {
