@@ -136,9 +136,37 @@ fn leading_verse(content: &str) -> String {
     content.split('*').take(2).collect::<Vec<&str>>().join("*")
 }
 
+fn ends_inside_mark(text: &str) -> bool {
+    match (text.rfind(MARK_OPEN), text.rfind(MARK_CLOSE)) {
+        (Some(open_at), Some(close_at)) => open_at > close_at,
+        (Some(_), None) => true,
+        _ => false,
+    }
+}
+
+fn balanced_hemistichs(highlighted: &str) -> Vec<String> {
+    let mut open = false;
+    highlighted
+        .split('*')
+        .map(|hemistich| {
+            let mut balanced = if open {
+                format!("{MARK_OPEN}{hemistich}")
+            } else {
+                hemistich.to_string()
+            };
+            open = ends_inside_mark(&balanced);
+            if open {
+                balanced.push_str(MARK_CLOSE);
+            }
+            balanced
+        })
+        .collect()
+}
+
 fn poem_snippet(highlight: Option<&str>, content: &str) -> String {
     if let Some(highlighted) = highlight {
-        let hemistichs: Vec<&str> = highlighted.split('*').collect();
+        let balanced = balanced_hemistichs(highlighted);
+        let hemistichs: Vec<&str> = balanced.iter().map(String::as_str).collect();
         let mut best_start = None;
         let mut best_span = 0;
         let mut index = 0;
@@ -290,6 +318,25 @@ mod tests {
         assert_eq!(longest_mark_span(Some(&"no marks here")), 0);
         assert_eq!(longest_mark_span(Some(&"<mark>unclosed")), 0);
         assert_eq!(longest_mark_span(None), 0);
+    }
+
+    #[test]
+    fn balances_a_mark_that_spans_the_two_halves_of_a_verse() {
+        let highlighted =
+            "طلمباتُ الطريق الزراعي*ما تزال في مكانها*«<mark>يا ليلُ،*الصَبُّ</mark> متى غدُه؟";
+        assert_eq!(
+            poem_snippet(Some(highlighted), "ignored*fallback"),
+            "«<mark>يا ليلُ،</mark>*<mark>الصَبُّ</mark> متى غدُه؟"
+        );
+    }
+
+    #[test]
+    fn picks_the_verse_holding_the_longer_part_of_a_mark_that_spans_two_verses() {
+        let highlighted = "a*b <mark>cd*efg</mark>*h";
+        assert_eq!(
+            poem_snippet(Some(highlighted), "ignored*fallback"),
+            "<mark>efg</mark>*h"
+        );
     }
 
     #[test]
