@@ -400,17 +400,44 @@
       "body": {
         "from": 0,
         "query": {
-          "bool": {
-            "filter": [],
-            "must": [
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
               {
-                "match_all": {}
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
               }
-            ]
+            ],
+            "query": {
+              "bool": {
+                "filter": [],
+                "must": [
+                  {
+                    "match_all": {}
+                  }
+                ]
+              }
+            }
           }
         },
         "size": 20,
         "sort": [
+          {
+            "_score": "desc"
+          },
           {
             "id": "desc"
           }
@@ -433,17 +460,44 @@
       "body": {
         "from": 60,
         "query": {
-          "bool": {
-            "filter": [],
-            "must": [
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
               {
-                "match_all": {}
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
               }
-            ]
+            ],
+            "query": {
+              "bool": {
+                "filter": [],
+                "must": [
+                  {
+                    "match_all": {}
+                  }
+                ]
+              }
+            }
           }
         },
         "size": 20,
         "sort": [
+          {
+            "_score": "desc"
+          },
           {
             "id": "desc"
           }
