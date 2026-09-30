@@ -80,6 +80,14 @@ Poem tiers, final boost = tier boost times field weight (`title: 4`, `content: 1
 The powers-of-two spacing is wide on purpose: an exact title hit cannot be outscored by an
 accumulation of weak content matches.
 
+A ranked poem search with no era filter then multiplies the score of a poem from a classical era
+(jahili through mamluki, `CLASSICAL_ERA_SLUGS`) by `CLASSICAL_ERA_WEIGHT` (1.1) in a
+`function_score`, and leaves every other poem's score unchanged, so a classical poem passes a later
+one only when its score was already within about 9% of it. It never changes which poems match. A
+search with an era filter, the empty-`q` browse and `exact=true` are not boosted. The list is the
+same eight eras as the related-poems pool (`tmp_pool` in
+`scripts/db/sql/refresh-poem-relations.sql`); change both together.
+
 Poets use a flatter, independent ladder: exact 12, phrase 6, stemmed 3, prefix/autocomplete 2,
 fuzzy 1 (`fuzziness: AUTO`), with `minimum_should_match: 1`.
 
@@ -119,7 +127,7 @@ With no highlight, it falls back to the opening verse. An unclosed `<mark>` scor
 
 ## What search deliberately does not do
 
-Worth stating so nobody goes looking: no synonyms, no recency decay or `function_score`, no
-cross-index score normalization, and no `search_as_you_type` field (the edge-ngram is
-hand-rolled). Fuzziness applies to **poet names only**, never to poems. Poet highlighting is
-supported by the query builder but switched off in `/search`.
+Worth stating so nobody goes looking: no synonyms, no recency decay, no cross-index score
+normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness
+applies to **poet names only**, never to poems. Poet highlighting is supported by the query
+builder but switched off in `/search`.

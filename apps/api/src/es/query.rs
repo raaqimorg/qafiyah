@@ -4,6 +4,11 @@ use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS
 
 const RECALL_FLOOR: &str = "1<75%";
 
+const CLASSICAL_ERA_SLUGS: [&str; 8] = [
+    "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
+];
+const CLASSICAL_ERA_WEIGHT: f64 = 1.1;
+
 mod tier {
     pub(super) const SURFACE_EXACT: i64 = 32768;
     pub(super) const SURFACE_PHRASE: i64 = 4096;
@@ -186,10 +191,22 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     } else {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
         gate.extend(filters);
-        json!({ "bool": {
+        let ranked = json!({ "bool": {
             "filter": gate,
             "should": ranking_clauses(&params.q, &POEM_FIELDS),
-        } })
+        } });
+        if params.era_slugs.is_empty() {
+            json!({ "function_score": {
+                "query": ranked,
+                "functions": [{
+                    "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
+                    "weight": CLASSICAL_ERA_WEIGHT,
+                }],
+                "boost_mode": "multiply",
+            } })
+        } else {
+            ranked
+        }
     };
 
     body(
@@ -323,13 +340,14 @@ mod tests {
     fn a_ranked_poem_query_gates_recall_and_ranks_in_should() {
         let body = poem_search_body(&poems("حب", 3, false));
         assert_eq!(body["from"], 40);
-        let filter = body["query"]["bool"]["filter"].as_array().expect("filters");
+        let ranked = &body["query"]["function_score"]["query"]["bool"];
+        let filter = ranked["filter"].as_array().expect("filters");
         assert_eq!(filter[0]["bool"]["minimum_should_match"], 1);
         assert_eq!(
             filter[0]["bool"]["should"][0]["match"]["title.stemmed"]["minimum_should_match"],
             RECALL_FLOOR
         );
-        let should = body["query"]["bool"]["should"].as_array().expect("ranking");
+        let should = ranked["should"].as_array().expect("ranking");
         assert_eq!(should.len(), 11, "six tiers for title, five for content");
         assert_eq!(
             should[0]["term"]["title.exact"]["boost"],
@@ -344,7 +362,7 @@ mod tests {
     #[test]
     fn the_recall_gate_also_matches_every_term_on_the_surface_fields() {
         let body = poem_search_body(&poems("هذا", 1, false));
-        let gate = &body["query"]["bool"]["filter"][0]["bool"]["should"];
+        let gate = &body["query"]["function_score"]["query"]["bool"]["filter"][0]["bool"]["should"];
         for field in ["title", "content"] {
             assert!(
                 gate.as_array().expect("gate").iter().any(|clause| clause
@@ -352,6 +370,42 @@ mod tests {
                 "{field} has no surface clause in the recall gate"
             );
         }
+    }
+
+    #[test]
+    fn a_ranked_poem_query_multiplies_the_score_of_classical_era_poems() {
+        let body = poem_search_body(&poems("حب", 1, false));
+        let scored = &body["query"]["function_score"];
+        assert_eq!(scored["boost_mode"], "multiply");
+        assert_eq!(
+            scored["functions"],
+            json!([{
+                "filter": { "terms": { "eraSlug": [
+                    "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
+                ] } },
+                "weight": 1.1,
+            }])
+        );
+    }
+
+    #[test]
+    fn a_ranked_poem_query_with_an_era_filter_is_not_boosted() {
+        let body = poem_search_body(&PoemSearchParams {
+            q: "حب".into(),
+            page: 1,
+            era_slugs: vec!["hadith".into()],
+            ..PoemSearchParams::default()
+        });
+        assert!(body["query"].get("function_score").is_none());
+        let filter = body["query"]["bool"]["filter"].as_array().expect("filters");
+        assert_eq!(filter[1], json!({ "terms": { "eraSlug": ["hadith"] } }));
+        assert_eq!(
+            body["query"]["bool"]["should"]
+                .as_array()
+                .expect("ranking")
+                .len(),
+            11
+        );
     }
 
     #[test]
@@ -368,7 +422,9 @@ mod tests {
             exact: false,
         };
         let body = poem_search_body(&params);
-        let filter = body["query"]["bool"]["filter"].as_array().expect("filters");
+        let filter = body["query"]["function_score"]["query"]["bool"]["filter"]
+            .as_array()
+            .expect("filters");
         let fields: Vec<&str> = filter[1..]
             .iter()
             .map(|f| {

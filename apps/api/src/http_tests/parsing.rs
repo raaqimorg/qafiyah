@@ -56,7 +56,7 @@ async fn search_q_is_not_trimmed_while_the_poets_list_trims_it_pinned() {
     assert_eq!(search.json()["q"], "  ");
     let sent_to_es = es.requests().await;
     assert!(
-        sent_to_es[0].1["query"]["bool"]["filter"].is_array(),
+        sent_to_es[0].1["query"]["function_score"]["query"]["bool"]["filter"].is_array(),
         "a whitespace query still searches"
     );
     let es2 = FakeEs::serving(StatusCode::OK, empty_hits()).await;
