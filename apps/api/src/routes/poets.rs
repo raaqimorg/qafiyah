@@ -29,7 +29,7 @@ use crate::state::AppState;
     params(
         ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 1666 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
         ("era" = Option<String>, Query, description = "Filter to poets of a single era. Value is a `slug` from GET /eras.", pattern = "^[a-z][a-z-]*$", example = "abbasi"),
-        ("q" = Option<String>, Query, description = "Full-text query matched against poet names.", max_length = 50, example = "المتنبي"),
+        ("q" = Option<String>, Query, description = "Full-text query matched against poet names and nicknames. Every word must match one of them.", max_length = 50, example = "المتنبي"),
     ),
     responses(
         (status = 200, description = "A page of poets with pagination metadata.", body = ListEnvelope<PoetListItem>),

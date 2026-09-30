@@ -24,6 +24,7 @@ pub(crate) struct PoetSource {
     pub id: i32,
     pub slug: String,
     pub name: String,
+    pub nickname: String,
     pub era_name: String,
     pub era_slug: String,
     pub poems_count: i32,
@@ -57,6 +58,7 @@ pub(crate) struct PoetDoc {
     pub id: i32,
     pub slug: String,
     pub name: String,
+    pub nickname: String,
     pub name_display: String,
     pub name_sort: String,
     pub poems_count: i32,
@@ -91,6 +93,7 @@ pub(crate) fn to_poet_doc(src: PoetSource, rules: &[(String, String)]) -> PoetDo
         id: src.id,
         slug: src.slug,
         name: strip_tashkeel(&src.name),
+        nickname: strip_tashkeel(&src.nickname),
         name_sort: fold_for_sort(&src.name, rules),
         name_display: src.name,
         poems_count: src.poems_count,
@@ -129,6 +132,7 @@ mod tests {
             id: 3,
             slug: "yoFB".into(),
             name: " أَحْمَد ".into(),
+            nickname: "أَمِيرُ الشُّعَرَاء".into(),
             era_name: "عباسي".into(),
             era_slug: "abbasi".into(),
             poems_count: 42,
@@ -161,6 +165,7 @@ mod tests {
         assert_eq!(doc.name, " أحمد ");
         assert_eq!(doc.name_sort, "احمد");
         assert_eq!(doc.name_display, " أَحْمَد ");
+        assert_eq!(doc.nickname, "أمير الشعراء");
         assert_eq!(doc.poems_count, 42);
     }
 

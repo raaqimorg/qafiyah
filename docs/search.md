@@ -91,8 +91,14 @@ search with an era filter, the empty-`q` browse and `exact=true` are not boosted
 same eight eras as the related-poems pool (`tmp_pool` in
 `scripts/db/sql/refresh-poem-relations.sql`); change both together.
 
-Poets use a flatter, independent ladder: exact 12, phrase 6, stemmed 3, prefix/autocomplete 2,
-fuzzy 1 (`fuzziness: AUTO`), with `minimum_should_match: 1`.
+Poets use a flatter, independent ladder over the name and the nickname: exact 12 (name only),
+phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO`, name only). As with poems,
+a filter decides membership and the ladder only ranks. The filter, a `cross_fields` match with
+`operator: and`, admits a poet when every query word matches the name or the nickname as a stem, or
+every word matches as a prefix, so a query that isn't about a poet lists none. Elasticsearch groups
+`cross_fields` fields by analyzer, which is why the two readings don't mix. Prefixes start at two
+letters, so a trailing one-letter word (`نزار ق`) admits no one, and words the analyzers drop, like
+punctuation, are ignored.
 
 ## Poems and poets are queried separately
 
@@ -106,8 +112,9 @@ Combining a poem-only facet with `types=poets` is a 400, not a silent no-op.
 
 An empty `q` becomes `match_all` sorted by `id desc` (the `/poets` list: `poemsCount desc`, then
 `nameSort asc`, then `id asc`) with no highlighting.
-`exact=true` drops the whole ladder for a single `match_phrase`, with no tiers, fuzziness, or
-ngrams, though letter folding still applies because it is a char filter, not a query option.
+`exact=true` drops the whole ladder for a single phrase match (for poets, on the name or the
+nickname), with no tiers, fuzziness, or ngrams, though letter folding still applies because it is
+a char filter, not a query option.
 
 Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 50 characters, at
 most 100 slugs per facet.
@@ -135,6 +142,6 @@ With no highlight, it falls back to the opening verse.
 ## What search deliberately does not do
 
 Worth stating so nobody goes looking: no synonyms, no recency decay, no cross-index score
-normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness
-applies to **poet names only**, never to poems. Poet highlighting is supported by the query
-builder but switched off in `/search`.
+normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness only
+ranks poets that the filter already admitted, so a typo in a word still hides the poet, and it never
+applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.

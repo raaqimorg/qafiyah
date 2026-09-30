@@ -44,7 +44,7 @@ pub(crate) struct SearchResponse {
         ("rhymeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by rhyme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?rhymeSlugs=meem. Slugs are the `slug` values from GET /rhymes.", example = json!(["meem"])),
         ("themeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by theme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?themeSlugs=alnasib. Slugs are the `slug` values from GET /themes.", example = json!(["alnasib"])),
         ("collectionSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by collection slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?collectionSlugs=almuallaqat. Slugs are the `slug` values from GET /collections.", example = json!(["almuallaqat"])),
-        ("exact" = Option<ExactFlag>, Query, description = "When true, match the literal phrase only (poem content and poet name), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.", example = "false"),
+        ("exact" = Option<ExactFlag>, Query, description = "When true, match the literal phrase only (poem content, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.", example = "false"),
     ),
     responses(
         (status = 200, description = "Echoed query plus the requested poem and poet result sections.", body = SearchResponse),

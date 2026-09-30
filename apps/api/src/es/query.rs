@@ -262,10 +262,17 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         json!({ "bool": { "must": [{ "match_all": {} }], "filter": filters } })
     } else if params.exact {
         json!({ "bool": {
-            "must": [{ "match_phrase": { "name": { "query": params.q } } }],
+            "must": [{ "multi_match": { "query": params.q, "type": "phrase", "fields": ["name", "nickname"] } }],
             "filter": filters,
         } })
     } else {
+        let mut gate = filters;
+        gate.push(json!({ "multi_match": {
+            "query": params.q,
+            "type": "cross_fields",
+            "operator": "and",
+            "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+        } }));
         json!({ "bool": {
             "should": [
                 { "term": { "name.exact": { "value": params.q, "boost": poet_boost::EXACT } } },
@@ -273,9 +280,12 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
                 { "match": { "name.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
                 { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
                 { "match": { "name": { "query": params.q, "fuzziness": "AUTO", "boost": poet_boost::FUZZY } } },
+                { "match_phrase": { "nickname": { "query": params.q, "boost": poet_boost::PHRASE } } },
+                { "match": { "nickname.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
+                { "match": { "nickname.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
             ],
             "minimum_should_match": 1,
-            "filter": filters,
+            "filter": gate,
         } })
     };
 
@@ -499,6 +509,18 @@ mod tests {
             should[4],
             json!({ "match": { "name": { "query": "المتنبي", "fuzziness": "AUTO", "boost": 1 } } })
         );
+        assert_eq!(
+            should[5],
+            json!({ "match_phrase": { "nickname": { "query": "المتنبي", "boost": 6 } } })
+        );
+        assert_eq!(
+            should[6],
+            json!({ "match": { "nickname.autocomplete": { "query": "المتنبي", "boost": 2 } } })
+        );
+        assert_eq!(
+            should[7],
+            json!({ "match": { "nickname.stemmed": { "query": "المتنبي", "boost": 3 } } })
+        );
         assert_eq!(ranked["query"]["bool"]["minimum_should_match"], 1);
         assert!(ranked.get("sort").is_none());
         let exact = poet_search_body(&PoetSearchParams {
@@ -508,12 +530,33 @@ mod tests {
             ..PoetSearchParams::default()
         });
         assert_eq!(
-            exact["query"]["bool"]["must"][0]["match_phrase"]["name"]["query"],
-            "x"
+            exact["query"]["bool"]["must"][0],
+            json!({ "multi_match": { "query": "x", "type": "phrase", "fields": ["name", "nickname"] } })
         );
         assert_eq!(
             exact["query"]["bool"]["filter"][0]["terms"]["eraSlug"],
             json!(["abbasi"])
+        );
+    }
+
+    #[test]
+    fn a_poet_is_admitted_only_when_every_query_term_reaches_the_name_or_nickname() {
+        let body = poet_search_body(&PoetSearchParams {
+            q: "ابو الطيب".into(),
+            era_slugs: vec!["abbasi".into()],
+            ..PoetSearchParams::default()
+        });
+        assert_eq!(
+            body["query"]["bool"]["filter"],
+            json!([
+                { "terms": { "eraSlug": ["abbasi"] } },
+                { "multi_match": {
+                    "query": "ابو الطيب",
+                    "type": "cross_fields",
+                    "operator": "and",
+                    "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+                } },
+            ])
         );
     }
 }

@@ -282,6 +282,21 @@
             }
           }
         },
+        "nickname": {
+          "type": "text",
+          "analyzer": "arabic_normalized",
+          "fields": {
+            "stemmed": {
+              "type": "text",
+              "analyzer": "arabic_stemmed"
+            },
+            "autocomplete": {
+              "type": "text",
+              "analyzer": "autocomplete_2",
+              "search_analyzer": "arabic_normalized"
+            }
+          }
+        },
         "nameDisplay": {
           "type": "keyword",
           "index": false

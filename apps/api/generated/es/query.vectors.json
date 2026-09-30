@@ -870,7 +870,21 @@
         },
         "query": {
           "bool": {
-            "filter": [],
+            "filter": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name.autocomplete",
+                    "name.stemmed",
+                    "nickname.autocomplete",
+                    "nickname.stemmed"
+                  ],
+                  "operator": "and",
+                  "query": "أحمد",
+                  "type": "cross_fields"
+                }
+              }
+            ],
             "minimum_should_match": 1,
             "should": [
               {
@@ -910,6 +924,30 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "query": "أحمد"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "nickname": {
+                    "boost": 6,
+                    "query": "أحمد"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.autocomplete": {
+                    "boost": 2,
+                    "query": "أحمد"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.stemmed": {
+                    "boost": 3,
                     "query": "أحمد"
                   }
                 }
@@ -1023,6 +1061,19 @@
                     "abbasi"
                   ]
                 }
+              },
+              {
+                "multi_match": {
+                  "fields": [
+                    "name.autocomplete",
+                    "name.stemmed",
+                    "nickname.autocomplete",
+                    "nickname.stemmed"
+                  ],
+                  "operator": "and",
+                  "query": "المتنبي",
+                  "type": "cross_fields"
+                }
               }
             ],
             "minimum_should_match": 1,
@@ -1064,6 +1115,30 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "query": "المتنبي"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "nickname": {
+                    "boost": 6,
+                    "query": "المتنبي"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.autocomplete": {
+                    "boost": 2,
+                    "query": "المتنبي"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.stemmed": {
+                    "boost": 3,
                     "query": "المتنبي"
                   }
                 }
@@ -1113,10 +1188,13 @@
             "filter": [],
             "must": [
               {
-                "match_phrase": {
-                  "name": {
-                    "query": "المتنبي"
-                  }
+                "multi_match": {
+                  "fields": [
+                    "name",
+                    "nickname"
+                  ],
+                  "query": "المتنبي",
+                  "type": "phrase"
                 }
               }
             ]
@@ -1138,7 +1216,21 @@
         "from": 20,
         "query": {
           "bool": {
-            "filter": [],
+            "filter": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name.autocomplete",
+                    "name.stemmed",
+                    "nickname.autocomplete",
+                    "nickname.stemmed"
+                  ],
+                  "operator": "and",
+                  "query": "حب",
+                  "type": "cross_fields"
+                }
+              }
+            ],
             "minimum_should_match": 1,
             "should": [
               {
@@ -1178,6 +1270,30 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "query": "حب"
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "nickname": {
+                    "boost": 6,
+                    "query": "حب"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.autocomplete": {
+                    "boost": 2,
+                    "query": "حب"
+                  }
+                }
+              },
+              {
+                "match": {
+                  "nickname.stemmed": {
+                    "boost": 3,
                     "query": "حب"
                   }
                 }

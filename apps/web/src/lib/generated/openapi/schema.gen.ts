@@ -1346,7 +1346,7 @@ export interface operations {
                  */
                 era?: string;
                 /**
-                 * @description Full-text query matched against poet names.
+                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them.
                  * @example المتنبي
                  */
                 q?: string;
@@ -1722,7 +1722,7 @@ export interface operations {
                  */
                 collectionSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description When true, match the literal phrase only (poem content and poet name), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.
+                 * @description When true, match the literal phrase only (poem content, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.
                  * @example false
                  */
                 exact?: components["schemas"]["ExactFlag"];

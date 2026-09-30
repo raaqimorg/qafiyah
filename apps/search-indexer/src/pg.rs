@@ -34,7 +34,7 @@ const POEM_SELECT: &str = "
 ";
 
 const POET_SELECT: &str = "
-  SELECT pt.id AS id, pt.slug AS slug, pt.name AS name,
+  SELECT pt.id AS id, pt.slug AS slug, pt.name AS name, COALESCE(pt.nickname, '') AS nickname,
          e.name AS era_name, e.slug AS era_slug,
          COALESCE(ps.poems_count, 0)::int AS poems_count
   FROM public.poets pt
@@ -132,6 +132,7 @@ pub(crate) async fn stream_poet_batch(
             id: r.get("id"),
             slug: r.get("slug"),
             name: r.get("name"),
+            nickname: r.get("nickname"),
             era_name: r.get("era_name"),
             era_slug: r.get("era_slug"),
             poems_count: r.get("poems_count"),
