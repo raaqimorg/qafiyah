@@ -17,7 +17,19 @@
               "ـ => ",
               "ؤ => و",
               "ئ => ي",
-              "ء => "
+              "ء => ",
+              "ی => ي",
+              "ک => ك",
+              "\u0670 => ",
+              "\u200b => ",
+              "\u200c => ",
+              "\u200d => ",
+              "\u200e => ",
+              "\u200f => ",
+              "\u061c => ",
+              "\ufeff => ",
+              "\u2060 => ",
+              "\u00ad => "
             ]
           }
         },
@@ -50,8 +62,8 @@
             "filter": [
               "lowercase",
               "decimal_digit",
-              "arabic_stop_filter",
               "arabic_normalization",
+              "arabic_stop_filter",
               "arabic_stemmer_filter"
             ]
           },
@@ -183,7 +195,19 @@
               "ـ => ",
               "ؤ => و",
               "ئ => ي",
-              "ء => "
+              "ء => ",
+              "ی => ي",
+              "ک => ك",
+              "\u0670 => ",
+              "\u200b => ",
+              "\u200c => ",
+              "\u200d => ",
+              "\u200e => ",
+              "\u200f => ",
+              "\u061c => ",
+              "\ufeff => ",
+              "\u2060 => ",
+              "\u00ad => "
             ]
           }
         },
@@ -216,8 +240,8 @@
             "filter": [
               "lowercase",
               "decimal_digit",
-              "arabic_stop_filter",
               "arabic_normalization",
+              "arabic_stop_filter",
               "arabic_stemmer_filter"
             ]
           },

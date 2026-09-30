@@ -154,5 +154,35 @@
     "input": "\t\nعروة\n\t",
     "stripTashkeel": "\t\nعروة\n\t",
     "foldForSort": "عروه"
+  },
+  {
+    "note": "Persian yeh folds to the Arabic yeh",
+    "input": "علی",
+    "stripTashkeel": "علی",
+    "foldForSort": "علي"
+  },
+  {
+    "note": "Persian kaf folds to the Arabic kaf",
+    "input": "ملک",
+    "stripTashkeel": "ملک",
+    "foldForSort": "ملك"
+  },
+  {
+    "note": "dagger alef is deleted",
+    "input": "الرحم\u0670ن",
+    "stripTashkeel": "الرحم\u0670ن",
+    "foldForSort": "الرحمن"
+  },
+  {
+    "note": "zero-width non-joiner inside a word is deleted",
+    "input": "مر\u200cحبا",
+    "stripTashkeel": "مر\u200cحبا",
+    "foldForSort": "مرحبا"
+  },
+  {
+    "note": "zero-width space inside a word is deleted",
+    "input": "مر\u200bحبا",
+    "stripTashkeel": "مر\u200bحبا",
+    "foldForSort": "مرحبا"
   }
 ]

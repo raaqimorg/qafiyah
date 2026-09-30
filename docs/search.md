@@ -32,8 +32,12 @@ original while matching happens against the stripped form.
 ### In Elasticsearch
 
 One shared char filter, `arabic_letter_folding`, normalizes the letter variants that make Arabic
-search frustrating: `أ إ آ ٱ` to `ا`, `ى` to `ي`, `ة` to `ه`, `ؤ` to `و`, `ئ` to `ي`, and deletes
-`ء` and the tatweel `ـ`. A search for `احمد` finds `أحمد`.
+search frustrating: `أ إ آ ٱ` to `ا`, `ى` to `ي`, `ة` to `ه`, `ؤ` to `و`, `ئ` to `ي`, the Persian
+`ی` to `ي` and `ک` to `ك`, and deletes `ء`, the tatweel `ـ`, and the dagger alef. A search for `احمد`
+finds `أحمد`, and one for `الرحمن` finds `الرحمٰن`. It also deletes the invisible format characters
+that pasted text carries (zero-width spaces and joiners, direction marks, the byte order mark, the
+soft hyphen): the tokenizer drops them at the edge of a word, but inside one they split it or stay
+in the token.
 
 Three analyzers build on it, all with the `standard` tokenizer:
 
@@ -59,10 +63,9 @@ understand here:
   `minimum_should_match: "1<75%"` (one term must match; with more than one, 75% must), or if it
   matches every term on the normalized field. The second clause matters when the stemmed analyzer
   drops the whole query, as it does for one made only of Arabic stopwords such as `هذا` or `من أنت`.
-  It also matters for a stopword typed with diacritics, such as `هَذا` or `مِن`: the stop filter runs
-  before normalization, so the query keeps that word on `.stemmed`, while unvocalized poems lost it
-  at index time and now pass only through the normalized field. For any other query, a document
-  holding every term already passes the first clause.
+  The stop filter runs after `arabic_normalization`, so a stopword typed with diacritics, such as
+  `هَذا`, is dropped too. For any other query, a document holding every term already passes the first
+  clause.
 - **Tiers only rank.** Every tier clause sits in `should`, so it can add score but never admits a
   document on its own.
 
