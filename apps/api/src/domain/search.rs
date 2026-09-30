@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde_json::Value;
 use utoipa::ToSchema;
 
+use crate::constants::ES_MAX_RESULT_WINDOW;
 use crate::domain::{EraRef, MeterRef, PoetRef};
 use crate::error::AppError;
 use crate::es::client::Es;
@@ -90,6 +91,22 @@ fn total_hits(response: &Value) -> u32 {
         })
         .unwrap_or(0);
     u32::try_from(raw).unwrap_or(u32::MAX)
+}
+
+fn poem_total(response: &Value) -> u32 {
+    response
+        .get("aggregations")
+        .and_then(|aggregations| aggregations.get("poems"))
+        .and_then(|poems| poems.get("value"))
+        .and_then(Value::as_u64)
+        .map_or_else(
+            || total_hits(response),
+            |poems| {
+                u32::try_from(poems)
+                    .unwrap_or(u32::MAX)
+                    .min(ES_MAX_RESULT_WINDOW)
+            },
+        )
 }
 
 fn hits(response: &Value) -> Vec<&Value> {
@@ -234,7 +251,7 @@ pub async fn search_poems(
         .collect();
     Ok(Page {
         hits,
-        total: total_hits(&response),
+        total: poem_total(&response),
     })
 }
 
@@ -364,6 +381,22 @@ mod tests {
             9
         );
         assert_eq!(total_hits(&serde_json::json!({"hits":{}})), 0);
+    }
+
+    #[test]
+    fn counts_poems_from_the_cardinality_aggregation_capped_at_the_result_window() {
+        let grouped = serde_json::json!({
+            "hits": { "total": { "value": 12 } },
+            "aggregations": { "poems": { "value": 9 } },
+        });
+        assert_eq!(poem_total(&grouped), 9);
+        let many = serde_json::json!({
+            "hits": { "total": { "value": 10000 } },
+            "aggregations": { "poems": { "value": 51234 } },
+        });
+        assert_eq!(poem_total(&many), ES_MAX_RESULT_WINDOW);
+        let browse = serde_json::json!({ "hits": { "total": { "value": 7 } } });
+        assert_eq!(poem_total(&browse), 7);
     }
 
     fn poem_hit(source: Value, highlight: Option<&str>, score: f64) -> Value {
