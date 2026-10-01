@@ -4,7 +4,15 @@ import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } fro
 
 import { ensureEnvFileFrom } from './env-file';
 import { detectOrbStack } from './orbstack';
-import { composeProgress, elapsed, indexerProgress, readLines } from './progress';
+import {
+  cargoProgress,
+  composeProgress,
+  elapsed,
+  fit,
+  imageBuildProgress,
+  indexerProgress,
+  readLines,
+} from './progress';
 import { serviceUrls } from './service-urls';
 import { primaryCheckoutRoot, resolveWorktreeIdentity, type WorktreeIdentity } from './worktree';
 
@@ -31,14 +39,27 @@ const formatMs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const SPINNER_MS = 100;
+const DB_LOG_POLL_MS = 2000;
 
-type Stage = { readonly detail: (text: string) => void; readonly end: () => void };
+type Stage = {
+  readonly detail: (text: string) => void;
+  readonly end: () => void;
+  readonly clear: () => void;
+};
 
-function startStage(label: string): Stage {
+let redrawLive: (() => void) | undefined;
+
+function say(text: string): void {
+  if (redrawLive) process.stdout.write(`\r${ESC}[2K`);
+  console.log(text);
+  redrawLive?.();
+}
+
+function startStage(label: string, announce = true): Stage {
   const prefix = `${bold('▶')} ${label}... `;
   if (!process.stdout.isTTY) {
-    process.stdout.write(prefix);
-    return { detail: () => {}, end: () => {} };
+    if (announce) process.stdout.write(prefix);
+    return { detail: () => {}, end: () => {}, clear: () => {} };
   }
   const start = Date.now();
   let frame = 0;
@@ -46,26 +67,35 @@ function startStage(label: string): Stage {
   const draw = () => {
     const spinner = cyan(SPINNER[frame % SPINNER.length] ?? '');
     frame += 1;
-    const extra = detail ? `  ${detail}` : '';
-    process.stdout.write(
-      `\r${ESC}[2K${spinner} ${label}${extra}  ${dim(elapsed(Date.now() - start))}`
-    );
+    const time = elapsed(Date.now() - start);
+    const room = (process.stdout.columns || 80) - label.length - time.length - 7;
+    const extra = detail ? `  ${fit(detail, room)}` : '';
+    process.stdout.write(`\r${ESC}[2K${spinner} ${label}${extra}  ${dim(time)}`);
   };
   draw();
+  redrawLive = draw;
   const timer = setInterval(draw, SPINNER_MS);
+  const stop = () => {
+    clearInterval(timer);
+    redrawLive = undefined;
+  };
   return {
     detail: (text) => {
       detail = text;
     },
     end: () => {
-      clearInterval(timer);
+      stop();
       process.stdout.write(`\r${ESC}[2K${prefix}`);
+    },
+    clear: () => {
+      stop();
+      process.stdout.write(`\r${ESC}[2K`);
     },
   };
 }
 
 async function ensureDockerRunning(): Promise<void> {
-  process.stdout.write(`${bold('▶')} docker... `);
+  const stage = startStage('docker');
   const running = await Bun.spawn(['docker', 'info'], {
     cwd: ROOT,
     env: process.env,
@@ -74,6 +104,7 @@ async function ensureDockerRunning(): Promise<void> {
   })
     .exited.then((code) => code === 0)
     .catch(() => false);
+  stage.end();
   if (running) {
     console.log(green('✓'));
     return;
@@ -83,29 +114,37 @@ async function ensureDockerRunning(): Promise<void> {
   process.exit(1);
 }
 
-async function runStage(
-  label: string,
-  cmd: string[],
-  progress?: (line: string) => string | undefined
-): Promise<void> {
+type StageOptions = {
+  readonly progress?: (line: string) => string | undefined;
+  readonly watch?: (onLine: (line: string) => void) => () => void;
+};
+
+async function runStage(label: string, cmd: string[], options: StageOptions = {}): Promise<void> {
   const stage = startStage(label);
   const start = Date.now();
   const proc = Bun.spawn(cmd, { cwd: ROOT, env: process.env, stdout: 'pipe', stderr: 'pipe' });
+  const output: string[] = [];
   const onLine = (line: string) => {
-    const detail = progress?.(line);
+    const detail = options.progress?.(line);
     if (detail !== undefined) stage.detail(detail);
   };
-  const [stdout, stderr, code] = await Promise.all([
-    readLines(proc.stdout, onLine),
-    readLines(proc.stderr, onLine),
+  const onOutput = (line: string) => {
+    output.push(line);
+    onLine(line);
+  };
+  const stopWatching = process.stdout.isTTY ? options.watch?.(onLine) : undefined;
+  const [, , code] = await Promise.all([
+    readLines(proc.stdout, onOutput),
+    readLines(proc.stderr, onOutput),
     proc.exited,
   ]);
+  stopWatching?.();
   stage.end();
   const ms = Date.now() - start;
   if (code !== 0) {
     console.log(`${red('✗')} ${dim(`(${formatMs(ms)})`)}`);
-    const output = [stdout, stderr].filter(Boolean).join('\n').trimEnd();
-    if (output) console.error(output);
+    const text = output.join('\n').trimEnd();
+    if (text) console.error(text);
     process.exit(code || 1);
   }
   console.log(`${green('✓')} ${dim(`(${formatMs(ms)})`)}`);
@@ -199,6 +238,7 @@ async function ensureRootEnvFile(identity: WorktreeIdentity): Promise<void> {
 }
 
 async function printReclaimable(): Promise<void> {
+  const stage = startStage('docker disk usage', false);
   const proc = Bun.spawn(['bash', '-c', 'source scripts/lib/reclaimable.sh && print_reclaimable'], {
     cwd: ROOT,
     env: process.env,
@@ -207,6 +247,7 @@ async function printReclaimable(): Promise<void> {
   });
   const text = await new Response(proc.stdout).text();
   await proc.exited;
+  stage.clear();
   const items = [...text.matchAll(/^\s*(Images|Containers|Build Cache):\s*(\S+)/gm)].map(
     ([, type, size]) => `${size} ${(type ?? '').toLowerCase()}`
   );
@@ -215,6 +256,7 @@ async function printReclaimable(): Promise<void> {
 }
 
 async function tagDbContainer(psArgs: string[]): Promise<void> {
+  const stage = startStage('db container tag', false);
   const psProc = Bun.spawn(['./scripts/dev/compose.sh', 'ps', '-q', 'db', ...psArgs], {
     cwd: ROOT,
     env: process.env,
@@ -223,7 +265,10 @@ async function tagDbContainer(psArgs: string[]): Promise<void> {
   });
   const containerId = (await new Response(psProc.stdout).text()).trim();
   await psProc.exited;
-  if (!containerId) return;
+  if (!containerId) {
+    stage.clear();
+    return;
+  }
 
   const tagProc = Bun.spawn(
     [
@@ -240,6 +285,7 @@ async function tagDbContainer(psArgs: string[]): Promise<void> {
     new Response(tagProc.stderr).text(),
   ]);
   await tagProc.exited;
+  stage.clear();
   const output = [stdout, stderr].filter(Boolean).join('\n').trim();
   if (output) console.log(dim(`  ${output}`));
 }
@@ -267,31 +313,6 @@ function readNumber(record: JsonRecord, key: string): number | undefined {
   return typeof value === 'number' ? value : undefined;
 }
 
-async function* lines(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let newlineIndex = buffer.indexOf('\n');
-    while (newlineIndex >= 0) {
-      yield buffer.slice(0, newlineIndex).replace(/\r$/, '');
-      buffer = buffer.slice(newlineIndex + 1);
-      newlineIndex = buffer.indexOf('\n');
-    }
-  }
-  if (buffer) yield buffer;
-}
-
-async function pumpLines(
-  stream: ReadableStream<Uint8Array>,
-  handle: (line: string) => void
-): Promise<void> {
-  for await (const line of lines(stream)) handle(line);
-}
-
 type Watched = { proc: Subprocess; ready: Promise<void>; streaming: Promise<void> };
 
 const API_FAILURE_STAGES = new Set(['env', 'runtime', 'boot_db', 'boot_es', 'bind', 'serve']);
@@ -313,7 +334,7 @@ function startApi(): Watched {
   const onLine = (raw: string): void => {
     const parsed = tryParseJson(raw);
     if (!parsed) {
-      console.log(`${API_PREFIX} │ ${raw}`);
+      say(`${API_PREFIX} │ ${raw}`);
       return;
     }
     const stage = readString(parsed, 'stage');
@@ -321,7 +342,7 @@ function startApi(): Watched {
       const port = readNumber(parsed, 'port');
       if (port !== undefined && !readyDone) {
         readyDone = true;
-        console.log(
+        say(
           `${green('✓')} api ready → ${cyan(`http://localhost:${port}`)} ${dim(`(${formatMs(Date.now() - started)})`)}`
         );
         resolveReady();
@@ -330,12 +351,12 @@ function startApi(): Watched {
     }
     if (stage === 'draining' || stage === 'stopped') return;
     if (stage !== undefined && API_FAILURE_STAGES.has(stage)) {
-      console.log(`${red('✗')} api ${stage}: ${readString(parsed, 'error') ?? 'unknown error'}`);
+      say(`${red('✗')} api ${stage}: ${readString(parsed, 'error') ?? 'unknown error'}`);
       return;
     }
     const kind = readString(parsed, 'kind');
     if (kind === 'completed') {
-      if (VERBOSE) console.log(`${API_PREFIX} │ ${raw}`);
+      if (VERBOSE) say(`${API_PREFIX} │ ${raw}`);
       return;
     }
     if (kind === 'completed_error') {
@@ -343,14 +364,14 @@ function startApi(): Watched {
       const method = readString(parsed, 'method');
       const path = readString(parsed, 'path');
       const duration = readNumber(parsed, 'duration_ms');
-      console.log(`${API_PREFIX} │ ${red(String(status))} ${method} ${path} (${duration}ms)`);
+      say(`${API_PREFIX} │ ${red(String(status))} ${method} ${path} (${duration}ms)`);
       return;
     }
-    console.log(`${API_PREFIX} │ ${raw}`);
+    say(`${API_PREFIX} │ ${raw}`);
   };
   const streaming = Promise.all([
-    pumpLines(proc.stdout, onLine),
-    pumpLines(proc.stderr, onLine),
+    readLines(proc.stdout, onLine),
+    readLines(proc.stderr, onLine),
   ]).then(() => undefined);
   return { proc, ready, streaming };
 }
@@ -407,14 +428,14 @@ function startWeb(): Watched {
   });
   const onLine = (raw: string): void => {
     if (VERBOSE) {
-      console.log(`${WEB_PREFIX} │ ${raw}`);
+      say(`${WEB_PREFIX} │ ${raw}`);
       return;
     }
     if (!readyDone) {
       const localMatch = raw.match(/Local\s+(\S+)/);
       if (localMatch) {
         readyDone = true;
-        console.log(
+        say(
           `${green('✓')} web ready → ${cyan(localMatch[1] ?? '')} ${dim(`(${formatMs(Date.now() - started)})`)}`
         );
         resolveReady();
@@ -424,11 +445,11 @@ function startWeb(): Watched {
     if (isTurboBoilerplate(raw)) return;
     const content = raw.replace(WEB_TASK_PREFIX, '');
     if (content !== raw && (isTurboBoilerplate(content) || isAstroBoilerplate(content))) return;
-    console.log(`${WEB_PREFIX} │ ${content}`);
+    say(`${WEB_PREFIX} │ ${content}`);
   };
   const streaming = Promise.all([
-    pumpLines(proc.stdout, onLine),
-    pumpLines(proc.stderr, onLine),
+    readLines(proc.stdout, onLine),
+    readLines(proc.stderr, onLine),
   ]).then(() => undefined);
   return { proc, ready, streaming };
 }
@@ -454,7 +475,7 @@ function startInspector(): Watched {
       const readyMatch = raw.match(/inspector ready on (\S+)/);
       if (readyMatch) {
         readyDone = true;
-        console.log(
+        say(
           `${green('✓')} inspector ready → ${cyan(readyMatch[1] ?? '')} ${dim(`(${formatMs(Date.now() - started)})`)}`
         );
         resolveReady();
@@ -464,17 +485,19 @@ function startInspector(): Watched {
     if (isTurboBoilerplate(raw)) return;
     const content = raw.replace(INSPECTOR_TASK_PREFIX, '');
     if (content !== raw && isTurboBoilerplate(content)) return;
-    console.log(`${INSPECTOR_PREFIX} │ ${content}`);
+    say(`${INSPECTOR_PREFIX} │ ${content}`);
   };
   const streaming = Promise.all([
-    pumpLines(proc.stdout, onLine),
-    pumpLines(proc.stderr, onLine),
+    readLines(proc.stdout, onLine),
+    readLines(proc.stderr, onLine),
   ]).then(() => undefined);
   return { proc, ready, streaming };
 }
 
 async function waitReady(watched: Watched, label: string, cleanup: Watched[] = []): Promise<void> {
+  const stage = startStage(`${label} starting`, false);
   const outcome = await Promise.race([watched.ready.then(() => null), watched.proc.exited]);
+  stage.clear();
   if (outcome !== null) {
     console.log(`${red('✗')} ${label} exited before starting (code ${outcome})`);
     if (cleanup.length > 0) await shutdown(cleanup);
@@ -539,16 +562,39 @@ const withWorktreeFlag = (cmd: string[]): string[] => (isolating ? [...cmd, '--w
 
 await ensureDockerRunning();
 await dumpStage();
+function watchDbLog(onLine: (line: string) => void): () => void {
+  let polling = false;
+  const timer = setInterval(() => {
+    if (polling) return;
+    polling = true;
+    const proc = Bun.spawn(
+      withWorktreeFlag([
+        './scripts/dev/compose.sh',
+        'logs',
+        '--tail',
+        '5',
+        '--no-log-prefix',
+        'db',
+      ]),
+      { cwd: ROOT, env: process.env, stdout: 'pipe', stderr: 'ignore' }
+    );
+    void readLines(proc.stdout, onLine).finally(() => {
+      polling = false;
+    });
+  }, DB_LOG_POLL_MS);
+  return () => clearInterval(timer);
+}
+
 await runStage(
   'docker (db, elasticsearch)',
   withWorktreeFlag(['./scripts/dev/compose.sh', 'up', '-d', '--wait', 'db', 'elasticsearch']),
-  composeProgress()
+  { progress: composeProgress(), watch: watchDbLog }
 );
 await tagDbContainer(withWorktreeFlag([]));
 await runStage(
   'search-indexer',
   withWorktreeFlag(['./scripts/dev/compose.sh', 'run', '--rm', '--no-deps', 'search-indexer']),
-  indexerProgress
+  { progress: (line) => indexerProgress(line) ?? imageBuildProgress(line) }
 );
 await ensureWebEnvFile(DEV_API_PORT + offset);
 
@@ -564,7 +610,9 @@ process.env['DATABASE_URL_ACCOUNTS'] = urls.accounts;
 
 await printReclaimable();
 await preflightStage('api');
-await runStage('api build', ['cargo', 'build', '-p', 'qafiyah-api']);
+await runStage('api build', ['cargo', 'build', '-p', 'qafiyah-api'], {
+  progress: cargoProgress(),
+});
 
 const api = startApi();
 await waitReady(api, 'api');
