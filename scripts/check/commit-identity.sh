@@ -38,7 +38,7 @@ check_push() {
     if [[ "${remote_sha}" == "${zero}" ]]; then
       range=("${local_sha}" --not --remotes)
     else
-      range=("${remote_sha}..${local_sha}")
+      range=("${remote_sha}..${local_sha}" --not --remotes)
     fi
     while read -r sha; do
       check_commit "${sha}"

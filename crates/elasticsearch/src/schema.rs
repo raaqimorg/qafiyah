@@ -66,6 +66,7 @@ pub fn folding_rules(body: &Value) -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn index_bodies_use_strict_mappings() {
@@ -81,6 +82,31 @@ mod tests {
         assert_eq!(title["analyzer"], "arabic_normalized");
         assert_eq!(title["fields"]["exact"]["type"], "keyword");
         assert_eq!(title["fields"]["stemmed"]["analyzer"], "arabic_stemmed");
+    }
+
+    #[test]
+    fn every_exact_field_folds_letters_like_the_normalized_analyzer_but_keeps_the_standalone_hamza()
+    {
+        let schema = load();
+        for (body, fields) in [
+            (&schema.poems, vec!["title", "poetName"]),
+            (&schema.poets, vec!["name"]),
+        ] {
+            let analysis = &body["settings"]["analysis"];
+            let normalizer = &analysis["normalizer"]["arabic_exact"];
+            let analyzer = &analysis["analyzer"]["arabic_normalized"];
+            assert_eq!(normalizer["type"], "custom");
+            assert_eq!(
+                normalizer["char_filter"],
+                json!(["arabic_letter_folding_keep_hamza"])
+            );
+            assert_eq!(normalizer["filter"], analyzer["filter"]);
+            for field in fields {
+                let exact = &body["mappings"]["properties"][field]["fields"]["exact"];
+                assert_eq!(exact["type"], "keyword", "{field}");
+                assert_eq!(exact["normalizer"], "arabic_exact", "{field}");
+            }
+        }
     }
 
     #[test]
@@ -148,6 +174,60 @@ mod tests {
         let poems = &load().poems["mappings"]["properties"];
         assert_eq!(poems["primaryId"]["type"], "integer");
         assert_eq!(poems["isPrimary"]["type"], "boolean");
+    }
+
+    #[test]
+    fn the_hamza_keeping_folding_is_the_main_folding_without_the_hamza_deletion() {
+        let schema = load();
+        for body in [&schema.poems, &schema.poets] {
+            let filters = &body["settings"]["analysis"]["char_filter"];
+            let main: Vec<&str> = filters["arabic_letter_folding"]["mappings"]
+                .as_array()
+                .expect("main folding")
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|rule| *rule != "ء => ")
+                .collect();
+            let kept: Vec<&str> = filters["arabic_letter_folding_keep_hamza"]["mappings"]
+                .as_array()
+                .expect("hamza-keeping folding")
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            assert_eq!(kept, main);
+            assert_eq!(
+                filters["arabic_letter_folding_keep_hamza"]["type"],
+                "mapping"
+            );
+        }
+    }
+
+    #[test]
+    fn exact_keywords_and_hamza_subfields_keep_the_standalone_hamza() {
+        let schema = load();
+        for body in [&schema.poems, &schema.poets] {
+            let analysis = &body["settings"]["analysis"];
+            assert_eq!(
+                analysis["normalizer"]["arabic_exact"]["char_filter"],
+                json!(["arabic_letter_folding_keep_hamza"])
+            );
+            let kept = &analysis["analyzer"]["arabic_hamza_kept"];
+            assert_eq!(
+                kept["char_filter"],
+                json!(["arabic_letter_folding_keep_hamza"])
+            );
+            assert_eq!(
+                kept["filter"],
+                analysis["analyzer"]["arabic_normalized"]["filter"]
+            );
+        }
+        let poems = &schema.poems["mappings"]["properties"];
+        for field in ["title", "content"] {
+            assert_eq!(
+                poems[field]["fields"]["hamza"]["analyzer"], "arabic_hamza_kept",
+                "{field}"
+            );
+        }
     }
 
     #[test]
