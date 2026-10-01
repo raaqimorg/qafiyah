@@ -221,3 +221,52 @@ async fn a_name_pasted_from_a_pdf_finds_the_poet() {
     let pasted = "\u{FECB}\u{FEE8}\u{FE98}\u{FEAE}\u{FE93} \u{FE91}\u{FEE6} \u{FEB7}\u{FEAA}\u{FE8D}\u{FEA9}";
     assert_first_poet(&h, pasted, "imHZ").await;
 }
+
+fn dated(id: i32, slug: &str, title: &str, content: &str, era: &str) -> Value {
+    let mut doc = poem(id, slug, title, content);
+    if let Some(fields) = doc.as_object_mut() {
+        fields.insert("eraSlug".into(), json!(era));
+    }
+    doc
+}
+
+#[tokio::test]
+async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three_words() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        dated(
+            1,
+            "Jahl",
+            "لعمرك ما الأيام إلا معارة",
+            "لعمرك ما الأيام إلا معارة*فما اسطعت من معروفها فتزود*ستبدي لك الأيام ما كنت جاهلا*ويأتيك بالأخبار من لم تزود",
+            "jahili",
+        ),
+        dated(
+            2,
+            "Hdth",
+            "ستبدي لك الأيام ما كنت جاهلا",
+            "ستبدي لك الأيام ما كنت جاهلا*وتعرف من يبقى على العهد صادقا",
+            "hadith",
+        ),
+        dated(
+            3,
+            "Mmlk",
+            "تعلم فإن الدهر فيه عجائب",
+            "تعلم فإن الدهر فيه عجائب*وقد قال من قبلي ستبدي لك الأيام ما كنت جاهلا*فخذها حكمة",
+            "mamluki",
+        ),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            for q in ["ستبدي لك الأيام ما كنت جاهلا", "ستبدي لك الأيام"]
+            {
+                let found = slugs(&poem_hits(&es, &index, q).await);
+                assert_eq!(found, ["Jahl", "Mmlk", "Hdth"], "{q}");
+            }
+            let found = slugs(&poem_hits(&es, &index, "ستبدي لك").await);
+            assert_eq!(found.first().map(String::as_str), Some("Hdth"), "{found:?}");
+        })
+        .await;
+}

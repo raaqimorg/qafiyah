@@ -299,6 +299,338 @@
                           "match": {
                             "title.stemmed": {
                               "minimum_should_match": "2<75%",
+                              "query": "قفا نبك من"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content.stemmed": {
+                              "minimum_should_match": "2<75%",
+                              "query": "قفا نبك من"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "title": {
+                              "operator": "and",
+                              "query": "قفا نبك من"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content": {
+                              "operator": "and",
+                              "query": "قفا نبك من"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "should": [
+                  {
+                    "dis_max": {
+                      "queries": [
+                        {
+                          "function_score": {
+                            "boost_mode": "replace",
+                            "functions": [
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "jahili"
+                                  }
+                                },
+                                "weight": 109000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "islami"
+                                  }
+                                },
+                                "weight": 108000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "umawi"
+                                  }
+                                },
+                                "weight": 107000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "abbasi"
+                                  }
+                                },
+                                "weight": 106000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "andalusi"
+                                  }
+                                },
+                                "weight": 105000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "fatimi"
+                                  }
+                                },
+                                "weight": 104000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "ayyubi"
+                                  }
+                                },
+                                "weight": 103000000.0
+                              },
+                              {
+                                "filter": {
+                                  "term": {
+                                    "eraSlug": "mamluki"
+                                  }
+                                },
+                                "weight": 102000000.0
+                              },
+                              {
+                                "filter": {
+                                  "match_all": {}
+                                },
+                                "weight": 101000000.0
+                              }
+                            ],
+                            "query": {
+                              "constant_score": {
+                                "filter": {
+                                  "multi_match": {
+                                    "fields": [
+                                      "title",
+                                      "content"
+                                    ],
+                                    "query": "قفا نبك من",
+                                    "type": "phrase"
+                                  }
+                                }
+                              }
+                            },
+                            "score_mode": "first"
+                          }
+                        },
+                        {
+                          "bool": {
+                            "should": [
+                              {
+                                "term": {
+                                  "title.exact": {
+                                    "boost": 131072,
+                                    "value": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match_phrase": {
+                                  "title": {
+                                    "boost": 16384,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match_phrase": {
+                                  "title.stemmed": {
+                                    "boost": 512,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "title": {
+                                    "boost": 256,
+                                    "operator": "and",
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "title.stemmed": {
+                                    "boost": 8,
+                                    "operator": "and",
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "title.stemmed": {
+                                    "boost": 1,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match_phrase": {
+                                  "content": {
+                                    "boost": 4096,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match_phrase": {
+                                  "content.stemmed": {
+                                    "boost": 512,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "content": {
+                                    "boost": 64,
+                                    "operator": "and",
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "content.stemmed": {
+                                    "boost": 8,
+                                    "operator": "and",
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              },
+                              {
+                                "match": {
+                                  "content.stemmed": {
+                                    "boost": 1,
+                                    "query": "قفا نبك من"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "tie_breaker": 0.01
+                    }
+                  }
+                ]
+              }
+            },
+            "score_mode": "multiply"
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
+        "track_total_hits": 10000
+      },
+      "note": "a quoted line of three words or more",
+      "params": {
+        "collectionSlugs": [],
+        "eraSlugs": [],
+        "meterSlugs": [],
+        "page": 1,
+        "poemTypeSlugs": [],
+        "poetSlugs": [],
+        "q": "قفا نبك من",
+        "rhymeSlugs": [],
+        "themeSlugs": []
+      }
+    },
+    {
+      "body": {
+        "aggs": {
+          "poems": {
+            "cardinality": {
+              "field": "primaryId",
+              "precision_threshold": 10000
+            }
+          }
+        },
+        "collapse": {
+          "field": "primaryId"
+        },
+        "from": 0,
+        "highlight": {
+          "fields": {
+            "content": {
+              "matched_fields": [
+                "content",
+                "content.stemmed"
+              ]
+            }
+          },
+          "number_of_fragments": 0,
+          "post_tags": [
+            "</mark>"
+          ],
+          "pre_tags": [
+            "<mark>"
+          ]
+        },
+        "query": {
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
+              {
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
+              },
+              {
+                "filter": {
+                  "term": {
+                    "isPrimary": false
+                  }
+                },
+                "weight": 0.5
+              }
+            ],
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "match": {
+                            "title.stemmed": {
+                              "minimum_should_match": "2<75%",
                               "query": "هذا"
                             }
                           }
