@@ -71,6 +71,18 @@ describe('sanitizeArabicInput', () => {
     const pasted = '‏يا صديقي‎ الحبيب‪';
     expect(sanitizeArabicInput(pasted)).toBe('يا صديقي الحبيب');
   });
+
+  it('keeps two words apart when punctuation sits between them', () => {
+    expect(sanitizeArabicInput('يمة...تخلي عمة')).toBe('يمة تخلي عمة');
+  });
+
+  it('turns letters pasted from a PDF into plain Arabic letters', () => {
+    expect(sanitizeArabicInput('\uFECB\uFEE8\uFE98\uFEAE\uFE93 \uFE91\uFEE6')).toBe('عنترة بن');
+  });
+
+  it('composes a decomposed hamza', () => {
+    expect(sanitizeArabicInput('\u0627\u0654\u062D\u0645\u062F')).toBe('\u0623\u062D\u0645\u062F');
+  });
 });
 
 describe('stripInputNoise', () => {
@@ -85,6 +97,11 @@ describe('stripInputNoise', () => {
 
   it('drops leading whitespace the same way sanitizeArabicInput does', () => {
     expect(stripInputNoise('  يا صديقي')).toBe(sanitizeArabicInput('  يا صديقي'));
+  });
+
+  it('treats PDF letters as Arabic so they raise no foreign-input error', () => {
+    const pasted = '\uFECB\uFEE8\uFE98\uFEAE\uFE93';
+    expect(stripInputNoise(pasted)).toBe(sanitizeArabicInput(pasted));
   });
 });
 
