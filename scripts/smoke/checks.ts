@@ -57,7 +57,7 @@ export const rawSearchWithQuery = (queryString: string): string =>
 
 export const QUERY_AR = 'حب';
 export const POET_QUERY_AR = 'المتنبي';
-export const PHRASE_AR = 'يا رب';
+export const PHRASE_AR = 'ما بين';
 
 export const HARAKAT_AR = 'ح\u064Fب\u0651';
 export const TATWEEL_AR = `حب${'\u0640'.repeat(8)}`;
