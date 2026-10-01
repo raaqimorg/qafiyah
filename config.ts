@@ -17,7 +17,7 @@ export const POETS_LIST_MAX_RESULT_WINDOW = 50_000;
 export const LIST_POETS_MAX_PAGE = Math.floor(POETS_LIST_MAX_RESULT_WINDOW / POEMS_PER_PAGE);
 
 export const MAX_FILTER_SLUGS = 100;
-export const MAX_QUERY_LENGTH = 50;
+export const MAX_QUERY_LENGTH = 100;
 
 export const SEARCH_TYPE_VALUES = ['poems', 'poets'] as const;
 export type SearchType = (typeof SEARCH_TYPE_VALUES)[number];

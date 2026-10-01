@@ -69,8 +69,8 @@ export const BOM_PREFIXED = '\uFEFFحب';
 export const PRESENTATION_FORM = '\uFEFBحب';
 export const NUL_QUERY = '\u0000حب';
 export const HARAKAT_ONLY = '\u064B\u064C\u064D';
-export const EMOJI_AT_LIMIT = '\u{1F600}'.repeat(25);
-export const EMOJI_OVER_UTF16 = '\u{1F600}'.repeat(26);
+export const EMOJI_AT_LIMIT = '\u{1F600}'.repeat(MAX_QUERY_LENGTH / 2);
+export const EMOJI_OVER_UTF16 = '\u{1F600}'.repeat(MAX_QUERY_LENGTH / 2 + 1);
 export const COMBINING_OVERFLOW = `ح${'\u0651'.repeat(MAX_QUERY_LENGTH + 1)}`;
 
 export const expectJsonObject: BodyCheck = (body, res) => {

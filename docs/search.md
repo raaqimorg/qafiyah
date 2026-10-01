@@ -201,13 +201,14 @@ then `nameSort asc`, then `id asc`.
 nickname), with no tiers, fuzziness, or ngrams, though letter folding still applies because it is
 a char filter, not a query option.
 
-Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 50 characters, at
-most 100 slugs per facet.
+Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 100 characters
+(UTF-16 units, so a classical verse copied with its diacritics fits: 99.7% of them do), at most 100
+slugs per facet.
 
 The API normalizes `q` before searching, on `/search` and `/poets` alike: Unicode NFKC (letters
 pasted from a PDF in presentation forms become plain letters, a decomposed hamza is composed), then
 every run of whitespace becomes one space and the ends are trimmed. The response echoes the
-normalized query. The 50-character limit counts the query as sent, before normalization, because
+normalized query. The 100-character limit counts the query as sent, before normalization, because
 NFKC can expand one ligature (U+FDFA) to 18 letters.
 
 ## Snippets

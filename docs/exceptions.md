@@ -158,7 +158,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** list and search handlers take `RawQuery` and parse it with a homemade `Query` type that understands PHP/qs bracket syntax (`era[]=`, `era[0]=`, and `era[x]`, which it rejects as an object). The OpenAPI params are separate hand-written tuples.
 - **Where:** `apps/api/src/query.rs`, `apps/api/src/routes/poems.rs`, `apps/api/src/routes/search.rs`, `apps/api/src/routes/poets.rs`, `apps/api/src/routes/go.rs`
-- **Why it's unusual:** no first-party client sends bracket forms: web appends repeated keys, and the contract documents only `?era=a&era=b`. Validation rules (the page pattern, `max_length = 50`, slug patterns, 100-item caps) are written once as doc strings and again in code, with nothing tying them together. There are also two scalar semantics: `first()` silently takes the first value, while `scalar()` answers 400 on repeats.
+- **Why it's unusual:** no first-party client sends bracket forms: web appends repeated keys, and the contract documents only `?era=a&era=b`. Validation rules (the page pattern, `max_length = 100`, slug patterns, 100-item caps) are written once as doc strings and again in code, with nothing tying them together. There are also two scalar semantics: `first()` silently takes the first value, while `scalar()` answers 400 on repeats.
 - **Normal approach:** `axum_extra::extract::Query<T>` (serde_html_form) on a `#[derive(Deserialize, IntoParams)]` struct per endpoint, so parsing and docs come from one type.
 - **Status:** Needs review
 
@@ -206,7 +206,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** the ETag is FNV-1a over UTF-16 code units, lengths are counted with `encode_utf16().count()`, `go.rs` hand-writes `encodeURIComponent`, and the log formats instants "the way javascript does".
 - **Where:** `apps/api/src/cache.rs`, `apps/api/src/query.rs`, `apps/api/src/domain/poems.rs`, `apps/api/src/domain/search.rs`, `apps/api/src/routes/go.rs`, `apps/api/src/log.rs`
-- **Why it's unusual:** the approved `js.rs` entry says not to reach for JavaScript semantics outside that module. No consumer recomputes the ETag, so hashing UTF-16 buys nothing. UTF-16 counting for `q` contradicts the published `maxLength: 50`, because JSON Schema counts code points.
+- **Why it's unusual:** the approved `js.rs` entry says not to reach for JavaScript semantics outside that module. No consumer recomputes the ETag, so hashing UTF-16 buys nothing. UTF-16 counting for `q` contradicts the published `maxLength: 100`, because JSON Schema counts code points.
 - **Normal approach:** any stable hash over the bytes for the ETag (`sha2` is already a dependency), `chars().count()`, and `percent_encoding` or `url::Url::query_pairs_mut`.
 - **Status:** Needs review
 

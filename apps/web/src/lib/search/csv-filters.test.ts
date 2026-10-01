@@ -5,11 +5,11 @@ import { createCsvFilterSetter, splitCsvIds, validateText } from './csv-filters'
 describe('validateText', () => {
   it('passes text at or under the query length limit', () => {
     expect(validateText('حب')).toBeNull();
-    expect(validateText('ا'.repeat(50))).toBeNull();
+    expect(validateText('ا'.repeat(100))).toBeNull();
   });
 
   it('returns the localized error past the limit', () => {
-    expect(validateText('ا'.repeat(51))).toContain('50');
+    expect(validateText('ا'.repeat(101))).toContain('100');
   });
 });
 
