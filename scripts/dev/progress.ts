@@ -15,6 +15,23 @@ export function indexerProgress(line: string): string | undefined {
   return `${index} ${count(indexed)} / ${count(total)}`;
 }
 
+const CONTAINER_STATE = /^\s*Container (\S+)\s+([A-Z][a-z]+)\s*$/;
+
+const SERVICE = /-([a-z]+)(?:-\d+)?$/;
+
+const serviceOf = (container: string): string => SERVICE.exec(container)?.[1] ?? container;
+
+export function composeProgress(): (line: string) => string | undefined {
+  const states = new Map<string, string>();
+  return (line) => {
+    const match = CONTAINER_STATE.exec(line);
+    if (!match) return undefined;
+    const [, container = '', state = ''] = match;
+    states.set(serviceOf(container), state.toLowerCase());
+    return [...states].map(([service, current]) => `${service} ${current}`).join(' · ');
+  };
+}
+
 export function elapsed(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);

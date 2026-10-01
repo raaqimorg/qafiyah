@@ -4,7 +4,7 @@ import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } fro
 
 import { ensureEnvFileFrom } from './env-file';
 import { detectOrbStack } from './orbstack';
-import { elapsed, indexerProgress, readLines } from './progress';
+import { composeProgress, elapsed, indexerProgress, readLines } from './progress';
 import { serviceUrls } from './service-urls';
 import { primaryCheckoutRoot, resolveWorktreeIdentity, type WorktreeIdentity } from './worktree';
 
@@ -91,12 +91,13 @@ async function runStage(
   const stage = startStage(label);
   const start = Date.now();
   const proc = Bun.spawn(cmd, { cwd: ROOT, env: process.env, stdout: 'pipe', stderr: 'pipe' });
+  const onLine = (line: string) => {
+    const detail = progress?.(line);
+    if (detail !== undefined) stage.detail(detail);
+  };
   const [stdout, stderr, code] = await Promise.all([
-    readLines(proc.stdout, (line) => {
-      const detail = progress?.(line);
-      if (detail !== undefined) stage.detail(detail);
-    }),
-    new Response(proc.stderr).text(),
+    readLines(proc.stdout, onLine),
+    readLines(proc.stderr, onLine),
     proc.exited,
   ]);
   stage.end();
@@ -540,7 +541,8 @@ await ensureDockerRunning();
 await dumpStage();
 await runStage(
   'docker (db, elasticsearch)',
-  withWorktreeFlag(['./scripts/dev/compose.sh', 'up', '-d', '--wait', 'db', 'elasticsearch'])
+  withWorktreeFlag(['./scripts/dev/compose.sh', 'up', '-d', '--wait', 'db', 'elasticsearch']),
+  composeProgress()
 );
 await tagDbContainer(withWorktreeFlag([]));
 await runStage(

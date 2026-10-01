@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { elapsed, indexerProgress, readLines } from './progress';
+import { composeProgress, elapsed, indexerProgress, readLines } from './progress';
 
 describe('indexerProgress', () => {
   test('turns a progress event into a count of the total', () => {
@@ -18,6 +18,32 @@ describe('indexerProgress', () => {
       '',
     ]) {
       expect(indexerProgress(line)).toBeUndefined();
+    }
+  });
+});
+
+describe('composeProgress', () => {
+  test('keeps the latest state of each container, named by its service', () => {
+    const progress = composeProgress();
+    expect(progress(' Container qafiyah-dev-db-0037 Waiting ')).toBe('db waiting');
+    expect(progress(' Container qafiyah-dev-es Waiting ')).toBe('db waiting · es waiting');
+    expect(progress(' Container qafiyah-dev-db-0037 Healthy ')).toBe('db healthy · es waiting');
+  });
+
+  test('names a worktree container by its service too', () => {
+    expect(composeProgress()(' Container qafiyah-dev-qafiyah-wt-75-db Started ')).toBe(
+      'db started'
+    );
+  });
+
+  test('ignores lines that are not container states', () => {
+    const progress = composeProgress();
+    for (const line of [
+      ' Network qafiyah-dev_default Created ',
+      '#5 [api build 1/3] RUN cargo',
+      '',
+    ]) {
+      expect(progress(line)).toBeUndefined();
     }
   });
 });
