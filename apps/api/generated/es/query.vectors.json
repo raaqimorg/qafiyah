@@ -52,7 +52,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "حب"
                             }
                           }
@@ -60,7 +60,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "حب"
                             }
                           }
@@ -266,7 +266,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "هذا"
                             }
                           }
@@ -274,7 +274,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "هذا"
                             }
                           }
@@ -501,7 +501,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "ماء"
                             }
                           }
@@ -509,7 +509,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "ماء"
                             }
                           }
@@ -894,7 +894,7 @@
                     {
                       "match": {
                         "title.stemmed": {
-                          "minimum_should_match": "1<75%",
+                          "minimum_should_match": "2<75%",
                           "query": "دمع"
                         }
                       }
@@ -902,7 +902,7 @@
                     {
                       "match": {
                         "content.stemmed": {
-                          "minimum_should_match": "1<75%",
+                          "minimum_should_match": "2<75%",
                           "query": "دمع"
                         }
                       }
