@@ -38,6 +38,12 @@ fn batch_size(configured: usize) -> Result<usize, String> {
     Ok(configured)
 }
 
+const PROGRESS_EVERY: usize = 10_000;
+
+fn reached_progress_mark(before: usize, after: usize) -> bool {
+    after / PROGRESS_EVERY > before / PROGRESS_EVERY
+}
+
 struct Target<'a> {
     alias: &'a str,
     prefix: &'a str,
@@ -75,9 +81,15 @@ async fn reindex(ctx: &Ctx<'_>, target_def: &Target<'_>) -> Result<(String, usiz
     Ok((target, count))
 }
 
+#[expect(
+    clippy::print_stdout,
+    reason = "this batch job's output is its structured log"
+)]
 async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, String> {
     let (es, pgc, batch_size, rules) = (ctx.es, ctx.pgc, ctx.batch_size, ctx.rules);
     let limit = i64::try_from(batch_size).map_err(|_| "bulkBatchSize exceeds i64".to_string())?;
+    let expected = pg::count_rows(pgc, is_poems).await?;
+    let index = if is_poems { "poems" } else { "poets" };
     es.put_refresh_interval(target, "-1").await?;
     let mut cursor: i32 = 0;
     let mut total = 0usize;
@@ -113,10 +125,20 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
                 })
                 .collect()
         };
+        let before = total;
         total = total
             .checked_add(batch.len())
             .ok_or_else(|| "indexed count overflow".to_string())?;
         es.bulk(target, &batch).await?;
+        if reached_progress_mark(before, total) {
+            println!(
+                "{}",
+                log::event(
+                    "progress",
+                    json!({ "index": index, "indexed": total, "total": expected })
+                )
+            );
+        }
     }
     es.put_refresh_interval(target, "1s").await?;
     es.refresh(target).await?;
@@ -275,6 +297,15 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn progress_is_reported_each_time_the_count_passes_a_multiple_of_ten_thousand() {
+        assert!(reached_progress_mark(9_000, 10_000));
+        assert!(reached_progress_mark(19_500, 20_500));
+        assert!(!reached_progress_mark(10_000, 11_000));
+        assert!(!reached_progress_mark(0, 1_000));
+        assert!(!reached_progress_mark(348_000, 348_691));
+    }
 
     fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
         move |name| {

@@ -4,6 +4,7 @@ import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } fro
 
 import { ensureEnvFileFrom } from './env-file';
 import { detectOrbStack } from './orbstack';
+import { elapsed, indexerProgress, readLines } from './progress';
 import { serviceUrls } from './service-urls';
 import { primaryCheckoutRoot, resolveWorktreeIdentity, type WorktreeIdentity } from './worktree';
 
@@ -28,6 +29,41 @@ const magenta = paint(35);
 
 const formatMs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
+const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_MS = 100;
+
+type Stage = { readonly detail: (text: string) => void; readonly end: () => void };
+
+function startStage(label: string): Stage {
+  const prefix = `${bold('▶')} ${label}... `;
+  if (!process.stdout.isTTY) {
+    process.stdout.write(prefix);
+    return { detail: () => {}, end: () => {} };
+  }
+  const start = Date.now();
+  let frame = 0;
+  let detail = '';
+  const draw = () => {
+    const spinner = cyan(SPINNER[frame % SPINNER.length] ?? '');
+    frame += 1;
+    const extra = detail ? `  ${detail}` : '';
+    process.stdout.write(
+      `\r${ESC}[2K${spinner} ${label}${extra}  ${dim(elapsed(Date.now() - start))}`
+    );
+  };
+  draw();
+  const timer = setInterval(draw, SPINNER_MS);
+  return {
+    detail: (text) => {
+      detail = text;
+    },
+    end: () => {
+      clearInterval(timer);
+      process.stdout.write(`\r${ESC}[2K${prefix}`);
+    },
+  };
+}
+
 async function ensureDockerRunning(): Promise<void> {
   process.stdout.write(`${bold('▶')} docker... `);
   const running = await Bun.spawn(['docker', 'info'], {
@@ -47,15 +83,23 @@ async function ensureDockerRunning(): Promise<void> {
   process.exit(1);
 }
 
-async function runStage(label: string, cmd: string[]): Promise<void> {
-  process.stdout.write(`${bold('▶')} ${label}... `);
+async function runStage(
+  label: string,
+  cmd: string[],
+  progress?: (line: string) => string | undefined
+): Promise<void> {
+  const stage = startStage(label);
   const start = Date.now();
   const proc = Bun.spawn(cmd, { cwd: ROOT, env: process.env, stdout: 'pipe', stderr: 'pipe' });
   const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
+    readLines(proc.stdout, (line) => {
+      const detail = progress?.(line);
+      if (detail !== undefined) stage.detail(detail);
+    }),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  stage.end();
   const ms = Date.now() - start;
   if (code !== 0) {
     console.log(`${red('✗')} ${dim(`(${formatMs(ms)})`)}`);
@@ -67,7 +111,7 @@ async function runStage(label: string, cmd: string[]): Promise<void> {
 }
 
 async function dumpStage(): Promise<void> {
-  process.stdout.write(`${bold('▶')} dump... `);
+  const stage = startStage('dump');
   const start = Date.now();
   const proc = Bun.spawn(['./scripts/db/resolve-dump.sh'], {
     cwd: ROOT,
@@ -77,6 +121,7 @@ async function dumpStage(): Promise<void> {
   });
   const stderr = await new Response(proc.stderr).text();
   const code = await proc.exited;
+  stage.end();
   const ms = Date.now() - start;
   if (code !== 0) {
     console.log(`${red('✗')} ${dim(`(${formatMs(ms)})`)}`);
@@ -111,7 +156,7 @@ async function dumpStage(): Promise<void> {
 }
 
 async function preflightStage(target: string): Promise<void> {
-  process.stdout.write(`${bold('▶')} preflight... `);
+  const stage = startStage('preflight');
   const start = Date.now();
   const proc = Bun.spawn(['bun', 'scripts/dev/preflight.ts', target], {
     cwd: ROOT,
@@ -124,6 +169,7 @@ async function preflightStage(target: string): Promise<void> {
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  stage.end();
   const ms = Date.now() - start;
   const output = [stdout, stderr].filter(Boolean).join('\n').trim();
   if (code !== 0) {
@@ -499,7 +545,8 @@ await runStage(
 await tagDbContainer(withWorktreeFlag([]));
 await runStage(
   'search-indexer',
-  withWorktreeFlag(['./scripts/dev/compose.sh', 'run', '--rm', '--no-deps', 'search-indexer'])
+  withWorktreeFlag(['./scripts/dev/compose.sh', 'run', '--rm', '--no-deps', 'search-indexer']),
+  indexerProgress
 );
 await ensureWebEnvFile(DEV_API_PORT + offset);
 
