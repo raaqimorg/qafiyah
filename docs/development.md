@@ -91,6 +91,12 @@ bun run ci                # the full gate (GitHub Actions runs it scoped to the 
 
 Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
 
+The smoke runs leave your dev environment as they found it. `smoke:dev` starts its own `bun run dev`
+and stops it afterwards, unless the dev web and API already answer, in which case it reuses them and
+leaves them running. The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode
+stack in the same Compose project and removes it at the end, then starts again whichever of the dev
+`db` and `elasticsearch` containers were running before it.
+
 `rust:test:db` brings up the dev Postgres and Elasticsearch, runs the one-shot indexer, and runs
 `apps/api/tests/db.rs` with the same connection strings `bun run dev` uses. Without the
 `QAFIYAH_TEST_*` variables that target skips itself, which is why plain `cargo test` stays pure.
