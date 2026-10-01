@@ -8,6 +8,7 @@
 mod db {
     pub(crate) mod accounts;
     pub(crate) mod contract;
+    pub(crate) mod search;
 }
 
 use std::sync::Arc;
@@ -16,7 +17,9 @@ use std::time::Duration;
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::http::{HeaderMap, Request, StatusCode};
-use serde_json::Value;
+use qafiyah_elasticsearch::Endpoint;
+use reqwest::Method;
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceExt;
@@ -156,8 +159,76 @@ impl Harness {
 }
 
 pub fn unique_email(tag: &str) -> String {
-    let nanos = std::time::SystemTime::now()
+    format!("qafiyah-test-{tag}-{}@example.test", nanos())
+}
+
+fn nanos() -> u128 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_nanos());
-    format!("qafiyah-test-{tag}-{nanos}@example.test")
+        .map_or(0, |d| d.as_nanos())
+}
+
+pub struct Admin {
+    endpoint: Endpoint,
+    url: String,
+}
+
+pub fn admin() -> Option<Admin> {
+    let Ok(url) = std::env::var("QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL") else {
+        eprintln!("skipping: QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL is not set");
+        return None;
+    };
+    let endpoint = Endpoint::new(&url).expect("an Elasticsearch admin endpoint");
+    Some(Admin { endpoint, url })
+}
+
+impl Admin {
+    pub async fn with_poems<F, Fut>(&self, docs: &[Value], body: F)
+    where
+        F: FnOnce(Es, String) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let index = format!("test-guard-poems-{}", nanos());
+        let created = self
+            .endpoint
+            .request(Method::PUT, &format!("/{index}"))
+            .json(&qafiyah_elasticsearch::load().poems)
+            .send()
+            .await
+            .expect("create the scratch index");
+        assert!(
+            created.status().is_success(),
+            "create {index}: {}",
+            created.status()
+        );
+        let mut bulk = String::new();
+        for doc in docs {
+            bulk.push_str(&json!({ "index": { "_index": index, "_id": doc["slug"] } }).to_string());
+            bulk.push('\n');
+            bulk.push_str(&doc.to_string());
+            bulk.push('\n');
+        }
+        let report: Value = self
+            .endpoint
+            .request(Method::POST, "/_bulk?refresh=wait_for")
+            .header("content-type", "application/x-ndjson")
+            .body(bulk)
+            .send()
+            .await
+            .expect("index the scratch documents")
+            .json()
+            .await
+            .expect("a bulk report");
+        let es = Es::new(&self.url).expect("an Elasticsearch endpoint");
+        let outcome = tokio::spawn(body(es, index.clone())).await;
+        self.endpoint
+            .request(Method::DELETE, &format!("/{index}"))
+            .send()
+            .await
+            .expect("delete the scratch index");
+        assert_eq!(report["errors"], false, "{report}");
+        if let Err(error) = outcome {
+            std::panic::resume_unwind(error.into_panic());
+        }
+    }
 }

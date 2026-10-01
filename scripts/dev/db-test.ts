@@ -39,5 +39,6 @@ process.exit(
     QAFIYAH_TEST_DATABASE_URL: urls.database,
     QAFIYAH_TEST_DATABASE_URL_ACCOUNTS: urls.accounts,
     QAFIYAH_TEST_ELASTICSEARCH_URL: urls.elasticsearch,
+    QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL: urls.elasticsearchAdmin,
   })
 );
