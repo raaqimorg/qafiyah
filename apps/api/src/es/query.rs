@@ -2,7 +2,7 @@ use serde_json::{Map, Value, json};
 
 use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
 
-const RECALL_FLOOR: &str = "1<75%";
+const RECALL_FLOOR: &str = "2<75%";
 
 const CLASSICAL_ERA_SLUGS: [&str; 8] = [
     "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
@@ -475,6 +475,21 @@ mod tests {
             should[10]["match"]["content.stemmed"]["boost"],
             tier::STEM_SOME
         );
+    }
+
+    #[test]
+    fn a_query_of_one_or_two_words_needs_every_word_and_a_longer_one_three_quarters() {
+        let body = poem_search_body(&poems("قفا نبك", 1, false));
+        let gate = &body["query"]["function_score"]["query"]["bool"]["filter"][0]["bool"]["should"];
+        for clause in gate.as_array().expect("gate").iter().take(2) {
+            let field = clause["match"]
+                .as_object()
+                .expect("match")
+                .values()
+                .next()
+                .expect("field");
+            assert_eq!(field["minimum_should_match"], "2<75%");
+        }
     }
 
     #[test]
