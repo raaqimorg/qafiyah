@@ -136,6 +136,19 @@ the weight, so a title that holds the words as typed still outranks the same wor
 The powers-of-two spacing is wide on purpose: an exact title hit cannot be outscored by an
 accumulation of weak content matches.
 
+A query of three words or more adds one group above every tier: the poems that hold the typed
+words as a phrase, in the title or the text. Inside that group the oldest classical era comes
+first (`CLASSICAL_ERA_SLUGS`, in chronological order), and every later or unknown era shares one
+rank below them; within a rank the tiers decide. A famous line quoted by later poets, often as
+their title, therefore lists the poem it comes from first: of 76 famous verses, the original went
+from first in 46 to first in 65, and from the top 3 in 60 to 73. It is a `dis_max` of a
+`function_score` (`score_mode: first`, `boost_mode: replace`) that gives each verbatim poem a
+constant by era (`VERBATIM_FLOOR` plus `VERBATIM_ERA_STEP` per rank, far above any tier score)
+against the tier ladder, with `tie_breaker` 0.01 so the ladder still orders poems of one rank.
+One or two words would put thousands of poems in the group, so they keep the plain ladder. The
+later eras share a rank because their split does not follow time in practice (modern poets
+quoting a contemporary one are filed under the earlier era), and an unknown era is not a time.
+
 When the query contains a standalone `ء`, a ranked poem search also multiplies by
 `TYPED_HAMZA_WEIGHT` (1.5) the score of a poem whose title or content has the query as typed, as a
 phrase on `title.hamza` or `content.hamza`. Poems that only match the folded spelling still match,

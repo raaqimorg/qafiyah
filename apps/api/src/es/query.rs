@@ -11,6 +11,10 @@ const CLASSICAL_ERA_WEIGHT: f64 = 1.1;
 const ALTERNATE_READING_WEIGHT: f64 = 0.5;
 const TYPED_HAMZA_WEIGHT: f64 = 1.5;
 const STANDALONE_HAMZA: char = 'ء';
+const VERBATIM_MIN_WORDS: usize = 3;
+const VERBATIM_FLOOR: f64 = 100_000_000.0;
+const VERBATIM_ERA_STEP: f64 = 1_000_000.0;
+const VERBATIM_TIE_BREAKER: f64 = 0.01;
 
 mod tier {
     pub(super) const SURFACE_EXACT: i64 = 32768;
@@ -206,9 +210,18 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     } else {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
         gate.extend(filters);
+        let ranking = ranking_clauses(&params.q, &POEM_FIELDS);
+        let should = if params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS {
+            vec![json!({ "dis_max": {
+                "queries": [verbatim_by_era(&params.q), { "bool": { "should": ranking } }],
+                "tie_breaker": VERBATIM_TIE_BREAKER,
+            } })]
+        } else {
+            ranking
+        };
         let ranked = json!({ "bool": {
             "filter": gate,
-            "should": ranking_clauses(&params.q, &POEM_FIELDS),
+            "should": should,
         } });
         let mut functions = Vec::new();
         if favor_classical {
@@ -272,6 +285,31 @@ fn poem_highlight(q: &str) -> Value {
         );
     }
     hl
+}
+
+fn verbatim_by_era(q: &str) -> Value {
+    let later_eras = VERBATIM_FLOOR + VERBATIM_ERA_STEP;
+    let mut weight = later_eras;
+    let mut functions: Vec<Value> = CLASSICAL_ERA_SLUGS
+        .iter()
+        .rev()
+        .map(|slug| {
+            weight += VERBATIM_ERA_STEP;
+            json!({ "filter": { "term": { "eraSlug": slug } }, "weight": weight })
+        })
+        .collect();
+    functions.reverse();
+    functions.push(json!({ "filter": { "match_all": {} }, "weight": later_eras }));
+    json!({ "function_score": {
+        "query": { "constant_score": { "filter": { "multi_match": {
+            "query": q,
+            "type": "phrase",
+            "fields": ["title", "content"],
+        } } } },
+        "functions": functions,
+        "score_mode": "first",
+        "boost_mode": "replace",
+    } })
 }
 
 fn classical_era_function() -> Value {
@@ -930,5 +968,61 @@ mod tests {
             should[5]["match"]["title.stemmed"]["boost"],
             tier::STEM_SOME
         );
+    }
+
+    #[test]
+    fn a_ranked_query_of_three_words_or_more_puts_poems_holding_it_verbatim_first_oldest_classical_era_first()
+     {
+        let body = poem_search_body(&poems("قفا نبك من", 1, false));
+        let should = body["query"]["function_score"]["query"]["bool"]["should"]
+            .as_array()
+            .expect("ranking");
+        assert_eq!(should.len(), 1);
+        let dis_max = &should[0]["dis_max"];
+        assert_eq!(dis_max["tie_breaker"], 0.01);
+        let verbatim = &dis_max["queries"][0]["function_score"];
+        assert_eq!(
+            verbatim["query"],
+            json!({ "constant_score": { "filter": { "multi_match": {
+                "query": "قفا نبك من",
+                "type": "phrase",
+                "fields": ["title", "content"],
+            } } } })
+        );
+        assert_eq!(verbatim["score_mode"], "first");
+        assert_eq!(verbatim["boost_mode"], "replace");
+        assert_eq!(
+            verbatim["functions"],
+            json!([
+                { "filter": { "term": { "eraSlug": "jahili" } }, "weight": 109_000_000.0 },
+                { "filter": { "term": { "eraSlug": "islami" } }, "weight": 108_000_000.0 },
+                { "filter": { "term": { "eraSlug": "umawi" } }, "weight": 107_000_000.0 },
+                { "filter": { "term": { "eraSlug": "abbasi" } }, "weight": 106_000_000.0 },
+                { "filter": { "term": { "eraSlug": "andalusi" } }, "weight": 105_000_000.0 },
+                { "filter": { "term": { "eraSlug": "fatimi" } }, "weight": 104_000_000.0 },
+                { "filter": { "term": { "eraSlug": "ayyubi" } }, "weight": 103_000_000.0 },
+                { "filter": { "term": { "eraSlug": "mamluki" } }, "weight": 102_000_000.0 },
+                { "filter": { "match_all": {} }, "weight": 101_000_000.0 },
+            ])
+        );
+        assert_eq!(
+            dis_max["queries"][1],
+            json!({ "bool": { "should": ranking_clauses("قفا نبك من", &POEM_FIELDS) } })
+        );
+    }
+
+    #[test]
+    fn a_ranked_query_of_one_or_two_words_keeps_the_plain_tier_ladder() {
+        for q in ["حب", "قفا نبك"] {
+            let body = poem_search_body(&poems(q, 1, false));
+            let should = body["query"]["function_score"]["query"]["bool"]["should"]
+                .as_array()
+                .expect("ranking");
+            assert_eq!(should.len(), 11, "{q}");
+            assert!(
+                should.iter().all(|clause| clause.get("dis_max").is_none()),
+                "{q}"
+            );
+        }
     }
 }

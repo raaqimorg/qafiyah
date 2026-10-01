@@ -68,6 +68,13 @@ const POEMS: &[(&str, PoemCase)] = &[
         },
     ),
     (
+        "a quoted line of three words or more",
+        PoemCase {
+            q: "قفا نبك من",
+            ..NO_SLUGS
+        },
+    ),
+    (
         "stopword-only query",
         PoemCase {
             q: "هذا",
