@@ -46,6 +46,9 @@ const POET_SELECT: &str = "
   WHERE pt.id > $1 AND NOT pt.is_hidden ORDER BY pt.id ASC LIMIT $2
 ";
 
+const POEM_COUNT: &str = "SELECT count(*) FROM public.poems WHERE NOT is_hidden";
+const POET_COUNT: &str = "SELECT count(*) FROM public.poets WHERE NOT is_hidden";
+
 #[expect(
     clippy::print_stderr,
     reason = "a dropped postgres connection reports its failure to stderr"
@@ -126,6 +129,15 @@ pub(crate) async fn stream_poem_batch(
         .collect())
 }
 
+pub(crate) async fn count_rows(client: &Client, is_poems: bool) -> Result<i64, String> {
+    let sql = if is_poems { POEM_COUNT } else { POET_COUNT };
+    let row = tokio::time::timeout(QUERY_TIMEOUT, client.query_one(sql, &[]))
+        .await
+        .map_err(|_| "countRows: query timed out".to_string())?
+        .map_err(|e| format!("countRows: {e}"))?;
+    Ok(row.get(0))
+}
+
 pub(crate) async fn stream_poet_batch(
     client: &Client,
     after_id: i32,
@@ -168,6 +180,12 @@ mod tests {
         assert!(POEM_SELECT.contains("COALESCE(p.recension_of_id, p.id) AS primary_id"));
         assert!(POEM_SELECT.contains("p.recension_of_id IS NULL AS is_primary"));
         assert!(POEM_SELECT.contains("NOT p.is_hidden"));
+    }
+
+    #[test]
+    fn the_progress_totals_count_the_same_rows_the_selects_read() {
+        assert!(POEM_COUNT.contains("FROM public.poems") && POEM_COUNT.contains("NOT is_hidden"));
+        assert!(POET_COUNT.contains("FROM public.poets") && POET_COUNT.contains("NOT is_hidden"));
     }
 
     #[test]
