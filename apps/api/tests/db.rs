@@ -226,7 +226,7 @@ impl Admin {
             .send()
             .await
             .expect("delete the scratch index");
-        assert_eq!(report["errors"], false, "{report}");
+        assert_eq!(report.get("errors"), Some(&Value::Bool(false)), "{report}");
         if let Err(error) = outcome {
             std::panic::resume_unwind(error.into_panic());
         }

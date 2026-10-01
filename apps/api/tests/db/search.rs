@@ -24,15 +24,22 @@ async fn poem_hits(es: &Es, index: &str, q: &str) -> Vec<Value> {
         ..PoemSearchParams::default()
     });
     let response = es.search(index, &body).await.expect("a search");
-    response["hits"]["hits"]
-        .as_array()
+    response
+        .get("hits")
+        .and_then(|hits| hits.get("hits"))
+        .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
 }
 
 fn slugs(hits: &[Value]) -> Vec<String> {
     hits.iter()
-        .filter_map(|hit| hit["_source"]["slug"].as_str().map(str::to_string))
+        .filter_map(|hit| {
+            hit.get("_source")
+                .and_then(|source| source.get("slug"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .collect()
 }
 
