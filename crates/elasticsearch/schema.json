@@ -219,6 +219,9 @@
         "rhymeSlug": {
           "type": "keyword"
         },
+        "poemTypeSlug": {
+          "type": "keyword"
+        },
         "collectionSlug": {
           "type": "keyword"
         },

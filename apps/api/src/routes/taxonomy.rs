@@ -263,3 +263,43 @@ pub(crate) async fn get_collection(
 ) -> Result<Json<ItemEnvelope<PoemCountStats>>, AppError> {
     get_poem_counted_kind(state, log, path, PoemCounted::Collections).await
 }
+
+#[utoipa::path(
+    get,
+    path = "/poem-types",
+    tag = "poem-types",
+    operation_id = "poemTypes.list",
+    description = "All verse forms (anwa' al-qasida) with poem and poet counts, most poems first.",
+    responses(
+        (status = 200, description = "All verse forms.", body = ListEnvelope<CountedStats>),
+        ListErrors,
+    ),
+)]
+pub(crate) async fn list_poem_types(
+    state: State<AppState>,
+    log: Extension<LogHandle>,
+) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
+    list_counted_kind(state, log, Counted::PoemTypes).await
+}
+
+#[utoipa::path(
+    get,
+    path = "/poem-types/{slug}",
+    tag = "poem-types",
+    operation_id = "poemTypes.get",
+    description = "A single verse form with poem and poet counts, by slug.",
+    params(
+        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "amudi"),
+    ),
+    responses(
+        (status = 200, description = "The requested verse form.", body = ItemEnvelope<CountedStats>),
+        LookupErrors,
+    ),
+)]
+pub(crate) async fn get_poem_type(
+    state: State<AppState>,
+    log: Extension<LogHandle>,
+    path: SafePath<String>,
+) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
+    get_counted_kind(state, log, path, Counted::PoemTypes).await
+}

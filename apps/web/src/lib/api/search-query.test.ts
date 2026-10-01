@@ -9,6 +9,7 @@ const base = {
   meters: [],
   rhymes: [],
   themes: [],
+  poemTypes: [],
   collections: [],
   exact: false,
 } as const;
@@ -24,10 +25,17 @@ describe('searchQueryParams', () => {
       meterSlugs: [],
       rhymeSlugs: [],
       themeSlugs: [],
+      poemTypeSlugs: [],
       collectionSlugs: [],
       poetSlugs: [],
       exact: 'false',
     });
+  });
+
+  it('sends the verse form filter for poems', () => {
+    expect(
+      searchQueryParams({ ...base, type: 'poems', poemTypes: ['hurr'] }).poemTypeSlugs
+    ).toStrictEqual(['hurr']);
   });
 
   it('pages the poets section on its own param', () => {
@@ -44,12 +52,14 @@ describe('searchQueryParams', () => {
       meters: ['altawil'],
       rhymes: ['meem'],
       themes: ['alnasib'],
+      poemTypes: ['hurr'],
       collections: ['almuallaqat'],
       eras: ['jahili'],
     });
     expect(params.meterSlugs).toStrictEqual([]);
     expect(params.rhymeSlugs).toStrictEqual([]);
     expect(params.themeSlugs).toStrictEqual([]);
+    expect(params.poemTypeSlugs).toStrictEqual([]);
     expect(params.collectionSlugs).toStrictEqual([]);
     expect(params.eraSlugs).toStrictEqual(['jahili']);
   });

@@ -76,6 +76,7 @@ export function useSearch() {
   const [meterIds, setMeterIds] = useQueryState('meter_slugs', { defaultValue: '' });
   const [rhymeIds, setRhymeIds] = useQueryState('rhyme_slugs', { defaultValue: '' });
   const [themeIds, setThemeIds] = useQueryState('theme_slugs', { defaultValue: '' });
+  const [poemTypeIds, setPoemTypeIds] = useQueryState('poem_type_slugs', { defaultValue: '' });
   const [collectionIds, setCollectionIds] = useQueryState('collection_slugs', {
     defaultValue: '',
   });
@@ -97,6 +98,7 @@ export function useSearch() {
   const selectedRhymes = splitCsvIds(rhymeIds);
   const selectedMeters = splitCsvIds(meterIds);
   const selectedThemes = splitCsvIds(themeIds);
+  const selectedPoemTypes = splitCsvIds(poemTypeIds);
   const selectedCollections = splitCsvIds(collectionIds);
 
   const hasFilters =
@@ -104,6 +106,7 @@ export function useSearch() {
     selectedRhymes.length > 0 ||
     selectedMeters.length > 0 ||
     selectedThemes.length > 0 ||
+    selectedPoemTypes.length > 0 ||
     selectedCollections.length > 0;
   const hasPoetFilters = selectedEras.length > 0;
   const hasCommittedQuery = query.trim().length > 0;
@@ -119,6 +122,7 @@ export function useSearch() {
     meters: selectedMeters,
     rhymes: selectedRhymes,
     themes: selectedThemes,
+    poemTypes: selectedPoemTypes,
     collections: selectedCollections,
     exact,
   });
@@ -187,6 +191,7 @@ export function useSearch() {
   const handleMetersChange = createCsvFilterSetter(setMeterIds);
   const handleRhymesChange = createCsvFilterSetter(setRhymeIds);
   const handleThemesChange = createCsvFilterSetter(setThemeIds);
+  const handlePoemTypesChange = createCsvFilterSetter(setPoemTypeIds);
   const handleCollectionsChange = createCsvFilterSetter(setCollectionIds);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,6 +293,7 @@ export function useSearch() {
       meters: selectedMeters,
       themes: selectedThemes,
       rhymes: selectedRhymes,
+      poemTypes: selectedPoemTypes,
       collections: selectedCollections,
     },
     handlers: {
@@ -299,6 +305,7 @@ export function useSearch() {
       onMetersChange: handleMetersChange,
       onThemesChange: handleThemesChange,
       onRhymesChange: handleRhymesChange,
+      onPoemTypesChange: handlePoemTypesChange,
       onCollectionsChange: handleCollectionsChange,
       onToggleFilters: handleToggleFilters,
       onToggleExact: handleToggleExact,

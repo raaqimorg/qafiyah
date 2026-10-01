@@ -22,6 +22,7 @@ struct PoemCase {
     meter_slugs: &'static [&'static str],
     theme_slugs: &'static [&'static str],
     rhyme_slugs: &'static [&'static str],
+    poem_type_slugs: &'static [&'static str],
     collection_slugs: &'static [&'static str],
     #[serde(skip_serializing_if = "Option::is_none")]
     exact: Option<bool>,
@@ -53,6 +54,7 @@ const NO_SLUGS: PoemCase = PoemCase {
     meter_slugs: &[],
     theme_slugs: &[],
     rhyme_slugs: &[],
+    poem_type_slugs: &[],
     collection_slugs: &[],
     exact: None,
 };
@@ -112,6 +114,7 @@ const POEMS: &[(&str, PoemCase)] = &[
             meter_slugs: &["altawil"],
             theme_slugs: &["alnasib"],
             rhyme_slugs: &["meem"],
+            poem_type_slugs: &["amudi"],
             collection_slugs: &["almuallaqat"],
             ..NO_SLUGS
         },
@@ -202,6 +205,7 @@ fn poem_entry(note: &str, case: &PoemCase) -> Value {
         meter_slugs: owned(case.meter_slugs),
         theme_slugs: owned(case.theme_slugs),
         rhyme_slugs: owned(case.rhyme_slugs),
+        poem_type_slugs: owned(case.poem_type_slugs),
         collection_slugs: owned(case.collection_slugs),
         exact: case.exact.unwrap_or_default(),
     });

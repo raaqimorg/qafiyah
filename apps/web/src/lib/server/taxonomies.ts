@@ -15,6 +15,8 @@ export const allRhymes = (): Promise<Ok<'/rhymes'>['data']> =>
   unwrap(() => apiServer.GET('/rhymes'));
 export const allThemes = (): Promise<Ok<'/themes'>['data']> =>
   unwrap(() => apiServer.GET('/themes'));
+export const allPoemTypes = (): Promise<Ok<'/poem-types'>['data']> =>
+  unwrap(() => apiServer.GET('/poem-types'));
 
 export const getMeter = (slug: MeterSlug): Promise<Meter | null> =>
   getOrNull(() => apiServer.GET('/meters/{slug}', { params: { path: { slug } } }));

@@ -29,6 +29,7 @@ async fn search_refuses_a_poem_only_facet_when_poets_are_requested() {
         "/v1/search?types[]=poets&meterSlugs[]=altawil",
         "/v1/search?rhymeSlugs[]=meem",
         "/v1/search?types[]=poems&types[]=poets&themeSlugs[]=alnasib",
+        "/v1/search?types[]=poets&poemTypeSlugs[]=hurr",
     ] {
         assert_eq!(
             send(app_with(&es), request("GET", path)).await.status,
@@ -42,6 +43,25 @@ async fn search_refuses_a_poem_only_facet_when_poets_are_requested() {
     )
     .await;
     assert_eq!(ok.status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn a_verse_form_filter_reaches_elasticsearch_as_a_terms_filter() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let sent = send(
+        app_with(&es),
+        request("GET", "/v1/search?types[]=poems&poemTypeSlugs[]=hurr"),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK);
+    let filter = &es.requests().await[0].1["query"]["function_score"]["query"]["bool"]["filter"];
+    assert!(
+        filter
+            .as_array()
+            .expect("filters")
+            .contains(&serde_json::json!({ "terms": { "poemTypeSlug": ["hurr"] } })),
+        "{filter}"
+    );
 }
 
 #[tokio::test]

@@ -18,6 +18,7 @@ export type SearchParams = {
   readonly meterSlugs?: readonly string[];
   readonly rhymeSlugs?: readonly string[];
   readonly themeSlugs?: readonly string[];
+  readonly poemTypeSlugs?: readonly string[];
   readonly collectionSlugs?: readonly string[];
   readonly poetSlugs?: readonly string[];
   readonly extra?: Readonly<Record<string, string>>;
@@ -43,6 +44,7 @@ export function searchUrl(params: SearchParams): string {
   list('meterSlugs', params.meterSlugs);
   list('rhymeSlugs', params.rhymeSlugs);
   list('themeSlugs', params.themeSlugs);
+  list('poemTypeSlugs', params.poemTypeSlugs);
   list('collectionSlugs', params.collectionSlugs);
   list('poetSlugs', params.poetSlugs);
   for (const [key, value] of Object.entries(params.extra ?? {})) {
