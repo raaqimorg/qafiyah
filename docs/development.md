@@ -60,7 +60,7 @@ bun run db:up           # start just Postgres + Elasticsearch (docker compose up
 bun run db:reset        # wipe the local Postgres volume, restore the dump fresh
 bun run down            # stop the Docker Compose stack
 bun run clean           # kill stray astro/qafiyah-api processes from a previous run
-bun run reindex         # force-rebuild the Elasticsearch indices from Postgres
+bun run reindex         # rebuild the indexer image, then force-rebuild the Elasticsearch indices from Postgres
 ```
 
 The sample dataset needs no credentials: `scripts/dev/compose.sh` and `scripts/dev/run.ts` default every dev database and Elasticsearch password, so a fresh clone has no `.env` at all. Two things change that:
@@ -90,6 +90,12 @@ bun run ci                # the full gate (GitHub Actions runs it scoped to the 
 ```
 
 Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
+
+The smoke runs leave your dev environment as they found it. `smoke:dev` starts its own `bun run dev`
+and stops it afterwards, unless the dev web and API already answer, in which case it reuses them and
+leaves them running. The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode
+stack in the same Compose project and removes it at the end, then starts again whichever of the dev
+`db` and `elasticsearch` containers were running before it.
 
 `rust:test:db` brings up the dev Postgres and Elasticsearch, runs the one-shot indexer, and runs
 `apps/api/tests/db.rs` with the same connection strings `bun run dev` uses. Without the
@@ -133,7 +139,7 @@ worktree's own API port, handled automatically).
 
 Commit messages follow `docs/pull-requests.md` (one subject line, nothing else). The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only (oxlint, oxfmt, prettier for `.astro`, rustfmt, and ShellCheck, per the `lint-staged` block in `package.json`), in about a second. The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, about 30 seconds. GitHub Actions runs the gate on every push and PR to `main`, and each Docker phase when the change touches what it uses; `bun run deploy` refuses a commit whose CI run did not pass (a skipped phase does not count as a failure). `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook when you have already run the gate.
 
-Both hooks first run `scripts/check/commit-identity.sh`, an optional guard against committing with the wrong email. It does nothing until you opt in, per clone, with `git config --local qafiyah.allowedEmail "$(git config --local user.email)"`; the address stays in `.git/config`, which is never committed. From then on a commit is refused unless its author and committer use that address, and a push is refused if any new commit's author, committer, or `*-by:` trailer (such as `Co-authored-by:`) uses another one. It reads the key with `git config --local`, so `git -c` overrides cannot satisfy it, but `--no-verify` or `HUSKY=0` skip it like any hook; GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account on the server side.
+Both hooks first run `scripts/check/commit-identity.sh`, an optional guard against committing with the wrong email. It does nothing until you opt in, per clone, with `git config --local qafiyah.allowedEmail "$(git config --local user.email)"`; the address stays in `.git/config`, which is never committed. From then on a commit is refused unless its author and committer use that address, and a push is refused if any commit that isn't already on a remote has an author, committer, or `*-by:` trailer (such as `Co-authored-by:`) with another one (commits already on a remote, such as main's GitHub-made squash merges after you merge main into a branch, are public already and not checked). It reads the key with `git config --local`, so `git -c` overrides cannot satisfy it, but `--no-verify` or `HUSKY=0` skip it like any hook; GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account on the server side.
 
 `AGENTS.md` is the per-directory guide; `CLAUDE.md` and `GEMINI.md` next to each one are committed symlinks to it, so every agent harness reads the same file. `bun run agents:link` recreates them after adding an `AGENTS.md`. On Windows, check out with `git config core.symlinks true` from a Developer Mode or admin shell, or the links appear as one-line text files.
 

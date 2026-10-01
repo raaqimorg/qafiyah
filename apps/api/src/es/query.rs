@@ -9,6 +9,8 @@ const CLASSICAL_ERA_SLUGS: [&str; 8] = [
 ];
 const CLASSICAL_ERA_WEIGHT: f64 = 1.1;
 const ALTERNATE_READING_WEIGHT: f64 = 0.5;
+const TYPED_HAMZA_WEIGHT: f64 = 1.5;
+const STANDALONE_HAMZA: char = 'ء';
 
 mod tier {
     pub(super) const SURFACE_EXACT: i64 = 32768;
@@ -209,6 +211,9 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         if favor_classical {
             functions.push(classical_era_function());
         }
+        if params.q.contains(STANDALONE_HAMZA) {
+            functions.push(typed_hamza_function(&params.q));
+        }
         functions.push(alternate_reading_function());
         scored(ranked, functions)
     };
@@ -228,7 +233,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         ES_MAX_RESULT_WINDOW,
         query,
         (!has_text).then_some(browse_sort),
-        has_text.then(|| highlight(0, None, "content", &["content", "content.stemmed"])),
+        has_text.then(|| poem_highlight(&params.q)),
     );
     if let (true, Some(map)) = (has_text, request.as_object_mut()) {
         map.insert("collapse".into(), json!({ "field": "primaryId" }));
@@ -243,6 +248,25 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     request
 }
 
+fn poem_highlight(q: &str) -> Value {
+    if !q.contains(STANDALONE_HAMZA) {
+        return highlight(0, None, "content", &["content", "content.stemmed"]);
+    }
+    let mut hl = highlight(
+        0,
+        None,
+        "content",
+        &["content", "content.stemmed", "content.hamza"],
+    );
+    if let Some(map) = hl.as_object_mut() {
+        map.insert(
+            "highlight_query".into(),
+            json!({ "match": { "content.hamza": { "query": q } } }),
+        );
+    }
+    hl
+}
+
 fn classical_era_function() -> Value {
     json!({
         "filter": { "terms": { "eraSlug": CLASSICAL_ERA_SLUGS } },
@@ -254,6 +278,17 @@ fn alternate_reading_function() -> Value {
     json!({
         "filter": { "term": { "isPrimary": false } },
         "weight": ALTERNATE_READING_WEIGHT,
+    })
+}
+
+fn typed_hamza_function(q: &str) -> Value {
+    json!({
+        "filter": { "multi_match": {
+            "query": q,
+            "type": "phrase",
+            "fields": ["title.hamza", "content.hamza"],
+        } },
+        "weight": TYPED_HAMZA_WEIGHT,
     })
 }
 
@@ -573,6 +608,82 @@ mod tests {
         let filter = ranked["filter"].as_array().expect("filters");
         assert_eq!(filter[1], json!({ "terms": { "eraSlug": ["hadith"] } }));
         assert_eq!(ranked["should"].as_array().expect("ranking").len(), 11);
+    }
+
+    fn typed_hamza(q: &str) -> Value {
+        json!({
+            "filter": { "multi_match": {
+                "query": q,
+                "type": "phrase",
+                "fields": ["title.hamza", "content.hamza"],
+            } },
+            "weight": 1.5,
+        })
+    }
+
+    #[test]
+    fn a_ranked_poem_query_with_a_standalone_hamza_favors_poems_that_spell_it_that_way() {
+        let body = poem_search_body(&poems("ماء", 1, false));
+        let scored = &body["query"]["function_score"];
+        let functions = scored["functions"].as_array().expect("functions");
+        assert_eq!(
+            functions.len(),
+            3,
+            "classical, typed hamza, alternate reading"
+        );
+        assert_eq!(functions[1], typed_hamza("ماء"));
+        assert_eq!(scored["score_mode"], "multiply");
+    }
+
+    #[test]
+    fn the_hamza_preference_applies_with_an_era_filter_too() {
+        let body = poem_search_body(&PoemSearchParams {
+            q: "السماء".into(),
+            page: 1,
+            era_slugs: vec!["abbasi".into()],
+            ..PoemSearchParams::default()
+        });
+        assert_eq!(
+            body["query"]["function_score"]["functions"],
+            json!([
+                typed_hamza("السماء"),
+                { "filter": { "term": { "isPrimary": false } }, "weight": 0.5 },
+            ])
+        );
+    }
+
+    #[test]
+    fn a_query_with_a_standalone_hamza_highlights_only_the_word_as_typed() {
+        let body = poem_search_body(&poems("ماء", 1, false));
+        assert_eq!(
+            body["highlight"]["highlight_query"],
+            json!({ "match": { "content.hamza": { "query": "ماء" } } })
+        );
+        assert_eq!(
+            body["highlight"]["fields"]["content"]["matched_fields"],
+            json!(["content", "content.stemmed", "content.hamza"])
+        );
+        let plain = poem_search_body(&poems("حب", 1, false));
+        assert!(plain["highlight"].get("highlight_query").is_none());
+        assert_eq!(
+            plain["highlight"]["fields"]["content"]["matched_fields"],
+            json!(["content", "content.stemmed"])
+        );
+    }
+
+    #[test]
+    fn a_query_without_a_standalone_hamza_gets_no_hamza_preference() {
+        for q in ["حب", "أمي", "مسؤول", "شئ"] {
+            let body = poem_search_body(&poems(q, 1, false));
+            let functions = body["query"]["function_score"]["functions"]
+                .as_array()
+                .expect("functions");
+            assert_eq!(
+                functions.len(),
+                2,
+                "{q}: classical and alternate reading only"
+            );
+        }
     }
 
     #[test]
