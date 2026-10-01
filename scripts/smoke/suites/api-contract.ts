@@ -23,6 +23,7 @@ export const apiContractProbes: readonly Probe[] = [
   list('/rhymes', 'rhymes list'),
   list('/themes', 'themes list'),
   list('/collections', 'collections list'),
+  list('/poem-types', 'verse forms list'),
   {
     url: `${API}/v1/poems/not-a-real-slug`,
     note: 'malformed poem slug is 400',

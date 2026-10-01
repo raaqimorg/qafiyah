@@ -19,6 +19,7 @@ pub enum Resource {
     Theme,
     Era,
     Collection,
+    PoemType,
     Poem,
     Poet,
     ApiKey,
@@ -33,6 +34,7 @@ impl Resource {
             Resource::Theme => "Theme not found",
             Resource::Era => "Era not found",
             Resource::Collection => "Collection not found",
+            Resource::PoemType => "Poem type not found",
             Resource::Poem => "Poem not found",
             Resource::Poet => "Poet not found",
             Resource::ApiKey => "API key not found",
@@ -320,6 +322,7 @@ mod tests {
             Resource::Collection.not_found_detail(),
             "Collection not found"
         );
+        assert_eq!(Resource::PoemType.not_found_detail(), "Poem type not found");
     }
 
     fn body(error: AppError, instance: &str) -> String {

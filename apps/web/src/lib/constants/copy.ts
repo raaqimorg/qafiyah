@@ -14,6 +14,7 @@ export const SEARCH_TEXTS = {
   filtersTitle: 'الفلاتر',
   erasLabel: 'العصور',
   metersLabel: 'البحور',
+  poemTypesLabel: 'الأنواع',
   themesLabel: 'الأغراض',
   collectionsLabel: 'الدواوين',
   rhymesLabel: 'القوافي',

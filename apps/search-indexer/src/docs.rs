@@ -17,6 +17,7 @@ pub(crate) struct PoemSource {
     pub meter_slug: String,
     pub theme_slug: String,
     pub rhyme_slug: String,
+    pub poem_type_slug: String,
     pub collection_slug: String,
     pub primary_id: i32,
     pub is_primary: bool,
@@ -51,6 +52,7 @@ pub(crate) struct PoemDoc {
     pub meter_name: String,
     pub theme_slug: String,
     pub rhyme_slug: String,
+    pub poem_type_slug: String,
     pub collection_slug: String,
     pub primary_id: i32,
     pub is_primary: bool,
@@ -88,6 +90,7 @@ pub(crate) fn to_poem_doc(src: PoemSource) -> PoemDoc {
         meter_name: src.meter_name,
         theme_slug: src.theme_slug,
         rhyme_slug: src.rhyme_slug,
+        poem_type_slug: src.poem_type_slug,
         collection_slug: src.collection_slug,
         primary_id: src.primary_id,
         is_primary: src.is_primary,
@@ -129,6 +132,7 @@ mod tests {
             meter_slug: "altawil".into(),
             theme_slug: "alnasib".into(),
             rhyme_slug: "meem".into(),
+            poem_type_slug: "amudi".into(),
             collection_slug: String::new(),
             primary_id: 7,
             is_primary: true,
@@ -180,6 +184,13 @@ mod tests {
             (alternate.id, alternate.primary_id, alternate.is_primary),
             (9, 7, false)
         );
+    }
+
+    #[test]
+    fn a_poem_document_carries_its_verse_form_slug() {
+        let mut source = poem();
+        source.poem_type_slug = "hurr".into();
+        assert_eq!(to_poem_doc(source).poem_type_slug, "hurr");
     }
 
     #[test]

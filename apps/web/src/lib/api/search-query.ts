@@ -8,6 +8,7 @@ export type SearchQueryInput = {
   readonly meters: readonly string[];
   readonly rhymes: readonly string[];
   readonly themes: readonly string[];
+  readonly poemTypes: readonly string[];
   readonly collections: readonly string[];
   readonly exact: boolean;
 };
@@ -21,6 +22,7 @@ export type SearchQueryParams = {
   readonly meterSlugs: string[];
   readonly rhymeSlugs: string[];
   readonly themeSlugs: string[];
+  readonly poemTypeSlugs: string[];
   readonly collectionSlugs: string[];
   readonly poetSlugs: string[];
   readonly exact: 'true' | 'false';
@@ -37,6 +39,7 @@ export function searchQueryParams(input: SearchQueryInput): SearchQueryParams {
     meterSlugs: poems ? [...input.meters] : [],
     rhymeSlugs: poems ? [...input.rhymes] : [],
     themeSlugs: poems ? [...input.themes] : [],
+    poemTypeSlugs: poems ? [...input.poemTypes] : [],
     collectionSlugs: poems ? [...input.collections] : [],
     poetSlugs: [],
     exact: input.exact ? 'true' : 'false',

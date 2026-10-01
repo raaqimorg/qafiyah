@@ -104,6 +104,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/poem-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description All verse forms (anwa' al-qasida) with poem and poet counts, most poems first. */
+        get: operations["poemTypes.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/poem-types/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A single verse form with poem and poet counts, by slug. */
+        get: operations["poemTypes.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/poems": {
         parameters: {
             query?: never;
@@ -264,7 +298,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored. */
+        /** @description Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored. */
         get: operations["search.search"];
         put?: never;
         post?: never;
@@ -1043,6 +1077,122 @@ export interface operations {
             };
         };
     };
+    "poemTypes.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All verse forms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelope_CountedStats"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: string;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: string;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "poemTypes.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
+                 * @example amudi
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested verse form. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
+                };
+            };
+            /** @description Input validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: string;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: string;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     "poems.list": {
         parameters: {
             query?: {
@@ -1714,6 +1864,13 @@ export interface operations {
                  *     ]
                  */
                 themeSlugs?: components["schemas"]["TransliteratedSlug"][];
+                /**
+                 * @description Filter poems by verse form slug (amudi, hurr, and the rest). Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?poemTypeSlugs=hurr. Slugs are the `slug` values from GET /poem-types.
+                 * @example [
+                 *       "hurr"
+                 *     ]
+                 */
+                poemTypeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
                  * @description Filter poems by collection slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?collectionSlugs=almuallaqat. Slugs are the `slug` values from GET /collections.
                  * @example [

@@ -9,6 +9,7 @@ import {
   COLLECTIONS_NOUN_FORMS,
   ERAS_NOUN_FORMS,
   METERS_NOUN_FORMS,
+  POEM_TYPES_NOUN_FORMS,
   RHYMES_NOUN_FORMS,
   type SelectOption,
   THEMES_NOUN_FORMS,
@@ -27,6 +28,7 @@ type Props = {
   readonly filters: {
     readonly eras: MultiFilter;
     readonly meters: MultiFilter;
+    readonly poemTypes: MultiFilter;
     readonly themes: MultiFilter;
     readonly rhymes: MultiFilter;
     readonly collections: MultiFilter;
@@ -66,6 +68,21 @@ export function Filters({ filters, wantPoems }: Props) {
                 value={filters.meters.selected}
                 placeholderNounForms={METERS_NOUN_FORMS}
                 onChange={filters.meters.onChange}
+                placeholder={SEARCH_TEXTS.allPlaceholder}
+                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+                multiple={true}
+                sortOptions={false}
+                showCounts={true}
+              />
+            </div>
+
+            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
+              <p className={labelClass}>{SEARCH_TEXTS.poemTypesLabel}</p>
+              <Select
+                options={filters.poemTypes.options}
+                value={filters.poemTypes.selected}
+                placeholderNounForms={POEM_TYPES_NOUN_FORMS}
+                onChange={filters.poemTypes.onChange}
                 placeholder={SEARCH_TEXTS.allPlaceholder}
                 allOptionLabel={SEARCH_TEXTS.allPlaceholder}
                 multiple={true}
@@ -188,11 +205,13 @@ export function ExactToggle({ enabled, onToggle }: ExactToggleProps) {
 type FilterBadgesProps = {
   readonly selectedErasLength: number;
   readonly selectedMetersLength: number;
+  readonly selectedPoemTypesLength: number;
   readonly selectedRhymesLength: number;
   readonly selectedThemesLength: number;
   readonly selectedCollectionsLength: number;
   readonly erasCount: string;
   readonly metersCount: string;
+  readonly poemTypesCount: string;
   readonly themesCount: string;
   readonly rhymesCount: string;
   readonly collectionsCount: string;
@@ -201,11 +220,13 @@ type FilterBadgesProps = {
 export function FilterBadges({
   selectedErasLength,
   selectedMetersLength,
+  selectedPoemTypesLength,
   selectedRhymesLength,
   selectedThemesLength,
   selectedCollectionsLength,
   erasCount,
   metersCount,
+  poemTypesCount,
   themesCount,
   rhymesCount,
   collectionsCount,
@@ -221,6 +242,11 @@ export function FilterBadges({
       {selectedMetersLength > 0 && (
         <Badge variant="outline" className={badgeClassname}>
           {metersCount}
+        </Badge>
+      )}
+      {selectedPoemTypesLength > 0 && (
+        <Badge variant="outline" className={badgeClassname}>
+          {poemTypesCount}
         </Badge>
       )}
       {selectedThemesLength > 0 && (

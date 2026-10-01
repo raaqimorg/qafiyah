@@ -169,6 +169,7 @@ pub struct PoemSearchParams {
     pub meter_slugs: Vec<String>,
     pub theme_slugs: Vec<String>,
     pub rhyme_slugs: Vec<String>,
+    pub poem_type_slugs: Vec<String>,
     pub collection_slugs: Vec<String>,
     pub exact: bool,
 }
@@ -181,6 +182,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         ("meterSlug", &params.meter_slugs),
         ("themeSlug", &params.theme_slugs),
         ("rhymeSlug", &params.rhyme_slugs),
+        ("poemTypeSlug", &params.poem_type_slugs),
         ("collectionSlug", &params.collection_slugs),
     ]);
 
@@ -719,6 +721,7 @@ mod tests {
             meter_slugs: vec!["altawil".into()],
             theme_slugs: vec![],
             rhyme_slugs: vec!["meem".into()],
+            poem_type_slugs: vec!["hurr".into()],
             collection_slugs: vec!["almuallaqat".into()],
             exact: false,
         };
@@ -740,7 +743,13 @@ mod tests {
             .collect();
         assert_eq!(
             fields,
-            ["poetSlug", "meterSlug", "rhymeSlug", "collectionSlug"]
+            [
+                "poetSlug",
+                "meterSlug",
+                "rhymeSlug",
+                "poemTypeSlug",
+                "collectionSlug"
+            ]
         );
     }
 

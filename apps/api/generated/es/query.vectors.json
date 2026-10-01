@@ -220,6 +220,7 @@
         "eraSlugs": [],
         "meterSlugs": [],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "حب",
         "rhymeSlugs": [],
@@ -446,6 +447,7 @@
         "eraSlugs": [],
         "meterSlugs": [],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "هذا",
         "rhymeSlugs": [],
@@ -693,6 +695,7 @@
         "eraSlugs": [],
         "meterSlugs": [],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "ماء",
         "rhymeSlugs": [],
@@ -760,6 +763,7 @@
         "eraSlugs": [],
         "meterSlugs": [],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "",
         "rhymeSlugs": [],
@@ -827,6 +831,7 @@
         "eraSlugs": [],
         "meterSlugs": [],
         "page": 4,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "",
         "rhymeSlugs": [],
@@ -912,6 +917,7 @@
         "exact": true,
         "meterSlugs": [],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "يا رب",
         "rhymeSlugs": [],
@@ -1130,6 +1136,7 @@
         ],
         "meterSlugs": [],
         "page": 2,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "دمع",
         "rhymeSlugs": [],
@@ -1180,6 +1187,13 @@
               },
               {
                 "terms": {
+                  "poemTypeSlug": [
+                    "amudi"
+                  ]
+                }
+              },
+              {
+                "terms": {
                   "collectionSlug": [
                     "almuallaqat"
                   ]
@@ -1219,6 +1233,9 @@
           "altawil"
         ],
         "page": 1,
+        "poemTypeSlugs": [
+          "amudi"
+        ],
         "poetSlugs": [
           "yoFB"
         ],
@@ -1320,6 +1337,7 @@
           "alkamil"
         ],
         "page": 1,
+        "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "صبر",
         "rhymeSlugs": [],

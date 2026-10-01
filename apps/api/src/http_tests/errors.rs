@@ -48,6 +48,7 @@ async fn a_malformed_slug_is_refused_before_any_backend_is_asked() {
         "/v1/poems/ab1d",
         "/v1/meters/ALTAWIL",
         "/v1/eras/-x",
+        "/v1/poem-types/HURR",
         "/v1/poets/%D8%AD%D8%A8%D9%8A%D8%A8",
     ] {
         let sent = send(app_with(&es), request("GET", path)).await;

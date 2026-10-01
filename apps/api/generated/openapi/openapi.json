@@ -519,6 +519,173 @@
         }
       }
     },
+    "/poem-types": {
+      "get": {
+        "tags": [
+          "poem-types"
+        ],
+        "description": "All verse forms (anwa' al-qasida) with poem and poet counts, most poems first.",
+        "operationId": "poemTypes.list",
+        "responses": {
+          "200": {
+            "description": "All verse forms.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope_CountedStats"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/poem-types/{slug}": {
+      "get": {
+        "tags": [
+          "poem-types"
+        ],
+        "description": "A single verse form with poem and poet counts, by slug.",
+        "operationId": "poemTypes.get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "Resource identifier taken from the `slug` field of the matching list endpoint.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z-]*$"
+            },
+            "example": "amudi"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested verse form.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope_CountedStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Input validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/poems": {
       "get": {
         "tags": [
@@ -1464,7 +1631,7 @@
         "tags": [
           "search"
         ],
-        "description": "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
+        "description": "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
         "operationId": "search.search",
         "parameters": [
           {
@@ -1596,6 +1763,23 @@
             },
             "example": [
               "alnasib"
+            ]
+          },
+          {
+            "name": "poemTypeSlugs",
+            "in": "query",
+            "description": "Filter poems by verse form slug (amudi, hurr, and the rest). Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?poemTypeSlugs=hurr. Slugs are the `slug` values from GET /poem-types.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TransliteratedSlug"
+              },
+              "default": [],
+              "maxItems": 100
+            },
+            "example": [
+              "hurr"
             ]
           },
           {
@@ -3008,6 +3192,10 @@
     {
       "name": "collections",
       "description": "Curated collections (al-dawawin) of poems."
+    },
+    {
+      "name": "poem-types",
+      "description": "Verse forms (anwa' al-qasida): classical amudi verse, free verse, and the rest."
     }
   ]
 }

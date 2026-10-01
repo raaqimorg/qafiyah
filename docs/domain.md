@@ -53,8 +53,9 @@ lengths cluster tightly, and one rawi, so every ajuz ends on the same rhyme cons
 muwashshah has the first property but not the second. A muzdawij has both, which is why
 length and rhyme alone cannot separate it from a qasida.
 
-`poem_type` has no listing page or counts, but the poem detail endpoint returns it as
-`poemType` (`{ name, slug }`), and the web poem page reads it for layout: an `amudi` poem
+`poem_type` has no web listing page. The API lists it with counts (`GET /v1/poem-types`,
+from `poem_type_stats`), search filters poems by it (`poemTypeSlugs`), the poem detail endpoint
+returns it as `poemType` (`{ name, slug }`), and the web poem page reads it for layout: an `amudi` poem
 renders each bayt as two staggered lines, sadr against the right and ajuz against the left
 of a column sized in `em`, while every other type stays centered with its hemistichs stacked.
 
@@ -247,7 +248,7 @@ recensions moves them to the survivor (`merge_poem`).
 ## Taxonomy counts
 
 The `*_stats` relations (`poet_stats`, `meter_stats`, `rhyme_stats`, `era_stats`, `theme_stats`,
-`collection_stats`, and the schema-only `poem_type_stats`, `form_stats`, `register_stats`,
+`collection_stats`, `poem_type_stats`, and the schema-only `form_stats`, `register_stats`,
 `genre_stats`, `majra_stats`, `nation_stats`, `gender_stats`) hold the per-term poem and poet
 counts the listing pages render. They are **tables**, not views: as views they re-aggregated the
 whole `poems` table on every request (hundreds of milliseconds per taxonomy index page). They are

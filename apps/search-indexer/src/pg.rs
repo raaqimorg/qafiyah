@@ -22,6 +22,7 @@ const POEM_SELECT: &str = "
     m.name AS meter_name, m.slug AS meter_slug,
     t.slug AS theme_slug,
     r.slug AS rhyme_slug,
+    ty.slug AS poem_type_slug,
     COALESCE(c.slug, '') AS collection_slug,
     COALESCE(p.recension_of_id, p.id) AS primary_id, p.recension_of_id IS NULL AS is_primary
   FROM public.poems p
@@ -30,6 +31,7 @@ const POEM_SELECT: &str = "
   JOIN public.meters m ON p.meter_id = m.id
   JOIN public.themes t ON p.theme_id = t.id
   JOIN public.rhymes r ON p.rhyme_id = r.id
+  JOIN public.poem_types ty ON p.poem_type_id = ty.id
   LEFT JOIN public.collections c ON p.collection_id = c.id
   WHERE p.id > $1 AND NOT p.is_hidden ORDER BY p.id ASC LIMIT $2
 ";
@@ -116,6 +118,7 @@ pub(crate) async fn stream_poem_batch(
             meter_slug: r.get("meter_slug"),
             theme_slug: r.get("theme_slug"),
             rhyme_slug: r.get("rhyme_slug"),
+            poem_type_slug: r.get("poem_type_slug"),
             collection_slug: r.get("collection_slug"),
             primary_id: r.get("primary_id"),
             is_primary: r.get("is_primary"),
