@@ -62,12 +62,18 @@ Multi-fields: `title` and the name fields get `.exact` (keyword), `.stemmed`, an
 `.autocomplete`. **`content` gets `.stemmed` only**, no `.exact` and no `.autocomplete`, which is
 asserted in the schema code. Both mappings are `dynamic: "strict"`.
 
-The `.exact` keywords use the `arabic_exact` normalizer: the same char filter and token filters as
-`arabic_normalized`, applied to the whole value. A `term` query on a normalized keyword is
-normalized too, so an exact title match ignores hamza forms and diacritics (`امي` matches the title
-`أمي`) with no change to the query code. It inherits the folding's side effects as well: the `ء`
-deletion makes `ماء` and `ما` the same keyword, as they already are on every analyzed field, and
-`على` and `علي` match each other through the alef maqsura fold.
+Deleting the standalone `ء` makes different words identical on every analyzed field (`ماء` and
+`ما`, `سماء` and `سما`), which helps recall, since poets drop the hamza for meter, but blurs
+ranking. So there is a second char filter, `arabic_letter_folding_keep_hamza`: the same rules
+without the `ء` deletion (a schema test keeps the two lists in step). It feeds the
+`arabic_hamza_kept` analyzer behind the `title.hamza` and `content.hamza` subfields, and the
+`arabic_exact` normalizer.
+
+The `.exact` keywords use that `arabic_exact` normalizer: the hamza-keeping folding and the same
+token filters as `arabic_normalized`, applied to the whole value. A `term` query on a normalized
+keyword is normalized too, so an exact title match ignores hamza forms on a carrier and diacritics
+(`امي` matches the title `أمي`) with no change to the query code, while `ماء` and `ما` stay
+different. `على` and `علي` still match each other through the alef maqsura fold.
 
 ## Relevance
 
@@ -97,6 +103,11 @@ Poem tiers, final boost = tier boost times field weight (`title: 4`, `content: 1
 
 The powers-of-two spacing is wide on purpose: an exact title hit cannot be outscored by an
 accumulation of weak content matches.
+
+When the query contains a standalone `ء`, a ranked poem search also multiplies by
+`TYPED_HAMZA_WEIGHT` (1.5) the score of a poem whose title or content has the query as typed, as a
+phrase on `title.hamza` or `content.hamza`. Poems that only match the folded spelling still match,
+just lower. A query without a standalone `ء` gets no such function.
 
 A ranked poem search with no era filter then multiplies the score of a poem from a classical era
 (jahili through mamluki, `CLASSICAL_ERA_SLUGS`) by `CLASSICAL_ERA_WEIGHT` (1.1) in a
@@ -144,7 +155,9 @@ most 100 slugs per facet.
 
 Highlighting asks for `number_of_fragments: 0`, so ES returns the **whole** content field with
 `<mark>` inserted rather than fragments, using `matched_fields` across `content` and
-`content.stemmed` so a stem hit still highlights the surface form.
+`content.stemmed` so a stem hit still highlights the surface form. For a query with a standalone
+`ء`, a `highlight_query` on `content.hamza` marks only the words as typed (`ماء`, not `ما`); a poem
+that matched only through the folded spelling then has no highlight and shows its opening verse.
 
 The API then picks one verse to show. It splits content on `*` and walks **two hemistichs at a
 time**, one verse per step, scoring each verse by its longest single `<mark>` run. Three details

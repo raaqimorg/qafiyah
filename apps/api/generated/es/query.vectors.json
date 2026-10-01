@@ -187,7 +187,8 @@
                   }
                 ]
               }
-            }
+            },
+            "score_mode": "multiply"
           }
         },
         "size": 20,
@@ -392,7 +393,8 @@
                   }
                 ]
               }
-            }
+            },
+            "score_mode": "multiply"
           }
         },
         "size": 20,
@@ -406,6 +408,233 @@
         "page": 1,
         "poetSlugs": [],
         "q": "هذا",
+        "rhymeSlugs": [],
+        "themeSlugs": []
+      }
+    },
+    {
+      "body": {
+        "from": 0,
+        "highlight": {
+          "fields": {
+            "content": {
+              "matched_fields": [
+                "content",
+                "content.stemmed",
+                "content.hamza"
+              ]
+            }
+          },
+          "highlight_query": {
+            "match": {
+              "content.hamza": {
+                "query": "ماء"
+              }
+            }
+          },
+          "number_of_fragments": 0,
+          "post_tags": [
+            "</mark>"
+          ],
+          "pre_tags": [
+            "<mark>"
+          ]
+        },
+        "query": {
+          "function_score": {
+            "boost_mode": "multiply",
+            "functions": [
+              {
+                "filter": {
+                  "terms": {
+                    "eraSlug": [
+                      "jahili",
+                      "islami",
+                      "umawi",
+                      "abbasi",
+                      "andalusi",
+                      "fatimi",
+                      "ayyubi",
+                      "mamluki"
+                    ]
+                  }
+                },
+                "weight": 1.1
+              },
+              {
+                "filter": {
+                  "multi_match": {
+                    "fields": [
+                      "title.hamza",
+                      "content.hamza"
+                    ],
+                    "query": "ماء",
+                    "type": "phrase"
+                  }
+                },
+                "weight": 1.5
+              }
+            ],
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "match": {
+                            "title.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "ماء"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content.stemmed": {
+                              "minimum_should_match": "1<75%",
+                              "query": "ماء"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "title": {
+                              "operator": "and",
+                              "query": "ماء"
+                            }
+                          }
+                        },
+                        {
+                          "match": {
+                            "content": {
+                              "operator": "and",
+                              "query": "ماء"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "must_not": [
+                  {
+                    "term": {
+                      "isPrimary": false
+                    }
+                  }
+                ],
+                "should": [
+                  {
+                    "term": {
+                      "title.exact": {
+                        "boost": 131072,
+                        "value": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title": {
+                        "boost": 16384,
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "title.stemmed": {
+                        "boost": 2048,
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title": {
+                        "boost": 256,
+                        "operator": "and",
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 32,
+                        "operator": "and",
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "title.stemmed": {
+                        "boost": 4,
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content": {
+                        "boost": 4096,
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "content.stemmed": {
+                        "boost": 512,
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content": {
+                        "boost": 64,
+                        "operator": "and",
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 8,
+                        "operator": "and",
+                        "query": "ماء"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "content.stemmed": {
+                        "boost": 1,
+                        "query": "ماء"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "score_mode": "multiply"
+          }
+        },
+        "size": 20,
+        "track_total_hits": 10000
+      },
+      "note": "query with a standalone hamza",
+      "params": {
+        "collectionSlugs": [],
+        "eraSlugs": [],
+        "meterSlugs": [],
+        "page": 1,
+        "poetSlugs": [],
+        "q": "ماء",
         "rhymeSlugs": [],
         "themeSlugs": []
       }
@@ -451,7 +680,8 @@
                   }
                 ]
               }
-            }
+            },
+            "score_mode": "multiply"
           }
         },
         "size": 20,
@@ -518,7 +748,8 @@
                   }
                 ]
               }
-            }
+            },
+            "score_mode": "multiply"
           }
         },
         "size": 20,
