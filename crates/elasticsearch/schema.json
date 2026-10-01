@@ -58,6 +58,11 @@
               "\u00ad => "
             ]
           },
+          "invisible_marks": {
+            "type": "pattern_replace",
+            "pattern": "[\u0610-\u061a\u0653-\u065f\u06d6-\u06ed\u202a-\u202e\u2066-\u2069]",
+            "replacement": ""
+          },
           "name_compound_split": {
             "type": "pattern_replace",
             "pattern": "(^|\\s)(عبد|ابو)ال",
@@ -92,13 +97,13 @@
         "analyzer": {
           "arabic_normalized": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           },
           "arabic_stemmed": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -110,25 +115,25 @@
           },
           "autocomplete_2": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
           },
           "arabic_hamza_kept": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           },
           "arabic_name_normalized": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "name_equivalents"]
           },
           "arabic_name_stemmed": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -141,7 +146,7 @@
           },
           "autocomplete_name": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -155,7 +160,7 @@
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }
@@ -340,6 +345,11 @@
               "\u00ad => "
             ]
           },
+          "invisible_marks": {
+            "type": "pattern_replace",
+            "pattern": "[\u0610-\u061a\u0653-\u065f\u06d6-\u06ed\u202a-\u202e\u2066-\u2069]",
+            "replacement": ""
+          },
           "name_compound_split": {
             "type": "pattern_replace",
             "pattern": "(^|\\s)(عبد|ابو)ال",
@@ -374,13 +384,13 @@
         "analyzer": {
           "arabic_normalized": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           },
           "arabic_stemmed": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -392,25 +402,25 @@
           },
           "autocomplete_2": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
           },
           "arabic_hamza_kept": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           },
           "arabic_name_normalized": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "name_equivalents"]
           },
           "arabic_name_stemmed": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -423,7 +433,7 @@
           },
           "autocomplete_name": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "char_filter": ["arabic_letter_folding", "invisible_marks", "name_compound_split"],
             "tokenizer": "standard",
             "filter": [
               "lowercase",
@@ -437,7 +447,7 @@
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }

@@ -189,3 +189,26 @@ async fn a_name_written_joined_finds_the_poet_whose_name_is_written_apart() {
     };
     assert_first_poet(&h, "عبدالله بن العجلان النهدي", "FzZx").await;
 }
+
+#[tokio::test]
+async fn a_word_carrying_a_mark_the_folding_leaves_is_found_by_its_bare_letters_and_highlighted_whole()
+ {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        poem(1, "Cccc", "لا تبتئس", "قال الْحٓرُّ لا تبتئسْ*فإن الدهر ذو غير"),
+        poem(2, "Dddd", "سرى الطيف", "سرى الطيف ليلا*فاستهام فؤادي"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let hits = poem_hits(&es, &index, "الحر").await;
+            let first = hits.first().expect("the poem holding الْحٓرُّ");
+            assert_eq!(first["_source"]["slug"], "Cccc");
+            assert_eq!(
+                first["highlight"]["content"][0],
+                "قال <mark>الْحٓرُّ</mark> لا تبتئسْ*فإن الدهر ذو غير"
+            );
+        })
+        .await;
+}

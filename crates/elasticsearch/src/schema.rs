@@ -98,7 +98,7 @@ mod tests {
             assert_eq!(normalizer["type"], "custom");
             assert_eq!(
                 normalizer["char_filter"],
-                json!(["arabic_letter_folding_keep_hamza"])
+                json!(["arabic_letter_folding_keep_hamza", "invisible_marks"])
             );
             assert_eq!(normalizer["filter"], analyzer["filter"]);
             for field in fields {
@@ -209,12 +209,12 @@ mod tests {
             let analysis = &body["settings"]["analysis"];
             assert_eq!(
                 analysis["normalizer"]["arabic_exact"]["char_filter"],
-                json!(["arabic_letter_folding_keep_hamza"])
+                json!(["arabic_letter_folding_keep_hamza", "invisible_marks"])
             );
             let kept = &analysis["analyzer"]["arabic_hamza_kept"];
             assert_eq!(
                 kept["char_filter"],
-                json!(["arabic_letter_folding_keep_hamza"])
+                json!(["arabic_letter_folding_keep_hamza", "invisible_marks"])
             );
             assert_eq!(
                 kept["filter"],
@@ -473,5 +473,36 @@ mod tests {
                 .all(|name| !NAME_ANALYZERS.contains(&name.as_str())),
             "{poems:?}"
         );
+    }
+
+    #[test]
+    fn every_analyzer_and_the_exact_normalizer_delete_the_marks_and_controls_the_folding_leaves() {
+        let schema = load();
+        for body in [&schema.poems, &schema.poets] {
+            let analysis = &body["settings"]["analysis"];
+            assert_eq!(
+                analysis["char_filter"]["invisible_marks"],
+                json!({
+                    "type": "pattern_replace",
+                    "pattern": "[\u{0610}-\u{061A}\u{0653}-\u{065F}\u{06D6}-\u{06ED}\u{202A}-\u{202E}\u{2066}-\u{2069}]",
+                    "replacement": "",
+                })
+            );
+            let mut chains = vec![(
+                "arabic_exact".to_string(),
+                &analysis["normalizer"]["arabic_exact"],
+            )];
+            for (name, analyzer) in analysis["analyzer"].as_object().expect("analyzers") {
+                chains.push((name.clone(), analyzer));
+            }
+            for (name, chain) in chains {
+                let char_filters = chain["char_filter"].as_array().expect("char filters");
+                assert_eq!(
+                    char_filters.get(1),
+                    Some(&json!("invisible_marks")),
+                    "{name}"
+                );
+            }
+        }
     }
 }

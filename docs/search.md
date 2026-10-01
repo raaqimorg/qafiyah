@@ -52,6 +52,14 @@ that pasted text carries (zero-width spaces and joiners, direction marks, the by
 soft hyphen): the tokenizer drops them at the edge of a word, but inside one they split it or stay
 in the token.
 
+A second char filter, `invisible_marks`, runs in every analyzer and in the `arabic_exact` normalizer,
+right after the folding. It deletes what neither the folding nor Lucene's `arabic_normalization`
+removes: the marks U+0610 to U+061A, U+0653 to U+065F (maddah, hamza above and below, and the rest
+of that block) and U+06D6 to U+06ED (Quranic annotation), and the bidi embedding, override and
+isolate controls (U+202A to U+202E, U+2066 to U+2069). Rust strips these from titles and names
+already; content keeps them for display, so the analyzer has to. Without it about 480 poems held
+words like `الْحٓرُّ` that indexed as `الحٓر` and never matched `الحر`.
+
 Three analyzers build on it, all with the `standard` tokenizer:
 
 | Analyzer            | Filters                                                           | Used by                               |
@@ -103,7 +111,9 @@ understand here:
   drops the whole query, as it does for one made only of Arabic stopwords such as `هذا` or `من أنت`.
   The stop filter runs after `arabic_normalization`, so a stopword typed with diacritics, such as
   `هَذا`, is dropped too. For any other query, a document holding every term already passes the first
-  clause.
+  clause. Because the folding runs before the stop filter, the stopwords Lucene spells with `ى`
+  (`على`, `حتى`, `لدى`) arrive as `علي`, `حتي`, `لدي` and are not dropped. `علي` is also the name Ali,
+  so they are left in on purpose.
 - **Tiers only rank.** Every tier clause sits in `should`, so it can add score but never admits a
   document on its own.
 
