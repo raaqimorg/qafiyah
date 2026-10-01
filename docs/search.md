@@ -98,7 +98,7 @@ understand here:
 - **Tiers only rank.** Every tier clause sits in `should`, so it can add score but never admits a
   document on its own.
 
-Poem tiers, final boost = tier boost times field weight (`title: 4`, `content: 1`):
+Poem tiers. The surface tiers are multiplied by the field weight (`title: 4`, `content: 1`); the stemmed tiers are not:
 
 | Tier             | Boost | Clause                               |
 | ---------------- | ----- | ------------------------------------ |
@@ -108,6 +108,11 @@ Poem tiers, final boost = tier boost times field weight (`title: 4`, `content: 1
 | `SURFACE_ALL`    | 64    | `match`, `operator: and`, normalized |
 | `STEM_ALL`       | 8     | `match`, `operator: and`, `.stemmed` |
 | `STEM_SOME`      | 1     | `match`, default OR, `.stemmed`      |
+
+The stemmed tiers carry no title weight because the stemmed analyzer drops stopwords: a query made
+mostly of particles, such as `من لي لها`, is the single stemmed word `لي`, and weighted by 4 on a short
+title field that one word outranked the poem holding all three words as typed. The surface tiers keep
+the weight, so a title that holds the words as typed still outranks the same words in content.
 
 The powers-of-two spacing is wide on purpose: an exact title hit cannot be outscored by an
 accumulation of weak content matches.

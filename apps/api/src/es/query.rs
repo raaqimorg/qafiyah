@@ -31,7 +31,7 @@ mod poet_boost {
 
 struct FieldSpec {
     name: &'static str,
-    weight: i64,
+    surface_weight: i64,
     supports_exact: bool,
     supports_autocomplete: bool,
 }
@@ -39,13 +39,13 @@ struct FieldSpec {
 const POEM_FIELDS: [FieldSpec; 2] = [
     FieldSpec {
         name: "title",
-        weight: 4,
+        surface_weight: 4,
         supports_exact: true,
         supports_autocomplete: false,
     },
     FieldSpec {
         name: "content",
-        weight: 1,
+        surface_weight: 1,
         supports_exact: false,
         supports_autocomplete: false,
     },
@@ -89,32 +89,33 @@ fn ranking_clauses(q: &str, fields: &[FieldSpec]) -> Vec<Value> {
     let mut should = Vec::new();
     for field in fields {
         let name = field.name;
+        let weight = field.surface_weight;
         if field.supports_exact {
             should.push(json!({ "term": { format!("{name}.exact"): {
                 "value": q,
-                "boost": tier::SURFACE_EXACT.saturating_mul(field.weight),
+                "boost": tier::SURFACE_EXACT.saturating_mul(weight),
             } } }));
         }
         should.push(
-            json!({ "match_phrase": { name: { "query": q, "boost": tier::SURFACE_PHRASE.saturating_mul(field.weight) } } }),
+            json!({ "match_phrase": { name: { "query": q, "boost": tier::SURFACE_PHRASE.saturating_mul(weight) } } }),
         );
         should.push(json!({ "match_phrase": { format!("{name}.stemmed"): {
             "query": q,
-            "boost": tier::STEM_PHRASE.saturating_mul(field.weight),
+            "boost": tier::STEM_PHRASE,
         } } }));
         should.push(json!({ "match": { name: {
             "query": q,
             "operator": "and",
-            "boost": tier::SURFACE_ALL.saturating_mul(field.weight),
+            "boost": tier::SURFACE_ALL.saturating_mul(weight),
         } } }));
         should.push(json!({ "match": { format!("{name}.stemmed"): {
             "query": q,
             "operator": "and",
-            "boost": tier::STEM_ALL.saturating_mul(field.weight),
+            "boost": tier::STEM_ALL,
         } } }));
         should.push(json!({ "match": { format!("{name}.stemmed"): {
             "query": q,
-            "boost": tier::STEM_SOME * field.weight,
+            "boost": tier::STEM_SOME,
         } } }));
     }
     should
@@ -883,6 +884,28 @@ mod tests {
                     "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
                 } },
             ])
+        );
+    }
+
+    #[test]
+    fn the_title_weight_lifts_the_surface_tiers_and_leaves_the_stemmed_ones_alone() {
+        let body = poem_search_body(&poems("حب", 1, false));
+        let should = body["query"]["function_score"]["query"]["bool"]["should"]
+            .as_array()
+            .expect("ranking");
+        assert_eq!(
+            should[1]["match_phrase"]["title"]["boost"],
+            tier::SURFACE_PHRASE * 4
+        );
+        assert_eq!(
+            should[2]["match_phrase"]["title.stemmed"]["boost"],
+            tier::STEM_PHRASE
+        );
+        assert_eq!(should[3]["match"]["title"]["boost"], tier::SURFACE_ALL * 4);
+        assert_eq!(should[4]["match"]["title.stemmed"]["boost"], tier::STEM_ALL);
+        assert_eq!(
+            should[5]["match"]["title.stemmed"]["boost"],
+            tier::STEM_SOME
         );
     }
 }

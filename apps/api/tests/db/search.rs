@@ -1,1 +1,98 @@
+use serde_json::{Value, json};
 
+use qafiyah_api::es::client::Es;
+use qafiyah_api::es::query::{PoemSearchParams, poem_search_body};
+
+use crate::admin;
+
+fn poem(id: i32, slug: &str, title: &str, content: &str) -> Value {
+    json!({
+        "id": id, "slug": slug, "title": title, "content": content,
+        "poetName": "شاعر", "titleDisplay": title, "poetNameDisplay": "شاعر",
+        "poetSlug": "Pppp", "poetHasAvatar": false, "poetIsAnonymous": false,
+        "eraSlug": "hadith", "eraName": "حديث", "meterSlug": "altawil", "meterName": "الطويل",
+        "themeSlug": "alnasib", "rhymeSlug": "meem", "poemTypeSlug": "amudi", "collectionSlug": "",
+        "primaryId": id, "isPrimary": true,
+    })
+}
+
+#[expect(clippy::expect_used, reason = "a failed search is a failed test")]
+async fn poem_hits(es: &Es, index: &str, q: &str) -> Vec<Value> {
+    let body = poem_search_body(&PoemSearchParams {
+        q: q.into(),
+        page: 1,
+        ..PoemSearchParams::default()
+    });
+    let response = es.search(index, &body).await.expect("a search");
+    response["hits"]["hits"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn slugs(hits: &[Value]) -> Vec<String> {
+    hits.iter()
+        .filter_map(|hit| hit["_source"]["slug"].as_str().map(str::to_string))
+        .collect()
+}
+
+const FILLER_WORDS: [&str; 10] = [
+    "الليل",
+    "القمر",
+    "النجوم",
+    "الربيع",
+    "السحاب",
+    "المطر",
+    "الريح",
+    "الصحراء",
+    "النخيل",
+    "الطريق",
+];
+
+fn filler() -> Vec<Value> {
+    (100..120)
+        .zip(FILLER_WORDS.iter().cycle())
+        .zip([true, false].iter().cycle())
+        .map(|((id, word), particles)| {
+            let content = if *particles {
+                format!("يا {word} لي عندك وعد*أطل {word} لها على الدار")
+            } else {
+                format!("يا {word} من بعيد*أطل {word} على الدار")
+            };
+            poem(
+                id,
+                &format!("F{id}"),
+                &format!("{word} وحيدا {id}"),
+                &content,
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn the_words_as_typed_in_a_poem_outrank_one_stemmed_word_in_another_title() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let mut docs = vec![
+        poem(
+            1,
+            "Aaaa",
+            "سرى الطيف ليلا فاستهام فؤادي",
+            "سرى الطيف ليلا فاستهام فؤادي*وطال على طول البعاد سهادي*من لي لها والدار تنأى بأهلها*ومن لي بقلب لا يذوب ودادي",
+        ),
+        poem(
+            2,
+            "Bbbb",
+            "ما لي وللرقباء ما لي",
+            "ما لي وللرقباء ما لي*إذ لا اصطبار لها على*مرض وحال دون حال",
+        ),
+    ];
+    docs.extend(filler());
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let found = slugs(&poem_hits(&es, &index, "من لي لها").await);
+            assert_eq!(found.first().map(String::as_str), Some("Aaaa"), "{found:?}");
+        })
+        .await;
+}

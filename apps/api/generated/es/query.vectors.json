@@ -124,7 +124,7 @@
                   {
                     "match_phrase": {
                       "title.stemmed": {
-                        "boost": 2048,
+                        "boost": 512,
                         "query": "حب"
                       }
                     }
@@ -141,7 +141,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 32,
+                        "boost": 8,
                         "operator": "and",
                         "query": "حب"
                       }
@@ -150,7 +150,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 4,
+                        "boost": 1,
                         "query": "حب"
                       }
                     }
@@ -351,7 +351,7 @@
                   {
                     "match_phrase": {
                       "title.stemmed": {
-                        "boost": 2048,
+                        "boost": 512,
                         "query": "هذا"
                       }
                     }
@@ -368,7 +368,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 32,
+                        "boost": 8,
                         "operator": "and",
                         "query": "هذا"
                       }
@@ -377,7 +377,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 4,
+                        "boost": 1,
                         "query": "هذا"
                       }
                     }
@@ -599,7 +599,7 @@
                   {
                     "match_phrase": {
                       "title.stemmed": {
-                        "boost": 2048,
+                        "boost": 512,
                         "query": "ماء"
                       }
                     }
@@ -616,7 +616,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 32,
+                        "boost": 8,
                         "operator": "and",
                         "query": "ماء"
                       }
@@ -625,7 +625,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 4,
+                        "boost": 1,
                         "query": "ماء"
                       }
                     }
@@ -1038,7 +1038,7 @@
                   {
                     "match_phrase": {
                       "title.stemmed": {
-                        "boost": 2048,
+                        "boost": 512,
                         "query": "دمع"
                       }
                     }
@@ -1055,7 +1055,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 32,
+                        "boost": 8,
                         "operator": "and",
                         "query": "دمع"
                       }
@@ -1064,7 +1064,7 @@
                   {
                     "match": {
                       "title.stemmed": {
-                        "boost": 4,
+                        "boost": 1,
                         "query": "دمع"
                       }
                     }
