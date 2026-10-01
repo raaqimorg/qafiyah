@@ -1,0 +1,24 @@
+[project]
+name = "qafiyah-prosody"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PL", "N"]
+ignore = ["PLR0911", "PLR0912", "PLR0915", "PLR2004", "RUF001", "RUF003"]
+
+[tool.mypy]
+strict = true
+packages = ["prosody", "tests"]

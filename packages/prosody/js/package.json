@@ -1,0 +1,9 @@
+{
+  "name": "wazn-qafiyah-detector-js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "evaluate": "node scripts/evaluate.js"
+  }
+}

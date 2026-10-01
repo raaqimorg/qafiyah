@@ -1,0 +1,70 @@
+import { BaseTaffelah, TaffelahVariant } from '../enums.js';
+
+export const variantsOfBase = new Map([
+  [
+    BaseTaffelah.faaelaton,
+    [
+      TaffelahVariant.faaelaton,
+      TaffelahVariant.faelaton,
+      TaffelahVariant.faaela,
+      TaffelahVariant.faela,
+      TaffelahVariant.faaelat,
+      TaffelahVariant.faelatSakin,
+      TaffelahVariant.faaelatonnon,
+      TaffelahVariant.faelatonnon,
+      TaffelahVariant.faael,
+      TaffelahVariant.faaelSakinTon,
+    ],
+  ],
+  [BaseTaffelah.faaelon, [TaffelahVariant.faaelon, TaffelahVariant.faelon, TaffelahVariant.faael]],
+  [
+    BaseTaffelah.faoolon,
+    [
+      TaffelahVariant.faoolon,
+      TaffelahVariant.faooloDamma,
+      TaffelahVariant.faoo,
+      TaffelahVariant.fae,
+      TaffelahVariant.faoolSakin,
+    ],
+  ],
+  [
+    BaseTaffelah.mafaaeelon,
+    [
+      TaffelahVariant.mafaaeelon,
+      TaffelahVariant.mafaaee,
+      TaffelahVariant.mafaaeel,
+      TaffelahVariant.mafaaeeloDamma,
+      TaffelahVariant.mafaaelon,
+    ],
+  ],
+  [BaseTaffelah.mafeoolaat, [TaffelahVariant.faaelaan, TaffelahVariant.mafeoolaat]],
+  [
+    BaseTaffelah.mafaaelaton,
+    [TaffelahVariant.mafaaelaton, TaffelahVariant.mafaaelSakinTon, TaffelahVariant.mafaaelSakin],
+  ],
+  [
+    BaseTaffelah.mostafeelon,
+    [
+      TaffelahVariant.mostafeelon,
+      TaffelahVariant.motafeelon,
+      TaffelahVariant.mostaelon,
+      TaffelahVariant.motaelon,
+      TaffelahVariant.mostafeelSakin,
+    ],
+  ],
+  [
+    BaseTaffelah.motafaaelon,
+    [
+      TaffelahVariant.motafaaelon,
+      TaffelahVariant.motafaaeloDamma,
+      TaffelahVariant.motafaaelSakin,
+      TaffelahVariant.motSakinFaaelon,
+      TaffelahVariant.motafa,
+      TaffelahVariant.motSakinFa,
+      TaffelahVariant.motafaaelaaton,
+      TaffelahVariant.motSakinFaaelaaton,
+      TaffelahVariant.motafaaelaan,
+      TaffelahVariant.motSakinFaaelaan,
+    ],
+  ],
+]);

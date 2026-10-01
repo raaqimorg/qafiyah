@@ -538,6 +538,14 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** delete them.
 - **Status:** Needs review
 
+### The prosody engine is Python
+
+- **What:** `packages/prosody/python/` is a Python package (`uv`, pytest, ruff, mypy), the only Python in the repo.
+- **Where:** `packages/prosody/`
+- **Why it's unusual:** the gate (`bun run ci`, turbo, oxlint) does not lint, type-check, or test Python, so nothing checks this package on a PR.
+- **Normal approach:** a gated language: a Rust crate in `crates/` that `apps/api` calls, or a TypeScript workspace package.
+- **Status:** Needs review
+
 ## API (`apps/api`)
 
 The API is not just a thin DB connector, and the crate carries no doc comments: these entries are its module-level intent. Read them before assuming something is incidental.
