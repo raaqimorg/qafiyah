@@ -166,3 +166,26 @@ async fn a_line_of_verse_lists_no_poet() {
         assert!(searched_poets(&h, q).await.is_empty(), "{q}");
     }
 }
+
+#[tokio::test]
+async fn the_inflected_and_contracted_forms_of_a_name_find_the_same_poet() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    for (q, slug) in [
+        ("امرئ القيس", "iNUk"),
+        ("امرأ القيس", "iNUk"),
+        ("عنترة ابن شداد", "imHZ"),
+        ("ذي الإصبع العدواني", "ndfb"),
+    ] {
+        assert_first_poet(&h, q, slug).await;
+    }
+}
+
+#[tokio::test]
+async fn a_name_written_joined_finds_the_poet_whose_name_is_written_apart() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    assert_first_poet(&h, "عبدالله بن العجلان النهدي", "FzZx").await;
+}

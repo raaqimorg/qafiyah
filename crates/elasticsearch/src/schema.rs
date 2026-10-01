@@ -156,7 +156,7 @@ mod tests {
         );
         assert_eq!(
             schema.poets["mappings"]["properties"]["name"]["fields"]["autocomplete"]["analyzer"],
-            "autocomplete_2"
+            "autocomplete_name"
         );
     }
 
@@ -400,6 +400,78 @@ mod tests {
         assert!(
             load().poems["settings"]["max_result_window"].is_null(),
             "poems rely on the Elasticsearch default of 10000"
+        );
+    }
+
+    const NAME_ANALYZERS: [&str; 3] = [
+        "arabic_name_normalized",
+        "arabic_name_stemmed",
+        "autocomplete_name",
+    ];
+
+    #[test]
+    fn poet_names_treat_the_five_nouns_their_case_forms_and_ibn_as_one_word_and_split_joined_compounds()
+     {
+        let schema = load();
+        for body in [&schema.poems, &schema.poets] {
+            let analysis = &body["settings"]["analysis"];
+            assert_eq!(
+                analysis["filter"]["name_equivalents"],
+                json!({
+                    "type": "synonym",
+                    "synonyms": ["ابن, بن", "ابو, ابي, ابا", "اخو, اخي, اخا", "ذو, ذي, ذا", "امرو, امري, امرا, امر"],
+                })
+            );
+            assert_eq!(
+                analysis["char_filter"]["name_compound_split"],
+                json!({ "type": "pattern_replace", "pattern": "(^|\\s)(عبد|ابو)ال", "replacement": "$1$2 ال" })
+            );
+            for name in NAME_ANALYZERS {
+                let analyzer = &analysis["analyzer"][name];
+                let char_filters = analyzer["char_filter"].as_array().expect("char filters");
+                let filters = analyzer["filter"].as_array().expect("filters");
+                assert_eq!(
+                    char_filters.first(),
+                    Some(&json!("arabic_letter_folding")),
+                    "{name}"
+                );
+                assert!(
+                    char_filters.iter().any(|f| f == "name_compound_split"),
+                    "{name}"
+                );
+                assert!(filters.iter().any(|f| f == "name_equivalents"), "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_name_analyzers_serve_poet_names_and_nicknames_only() {
+        let schema = load();
+        let poets = &schema.poets["mappings"]["properties"];
+        for field in ["name", "nickname"] {
+            assert_eq!(
+                poets[field]["analyzer"], "arabic_name_normalized",
+                "{field}"
+            );
+            assert_eq!(
+                poets[field]["fields"]["stemmed"]["analyzer"], "arabic_name_stemmed",
+                "{field}"
+            );
+            assert_eq!(
+                poets[field]["fields"]["autocomplete"]["analyzer"], "autocomplete_name",
+                "{field}"
+            );
+            assert_eq!(
+                poets[field]["fields"]["autocomplete"]["search_analyzer"], "arabic_name_normalized",
+                "{field}"
+            );
+        }
+        let poems = analyzers_named_by_fields(&schema.poems["mappings"]["properties"]);
+        assert!(
+            poems
+                .iter()
+                .all(|name| !NAME_ANALYZERS.contains(&name.as_str())),
+            "{poems:?}"
         );
     }
 }

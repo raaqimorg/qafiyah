@@ -57,6 +57,11 @@
               "\u2060 => ",
               "\u00ad => "
             ]
+          },
+          "name_compound_split": {
+            "type": "pattern_replace",
+            "pattern": "(^|\\s)(عبد|ابو)ال",
+            "replacement": "$1$2 ال"
           }
         },
         "filter": {
@@ -72,6 +77,16 @@
             "type": "edge_ngram",
             "min_gram": 2,
             "max_gram": 20
+          },
+          "name_equivalents": {
+            "type": "synonym",
+            "synonyms": [
+              "ابن, بن",
+              "ابو, ابي, ابا",
+              "اخو, اخي, اخا",
+              "ذو, ذي, ذا",
+              "امرو, امري, امرا, امر"
+            ]
           }
         },
         "analyzer": {
@@ -104,6 +119,37 @@
             "char_filter": ["arabic_letter_folding_keep_hamza"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
+          },
+          "arabic_name_normalized": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization", "name_equivalents"]
+          },
+          "arabic_name_stemmed": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "decimal_digit",
+              "arabic_normalization",
+              "name_equivalents",
+              "arabic_stop_filter",
+              "arabic_stemmer_filter"
+            ]
+          },
+          "autocomplete_name": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "decimal_digit",
+              "arabic_normalization",
+              "name_equivalents",
+              "edge_ngram_2"
+            ]
           }
         },
         "normalizer": {
@@ -293,6 +339,11 @@
               "\u2060 => ",
               "\u00ad => "
             ]
+          },
+          "name_compound_split": {
+            "type": "pattern_replace",
+            "pattern": "(^|\\s)(عبد|ابو)ال",
+            "replacement": "$1$2 ال"
           }
         },
         "filter": {
@@ -308,6 +359,16 @@
             "type": "edge_ngram",
             "min_gram": 2,
             "max_gram": 20
+          },
+          "name_equivalents": {
+            "type": "synonym",
+            "synonyms": [
+              "ابن, بن",
+              "ابو, ابي, ابا",
+              "اخو, اخي, اخا",
+              "ذو, ذي, ذا",
+              "امرو, امري, امرا, امر"
+            ]
           }
         },
         "analyzer": {
@@ -340,6 +401,37 @@
             "char_filter": ["arabic_letter_folding_keep_hamza"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
+          },
+          "arabic_name_normalized": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization", "name_equivalents"]
+          },
+          "arabic_name_stemmed": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "decimal_digit",
+              "arabic_normalization",
+              "name_equivalents",
+              "arabic_stop_filter",
+              "arabic_stemmer_filter"
+            ]
+          },
+          "autocomplete_name": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding", "name_compound_split"],
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "decimal_digit",
+              "arabic_normalization",
+              "name_equivalents",
+              "edge_ngram_2"
+            ]
           }
         },
         "normalizer": {
@@ -362,7 +454,7 @@
         },
         "name": {
           "type": "text",
-          "analyzer": "arabic_normalized",
+          "analyzer": "arabic_name_normalized",
           "fields": {
             "exact": {
               "type": "keyword",
@@ -371,27 +463,27 @@
             },
             "stemmed": {
               "type": "text",
-              "analyzer": "arabic_stemmed"
+              "analyzer": "arabic_name_stemmed"
             },
             "autocomplete": {
               "type": "text",
-              "analyzer": "autocomplete_2",
-              "search_analyzer": "arabic_normalized"
+              "analyzer": "autocomplete_name",
+              "search_analyzer": "arabic_name_normalized"
             }
           }
         },
         "nickname": {
           "type": "text",
-          "analyzer": "arabic_normalized",
+          "analyzer": "arabic_name_normalized",
           "fields": {
             "stemmed": {
               "type": "text",
-              "analyzer": "arabic_stemmed"
+              "analyzer": "arabic_name_stemmed"
             },
             "autocomplete": {
               "type": "text",
-              "analyzer": "autocomplete_2",
-              "search_analyzer": "arabic_normalized"
+              "analyzer": "autocomplete_name",
+              "search_analyzer": "arabic_name_normalized"
             }
           }
         },

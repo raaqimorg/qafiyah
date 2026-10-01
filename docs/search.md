@@ -80,6 +80,15 @@ keyword is normalized too, so an exact title match ignores hamza forms on a carr
 (`امي` matches the title `أمي`) with no change to the query code, while `ماء` and `ما` stay
 different. `على` and `علي` still match each other through the alef maqsura fold.
 
+### Poet names
+
+`name` and `nickname` on the poets index use their own analyzers (`arabic_name_normalized`,
+`arabic_name_stemmed`, `autocomplete_name`): the same folding and filters, plus two steps that only
+make sense for names. `name_equivalents` is a closed synonym list: the case forms of the five nouns
+grammar inflects by letters (`ابو`/`ابي`/`ابا`, `اخو`/`اخي`/`اخا`, `ذو`/`ذي`/`ذا`), the three
+spellings of `امرؤ`, and `ابن`/`بن`. `name_compound_split` writes `عبدالله` and `ابوالطيب` as two
+words. Poem text never sees either, so `أبي` in a verse still means "my father".
+
 ## Relevance
 
 Membership and ranking are decided separately, which is the single most important thing to
@@ -196,6 +205,6 @@ With no highlight, it falls back to the opening verse.
 
 ## What search deliberately does not do
 
-Worth stating so nobody goes looking: no synonyms, no recency decay, no cross-index score
+Worth stating so nobody goes looking: no synonyms beyond that closed list of name forms, no recency decay, no cross-index score
 normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness admits a
 poet within one typo of the name, and never applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.
