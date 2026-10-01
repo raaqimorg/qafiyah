@@ -36,8 +36,10 @@ bun run dev
    color-coded in the combined log output. Pass `--inspector` to also start the inspector after
    the web app reports ready.
 
-In a terminal, the step that is running shows a live timer, and the indexer step also counts the
-poems and poets it has written so far. Piped output keeps the plain one-line-per-step form.
+In a terminal, every step shows a live line with its elapsed time while it runs, plus what it is
+doing where there is something to report: each container's state and the database's restore phase,
+the indexer's image build step and then the poems and poets written so far, and the crate cargo is
+compiling with a count. Piped output keeps the plain one-line-per-step form.
 
 The first run is the slow one. On an Apple silicon laptop with a full dump (0037, about 349,000
 poems) it took about seven and a half minutes to "web ready": about 1m45s to restore the dump into
