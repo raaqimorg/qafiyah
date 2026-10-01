@@ -17,11 +17,16 @@ fn poem(id: i32, slug: &str, title: &str, content: &str) -> Value {
     })
 }
 
-#[expect(clippy::expect_used, reason = "a failed search is a failed test")]
 async fn poem_hits(es: &Es, index: &str, q: &str) -> Vec<Value> {
+    searched_poems(es, index, q, false).await
+}
+
+#[expect(clippy::expect_used, reason = "a failed search is a failed test")]
+async fn searched_poems(es: &Es, index: &str, q: &str, exact: bool) -> Vec<Value> {
     let body = poem_search_body(&PoemSearchParams {
         q: q.into(),
         page: 1,
+        exact,
         ..PoemSearchParams::default()
     });
     let response = es.search(index, &body).await.expect("a search");
@@ -267,6 +272,28 @@ async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three
             }
             let found = slugs(&poem_hits(&es, &index, "ستبدي لك").await);
             assert_eq!(found.first().map(String::as_str), Some("Hdth"), "{found:?}");
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn an_exact_search_finds_a_poem_by_a_title_that_is_not_in_its_text() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        poem(
+            1,
+            "Ttle",
+            "حنين المسافر",
+            "أحن إلى بيت بعيد*وأمي تنتظر الغياب",
+        ),
+        poem(2, "Othr", "سرى الطيف", "سرى الطيف ليلا*فاستهام فؤادي"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let found = slugs(&searched_poems(&es, &index, "حنين المسافر", true).await);
+            assert_eq!(found, ["Ttle"]);
         })
         .await;
 }

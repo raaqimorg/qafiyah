@@ -1219,10 +1219,13 @@
                 "filter": [],
                 "must": [
                   {
-                    "match_phrase": {
-                      "content": {
-                        "query": "يا رب"
-                      }
+                    "multi_match": {
+                      "fields": [
+                        "title",
+                        "content"
+                      ],
+                      "query": "يا رب",
+                      "type": "phrase"
                     }
                   }
                 ]
@@ -1637,10 +1640,13 @@
                 ],
                 "must": [
                   {
-                    "match_phrase": {
-                      "content": {
-                        "query": "صبر"
-                      }
+                    "multi_match": {
+                      "fields": [
+                        "title",
+                        "content"
+                      ],
+                      "query": "صبر",
+                      "type": "phrase"
                     }
                   }
                 ]
