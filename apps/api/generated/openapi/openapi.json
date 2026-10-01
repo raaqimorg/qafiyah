@@ -1183,7 +1183,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 50
+              "maxLength": 100
             },
             "example": "المتنبي"
           }
@@ -1641,7 +1641,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 50
+              "maxLength": 100
             },
             "example": "المتنبي"
           },

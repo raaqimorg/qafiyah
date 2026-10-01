@@ -361,35 +361,35 @@ mod tests {
     }
 
     #[test]
-    fn text_is_capped_at_fifty_utf16_units_with_astral_and_combining_characters_at_the_edge() {
+    fn text_is_capped_at_a_hundred_utf16_units_with_astral_and_combining_characters_at_the_edge() {
         let max = crate::constants::MAX_QUERY_LENGTH;
         assert!(
-            query(&format!("q={}", "ا".repeat(50)))
+            query(&format!("q={}", "ا".repeat(100)))
                 .text("q", max)
                 .is_ok()
         );
         assert!(
-            query(&format!("q={}", "ا".repeat(51)))
+            query(&format!("q={}", "ا".repeat(101)))
                 .text("q", max)
                 .is_err()
         );
         assert!(
-            query(&format!("q={}", "😀".repeat(25)))
+            query(&format!("q={}", "😀".repeat(50)))
                 .text("q", max)
                 .is_ok()
         );
         assert!(
-            query(&format!("q={}", "😀".repeat(26)))
+            query(&format!("q={}", "😀".repeat(51)))
                 .text("q", max)
                 .is_err()
         );
         assert!(
-            query(&format!("q=ح{}", "\u{0651}".repeat(49)))
+            query(&format!("q=ح{}", "\u{0651}".repeat(99)))
                 .text("q", max)
                 .is_ok()
         );
         assert!(
-            query(&format!("q=ح{}", "\u{0651}".repeat(50)))
+            query(&format!("q=ح{}", "\u{0651}".repeat(100)))
                 .text("q", max)
                 .is_err()
         );
