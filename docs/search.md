@@ -197,8 +197,8 @@ first, then the rest, each group newest id first. With the 10,000-result window,
 as meter `altawil` (about 26,900 classical poems) then only reaches its classical poems by paging;
 the rest need an era filter. Poets browse by `id desc`, and the `/poets` list by `poemsCount desc`,
 then `nameSort asc`, then `id asc`.
-`exact=true` drops the whole ladder for a single phrase match (for poets, on the name or the
-nickname), with no tiers, fuzziness, or ngrams, though letter folding still applies because it is
+`exact=true` drops the whole ladder for a single phrase match (on the title or the text for poems,
+on the name or the nickname for poets), with no tiers, fuzziness, or ngrams, though letter folding still applies because it is
 a char filter, not a query option.
 
 Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 100 characters

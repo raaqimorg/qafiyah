@@ -203,7 +203,11 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         }
     } else if params.exact {
         let exact = json!({ "bool": {
-            "must": [{ "match_phrase": { "content": { "query": params.q } } }],
+            "must": [{ "multi_match": {
+                "query": params.q,
+                "type": "phrase",
+                "fields": ["title", "content"],
+            } }],
             "filter": filters,
         } });
         scored(exact, vec![alternate_reading_function()])
@@ -521,12 +525,16 @@ mod tests {
     }
 
     #[test]
-    fn an_exact_poem_query_is_a_single_phrase_on_content() {
+    fn an_exact_poem_query_is_a_single_phrase_on_the_title_or_the_content() {
         let body = poem_search_body(&poems("يا رب", 1, true));
         let exact = &body["query"]["function_score"]["query"]["bool"];
         assert_eq!(
             exact["must"],
-            json!([{ "match_phrase": { "content": { "query": "يا رب" } } }])
+            json!([{ "multi_match": {
+                "query": "يا رب",
+                "type": "phrase",
+                "fields": ["title", "content"],
+            } }])
         );
         assert!(exact.get("should").is_none());
         assert_eq!(body["highlight"]["number_of_fragments"], 0);

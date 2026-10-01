@@ -1802,7 +1802,7 @@
           {
             "name": "exact",
             "in": "query",
-            "description": "When true, match the literal phrase only (poem content, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.",
+            "description": "When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.",
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/ExactFlag"
