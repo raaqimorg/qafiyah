@@ -192,6 +192,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text query, default ranking",
@@ -398,6 +406,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "stopword-only query",
@@ -625,6 +641,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "query with a standalone hamza",
@@ -817,6 +841,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact phrase",
@@ -1006,6 +1038,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text plus one filter",
@@ -1169,6 +1209,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact with a filter",
@@ -1297,6 +1345,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text query, default ranking",
@@ -1488,6 +1550,20 @@
           }
         },
         "size": 30,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 50000
       },
       "note": "the /poets list with a query and an era",
@@ -1542,6 +1618,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact name",
@@ -1643,6 +1733,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "search section, no highlight",

@@ -238,7 +238,11 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         SEARCH_POEMS_PER_PAGE,
         ES_MAX_RESULT_WINDOW,
         query,
-        (!has_text).then_some(browse_sort),
+        Some(if has_text {
+            json!([{ "_score": "desc" }, { "id": "asc" }])
+        } else {
+            browse_sort
+        }),
         has_text.then(|| poem_highlight(&params.q)),
     )
 }
@@ -371,7 +375,11 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         params.page_size,
         params.window,
         query,
-        (!has_text).then_some(browse_sort),
+        Some(if has_text {
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
+        } else {
+            browse_sort
+        }),
         params
             .highlight
             .then(|| highlight(1, Some(200), "name", &["name", "name.autocomplete"])),
@@ -738,7 +746,10 @@ mod tests {
             json!({ "match": { "nickname.stemmed": { "query": "المتنبي", "boost": 3 } } })
         );
         assert_eq!(ranked["query"]["bool"]["minimum_should_match"], 1);
-        assert!(ranked.get("sort").is_none());
+        assert_eq!(
+            ranked["sort"],
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
+        );
         let exact = poet_search_body(&PoetSearchParams {
             q: "x".into(),
             exact: true,
@@ -752,6 +763,29 @@ mod tests {
         assert_eq!(
             exact["query"]["bool"]["filter"][0]["terms"]["eraSlug"],
             json!(["abbasi"])
+        );
+    }
+
+    #[test]
+    fn ranked_and_exact_poem_queries_break_score_ties_by_id() {
+        for body in [
+            poem_search_body(&poems("حب", 1, false)),
+            poem_search_body(&poems("حب", 1, true)),
+        ] {
+            assert_eq!(body["sort"], json!([{ "_score": "desc" }, { "id": "asc" }]));
+        }
+    }
+
+    #[test]
+    fn an_exact_poet_query_breaks_score_ties_like_the_poets_list() {
+        let body = poet_search_body(&PoetSearchParams {
+            q: "المتنبي".into(),
+            exact: true,
+            ..PoetSearchParams::default()
+        });
+        assert_eq!(
+            body["sort"],
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
         );
     }
 

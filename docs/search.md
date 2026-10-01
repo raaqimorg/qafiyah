@@ -137,6 +137,11 @@ The response carries separate `poems` and `poets` envelopes, each with its own p
 `relevance` is the raw `_score`, so **scores are not comparable between the two sets**, don't
 interleave them.
 
+Equal scores get an explicit tiebreak, so the order doesn't depend on Lucene's internal document
+order, which segment merges can reshuffle: ranked and exact poem searches sort by `_score desc`,
+then `id asc`; poet searches by `_score desc`, then the `/poets` list order (`poemsCount desc`,
+`nameSort asc`, `id asc`), so among equally good matches the poet with more poems comes first.
+
 Facets: poems filter by poet, era, meter, theme, rhyme, and collection; poets filter by era only.
 Combining a poem-only facet with `types=poets` is a 400, not a silent no-op.
 
