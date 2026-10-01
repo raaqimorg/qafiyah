@@ -12,7 +12,6 @@ use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::es::query::{PoetSearchParams, PoetSort};
 use crate::extract::SafePath;
-use crate::js;
 use crate::log::LogHandle;
 use crate::openapi::{FilteredListErrors, LookupErrors};
 use crate::query::Query;
@@ -45,7 +44,7 @@ pub(crate) async fn list(
     let page = query.page(LIST_POETS_MAX_PAGE)?;
     let q = query
         .text("q", MAX_QUERY_LENGTH)?
-        .map(|raw| js::trim(&raw).to_string())
+        .map(|raw| search::normalize_query(&raw))
         .unwrap_or_default();
     let era = query.scalar_slug("era", slug::transliterated)?;
 

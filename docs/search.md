@@ -191,6 +191,12 @@ a char filter, not a query option.
 Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 50 characters, at
 most 100 slugs per facet.
 
+The API normalizes `q` before searching, on `/search` and `/poets` alike: Unicode NFKC (letters
+pasted from a PDF in presentation forms become plain letters, a decomposed hamza is composed), then
+every run of whitespace becomes one space and the ends are trimmed. The response echoes the
+normalized query. The 50-character limit counts the query as sent, before normalization, because
+NFKC can expand one ligature (U+FDFA) to 18 letters.
+
 ## Snippets
 
 Highlighting asks for `number_of_fragments: 0`, so ES returns the **whole** content field with

@@ -58,7 +58,10 @@ pub(crate) async fn search(
     RawQuery(raw): RawQuery,
 ) -> Result<Json<SearchResponse>, AppError> {
     let query = Query::parse(raw.as_deref());
-    let q = query.text("q", MAX_QUERY_LENGTH)?.unwrap_or_default();
+    let q = query
+        .text("q", MAX_QUERY_LENGTH)?
+        .map(|raw| search::normalize_query(&raw))
+        .unwrap_or_default();
     let types = query.types()?;
     let poems_page = query.named_page("poemsPage", SEARCH_POEMS_MAX_PAGE)?;
     let poets_page = query.named_page("poetsPage", SEARCH_POETS_MAX_PAGE)?;

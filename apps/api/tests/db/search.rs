@@ -212,3 +212,12 @@ async fn a_word_carrying_a_mark_the_folding_leaves_is_found_by_its_bare_letters_
         })
         .await;
 }
+
+#[tokio::test]
+async fn a_name_pasted_from_a_pdf_finds_the_poet() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    let pasted = "\u{FECB}\u{FEE8}\u{FE98}\u{FEAE}\u{FE93} \u{FE91}\u{FEE6} \u{FEB7}\u{FEAA}\u{FE8D}\u{FEA9}";
+    assert_first_poet(&h, pasted, "imHZ").await;
+}

@@ -65,7 +65,7 @@ async fn a_verse_form_filter_reaches_elasticsearch_as_a_terms_filter() {
 }
 
 #[tokio::test]
-async fn search_q_is_not_trimmed_while_the_poets_list_trims_it_pinned() {
+async fn a_whitespace_only_query_is_empty_on_search_and_the_poets_list_alike() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let search = send(
         app_with(&es),
@@ -73,11 +73,11 @@ async fn search_q_is_not_trimmed_while_the_poets_list_trims_it_pinned() {
     )
     .await;
     assert_eq!(search.status, StatusCode::OK);
-    assert_eq!(search.json()["q"], "  ");
+    assert_eq!(search.json()["q"], "");
     let sent_to_es = es.requests().await;
     assert!(
-        sent_to_es[0].1["query"]["function_score"]["query"]["bool"]["filter"].is_array(),
-        "a whitespace query still searches"
+        sent_to_es[0].1["query"]["function_score"]["query"]["bool"]["must"].is_array(),
+        "a trimmed empty query browses"
     );
     let es2 = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let poets = send(app_with(&es2), request("GET", "/v1/poets?q=%20%20")).await;

@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
+use unicode_normalization::UnicodeNormalization;
 use utoipa::ToSchema;
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
@@ -308,6 +309,10 @@ pub async fn list_poets(
     })
 }
 
+pub fn normalize_query(raw: &str) -> String {
+    js::collapse_whitespace(&raw.nfkc().collect::<String>())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -446,5 +451,23 @@ mod tests {
         let hit = poem_hit(serde_json::json!({ "content": "x*y*z" }), Some(""), 1.0);
         assert!(highlighted_content(&hit).is_none());
         assert_eq!(poem_snippet(highlighted_content(&hit), "x*y*z"), "x*y");
+    }
+
+    #[test]
+    fn a_query_pasted_in_presentation_forms_becomes_plain_letters() {
+        let pasted = "\u{FECB}\u{FEE8}\u{FE98}\u{FEAE}\u{FE93} \u{FE91}\u{FEE6} \u{FEB7}\u{FEAA}\u{FE8D}\u{FEA9}";
+        assert_eq!(normalize_query(pasted), "عنترة بن شداد");
+    }
+
+    #[test]
+    fn a_decomposed_hamza_is_composed() {
+        assert_eq!(normalize_query("امرو\u{0654} القيس"), "امرؤ القيس");
+    }
+
+    #[test]
+    fn plain_vocalized_and_digit_queries_pass_through_unchanged() {
+        for q in ["قفا نبك من ذكرى", "قِفَا نَبْكِ", "١٩٤٨"] {
+            assert_eq!(normalize_query(q), q);
+        }
     }
 }

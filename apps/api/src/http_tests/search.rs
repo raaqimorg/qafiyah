@@ -88,3 +88,48 @@ async fn a_search_response_is_cacheable_json_with_an_etag() {
     assert!(sent.header("etag").is_some());
     assert_eq!(sent.header("content-type"), Some("application/json"));
 }
+
+fn pdf_query() -> String {
+    let pasted = " \u{FECB}\u{FEE8}\u{FE98}\u{FEAE}\u{FE93}  \u{FE91}\u{FEE6} \u{FEB7}\u{FEAA}\u{FE8D}\u{FEA9} ";
+    form_urlencoded::byte_serialize(pasted.as_bytes()).collect()
+}
+
+#[tokio::test]
+async fn a_search_query_reaches_elasticsearch_normalized_and_is_echoed_that_way() {
+    let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
+    let path = format!("/v1/search?types[]=poets&q={}", pdf_query());
+    let sent = send(app_with(&es), request("GET", &path)).await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+    assert_eq!(sent.json()["q"], "عنترة بن شداد");
+    let asked = es.requests().await;
+    assert_eq!(
+        asked[0].1["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
+        "عنترة بن شداد"
+    );
+}
+
+#[tokio::test]
+async fn the_poets_list_normalizes_its_query_the_same_way() {
+    let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
+    let path = format!("/v1/poets?q={}", pdf_query());
+    let sent = send(app_with(&es), request("GET", &path)).await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+    let asked = es.requests().await;
+    assert_eq!(
+        asked[0].1["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
+        "عنترة بن شداد"
+    );
+}
+
+#[tokio::test]
+async fn the_length_limit_counts_the_query_as_sent() {
+    let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
+    let ligatures: String =
+        form_urlencoded::byte_serialize("\u{FDFA}\u{FDFA}\u{FDFA}".as_bytes()).collect();
+    let sent = send(
+        app_with(&es),
+        request("GET", &format!("/v1/search?q={ligatures}")),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+}

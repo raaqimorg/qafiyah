@@ -21,6 +21,13 @@ pub fn trim(text: &str) -> &str {
     text.trim_matches(is_whitespace)
 }
 
+pub fn collapse_whitespace(text: &str) -> String {
+    text.split(is_whitespace)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<&str>>()
+        .join(" ")
+}
+
 #[expect(
     clippy::as_conversions,
     reason = "the guard above ensures the value is a whole number within the integer limit"
@@ -79,5 +86,14 @@ mod tests {
             r#"{"relevance":9007199254740992.0}"#
         );
         assert_eq!(json(-3.0), r#"{"relevance":-3}"#);
+    }
+
+    #[test]
+    fn collapses_ecmascript_whitespace_runs_to_one_space_and_trims_the_ends() {
+        assert_eq!(
+            collapse_whitespace("  قفا \u{00A0}\t نبك \u{FEFF}"),
+            "قفا نبك"
+        );
+        assert_eq!(collapse_whitespace("   "), "");
     }
 }
