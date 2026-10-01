@@ -304,14 +304,39 @@ function describeUnready(name: string, error: ServerUnready): string {
   return `${name} never came up${hint}.${tail}`;
 }
 
-async function startSurface(): Promise<{ stop: () => Promise<void> }> {
+const RUNNING_CHECK_MS = 10_000;
+const DEV_CONTAINERS = ['db', 'elasticsearch'];
+
+async function answers(url: string): Promise<boolean> {
+  const response = await fetchWire(url, RUNNING_CHECK_MS);
+  return response.isOk() && response.value.status < 500;
+}
+
+async function runningServices(): Promise<readonly string[]> {
+  const ps = Bun.spawn(['./scripts/dev/compose.sh', 'ps', '--status', 'running', '--services'], {
+    cwd: ROOT,
+    stdout: 'pipe',
+    stderr: 'ignore',
+  });
+  const out = await new Response(ps.stdout).text();
+  await ps.exited;
+  return out.split('\n').filter(Boolean);
+}
+
+type StartedSurface = { readonly stop: () => Promise<void>; readonly ownsProcesses: boolean };
+
+async function startSurface(): Promise<StartedSurface> {
   if (SURFACE.name === 'origin') {
+    if ((await answers(`${WEB}/`)) && (await answers(`${API}/`))) {
+      console.log(dim('reusing the dev server that is already running, and leaving it running'));
+      return { stop: async () => {}, ownsProcesses: false };
+    }
     const log = Bun.file('/tmp/dev-server.log');
     const devCommand = process.argv.includes('--worktree')
       ? ['bun', 'run', 'dev', '--worktree']
       : ['bun', 'run', 'dev'];
     const dev = Bun.spawn(devCommand, { cwd: ROOT, stdout: log, stderr: log });
-    return { stop: () => shutdownDev(dev) };
+    return { stop: () => shutdownDev(dev), ownsProcesses: true };
   }
   if (SURFACE.name === 'stack') {
     const env = {
@@ -322,6 +347,8 @@ async function startSurface(): Promise<{ stop: () => Promise<void> }> {
       API_KEY_FULL: process.env['API_KEY_FULL'] ?? STACK_API_KEY_FULL,
       SESSION_STATE_SECRET: process.env['SESSION_STATE_SECRET'] ?? STACK_SESSION_STATE_SECRET,
     };
+    const running = await runningServices();
+    const restore = DEV_CONTAINERS.filter((service) => running.includes(service));
     const up = Bun.spawn(['./scripts/dev/compose.sh', 'up', '-d', '--build', '--wait'], {
       cwd: ROOT,
       stdout: 'inherit',
@@ -341,10 +368,18 @@ async function startSurface(): Promise<{ stop: () => Promise<void> }> {
           env,
         });
         await down.exited;
+        if (restore.length === 0) return;
+        const back = Bun.spawn(['./scripts/dev/compose.sh', 'up', '-d', '--wait', ...restore], {
+          cwd: ROOT,
+          stdout: 'ignore',
+          stderr: 'ignore',
+        });
+        await back.exited;
       },
+      ownsProcesses: false,
     };
   }
-  return { stop: async () => {} };
+  return { stop: async () => {}, ownsProcesses: false };
 }
 
 async function main() {
@@ -353,9 +388,11 @@ async function main() {
   console.log(`Smoke surface: ${bold(SURFACE.name)} (web ${WEB}, api ${API})`);
 
   let stop: (() => Promise<void>) | null = null;
+  let ownsProcesses = false;
   if (SURFACE.manageServer) {
     const started = await startSurface();
     stop = started.stop;
+    ownsProcesses = started.ownsProcesses;
   }
 
   const runStarted = performance.now();
@@ -364,7 +401,7 @@ async function main() {
     if (toreDown) return;
     toreDown = true;
     if (stop) await stop();
-    await cleanup();
+    if (ownsProcesses) await cleanup();
   };
 
   const bail = async (message: string) => {
