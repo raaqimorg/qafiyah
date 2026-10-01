@@ -71,7 +71,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "حب"
                             }
                           }
@@ -79,7 +79,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "حب"
                             }
                           }
@@ -204,6 +204,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text query, default ranking",
@@ -289,7 +297,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "هذا"
                             }
                           }
@@ -297,7 +305,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "هذا"
                             }
                           }
@@ -422,6 +430,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "stopword-only query",
@@ -528,7 +544,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "ماء"
                             }
                           }
@@ -536,7 +552,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "ماء"
                             }
                           }
@@ -661,6 +677,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "query with a standalone hamza",
@@ -871,6 +895,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact phrase",
@@ -940,7 +972,7 @@
                         {
                           "match": {
                             "title.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "دمع"
                             }
                           }
@@ -948,7 +980,7 @@
                         {
                           "match": {
                             "content.stemmed": {
-                              "minimum_should_match": "1<75%",
+                              "minimum_should_match": "2<75%",
                               "query": "دمع"
                             }
                           }
@@ -1080,6 +1112,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text plus one filter",
@@ -1261,6 +1301,14 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact with a filter",
@@ -1389,6 +1437,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "text query, default ranking",
@@ -1580,6 +1642,20 @@
           }
         },
         "size": 30,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 50000
       },
       "note": "the /poets list with a query and an era",
@@ -1634,6 +1710,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "exact name",
@@ -1735,6 +1825,20 @@
           }
         },
         "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
         "track_total_hits": 10000
       },
       "note": "search section, no highlight",
