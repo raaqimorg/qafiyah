@@ -36,6 +36,14 @@ bun run dev
    color-coded in the combined log output. Pass `--inspector` to also start the inspector after
    the web app reports ready.
 
+The first run is the slow one. On an Apple silicon laptop with a full dump (0037, about 349,000
+poems) it took about seven and a half minutes to "web ready": about 1m45s to restore the dump into
+a fresh volume, about 4m45s for the indexer (building its image, then indexing every poem), and
+about 50s to compile the API, plus downloading the Postgres and Elasticsearch images the very first
+time. With the 100-poem sample, the restore and the indexing take seconds, so the two compiles are
+most of it. Later runs keep the volumes, the indexer image, and `target/`, so they skip the restore
+and the indexing and take about a minute, most of it waiting for Elasticsearch to report healthy.
+
 Default URLs:
 
 | Service       | URL                   |
