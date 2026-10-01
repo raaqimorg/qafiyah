@@ -1496,7 +1496,7 @@ export interface operations {
                  */
                 era?: string;
                 /**
-                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them.
+                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them as a stem or a prefix, or be within one typo of a name word.
                  * @example المتنبي
                  */
                 q?: string;

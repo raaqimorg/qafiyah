@@ -135,7 +135,9 @@ Poets use a flatter, independent ladder over the name and the nickname: exact 12
 phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO`, name only). As with poems,
 a filter decides membership and the ladder only ranks. The filter, a `cross_fields` match with
 `operator: and`, admits a poet when every query word matches the name or the nickname as a stem, or
-every word matches as a prefix, so a query that isn't about a poet lists none. Elasticsearch groups
+every word matches as a prefix, or every word is within one typo of a word of the name
+(`fuzziness: AUTO`, `prefix_length: 1`, so the first letter must be right). A line of verse lists no
+poet; a single common word can, through prefixes (`حب` admits `حبيب`). Elasticsearch groups
 `cross_fields` fields by analyzer, which is why the two readings don't mix. Prefixes start at two
 letters, so a trailing one-letter word (`نزار ق`) admits no one, and words the analyzers drop, like
 punctuation, are ignored.
@@ -195,6 +197,5 @@ With no highlight, it falls back to the opening verse.
 ## What search deliberately does not do
 
 Worth stating so nobody goes looking: no synonyms, no recency decay, no cross-index score
-normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness only
-ranks poets that the filter already admitted, so a typo in a word still hides the poet, and it never
-applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.
+normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness admits a
+poet within one typo of the name, and never applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.

@@ -353,11 +353,22 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         } })
     } else {
         let mut gate = filters;
-        gate.push(json!({ "multi_match": {
-            "query": params.q,
-            "type": "cross_fields",
-            "operator": "and",
-            "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+        gate.push(json!({ "bool": {
+            "should": [
+                { "multi_match": {
+                    "query": params.q,
+                    "type": "cross_fields",
+                    "operator": "and",
+                    "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+                } },
+                { "match": { "name": {
+                    "query": params.q,
+                    "operator": "and",
+                    "fuzziness": "AUTO",
+                    "prefix_length": 1,
+                } } },
+            ],
+            "minimum_should_match": 1,
         } }));
         json!({ "bool": {
             "should": [
@@ -867,7 +878,8 @@ mod tests {
     }
 
     #[test]
-    fn a_poet_is_admitted_only_when_every_query_term_reaches_the_name_or_nickname() {
+    fn a_poet_is_admitted_when_every_word_reaches_the_name_or_nickname_or_is_one_typo_from_the_name()
+     {
         let body = poet_search_body(&PoetSearchParams {
             q: "ابو الطيب".into(),
             era_slugs: vec!["abbasi".into()],
@@ -877,11 +889,22 @@ mod tests {
             body["query"]["bool"]["filter"],
             json!([
                 { "terms": { "eraSlug": ["abbasi"] } },
-                { "multi_match": {
-                    "query": "ابو الطيب",
-                    "type": "cross_fields",
-                    "operator": "and",
-                    "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+                { "bool": {
+                    "should": [
+                        { "multi_match": {
+                            "query": "ابو الطيب",
+                            "type": "cross_fields",
+                            "operator": "and",
+                            "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
+                        } },
+                        { "match": { "name": {
+                            "query": "ابو الطيب",
+                            "operator": "and",
+                            "fuzziness": "AUTO",
+                            "prefix_length": 1,
+                        } } },
+                    ],
+                    "minimum_should_match": 1,
                 } },
             ])
         );

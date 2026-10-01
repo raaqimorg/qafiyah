@@ -1371,16 +1371,33 @@
           "bool": {
             "filter": [
               {
-                "multi_match": {
-                  "fields": [
-                    "name.autocomplete",
-                    "name.stemmed",
-                    "nickname.autocomplete",
-                    "nickname.stemmed"
-                  ],
-                  "operator": "and",
-                  "query": "أحمد",
-                  "type": "cross_fields"
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "multi_match": {
+                        "fields": [
+                          "name.autocomplete",
+                          "name.stemmed",
+                          "nickname.autocomplete",
+                          "nickname.stemmed"
+                        ],
+                        "operator": "and",
+                        "query": "أحمد",
+                        "type": "cross_fields"
+                      }
+                    },
+                    {
+                      "match": {
+                        "name": {
+                          "fuzziness": "AUTO",
+                          "operator": "and",
+                          "prefix_length": 1,
+                          "query": "أحمد"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             ],
@@ -1576,16 +1593,33 @@
                 }
               },
               {
-                "multi_match": {
-                  "fields": [
-                    "name.autocomplete",
-                    "name.stemmed",
-                    "nickname.autocomplete",
-                    "nickname.stemmed"
-                  ],
-                  "operator": "and",
-                  "query": "المتنبي",
-                  "type": "cross_fields"
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "multi_match": {
+                        "fields": [
+                          "name.autocomplete",
+                          "name.stemmed",
+                          "nickname.autocomplete",
+                          "nickname.stemmed"
+                        ],
+                        "operator": "and",
+                        "query": "المتنبي",
+                        "type": "cross_fields"
+                      }
+                    },
+                    {
+                      "match": {
+                        "name": {
+                          "fuzziness": "AUTO",
+                          "operator": "and",
+                          "prefix_length": 1,
+                          "query": "المتنبي"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             ],
@@ -1759,16 +1793,33 @@
           "bool": {
             "filter": [
               {
-                "multi_match": {
-                  "fields": [
-                    "name.autocomplete",
-                    "name.stemmed",
-                    "nickname.autocomplete",
-                    "nickname.stemmed"
-                  ],
-                  "operator": "and",
-                  "query": "حب",
-                  "type": "cross_fields"
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "multi_match": {
+                        "fields": [
+                          "name.autocomplete",
+                          "name.stemmed",
+                          "nickname.autocomplete",
+                          "nickname.stemmed"
+                        ],
+                        "operator": "and",
+                        "query": "حب",
+                        "type": "cross_fields"
+                      }
+                    },
+                    {
+                      "match": {
+                        "name": {
+                          "fuzziness": "AUTO",
+                          "operator": "and",
+                          "prefix_length": 1,
+                          "query": "حب"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             ],

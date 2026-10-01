@@ -1,9 +1,10 @@
+use axum::http::StatusCode;
 use serde_json::{Value, json};
 
 use qafiyah_api::es::client::Es;
 use qafiyah_api::es::query::{PoemSearchParams, poem_search_body};
 
-use crate::admin;
+use crate::{Harness, admin, harness};
 
 fn poem(id: i32, slug: &str, title: &str, content: &str) -> Value {
     json!({
@@ -41,6 +42,45 @@ fn slugs(hits: &[Value]) -> Vec<String> {
                 .map(str::to_string)
         })
         .collect()
+}
+
+fn encoded(q: &str) -> String {
+    form_urlencoded::byte_serialize(q.as_bytes()).collect()
+}
+
+fn poet_slugs(list: Option<&Value>) -> Vec<String> {
+    list.and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|poet| poet.get("slug").and_then(Value::as_str).map(str::to_string))
+        .collect()
+}
+
+async fn searched_poets(h: &Harness, q: &str) -> Vec<String> {
+    let sent = h
+        .get(&format!("/v1/search?types[]=poets&q={}", encoded(q)))
+        .await;
+    assert_eq!(sent.status, StatusCode::OK, "{q}: {}", sent.body);
+    poet_slugs(sent.json().get("poets").and_then(|poets| poets.get("data")))
+}
+
+async fn listed_poets(h: &Harness, q: &str) -> Vec<String> {
+    let sent = h.get(&format!("/v1/poets?q={}", encoded(q))).await;
+    assert_eq!(sent.status, StatusCode::OK, "{q}: {}", sent.body);
+    poet_slugs(sent.json().get("data"))
+}
+
+async fn assert_first_poet(h: &Harness, q: &str, slug: &str) {
+    assert_eq!(
+        searched_poets(h, q).await.first().map(String::as_str),
+        Some(slug),
+        "search: {q}"
+    );
+    assert_eq!(
+        listed_poets(h, q).await.first().map(String::as_str),
+        Some(slug),
+        "poets list: {q}"
+    );
 }
 
 const FILLER_WORDS: [&str; 10] = [
@@ -102,4 +142,27 @@ async fn the_words_as_typed_in_a_poem_outrank_one_stemmed_word_in_another_title(
             assert_eq!(found.first().map(String::as_str), Some("Aaaa"), "{found:?}");
         })
         .await;
+}
+
+#[tokio::test]
+async fn a_one_letter_typo_in_a_poet_name_still_finds_the_poet() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    assert_first_poet(&h, "عنترة بن شداذ", "imHZ").await;
+    assert_first_poet(&h, "عمرو بن كلسوم", "qdtv").await;
+}
+
+#[tokio::test]
+async fn a_line_of_verse_lists_no_poet() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    for q in [
+        "قفا نبك من ذكرى حبيب ومنزل",
+        "الخيل والليل والبيداء تعرفني",
+        "على قدر أهل العزم",
+    ] {
+        assert!(searched_poets(&h, q).await.is_empty(), "{q}");
+    }
 }
