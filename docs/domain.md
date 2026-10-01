@@ -235,8 +235,10 @@ One poem is often transmitted in more than one reading: a word differs, a verse 
 added, lines come in another order. The corpus keeps each reading as its own row and links them:
 the richest reading is the primary (`recension_of_id` NULL), every other reading has
 `recension_of_id` pointing at it, always a primary of the same poet. Lists, counts (live and
-`*_stats`), the sitemap, search, the random poem and related poems show primaries only, and the
-facet indexes are partial on `recension_of_id IS NULL` so the list keeps its index-only scans. A
+`*_stats`), the sitemap, search browsing, the random poem and related poems show primaries only,
+and the facet indexes are partial on `recension_of_id IS NULL` so the list keeps its index-only
+scans. A text search matches every reading but shows each poem once, as its best-matching reading,
+preferring the primary (see `docs/search.md`). A
 recension keeps its own page and URL, names its primary, and its canonical URL is the primary's;
 the primary's page lists its other recensions. The Mu'allaqat, which classical sources carry in
 several recensions, are the model case for adding readings later. Merging a poem that has
