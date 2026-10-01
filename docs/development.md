@@ -95,7 +95,9 @@ The smoke runs leave your dev environment as they found it. `smoke:dev` starts i
 and stops it afterwards, unless the dev web and API already answer, in which case it reuses them and
 leaves them running. The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode
 stack in the same Compose project and removes it at the end, then starts again whichever of the dev
-`db` and `elasticsearch` containers were running before it.
+`db` and `elasticsearch` containers were running before it. When a check fails or you press Ctrl-C,
+`bun run ci` stops only the tasks it started (each runs in its own process group), so a running
+`bun run dev`, here or in another worktree, keeps running.
 
 `rust:test:db` brings up the dev Postgres and Elasticsearch, runs the one-shot indexer, and runs
 `apps/api/tests/db.rs` with the same connection strings `bun run dev` uses. Without the

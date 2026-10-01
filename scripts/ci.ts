@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { selectPhases, type Phase, type Task } from './ci/phases';
+import { killGroup, spawnGroup } from './ci/process-group';
 import { resolveWorktreeIdentity } from './dev/worktree';
 
 import type { Subprocess } from 'bun';
@@ -212,16 +213,28 @@ async function runSequential(tasks: Task[]): Promise<void> {
   }
 }
 
-async function runOne(task: Task, procs: Map<string, Subprocess>): Promise<Result> {
+const running = new Map<string, Subprocess>();
+
+for (const [signal, code] of [
+  ['SIGINT', 130],
+  ['SIGTERM', 143],
+] as const) {
+  process.once(signal, () => {
+    for (const proc of running.values()) killGroup(proc.pid);
+    process.exit(code);
+  });
+}
+
+async function runOne(task: Task): Promise<Result> {
   const start = Date.now();
-  const proc = Bun.spawn(task.cmd, { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' });
-  procs.set(task.name, proc);
+  const proc = spawnGroup(task.cmd, ROOT);
+  running.set(task.name, proc);
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  procs.delete(task.name);
+  running.delete(task.name);
   return {
     name: task.name,
     code,
@@ -230,16 +243,7 @@ async function runOne(task: Task, procs: Map<string, Subprocess>): Promise<Resul
   };
 }
 
-async function cleanupOrphans(): Promise<void> {
-  await Bun.spawn(['bun', 'run', 'clean'], {
-    cwd: ROOT,
-    stdout: 'ignore',
-    stderr: 'ignore',
-  }).exited;
-}
-
 async function runParallel(tasks: Task[], limit: number): Promise<Result[]> {
-  const procs = new Map<string, Subprocess>();
   const queue = [...tasks];
   const inflight = new Map<Promise<Result>, Task>();
   const warnings: Result[] = [];
@@ -249,7 +253,7 @@ async function runParallel(tasks: Task[], limit: number): Promise<Result[]> {
     while (inflight.size < limit && queue.length > 0) {
       const task = queue.shift();
       if (!task) break;
-      inflight.set(runOne(task, procs), task);
+      inflight.set(runOne(task), task);
     }
   };
 
@@ -270,7 +274,7 @@ async function runParallel(tasks: Task[], limit: number): Promise<Result[]> {
       console.log(`${green('✓')} ${result.name} ${dim(`(${formatMs(result.ms)})`)}`);
     } else {
       firstFailure = result;
-      for (const proc of procs.values()) proc.kill();
+      for (const proc of running.values()) killGroup(proc.pid);
       break;
     }
     fill();
@@ -278,7 +282,6 @@ async function runParallel(tasks: Task[], limit: number): Promise<Result[]> {
 
   if (firstFailure) {
     await Promise.allSettled(inflight.keys());
-    await cleanupOrphans();
     console.error(
       `\n${red('✗')} ${firstFailure.name} failed ${dim(`(${formatMs(firstFailure.ms)})`)}`
     );
