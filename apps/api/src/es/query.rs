@@ -2,7 +2,7 @@ use serde_json::{Map, Value, json};
 
 use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
 
-const RECALL_FLOOR: &str = "1<75%";
+const RECALL_FLOOR: &str = "2<75%";
 
 const CLASSICAL_ERA_SLUGS: [&str; 8] = [
     "jahili", "islami", "umawi", "abbasi", "andalusi", "fatimi", "ayyubi", "mamluki",
@@ -232,7 +232,11 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         SEARCH_POEMS_PER_PAGE,
         ES_MAX_RESULT_WINDOW,
         query,
-        (!has_text).then_some(browse_sort),
+        Some(if has_text {
+            json!([{ "_score": "desc" }, { "id": "asc" }])
+        } else {
+            browse_sort
+        }),
         has_text.then(|| poem_highlight(&params.q)),
     );
     if let (true, Some(map)) = (has_text, request.as_object_mut()) {
@@ -383,7 +387,11 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         params.page_size,
         params.window,
         query,
-        (!has_text).then_some(browse_sort),
+        Some(if has_text {
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
+        } else {
+            browse_sort
+        }),
         params
             .highlight
             .then(|| highlight(1, Some(200), "name", &["name", "name.autocomplete"])),
@@ -493,6 +501,21 @@ mod tests {
             should[10]["match"]["content.stemmed"]["boost"],
             tier::STEM_SOME
         );
+    }
+
+    #[test]
+    fn a_query_of_one_or_two_words_needs_every_word_and_a_longer_one_three_quarters() {
+        let body = poem_search_body(&poems("قفا نبك", 1, false));
+        let gate = &body["query"]["function_score"]["query"]["bool"]["filter"][0]["bool"]["should"];
+        for clause in gate.as_array().expect("gate").iter().take(2) {
+            let field = clause["match"]
+                .as_object()
+                .expect("match")
+                .values()
+                .next()
+                .expect("field");
+            assert_eq!(field["minimum_should_match"], "2<75%");
+        }
     }
 
     #[test]
@@ -790,7 +813,10 @@ mod tests {
             json!({ "match": { "nickname.stemmed": { "query": "المتنبي", "boost": 3 } } })
         );
         assert_eq!(ranked["query"]["bool"]["minimum_should_match"], 1);
-        assert!(ranked.get("sort").is_none());
+        assert_eq!(
+            ranked["sort"],
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
+        );
         let exact = poet_search_body(&PoetSearchParams {
             q: "x".into(),
             exact: true,
@@ -804,6 +830,29 @@ mod tests {
         assert_eq!(
             exact["query"]["bool"]["filter"][0]["terms"]["eraSlug"],
             json!(["abbasi"])
+        );
+    }
+
+    #[test]
+    fn ranked_and_exact_poem_queries_break_score_ties_by_id() {
+        for body in [
+            poem_search_body(&poems("حب", 1, false)),
+            poem_search_body(&poems("حب", 1, true)),
+        ] {
+            assert_eq!(body["sort"], json!([{ "_score": "desc" }, { "id": "asc" }]));
+        }
+    }
+
+    #[test]
+    fn an_exact_poet_query_breaks_score_ties_like_the_poets_list() {
+        let body = poet_search_body(&PoetSearchParams {
+            q: "المتنبي".into(),
+            exact: true,
+            ..PoetSearchParams::default()
+        });
+        assert_eq!(
+            body["sort"],
+            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
         );
     }
 

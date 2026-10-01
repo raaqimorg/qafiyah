@@ -86,8 +86,11 @@ Membership and ranking are decided separately, which is the single most importan
 understand here:
 
 - **A filter gates recall.** A document is in the result set if it matches `.stemmed` with
-  `minimum_should_match: "1<75%"` (one term must match; with more than one, 75% must), or if it
-  matches every term on the normalized field. The second clause matters when the stemmed analyzer
+  `minimum_should_match: "2<75%"` (a query of one or two terms must match every term; with more,
+  75%, rounded down, so three terms need two and four need three), or if it matches every term on
+  the normalized field. Requiring both words of a two-word query keeps the first page the same for
+  most searches and drops the poems that have only one of the words, which otherwise fill the
+  results and inflate the total (`قفا نبك`: 3,166 poems with either word, 206 with both). The second clause matters when the stemmed analyzer
   drops the whole query, as it does for one made only of Arabic stopwords such as `هذا` or `من أنت`.
   The stop filter runs after `arabic_normalization`, so a stopword typed with diacritics, such as
   `هَذا`, is dropped too. For any other query, a document holding every term already passes the first
@@ -138,6 +141,11 @@ Two independent ES requests, issued concurrently with `tokio::try_join!` and **n
 The response carries separate `poems` and `poets` envelopes, each with its own pagination.
 `relevance` is the raw `_score`, so **scores are not comparable between the two sets**, don't
 interleave them.
+
+Equal scores get an explicit tiebreak, so the order doesn't depend on Lucene's internal document
+order, which segment merges can reshuffle: ranked and exact poem searches sort by `_score desc`,
+then `id asc`; poet searches by `_score desc`, then the `/poets` list order (`poemsCount desc`,
+`nameSort asc`, `id asc`), so among equally good matches the poet with more poems comes first.
 
 Facets: poems filter by poet, era, meter, theme, rhyme, and collection; poets filter by era only.
 Combining a poem-only facet with `types=poets` is a 400, not a silent no-op.
