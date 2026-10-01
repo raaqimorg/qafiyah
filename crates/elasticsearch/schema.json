@@ -31,6 +31,32 @@
               "\u2060 => ",
               "\u00ad => "
             ]
+          },
+          "arabic_letter_folding_keep_hamza": {
+            "type": "mapping",
+            "mappings": [
+              "أ => ا",
+              "إ => ا",
+              "آ => ا",
+              "ٱ => ا",
+              "ى => ي",
+              "ة => ه",
+              "ـ => ",
+              "ؤ => و",
+              "ئ => ي",
+              "ی => ي",
+              "ک => ك",
+              "\u0670 => ",
+              "\u200b => ",
+              "\u200c => ",
+              "\u200d => ",
+              "\u200e => ",
+              "\u200f => ",
+              "\u061c => ",
+              "\ufeff => ",
+              "\u2060 => ",
+              "\u00ad => "
+            ]
           }
         },
         "filter": {
@@ -72,12 +98,18 @@
             "char_filter": ["arabic_letter_folding"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
+          },
+          "arabic_hamza_kept": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "tokenizer": "standard",
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         },
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding_keep_hamza"],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }
@@ -96,6 +128,10 @@
           "type": "text",
           "analyzer": "arabic_normalized",
           "fields": {
+            "hamza": {
+              "type": "text",
+              "analyzer": "arabic_hamza_kept"
+            },
             "exact": {
               "type": "keyword",
               "normalizer": "arabic_exact",
@@ -116,6 +152,10 @@
           "type": "text",
           "analyzer": "arabic_normalized",
           "fields": {
+            "hamza": {
+              "type": "text",
+              "analyzer": "arabic_hamza_kept"
+            },
             "stemmed": {
               "type": "text",
               "analyzer": "arabic_stemmed"
@@ -224,6 +264,32 @@
               "\u2060 => ",
               "\u00ad => "
             ]
+          },
+          "arabic_letter_folding_keep_hamza": {
+            "type": "mapping",
+            "mappings": [
+              "أ => ا",
+              "إ => ا",
+              "آ => ا",
+              "ٱ => ا",
+              "ى => ي",
+              "ة => ه",
+              "ـ => ",
+              "ؤ => و",
+              "ئ => ي",
+              "ی => ي",
+              "ک => ك",
+              "\u0670 => ",
+              "\u200b => ",
+              "\u200c => ",
+              "\u200d => ",
+              "\u200e => ",
+              "\u200f => ",
+              "\u061c => ",
+              "\ufeff => ",
+              "\u2060 => ",
+              "\u00ad => "
+            ]
           }
         },
         "filter": {
@@ -265,12 +331,18 @@
             "char_filter": ["arabic_letter_folding"],
             "tokenizer": "standard",
             "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
+          },
+          "arabic_hamza_kept": {
+            "type": "custom",
+            "char_filter": ["arabic_letter_folding_keep_hamza"],
+            "tokenizer": "standard",
+            "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         },
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding"],
+            "char_filter": ["arabic_letter_folding_keep_hamza"],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }
