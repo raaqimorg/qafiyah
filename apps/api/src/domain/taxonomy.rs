@@ -33,6 +33,7 @@ pub enum Counted {
     Meters,
     Rhymes,
     Eras,
+    PoemTypes,
 }
 
 impl Counted {
@@ -41,6 +42,7 @@ impl Counted {
             Counted::Meters => "meter_stats",
             Counted::Rhymes => "rhyme_stats",
             Counted::Eras => "era_stats",
+            Counted::PoemTypes => "poem_type_stats",
         }
     }
 
@@ -49,6 +51,7 @@ impl Counted {
             Counted::Meters => "name ASC",
             Counted::Rhymes => "id ASC",
             Counted::Eras => "sort_order ASC",
+            Counted::PoemTypes => "poems_count DESC, id ASC",
         }
     }
 
@@ -57,6 +60,7 @@ impl Counted {
             Counted::Meters => Resource::Meter,
             Counted::Rhymes => Resource::Rhyme,
             Counted::Eras => Resource::Era,
+            Counted::PoemTypes => Resource::PoemType,
         }
     }
 
@@ -65,6 +69,7 @@ impl Counted {
             Counted::Meters => "meter",
             Counted::Rhymes => "rhyme",
             Counted::Eras => "era",
+            Counted::PoemTypes => "poem_type",
         }
     }
 }

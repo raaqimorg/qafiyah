@@ -84,6 +84,11 @@ export const searchOkProbes: readonly Probe[] = [
     note: 'collection filter',
   },
   {
+    url: searchUrl({ q: QUERY_AR, types: ['poems'], poemTypeSlugs: ['amudi'] }),
+    expect: 'ok',
+    note: 'verse form filter',
+  },
+  {
     url: searchUrl({ types: ['poems'], eraSlugs: ['jahili'], meterSlugs: ['albasit'] }),
     expect: 'ok',
     note: 'filter-only, empty query',
@@ -142,6 +147,11 @@ export const searchOkProbes: readonly Probe[] = [
     url: searchUrl({ types: ['poets', 'poems'], rhymeSlugs: ['meem'] }),
     expect: 'client-error',
     note: 'poem-only filter with both types (incl. poets) is rejected',
+  },
+  {
+    url: searchUrl({ q: POET_QUERY_AR, types: ['poets'], poemTypeSlugs: ['hurr'] }),
+    expect: 'client-error',
+    note: 'verse form filter with poets type is rejected',
   },
   {
     url: searchUrl({ q: QUERY_AR, types: ['poems', 'poems'] }),

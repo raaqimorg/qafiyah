@@ -11,6 +11,7 @@ export type SearchFilterOptions = {
   readonly meters: readonly SelectOption[];
   readonly rhymes: readonly SelectOption[];
   readonly themes: readonly SelectOption[];
+  readonly poemTypes: readonly SelectOption[];
   readonly collections: readonly SelectOption[];
 };
 
@@ -18,6 +19,12 @@ export const ERAS_NOUN_FORMS = {
   singular: 'عصر',
   dual: 'عصران',
   plural: 'عصور',
+} as const satisfies ArabicNounForms;
+
+export const POEM_TYPES_NOUN_FORMS = {
+  singular: 'نوع',
+  dual: 'نوعان',
+  plural: 'أنواع',
 } as const satisfies ArabicNounForms;
 
 export const METERS_NOUN_FORMS = {

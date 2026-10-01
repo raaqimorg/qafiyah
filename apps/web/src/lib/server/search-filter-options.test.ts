@@ -15,6 +15,7 @@ const LISTS: Readonly<Record<string, readonly ReturnType<typeof row>[]>> = {
   '/meters': [row('alrajz', 'الرجز', 10), row('altawil', 'الطويل', 5)],
   '/rhymes': [row('meem', 'ميم', 3)],
   '/themes': [row('alnasib', 'النسيب', 2)],
+  '/poem-types': [row('amudi', 'عمودي', 8), row('hurr', 'حر', 4)],
   '/collections': [row('almuallaqat', 'المعلقات', 10)],
 };
 
@@ -37,6 +38,10 @@ describe('loadSearchFilterOptions', () => {
     expect(options.eras).toEqual([{ value: 'jahili', label: 'جاهلي', poemsCount: 5 }]);
     expect(options.collections).toEqual([
       { value: 'almuallaqat', label: 'المعلقات', poemsCount: 10 },
+    ]);
+    expect(options.poemTypes).toEqual([
+      { value: 'amudi', label: 'عمودي', poemsCount: 8 },
+      { value: 'hurr', label: 'حر', poemsCount: 4 },
     ]);
   });
 

@@ -23,6 +23,8 @@ Base URL: {BASE}
 - [GET /v1/eras/{slug}]({BASE}/eras): Era by slug
 - [GET /v1/meters]({BASE}/meters): List classical Arabic meters with counts
 - [GET /v1/meters/{slug}]({BASE}/meters): Meter by slug
+- [GET /v1/poem-types]({BASE}/poem-types): List verse forms (amudi, hurr, and the rest) with counts
+- [GET /v1/poem-types/{slug}]({BASE}/poem-types): Verse form by slug
 - [GET /v1/rhymes]({BASE}/rhymes): List rhyme letters with counts
 - [GET /v1/rhymes/{slug}]({BASE}/rhymes): Rhyme by slug
 - [GET /v1/themes]({BASE}/themes): List themes with counts

@@ -40,6 +40,7 @@ async fn every_list_operation_returns_an_envelope_whose_counts_agree() {
         "/v1/eras",
         "/v1/themes",
         "/v1/collections",
+        "/v1/poem-types",
     ] {
         let sent = h.get(path).await;
         assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
@@ -67,6 +68,7 @@ async fn a_detail_read_for_a_listed_slug_matches_the_list_row_and_an_unknown_slu
         ("/v1/eras", "/v1/eras/{}", "Era"),
         ("/v1/themes", "/v1/themes/{}", "Theme"),
         ("/v1/collections", "/v1/collections/{}", "Collection"),
+        ("/v1/poem-types", "/v1/poem-types/{}", "Poem type"),
     ] {
         let first = h.get(list).await.json()["data"][0].clone();
         let slug = first["slug"].as_str().expect("slug");

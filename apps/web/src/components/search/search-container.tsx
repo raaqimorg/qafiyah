@@ -20,6 +20,7 @@ import {
   COLLECTIONS_NOUN_FORMS,
   ERAS_NOUN_FORMS,
   METERS_NOUN_FORMS,
+  POEM_TYPES_NOUN_FORMS,
   RHYMES_NOUN_FORMS,
   type SearchFilterOptions,
   THEMES_NOUN_FORMS,
@@ -119,6 +120,10 @@ export function SearchContainer({
                   <FilterBadges
                     erasCount={getBadgeCount(selection.eras.length || 0, ERAS_NOUN_FORMS)}
                     metersCount={getBadgeCount(selection.meters.length || 0, METERS_NOUN_FORMS)}
+                    poemTypesCount={getBadgeCount(
+                      selection.poemTypes.length || 0,
+                      POEM_TYPES_NOUN_FORMS
+                    )}
                     themesCount={getBadgeCount(selection.themes.length || 0, THEMES_NOUN_FORMS)}
                     rhymesCount={getBadgeCount(selection.rhymes.length || 0, RHYMES_NOUN_FORMS)}
                     collectionsCount={getBadgeCount(
@@ -127,6 +132,7 @@ export function SearchContainer({
                     )}
                     selectedErasLength={selection.eras.length}
                     selectedMetersLength={selection.meters.length}
+                    selectedPoemTypesLength={selection.poemTypes.length}
                     selectedRhymesLength={selection.rhymes.length}
                     selectedThemesLength={selection.themes.length}
                     selectedCollectionsLength={selection.collections.length}
@@ -145,6 +151,11 @@ export function SearchContainer({
                         selected: selection.meters,
                         options: filterOptions.meters,
                         onChange: handlers.onMetersChange,
+                      },
+                      poemTypes: {
+                        selected: selection.poemTypes,
+                        options: filterOptions.poemTypes,
+                        onChange: handlers.onPoemTypesChange,
                       },
                       themes: {
                         selected: selection.themes,

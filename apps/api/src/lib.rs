@@ -55,6 +55,8 @@ fn build_contract() -> (Router<AppState>, utoipa::openapi::OpenApi) {
         .routes(routes!(routes::taxonomy::get_theme))
         .routes(routes!(routes::taxonomy::list_collections))
         .routes(routes!(routes::taxonomy::get_collection))
+        .routes(routes!(routes::taxonomy::list_poem_types))
+        .routes(routes!(routes::taxonomy::get_poem_type))
         .routes(routes!(routes::poems::list))
         .routes(routes!(routes::poems::list_slugs))
         .routes(routes!(routes::poems::count))

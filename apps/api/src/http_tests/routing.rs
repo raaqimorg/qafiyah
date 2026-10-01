@@ -92,6 +92,8 @@ async fn every_contract_path_is_routed() {
         "/v1/themes/alnasib",
         "/v1/collections",
         "/v1/collections/almuallaqat",
+        "/v1/poem-types",
+        "/v1/poem-types/amudi",
         "/v1/poems",
         "/v1/poems/slugs",
         "/v1/poems/count",

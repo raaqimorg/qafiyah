@@ -32,7 +32,7 @@ pub(crate) struct SearchResponse {
     path = "/search",
     tag = "search",
     operation_id = "search.search",
-    description = "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
+    description = "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
     params(
         ("q" = Option<String>, Query, description = "Search query in Arabic. An empty query returns no matches.", max_length = 50, example = "المتنبي"),
         ("types" = Option<Vec<SearchTypeParam>>, Query, description = "Result types to include. Defaults to all types when omitted.", max_items = 2),
@@ -43,6 +43,7 @@ pub(crate) struct SearchResponse {
         ("meterSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by meter slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?meterSlugs=altawil. Slugs are the `slug` values from GET /meters.", example = json!(["altawil"])),
         ("rhymeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by rhyme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?rhymeSlugs=meem. Slugs are the `slug` values from GET /rhymes.", example = json!(["meem"])),
         ("themeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by theme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?themeSlugs=alnasib. Slugs are the `slug` values from GET /themes.", example = json!(["alnasib"])),
+        ("poemTypeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by verse form slug (amudi, hurr, and the rest). Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?poemTypeSlugs=hurr. Slugs are the `slug` values from GET /poem-types.", example = json!(["hurr"])),
         ("collectionSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by collection slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?collectionSlugs=almuallaqat. Slugs are the `slug` values from GET /collections.", example = json!(["almuallaqat"])),
         ("exact" = Option<ExactFlag>, Query, description = "When true, match the literal phrase only (poem content, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.", example = "false"),
     ),
@@ -71,11 +72,18 @@ pub(crate) async fn search(
     let meter_slugs = facet("meterSlugs", slug::transliterated)?;
     let rhyme_slugs = facet("rhymeSlugs", slug::transliterated)?;
     let theme_slugs = facet("themeSlugs", slug::transliterated)?;
+    let poem_type_slugs = facet("poemTypeSlugs", slug::transliterated)?;
     let collection_slugs = facet("collectionSlugs", slug::transliterated)?;
 
     let want_poems = types.iter().any(|t| t == "poems");
     let want_poets = types.iter().any(|t| t == "poets");
-    let poem_only = [&meter_slugs, &rhyme_slugs, &theme_slugs, &collection_slugs];
+    let poem_only = [
+        &meter_slugs,
+        &rhyme_slugs,
+        &theme_slugs,
+        &poem_type_slugs,
+        &collection_slugs,
+    ];
     if want_poets && poem_only.iter().any(|values| !values.is_empty()) {
         return Err(AppError::BadRequest);
     }
@@ -94,6 +102,7 @@ pub(crate) async fn search(
                 meter_slugs,
                 theme_slugs,
                 rhyme_slugs,
+                poem_type_slugs,
                 collection_slugs,
                 exact,
             },

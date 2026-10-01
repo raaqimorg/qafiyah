@@ -214,6 +214,7 @@ Conventions:
         (name = "rhymes", description = "Rhyme letters (al-qawafi) used to classify poems."),
         (name = "themes", description = "Thematic categories (al-aghrad) of poems."),
         (name = "collections", description = "Curated collections (al-dawawin) of poems."),
+        (name = "poem-types", description = "Verse forms (anwa' al-qasida): classical amudi verse, free verse, and the rest."),
     ),
     components(schemas(
         ProblemDetail,
@@ -233,7 +234,7 @@ mod tests {
     fn declares_every_contract_path() {
         let doc = document();
         let paths: Vec<&str> = doc.paths.paths.keys().map(String::as_str).collect();
-        assert_eq!(paths.len(), 18, "expected 18 paths, got {paths:?}");
+        assert_eq!(paths.len(), 20, "expected 20 paths, got {paths:?}");
         for expected in [
             "/collections",
             "/collections/{slug}",
@@ -241,6 +242,8 @@ mod tests {
             "/eras/{slug}",
             "/meters",
             "/meters/{slug}",
+            "/poem-types",
+            "/poem-types/{slug}",
             "/poems",
             "/poems/count",
             "/poems/slugs",
@@ -291,7 +294,7 @@ mod tests {
                 assert_eq!(schema["default"], serde_json::json!([]), "{path} {name}");
             }
         }
-        assert_eq!(facets, 12, "expected twelve facet params, found {facets}");
+        assert_eq!(facets, 13, "expected thirteen facet params, found {facets}");
     }
 
     #[test]

@@ -147,7 +147,8 @@ order, which segment merges can reshuffle: ranked and exact poem searches sort b
 then `id asc`; poet searches by `_score desc`, then the `/poets` list order (`poemsCount desc`,
 `nameSort asc`, `id asc`), so among equally good matches the poet with more poems comes first.
 
-Facets: poems filter by poet, era, meter, theme, rhyme, and collection; poets filter by era only.
+Facets: poems filter by poet, era, meter, theme, rhyme, verse form (`poemTypeSlug`), and
+collection; poets filter by era only.
 Combining a poem-only facet with `types=poets` is a 400, not a silent no-op.
 
 An empty `q` becomes `match_all` with no highlighting. For poems with an era filter it is sorted by
