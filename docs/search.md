@@ -23,7 +23,8 @@ line that exists only in an alternate still finds the poem. An alternate's score
 least twice as well; without that, the shorter reading would usually win on length alone. The result
 links to that reading's page. Totals count poems, not readings: a `cardinality` aggregation on
 `primaryId` (an estimate, close to exact below its `precision_threshold` of 10,000, the same cap
-totals already have). Browsing with no text lists primaries only (`isPrimary: true`). Collapsing
+totals already have). A total at that cap is a floor, not a count, and the website shows it as
+`أكثر من ١٠٬٠٠٠` (more than 10,000). Browsing with no text lists primaries only (`isPrimary: true`). Collapsing
 needs `primaryId` in the live index, so this API must not be deployed before the reindex that adds
 it.
 
