@@ -424,7 +424,7 @@ mod tests {
             );
             assert_eq!(
                 analysis["char_filter"]["name_compound_split"],
-                json!({ "type": "pattern_replace", "pattern": "(^|\\s)(عبد|ابو)ال", "replacement": "$1$2 ال" })
+                json!({ "type": "pattern_replace", "pattern": "(^|\\s)(عبد(?=ال)|ابو(?=\\S\\S))", "replacement": "$1$2 " })
             );
             for name in NAME_ANALYZERS {
                 let analyzer = &analysis["analyzer"][name];
