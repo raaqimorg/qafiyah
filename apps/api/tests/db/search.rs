@@ -235,12 +235,8 @@ fn dated(id: i32, slug: &str, title: &str, content: &str, era: &str) -> Value {
     doc
 }
 
-#[tokio::test]
-async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three_words() {
-    let Some(admin) = admin() else {
-        return;
-    };
-    let docs = [
+fn quoted_line() -> [Value; 3] {
+    [
         dated(
             1,
             "Jahl",
@@ -262,9 +258,16 @@ async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three
             "تعلم فإن الدهر فيه عجائب*وقد قال من قبلي ستبدي لك الأيام ما كنت جاهلا*فخذها حكمة",
             "mamluki",
         ),
-    ];
+    ]
+}
+
+#[tokio::test]
+async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three_words() {
+    let Some(admin) = admin() else {
+        return;
+    };
     admin
-        .with_poems(&docs, |es, index| async move {
+        .with_poems(&quoted_line(), |es, index| async move {
             for q in ["ستبدي لك الأيام ما كنت جاهلا", "ستبدي لك الأيام"]
             {
                 let found = slugs(&poem_hits(&es, &index, q).await);
@@ -324,6 +327,57 @@ async fn a_line_found_only_in_an_alternate_reading_keeps_the_era_rank_of_its_poe
         .with_poems(&docs, |es, index| async move {
             let found = slugs(&poem_hits(&es, &index, "ولقد ذكرتك والرماح نواهل").await);
             assert_eq!(found, ["JhlB", "Hdth"]);
+        })
+        .await;
+}
+
+fn highlighted(hits: &[Value]) -> Vec<&str> {
+    hits.iter()
+        .map(|hit| {
+            hit.get("highlight")
+                .and_then(|highlight| highlight.get("content"))
+                .and_then(|content| content.get(0))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn an_exact_search_of_three_words_ranks_the_oldest_classical_poem_first_and_marks_the_line() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    admin
+        .with_poems(&quoted_line(), |es, index| async move {
+            let hits = searched_poems(&es, &index, "ستبدي لك الأيام ما كنت جاهلا", true).await;
+            assert_eq!(slugs(&hits), ["Jahl", "Mmlk", "Hdth"]);
+            for marked in highlighted(&hits) {
+                assert!(marked.contains("<mark>"), "{marked}");
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn an_exact_search_keeps_a_standalone_hamza_apart_and_marks_the_word_as_typed() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        poem(1, "Watr", "ظمأ", "شربت ماء النهر*وعدت إلى الدار"),
+        poem(2, "Negn", "سؤال", "ما كان لي عندها*وعد ولا دار"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let hits = searched_poems(&es, &index, "ماء", true).await;
+            assert_eq!(slugs(&hits), ["Watr"]);
+            assert_eq!(
+                highlighted(&hits),
+                ["شربت <mark>ماء</mark> النهر*وعدت إلى الدار"]
+            );
+            let found = slugs(&searched_poems(&es, &index, "ما", true).await);
+            assert_eq!(found, ["Negn"]);
         })
         .await;
 }

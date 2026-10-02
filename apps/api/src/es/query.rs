@@ -15,6 +15,8 @@ const VERBATIM_MIN_WORDS: usize = 3;
 const VERBATIM_FLOOR: f64 = 100_000_000.0;
 const VERBATIM_ERA_STEP: f64 = 1_000_000.0;
 const VERBATIM_TIE_BREAKER: f64 = 0.01;
+const TEXT_FIELDS: [&str; 2] = ["title", "content"];
+const TYPED_FIELDS: [&str; 2] = ["title.hamza", "content.hamza"];
 
 mod tier {
     pub(super) const SURFACE_EXACT: i64 = 32768;
@@ -192,6 +194,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     ]);
 
     let favor_classical = params.era_slugs.is_empty();
+    let verbatim = params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS;
     let query = if !has_text {
         let mut primaries = filters;
         primaries.push(json!({ "term": { "isPrimary": true } }));
@@ -202,29 +205,27 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
             browse
         }
     } else if params.exact {
-        let exact = json!({ "bool": {
-            "must": [{ "multi_match": {
-                "query": params.q,
-                "type": "phrase",
-                "fields": ["title", "content"],
-            } }],
-            "filter": filters,
-        } });
-        scored(exact, vec![alternate_reading_function()])
+        let exact = phrase(&params.q, TYPED_FIELDS);
+        if verbatim {
+            json!({ "bool": {
+                "must": [verbatim_first(exact.clone(), exact)],
+                "filter": filters,
+            } })
+        } else {
+            scored(
+                json!({ "bool": { "must": [exact], "filter": filters } }),
+                vec![alternate_reading_function()],
+            )
+        }
     } else {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
         gate.extend(filters);
         let ranking = ranking_clauses(&params.q, &POEM_FIELDS);
-        let verbatim = params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS;
         let should = if verbatim {
-            let ladder = scored(
+            vec![verbatim_first(
+                phrase(&params.q, TEXT_FIELDS),
                 json!({ "bool": { "should": ranking } }),
-                vec![alternate_reading_function()],
-            );
-            vec![json!({ "dis_max": {
-                "queries": [verbatim_by_era(&params.q), ladder],
-                "tie_breaker": VERBATIM_TIE_BREAKER,
-            } })]
+            )]
         } else {
             ranking
         };
@@ -264,7 +265,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         } else {
             browse_sort
         }),
-        has_text.then(|| poem_highlight(&params.q)),
+        has_text.then(|| poem_highlight(&params.q, params.exact)),
     );
     if let (true, Some(map)) = (has_text, request.as_object_mut()) {
         map.insert("collapse".into(), json!({ "field": "primaryId" }));
@@ -279,8 +280,8 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     request
 }
 
-fn poem_highlight(q: &str) -> Value {
-    if !q.contains(STANDALONE_HAMZA) {
+fn poem_highlight(q: &str, exact: bool) -> Value {
+    if !exact && !q.contains(STANDALONE_HAMZA) {
         return highlight(0, None, "content", &["content", "content.stemmed"]);
     }
     let mut hl = highlight(
@@ -289,16 +290,32 @@ fn poem_highlight(q: &str) -> Value {
         "content",
         &["content", "content.stemmed", "content.hamza"],
     );
+    let typed = if exact {
+        json!({ "match_phrase": { "content.hamza": { "query": q } } })
+    } else {
+        json!({ "match": { "content.hamza": { "query": q } } })
+    };
     if let Some(map) = hl.as_object_mut() {
-        map.insert(
-            "highlight_query".into(),
-            json!({ "match": { "content.hamza": { "query": q } } }),
-        );
+        map.insert("highlight_query".into(), typed);
     }
     hl
 }
 
-fn verbatim_by_era(q: &str) -> Value {
+fn phrase(q: &str, fields: [&str; 2]) -> Value {
+    json!({ "multi_match": { "query": q, "type": "phrase", "fields": fields } })
+}
+
+fn verbatim_first(verbatim: Value, ladder: Value) -> Value {
+    json!({ "dis_max": {
+        "queries": [
+            verbatim_by_era(verbatim),
+            scored(ladder, vec![alternate_reading_function()]),
+        ],
+        "tie_breaker": VERBATIM_TIE_BREAKER,
+    } })
+}
+
+fn verbatim_by_era(verbatim: Value) -> Value {
     let later_eras = VERBATIM_FLOOR + VERBATIM_ERA_STEP;
     let mut weight = later_eras;
     let mut functions: Vec<Value> = CLASSICAL_ERA_SLUGS
@@ -312,11 +329,7 @@ fn verbatim_by_era(q: &str) -> Value {
     functions.reverse();
     functions.push(json!({ "filter": { "match_all": {} }, "weight": later_eras }));
     json!({ "function_score": {
-        "query": { "constant_score": { "filter": { "multi_match": {
-            "query": q,
-            "type": "phrase",
-            "fields": ["title", "content"],
-        } } } },
+        "query": { "constant_score": { "filter": verbatim } },
         "functions": functions,
         "score_mode": "first",
         "boost_mode": "replace",
@@ -338,14 +351,7 @@ fn alternate_reading_function() -> Value {
 }
 
 fn typed_hamza_function(q: &str) -> Value {
-    json!({
-        "filter": { "multi_match": {
-            "query": q,
-            "type": "phrase",
-            "fields": ["title.hamza", "content.hamza"],
-        } },
-        "weight": TYPED_HAMZA_WEIGHT,
-    })
+    json!({ "filter": phrase(q, TYPED_FIELDS), "weight": TYPED_HAMZA_WEIGHT })
 }
 
 fn scored(query: Value, functions: Vec<Value>) -> Value {
@@ -532,7 +538,7 @@ mod tests {
     }
 
     #[test]
-    fn an_exact_poem_query_is_a_single_phrase_on_the_title_or_the_content() {
+    fn an_exact_poem_query_is_a_single_phrase_on_the_title_or_the_content_as_typed() {
         let body = poem_search_body(&poems("يا رب", 1, true));
         let exact = &body["query"]["function_score"]["query"]["bool"];
         assert_eq!(
@@ -540,11 +546,59 @@ mod tests {
             json!([{ "multi_match": {
                 "query": "يا رب",
                 "type": "phrase",
-                "fields": ["title", "content"],
+                "fields": ["title.hamza", "content.hamza"],
             } }])
         );
         assert!(exact.get("should").is_none());
         assert_eq!(body["highlight"]["number_of_fragments"], 0);
+    }
+
+    #[test]
+    fn an_exact_query_of_three_words_or_more_lists_the_oldest_classical_era_first() {
+        let body = poem_search_body(&poems("قفا نبك من", 1, true));
+        assert!(body["query"].get("function_score").is_none());
+        let phrase = json!({ "multi_match": {
+            "query": "قفا نبك من",
+            "type": "phrase",
+            "fields": ["title.hamza", "content.hamza"],
+        } });
+        let dis_max = &body["query"]["bool"]["must"][0]["dis_max"];
+        assert_eq!(dis_max["tie_breaker"], 0.01);
+        let verbatim = &dis_max["queries"][0]["function_score"];
+        assert_eq!(
+            verbatim["query"],
+            json!({ "constant_score": { "filter": phrase } })
+        );
+        assert_eq!(
+            verbatim["functions"][0],
+            json!({ "filter": { "term": { "eraSlug": "jahili" } }, "weight": 109_000_000.0 })
+        );
+        assert_eq!(
+            dis_max["queries"][1],
+            json!({ "function_score": {
+                "query": phrase,
+                "functions": [{ "filter": { "term": { "isPrimary": false } }, "weight": 0.5 }],
+                "score_mode": "multiply",
+                "boost_mode": "multiply",
+            } })
+        );
+    }
+
+    #[test]
+    fn an_exact_query_highlights_the_phrase_as_typed() {
+        for q in ["يا رب", "ماء", "قفا نبك من"] {
+            let body = poem_search_body(&poems(q, 1, true));
+            assert_eq!(
+                body["highlight"]["highlight_query"],
+                json!({ "match_phrase": { "content.hamza": { "query": q } } }),
+                "{q}"
+            );
+            assert_eq!(
+                body["highlight"]["fields"]["content"]["matched_fields"],
+                json!(["content", "content.stemmed", "content.hamza"]),
+                "{q}"
+            );
+        }
     }
 
     #[test]

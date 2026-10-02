@@ -203,7 +203,11 @@ the rest need an era filter. Poets browse by `id desc`, and the `/poets` list by
 then `nameSort asc`, then `id asc`.
 `exact=true` drops the whole ladder for a single phrase match (on the title or the text for poems,
 on the name or the nickname for poets), with no tiers, fuzziness, or ngrams, though letter folding still applies because it is
-a char filter, not a query option.
+a char filter, not a query option. For poems the phrase is matched on `title.hamza` and
+`content.hamza`, so diacritics and hamza seats still fold but a standalone `ء` is kept: exact `ماء`
+finds `ماء` and never `ما`, and exact `السماء` does not find a poet's `السما`. The normal search still
+finds both. From three words, exact poems are ordered by the same verbatim era group as the ranked
+search, oldest classical era first, BM25 within a rank; shorter exact queries are ordered by BM25.
 
 Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 100 characters
 (UTF-16 units, so a classical verse copied with its diacritics fits: 99.7% of them do), at most 100
@@ -222,6 +226,8 @@ Highlighting asks for `number_of_fragments: 0`, so ES returns the **whole** cont
 `content.stemmed` so a stem hit still highlights the surface form. For a query with a standalone
 `ء`, a `highlight_query` on `content.hamza` marks only the words as typed (`ماء`, not `ما`); a poem
 that matched only through the folded spelling then has no highlight and shows its opening verse.
+An exact search always highlights through a `match_phrase` on `content.hamza`, so only the phrase
+as typed is marked.
 
 The API then picks one verse to show. It splits content on `*` and walks **two hemistichs at a
 time**, one verse per step, scoring each verse by its longest single `<mark>` run. Three details
