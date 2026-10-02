@@ -399,6 +399,35 @@ async fn an_exact_search_keeps_a_standalone_hamza_apart_and_marks_the_word_as_ty
 }
 
 #[tokio::test]
+async fn punctuation_in_the_query_keeps_the_exact_title_first() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        poem(1, "Qalb", "يا قلب", "يا قلب صبرا على ما كان*فالدهر يومان"),
+        poem(
+            2,
+            "Rpts",
+            "يا قلب يا قلب كم تصادر",
+            "يا قلب يا قلب كم تصادر*يا قلب يا قلب لا تحزن*يا قلب",
+        ),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            for q in ["يا قلب", "يا قلب ؟", "يا قلب؟", "، يا قلب", "(يا قلب)"]
+            {
+                let found = slugs(&poem_hits(&es, &index, q).await);
+                assert_eq!(
+                    found.first().map(String::as_str),
+                    Some("Qalb"),
+                    "{q}: {found:?}"
+                );
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
 async fn an_exact_search_finds_a_poem_by_a_title_that_is_not_in_its_text() {
     let Some(admin) = admin() else {
         return;
