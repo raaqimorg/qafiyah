@@ -396,11 +396,11 @@ mod tests {
         Some((database_url, admin_url))
     }
 
-    fn scratch_alias() -> String {
+    fn scratch_alias(test: &str) -> String {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_nanos());
-        format!("test-guard-poets-{}-{nanos}", std::process::id())
+        format!("test-guard-poets-{test}-{}-{nanos}", std::process::id())
     }
 
     async fn aliased_indices(admin_url: &str, alias: &str) -> Vec<String> {
@@ -442,7 +442,7 @@ mod tests {
                 .max(10),
             rules: &rules,
         };
-        let alias = scratch_alias();
+        let alias = scratch_alias("merged");
         let prefix = format!("{alias}_v");
 
         let outcome = reindex(
@@ -485,7 +485,7 @@ mod tests {
             batch_size: 1000,
             rules: &rules,
         };
-        let alias = scratch_alias();
+        let alias = scratch_alias("rejected");
         let prefix = format!("{alias}_v");
         let mut rejecting = schema.poets.clone();
         rejecting["mappings"]["properties"]
