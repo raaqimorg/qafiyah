@@ -12,6 +12,7 @@ mod db {
 }
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use axum::Router;
@@ -159,13 +160,25 @@ impl Harness {
 }
 
 pub fn unique_email(tag: &str) -> String {
-    format!("qafiyah-test-{tag}-{}@example.test", nanos())
+    format!("qafiyah-test-{tag}-{}@example.test", unique_suffix())
 }
 
-fn nanos() -> u128 {
-    std::time::SystemTime::now()
+static SCRATCH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+fn unique_suffix() -> String {
+    let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_nanos())
+        .map_or(0, |d| d.as_nanos());
+    format!(
+        "{nanos}-{}",
+        SCRATCH_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+#[test]
+fn scratch_names_never_repeat_even_within_one_clock_tick() {
+    let names: std::collections::HashSet<String> = (0..10_000).map(|_| unique_suffix()).collect();
+    assert_eq!(names.len(), 10_000);
 }
 
 pub struct Admin {
@@ -183,23 +196,45 @@ pub fn admin() -> Option<Admin> {
 }
 
 impl Admin {
+    pub fn endpoint(&self) -> Endpoint {
+        Endpoint::new(&self.url).expect("an Elasticsearch admin endpoint")
+    }
+
     pub async fn with_poems<F, Fut>(&self, docs: &[Value], body: F)
     where
         F: FnOnce(Es, String) -> Fut,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let index = format!("test-guard-poems-{}", nanos());
+        self.with_poems_and_settings(docs, &json!({}), body).await;
+    }
+
+    pub async fn with_poems_and_settings<F, Fut>(&self, docs: &[Value], settings: &Value, body: F)
+    where
+        F: FnOnce(Es, String) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let index = format!("test-guard-poems-{}", unique_suffix());
+        let mut definition = qafiyah_elasticsearch::load().poems;
+        if let (Some(target), Some(extra)) = (
+            definition
+                .get_mut("settings")
+                .and_then(Value::as_object_mut),
+            settings.as_object(),
+        ) {
+            target.extend(extra.clone());
+        }
         let created = self
             .endpoint
             .request(Method::PUT, &format!("/{index}"))
-            .json(&qafiyah_elasticsearch::load().poems)
+            .json(&definition)
             .send()
             .await
             .expect("create the scratch index");
+        let status = created.status();
         assert!(
-            created.status().is_success(),
-            "create {index}: {}",
-            created.status()
+            status.is_success(),
+            "create {index}: {status}: {}",
+            created.text().await.unwrap_or_default()
         );
         let mut bulk = String::new();
         for doc in docs {
