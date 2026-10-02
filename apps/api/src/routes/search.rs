@@ -34,7 +34,7 @@ pub(crate) struct SearchResponse {
     operation_id = "search.search",
     description = "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
     params(
-        ("q" = Option<String>, Query, description = "Search query in Arabic. An empty query returns no matches.", max_length = 100, example = "المتنبي"),
+        ("q" = Option<String>, Query, description = "Search query in Arabic. When empty, the results are browsed rather than matched: poems most recently added first, classical eras first when no era is chosen, and poets most recently added first, all narrowed by the filters.", max_length = 100, example = "المتنبي"),
         ("types" = Option<Vec<SearchTypeParam>>, Query, description = "Result types to include. Defaults to all types when omitted.", max_items = 2),
         ("poemsPage" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
         ("poetsPage" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
