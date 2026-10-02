@@ -1879,7 +1879,7 @@ export interface operations {
                  */
                 collectionSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies). Applies to both result sets.
+                 * @description When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies, except that a standalone hamza in a poem phrase must match as typed). Applies to both result sets.
                  * @example false
                  */
                 exact?: components["schemas"]["ExactFlag"];

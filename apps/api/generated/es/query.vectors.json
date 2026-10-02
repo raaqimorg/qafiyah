@@ -1197,8 +1197,16 @@
             "content": {
               "matched_fields": [
                 "content",
-                "content.stemmed"
+                "content.stemmed",
+                "content.hamza"
               ]
+            }
+          },
+          "highlight_query": {
+            "match_phrase": {
+              "content.hamza": {
+                "query": "يا رب"
+              }
             }
           },
           "number_of_fragments": 0,
@@ -1229,8 +1237,8 @@
                   {
                     "multi_match": {
                       "fields": [
-                        "title",
-                        "content"
+                        "title.hamza",
+                        "content.hamza"
                       ],
                       "query": "يا رب",
                       "type": "phrase"
@@ -1263,6 +1271,202 @@
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "يا رب",
+        "rhymeSlugs": [],
+        "themeSlugs": []
+      }
+    },
+    {
+      "body": {
+        "aggs": {
+          "poems": {
+            "cardinality": {
+              "field": "primaryId",
+              "precision_threshold": 10000
+            }
+          }
+        },
+        "collapse": {
+          "field": "primaryId"
+        },
+        "from": 0,
+        "highlight": {
+          "fields": {
+            "content": {
+              "matched_fields": [
+                "content",
+                "content.stemmed",
+                "content.hamza"
+              ]
+            }
+          },
+          "highlight_query": {
+            "match_phrase": {
+              "content.hamza": {
+                "query": "قفا نبك من"
+              }
+            }
+          },
+          "number_of_fragments": 0,
+          "post_tags": [
+            "</mark>"
+          ],
+          "pre_tags": [
+            "<mark>"
+          ]
+        },
+        "query": {
+          "bool": {
+            "filter": [],
+            "must": [
+              {
+                "dis_max": {
+                  "queries": [
+                    {
+                      "function_score": {
+                        "boost_mode": "replace",
+                        "functions": [
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "jahili"
+                              }
+                            },
+                            "weight": 109000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "islami"
+                              }
+                            },
+                            "weight": 108000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "umawi"
+                              }
+                            },
+                            "weight": 107000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "abbasi"
+                              }
+                            },
+                            "weight": 106000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "andalusi"
+                              }
+                            },
+                            "weight": 105000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "fatimi"
+                              }
+                            },
+                            "weight": 104000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "ayyubi"
+                              }
+                            },
+                            "weight": 103000000.0
+                          },
+                          {
+                            "filter": {
+                              "term": {
+                                "eraSlug": "mamluki"
+                              }
+                            },
+                            "weight": 102000000.0
+                          },
+                          {
+                            "filter": {
+                              "match_all": {}
+                            },
+                            "weight": 101000000.0
+                          }
+                        ],
+                        "query": {
+                          "constant_score": {
+                            "filter": {
+                              "multi_match": {
+                                "fields": [
+                                  "title.hamza",
+                                  "content.hamza"
+                                ],
+                                "query": "قفا نبك من",
+                                "type": "phrase"
+                              }
+                            }
+                          }
+                        },
+                        "score_mode": "first"
+                      }
+                    },
+                    {
+                      "function_score": {
+                        "boost_mode": "multiply",
+                        "functions": [
+                          {
+                            "filter": {
+                              "term": {
+                                "isPrimary": false
+                              }
+                            },
+                            "weight": 0.5
+                          }
+                        ],
+                        "query": {
+                          "multi_match": {
+                            "fields": [
+                              "title.hamza",
+                              "content.hamza"
+                            ],
+                            "query": "قفا نبك من",
+                            "type": "phrase"
+                          }
+                        },
+                        "score_mode": "multiply"
+                      }
+                    }
+                  ],
+                  "tie_breaker": 0.01
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "_score": "desc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
+        "track_total_hits": 10000
+      },
+      "note": "an exact quoted line of three words or more",
+      "params": {
+        "collectionSlugs": [],
+        "eraSlugs": [],
+        "exact": true,
+        "meterSlugs": [],
+        "page": 1,
+        "poemTypeSlugs": [],
+        "poetSlugs": [],
+        "q": "قفا نبك من",
         "rhymeSlugs": [],
         "themeSlugs": []
       }
@@ -1610,8 +1814,16 @@
             "content": {
               "matched_fields": [
                 "content",
-                "content.stemmed"
+                "content.stemmed",
+                "content.hamza"
               ]
+            }
+          },
+          "highlight_query": {
+            "match_phrase": {
+              "content.hamza": {
+                "query": "صبر"
+              }
             }
           },
           "number_of_fragments": 0,
@@ -1650,8 +1862,8 @@
                   {
                     "multi_match": {
                       "fields": [
-                        "title",
-                        "content"
+                        "title.hamza",
+                        "content.hamza"
                       ],
                       "query": "صبر",
                       "type": "phrase"

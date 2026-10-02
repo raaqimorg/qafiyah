@@ -105,6 +105,14 @@ const POEMS: &[(&str, PoemCase)] = &[
         },
     ),
     (
+        "an exact quoted line of three words or more",
+        PoemCase {
+            q: "قفا نبك من",
+            exact: Some(true),
+            ..NO_SLUGS
+        },
+    ),
+    (
         "text plus one filter",
         PoemCase {
             q: "دمع",
