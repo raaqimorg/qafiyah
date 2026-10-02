@@ -194,7 +194,12 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     ]);
 
     let favor_classical = params.era_slugs.is_empty();
-    let verbatim = params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS;
+    let verbatim = params
+        .q
+        .split_whitespace()
+        .filter(|word| word.chars().any(char::is_alphanumeric))
+        .count()
+        >= VERBATIM_MIN_WORDS;
     let query = if !has_text {
         let mut primaries = filters;
         primaries.push(json!({ "term": { "isPrimary": true } }));
@@ -1103,6 +1108,23 @@ mod tests {
                 "{scored}"
             );
         }
+    }
+
+    #[test]
+    fn only_words_holding_a_letter_or_digit_count_toward_the_verbatim_group() {
+        for q in ["قفا نبك ؟", "قفا نبك ...", "؟ قفا نبك ،"] {
+            let ranked = poem_search_body(&poems(q, 1, false));
+            let should = ranked["query"]["function_score"]["query"]["bool"]["should"]
+                .as_array()
+                .expect("ranking");
+            assert_eq!(should.len(), 11, "{q}");
+            let exact = poem_search_body(&poems(q, 1, true));
+            assert!(exact["query"]["function_score"].is_object(), "{q}");
+        }
+        let counted = poem_search_body(&poems("قفا نبك ١٩٤٨", 1, false));
+        assert!(
+            counted["query"]["function_score"]["query"]["bool"]["should"][0]["dis_max"].is_object()
+        );
     }
 
     #[test]
