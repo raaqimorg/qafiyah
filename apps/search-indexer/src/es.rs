@@ -6,6 +6,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+const FORCE_MERGE_TIMEOUT: Duration = Duration::from_secs(1800);
 
 pub(crate) struct Es {
     endpoint: Endpoint,
@@ -127,6 +128,23 @@ impl Es {
     pub(crate) async fn refresh(&self, index: &str) -> Result<(), String> {
         self.expect_ok::<()>(Method::POST, &format!("/{index}/_refresh"), None)
             .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn force_merge(&self, index: &str) -> Result<(), String> {
+        let path = format!("/{index}/_forcemerge?max_num_segments=1");
+        let res = self
+            .endpoint
+            .request(Method::POST, &path)
+            .timeout(FORCE_MERGE_TIMEOUT)
+            .send()
+            .await
+            .map_err(|e| format!("{path}: {e}"))?;
+        let status = res.status();
+        if !status.is_success() {
+            let value: Value = res.json().await.unwrap_or(Value::Null);
+            return Err(format!("{path}: {status}: {value}"));
+        }
         Ok(())
     }
 
@@ -332,6 +350,68 @@ mod tests {
             }
         });
         address
+    }
+
+    async fn serve_slowly(
+        delay: Duration,
+        status: &'static str,
+    ) -> (
+        std::net::SocketAddr,
+        std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    ) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = std::sync::Arc::clone(&requests);
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let mut head = vec![0u8; 1024];
+                let read = tokio::io::AsyncReadExt::read(&mut socket, &mut head)
+                    .await
+                    .unwrap_or(0);
+                let text = String::from_utf8_lossy(&head[..read]).to_string();
+                seen.lock()
+                    .expect("the request log")
+                    .push(text.lines().next().unwrap_or_default().to_string());
+                tokio::time::sleep(delay).await;
+                let response = format!(
+                    "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{{}}"
+                );
+                let _unused =
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes()).await;
+            }
+        });
+        (address, requests)
+    }
+
+    #[tokio::test]
+    async fn a_force_merge_asks_for_one_segment_and_outlasts_the_ordinary_request_timeout() {
+        let (address, requests) = serve_slowly(Duration::from_millis(600), "200 OK").await;
+        let es = Es::with_timeout(&format!("http://{address}"), Duration::from_millis(200))
+            .expect("an endpoint");
+
+        es.force_merge("poems_v4").await.expect("a merged index");
+
+        assert_eq!(
+            *requests.lock().expect("the request log"),
+            ["POST /poems_v4/_forcemerge?max_num_segments=1 HTTP/1.1"]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refused_force_merge_is_an_error() {
+        let (address, _) = serve_slowly(Duration::ZERO, "500 Internal Server Error").await;
+        let es = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
+            .expect("an endpoint");
+
+        let refused = es.force_merge("poems_v4").await;
+
+        assert!(
+            refused.as_ref().is_err_and(|e| e.contains("500")),
+            "{refused:?}"
+        );
     }
 
     #[tokio::test]

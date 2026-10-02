@@ -141,6 +141,7 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
         }
     }
     es.put_refresh_interval(target, "1s").await?;
+    es.force_merge(target).await?;
     es.refresh(target).await?;
     Ok(total)
 }
@@ -357,6 +358,176 @@ mod tests {
             Err("bulkBatchSize must be at least 1".to_string())
         );
         assert_eq!(batch_size(1000), Ok(1000));
+    }
+
+    async fn searchable_segments(admin_url: &str, alias: &str) -> u64 {
+        let report: Value = qafiyah_elasticsearch::Endpoint::new(admin_url)
+            .expect("an Elasticsearch endpoint")
+            .request(reqwest::Method::GET, &format!("/{alias}/_segments"))
+            .send()
+            .await
+            .expect("the segments report")
+            .json()
+            .await
+            .expect("a segments report");
+        report["indices"]
+            .as_object()
+            .into_iter()
+            .flat_map(|indices| indices.values())
+            .filter_map(|index| index["shards"].as_object())
+            .flat_map(|shards| shards.values())
+            .filter_map(Value::as_array)
+            .flatten()
+            .filter_map(|copy| copy["num_search_segments"].as_u64())
+            .sum()
+    }
+
+    #[expect(clippy::print_stderr, reason = "the skip notice goes to stderr")]
+    fn database_and_admin_urls() -> Option<(String, String)> {
+        let (Ok(database_url), Ok(admin_url)) = (
+            std::env::var("QAFIYAH_TEST_DATABASE_URL"),
+            std::env::var("QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL"),
+        ) else {
+            eprintln!(
+                "skipping: QAFIYAH_TEST_DATABASE_URL and QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL are not set"
+            );
+            return None;
+        };
+        Some((database_url, admin_url))
+    }
+
+    fn scratch_alias(test: &str) -> String {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        format!("test-guard-poets-{test}-{}-{nanos}", std::process::id())
+    }
+
+    async fn aliased_indices(admin_url: &str, alias: &str) -> Vec<String> {
+        let report: Value = qafiyah_elasticsearch::Endpoint::new(admin_url)
+            .expect("an Elasticsearch endpoint")
+            .request(reqwest::Method::GET, &format!("/_alias/{alias}"))
+            .send()
+            .await
+            .expect("the alias report")
+            .json()
+            .await
+            .expect("an alias report");
+        report
+            .as_object()
+            .map(|indices| indices.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    #[tokio::test]
+    async fn a_reindex_puts_the_alias_on_one_merged_segment_even_when_writing_split_the_index() {
+        let Some((database_url, admin_url)) = database_and_admin_urls() else {
+            return;
+        };
+        let schema = load_schema();
+        let mut definition = schema.poets.clone();
+        definition["settings"]["index.translog.flush_threshold_size"] = json!("1kb");
+        let es = Es::new(&admin_url).expect("an Elasticsearch endpoint");
+        let pgc = pg::connect(&database_url)
+            .await
+            .expect("the corpus database");
+        let poets = pg::count_rows(&pgc, false).await.expect("a poet count");
+        let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
+        let ctx = Ctx {
+            es: &es,
+            pgc: &pgc,
+            batch_size: usize::try_from(poets)
+                .expect("a count")
+                .div_ceil(20)
+                .max(10),
+            rules: &rules,
+        };
+        let alias = scratch_alias("merged");
+        let prefix = format!("{alias}_v");
+
+        let outcome = reindex(
+            &ctx,
+            &Target {
+                alias: &alias,
+                prefix: &prefix,
+                body: &definition,
+                is_poems: false,
+            },
+        )
+        .await;
+        let segments = searchable_segments(&admin_url, &alias).await;
+        let searchable = es.alias_count(&alias).await;
+        if let Ok((index, _)) = &outcome {
+            es.delete_index_quietly(index).await;
+        }
+
+        let (_, indexed) = outcome.expect("a reindex");
+        assert_eq!(i64::try_from(indexed), Ok(poets));
+        assert_eq!(searchable, Ok(Some(u64::try_from(poets).expect("a count"))));
+        assert_eq!(segments, 1, "the alias must point at one merged segment");
+    }
+
+    #[tokio::test]
+    async fn a_reindex_that_fails_leaves_searches_on_the_index_they_were_reading_and_removes_its_own()
+     {
+        let Some((database_url, admin_url)) = database_and_admin_urls() else {
+            return;
+        };
+        let schema = load_schema();
+        let es = Es::new(&admin_url).expect("an Elasticsearch endpoint");
+        let pgc = pg::connect(&database_url)
+            .await
+            .expect("the corpus database");
+        let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
+        let ctx = Ctx {
+            es: &es,
+            pgc: &pgc,
+            batch_size: 1000,
+            rules: &rules,
+        };
+        let alias = scratch_alias("rejected");
+        let prefix = format!("{alias}_v");
+        let mut rejecting = schema.poets.clone();
+        rejecting["mappings"]["properties"]
+            .as_object_mut()
+            .expect("the poet fields")
+            .remove("nameSort");
+
+        let served = reindex(
+            &ctx,
+            &Target {
+                alias: &alias,
+                prefix: &prefix,
+                body: &schema.poets,
+                is_poems: false,
+            },
+        )
+        .await;
+        let failed = reindex(
+            &ctx,
+            &Target {
+                alias: &alias,
+                prefix: &prefix,
+                body: &rejecting,
+                is_poems: false,
+            },
+        )
+        .await;
+        let aliased = aliased_indices(&admin_url, &alias).await;
+        let left = es.list_indices_for_alias(&prefix).await;
+        for index in left.iter().flatten() {
+            es.delete_index_quietly(index).await;
+        }
+
+        let (served, _) = served.expect("the first reindex");
+        assert!(
+            failed
+                .as_ref()
+                .is_err_and(|error| error.contains("dynamic introduction of [nameSort]")),
+            "{failed:?}"
+        );
+        assert_eq!(aliased, std::slice::from_ref(&served));
+        assert_eq!(left, Ok(vec![served]));
     }
 
     #[test]

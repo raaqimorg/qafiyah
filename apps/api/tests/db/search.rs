@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
+use reqwest::Method;
 use serde_json::{Value, json};
 
+use qafiyah_api::domain::search;
 use qafiyah_api::es::client::Es;
 use qafiyah_api::es::query::{PoemSearchParams, poem_search_body};
 
@@ -223,6 +225,214 @@ async fn a_word_carrying_a_mark_the_folding_leaves_is_found_by_its_bare_letters_
             assert_eq!(
                 first["highlight"]["content"][0],
                 "قال <mark>الْحٓرُّ</mark> لا تبتئسْ*فإن الدهر ذو غير"
+            );
+        })
+        .await;
+}
+
+fn searching(es: Es, index: String) -> Es {
+    let mut es = es;
+    es.poems_alias = index;
+    es
+}
+
+#[expect(clippy::expect_used, reason = "a failed search is a failed test")]
+async fn shown_snippets(es: &Es, q: &str, exact: bool) -> Vec<String> {
+    search::search_poems(
+        es,
+        &PoemSearchParams {
+            q: q.into(),
+            page: 1,
+            exact,
+            ..PoemSearchParams::default()
+        },
+    )
+    .await
+    .expect("a search")
+    .hits
+    .into_iter()
+    .map(|hit| hit.snippet)
+    .collect()
+}
+
+const OPENING_VERSE: &str = "سرى الطيف في الظلام*فاستهام فؤادي";
+
+#[tokio::test]
+async fn a_word_deep_in_a_long_poem_is_highlighted_from_stored_offsets_whatever_search_finds_it() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let filler = "سرى الطيف في الظلام فاستهام فؤادي*وطال على طول البعاد سهادي*".repeat(20);
+    let docs = [poem(
+        1,
+        "Long",
+        "سرى الطيف",
+        &format!("{filler}شربت ماء الغدير*ووقفت على الأطلال والليل ساكن"),
+    )];
+    let reanalysis_cap = json!({ "index.highlight.max_analyzed_offset": 40 });
+    admin
+        .with_poems_and_settings(&docs, &reanalysis_cap, |es, index| async move {
+            let es = searching(es, index);
+            for (q, exact, shown) in [
+                (
+                    "الأطلال",
+                    false,
+                    "شربت ماء الغدير*ووقفت على <mark>الأطلال</mark> والليل ساكن",
+                ),
+                (
+                    "ليل",
+                    false,
+                    "شربت ماء الغدير*ووقفت على الأطلال <mark>والليل</mark> ساكن",
+                ),
+                (
+                    "ماء",
+                    false,
+                    "شربت <mark>ماء</mark> الغدير*ووقفت على الأطلال والليل ساكن",
+                ),
+                (
+                    "على الأطلال",
+                    true,
+                    "شربت ماء الغدير*ووقفت <mark>على الأطلال</mark> والليل ساكن",
+                ),
+            ] {
+                assert_eq!(shown_snippets(&es, q, exact).await, [shown], "{q}");
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_ranked_search_for_a_quoted_line_shows_the_verse_holding_it_with_the_line_marked_as_one()
+{
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [poem(
+        1,
+        "Dyar",
+        "منازل",
+        "ذكرت عبلة والرماح نواهل*فهاج الشوق في قلبي*يا دار عبلة بالجواء تكلمي*وعمي صباحا واسلمي",
+    )];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                shown_snippets(&es, "يا دار عبلة", false).await,
+                ["<mark>يا دار عبلة</mark> بالجواء تكلمي*وعمي صباحا واسلمي"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_ranked_search_marks_the_word_as_written_when_only_its_stem_matches() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [poem(
+        1,
+        "Lyll",
+        "سهر",
+        &format!("{OPENING_VERSE}*سهرت والليل طويل*أعد النجوم"),
+    )];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                shown_snippets(&es, "ليل", false).await,
+                ["سهرت <mark>والليل</mark> طويل*أعد النجوم"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_search_made_only_of_stopwords_marks_them_in_the_verse_it_shows() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [poem(
+        1,
+        "Tayf",
+        "طيف",
+        &format!("{OPENING_VERSE}*فقلت من أنت يا طيف*فقال أنا الهوى"),
+    )];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                shown_snippets(&es, "من أنت", false).await,
+                ["فقلت <mark>من أنت</mark> يا طيف*فقال أنا الهوى"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_ranked_search_with_a_standalone_hamza_marks_the_word_as_typed_and_not_its_folded_twin() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [poem(
+        1,
+        "Nahr",
+        "نهر",
+        &format!("{OPENING_VERSE}*شربت ماء النهر*ما كان لي عندها"),
+    )];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                shown_snippets(&es, "ماء", false).await,
+                ["شربت <mark>ماء</mark> النهر*ما كان لي عندها"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_poem_found_only_by_its_title_shows_its_opening_verse_unmarked() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [poem(
+        1,
+        "Ttle",
+        "حنين المسافر",
+        &format!("أحن إلى بيت بعيد*وأمي تنتظر الغياب*{OPENING_VERSE}"),
+    )];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                shown_snippets(&es, "المسافر", false).await,
+                ["أحن إلى بيت بعيد*وأمي تنتظر الغياب"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_scratch_index_carries_the_extra_settings_it_was_created_with() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let endpoint = admin.endpoint();
+    let docs = [poem(1, "Sttg", "سرى الطيف", OPENING_VERSE)];
+    let reanalysis_cap = json!({ "index.highlight.max_analyzed_offset": 40 });
+    admin
+        .with_poems_and_settings(&docs, &reanalysis_cap, |_, index| async move {
+            let settings: Value = endpoint
+                .request(Method::GET, &format!("/{index}/_settings"))
+                .send()
+                .await
+                .expect("the scratch index settings")
+                .json()
+                .await
+                .expect("a settings report");
+            assert_eq!(
+                settings[&index]["settings"]["index"]["highlight"]["max_analyzed_offset"],
+                "40"
             );
         })
         .await;

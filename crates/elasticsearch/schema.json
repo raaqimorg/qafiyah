@@ -217,14 +217,17 @@
         "content": {
           "type": "text",
           "analyzer": "arabic_normalized",
+          "index_options": "offsets",
           "fields": {
             "hamza": {
               "type": "text",
-              "analyzer": "arabic_hamza_kept"
+              "analyzer": "arabic_hamza_kept",
+              "index_options": "offsets"
             },
             "stemmed": {
               "type": "text",
-              "analyzer": "arabic_stemmed"
+              "analyzer": "arabic_stemmed",
+              "index_options": "offsets"
             }
           }
         },
