@@ -202,6 +202,7 @@ async fn a_name_written_joined_finds_the_poet_whose_name_is_written_apart() {
         return;
     };
     assert_first_poet(&h, "عبدالله بن العجلان النهدي", "FzZx").await;
+    assert_first_poet(&h, "أبوقحفان", "PGxq").await;
 }
 
 #[tokio::test]

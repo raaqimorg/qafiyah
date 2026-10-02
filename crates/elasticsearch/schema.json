@@ -65,8 +65,8 @@
           },
           "name_compound_split": {
             "type": "pattern_replace",
-            "pattern": "(^|\\s)(عبد|ابو)ال",
-            "replacement": "$1$2 ال"
+            "pattern": "(^|\\s)(عبد(?=ال)|ابو(?=\\S\\S))",
+            "replacement": "$1$2 "
           }
         },
         "filter": {
@@ -352,8 +352,8 @@
           },
           "name_compound_split": {
             "type": "pattern_replace",
-            "pattern": "(^|\\s)(عبد|ابو)ال",
-            "replacement": "$1$2 ال"
+            "pattern": "(^|\\s)(عبد(?=ال)|ابو(?=\\S\\S))",
+            "replacement": "$1$2 "
           }
         },
         "filter": {

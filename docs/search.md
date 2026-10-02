@@ -95,8 +95,11 @@ different. `على` and `علي` still match each other through the alef maqsura
 `arabic_name_stemmed`, `autocomplete_name`): the same folding and filters, plus two steps that only
 make sense for names. `name_equivalents` is a closed synonym list: the case forms of the five nouns
 grammar inflects by letters (`ابو`/`ابي`/`ابا`, `اخو`/`اخي`/`اخا`, `ذو`/`ذي`/`ذا`), the three
-spellings of `امرؤ`, and `ابن`/`بن`. `name_compound_split` writes `عبدالله` and `ابوالطيب` as two
-words. Poem text never sees either, so `أبي` in a verse still means "my father".
+spellings of `امرؤ`, and `ابن`/`بن`. `name_compound_split` writes `عبدالله`, `ابوالطيب` and `ابوبكر`
+as two words, on the stored name and the query alike: `ابو` splits from any following run of two
+letters or more (so `ابوه`, "his father", stays whole), `عبد` only from `ال`, because `عبده` and
+`عبدون` are names of their own. Poem text never sees either, so `أبي` in a verse still means "my
+father".
 
 ## Relevance
 
