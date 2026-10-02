@@ -67,6 +67,16 @@
             "type": "pattern_replace",
             "pattern": "(^|\\s)(عبد(?=ال)|ابو(?=\\S\\S))",
             "replacement": "$1$2 "
+          },
+          "punctuation_as_space": {
+            "type": "pattern_replace",
+            "pattern": "\\p{P}+",
+            "replacement": " "
+          },
+          "trimmed_spaces": {
+            "type": "pattern_replace",
+            "pattern": "^\\s+|\\s+$|(\\s)\\s+",
+            "replacement": "$1"
           }
         },
         "filter": {
@@ -160,7 +170,12 @@
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
+            "char_filter": [
+              "arabic_letter_folding_keep_hamza",
+              "invisible_marks",
+              "punctuation_as_space",
+              "trimmed_spaces"
+            ],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }
@@ -354,6 +369,16 @@
             "type": "pattern_replace",
             "pattern": "(^|\\s)(عبد(?=ال)|ابو(?=\\S\\S))",
             "replacement": "$1$2 "
+          },
+          "punctuation_as_space": {
+            "type": "pattern_replace",
+            "pattern": "\\p{P}+",
+            "replacement": " "
+          },
+          "trimmed_spaces": {
+            "type": "pattern_replace",
+            "pattern": "^\\s+|\\s+$|(\\s)\\s+",
+            "replacement": "$1"
           }
         },
         "filter": {
@@ -447,7 +472,12 @@
         "normalizer": {
           "arabic_exact": {
             "type": "custom",
-            "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
+            "char_filter": [
+              "arabic_letter_folding_keep_hamza",
+              "invisible_marks",
+              "punctuation_as_space",
+              "trimmed_spaces"
+            ],
             "filter": ["lowercase", "decimal_digit", "arabic_normalization"]
           }
         }

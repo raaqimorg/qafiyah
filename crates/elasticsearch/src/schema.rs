@@ -98,7 +98,12 @@ mod tests {
             assert_eq!(normalizer["type"], "custom");
             assert_eq!(
                 normalizer["char_filter"],
-                json!(["arabic_letter_folding_keep_hamza", "invisible_marks"])
+                json!([
+                    "arabic_letter_folding_keep_hamza",
+                    "invisible_marks",
+                    "punctuation_as_space",
+                    "trimmed_spaces",
+                ])
             );
             assert_eq!(normalizer["filter"], analyzer["filter"]);
             for field in fields {
@@ -106,6 +111,22 @@ mod tests {
                 assert_eq!(exact["type"], "keyword", "{field}");
                 assert_eq!(exact["normalizer"], "arabic_exact", "{field}");
             }
+        }
+    }
+
+    #[test]
+    fn the_exact_normalizer_ignores_punctuation_and_extra_spaces() {
+        let schema = load();
+        for body in [&schema.poems, &schema.poets] {
+            let char_filters = &body["settings"]["analysis"]["char_filter"];
+            assert_eq!(
+                char_filters["punctuation_as_space"],
+                json!({ "type": "pattern_replace", "pattern": "\\p{P}+", "replacement": " " })
+            );
+            assert_eq!(
+                char_filters["trimmed_spaces"],
+                json!({ "type": "pattern_replace", "pattern": "^\\s+|\\s+$|(\\s)\\s+", "replacement": "$1" })
+            );
         }
     }
 
@@ -209,7 +230,12 @@ mod tests {
             let analysis = &body["settings"]["analysis"];
             assert_eq!(
                 analysis["normalizer"]["arabic_exact"]["char_filter"],
-                json!(["arabic_letter_folding_keep_hamza", "invisible_marks"])
+                json!([
+                    "arabic_letter_folding_keep_hamza",
+                    "invisible_marks",
+                    "punctuation_as_space",
+                    "trimmed_spaces",
+                ])
             );
             let kept = &analysis["analyzer"]["arabic_hamza_kept"];
             assert_eq!(

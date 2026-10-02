@@ -87,7 +87,10 @@ The `.exact` keywords use that `arabic_exact` normalizer: the hamza-keeping fold
 token filters as `arabic_normalized`, applied to the whole value. A `term` query on a normalized
 keyword is normalized too, so an exact title match ignores hamza forms on a carrier and diacritics
 (`امي` matches the title `أمي`) with no change to the query code, while `ماء` and `ما` stay
-different. `على` and `علي` still match each other through the alef maqsura fold.
+different. `على` and `علي` still match each other through the alef maqsura fold. Two more char
+filters, `punctuation_as_space` and `trimmed_spaces`, turn punctuation into a space and squeeze and
+trim the spaces, so `يا قلب ؟`, `يا قلب؟` and `(يا قلب)` all equal the title `يا قلب`. No indexed
+title holds punctuation, so without them a query with any punctuation never reached the exact tier.
 
 ### Poet names
 
