@@ -278,14 +278,6 @@
                   }
                 },
                 "weight": 1.1
-              },
-              {
-                "filter": {
-                  "term": {
-                    "isPrimary": false
-                  }
-                },
-                "weight": 0.5
               }
             ],
             "query": {
@@ -428,101 +420,117 @@
                           }
                         },
                         {
-                          "bool": {
-                            "should": [
+                          "function_score": {
+                            "boost_mode": "multiply",
+                            "functions": [
                               {
-                                "term": {
-                                  "title.exact": {
-                                    "boost": 131072,
-                                    "value": "قفا نبك من"
+                                "filter": {
+                                  "term": {
+                                    "isPrimary": false
                                   }
-                                }
-                              },
-                              {
-                                "match_phrase": {
-                                  "title": {
-                                    "boost": 16384,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match_phrase": {
-                                  "title.stemmed": {
-                                    "boost": 512,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "title": {
-                                    "boost": 256,
-                                    "operator": "and",
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "title.stemmed": {
-                                    "boost": 8,
-                                    "operator": "and",
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "title.stemmed": {
-                                    "boost": 1,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match_phrase": {
-                                  "content": {
-                                    "boost": 4096,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match_phrase": {
-                                  "content.stemmed": {
-                                    "boost": 512,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "content": {
-                                    "boost": 64,
-                                    "operator": "and",
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "content.stemmed": {
-                                    "boost": 8,
-                                    "operator": "and",
-                                    "query": "قفا نبك من"
-                                  }
-                                }
-                              },
-                              {
-                                "match": {
-                                  "content.stemmed": {
-                                    "boost": 1,
-                                    "query": "قفا نبك من"
-                                  }
-                                }
+                                },
+                                "weight": 0.5
                               }
-                            ]
+                            ],
+                            "query": {
+                              "bool": {
+                                "should": [
+                                  {
+                                    "term": {
+                                      "title.exact": {
+                                        "boost": 131072,
+                                        "value": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match_phrase": {
+                                      "title": {
+                                        "boost": 16384,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match_phrase": {
+                                      "title.stemmed": {
+                                        "boost": 512,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "title": {
+                                        "boost": 256,
+                                        "operator": "and",
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "title.stemmed": {
+                                        "boost": 8,
+                                        "operator": "and",
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "title.stemmed": {
+                                        "boost": 1,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match_phrase": {
+                                      "content": {
+                                        "boost": 4096,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match_phrase": {
+                                      "content.stemmed": {
+                                        "boost": 512,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "content": {
+                                        "boost": 64,
+                                        "operator": "and",
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "content.stemmed": {
+                                        "boost": 8,
+                                        "operator": "and",
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "match": {
+                                      "content.stemmed": {
+                                        "boost": 1,
+                                        "query": "قفا نبك من"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "score_mode": "multiply"
                           }
                         }
                       ],

@@ -276,6 +276,58 @@ async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three
         .await;
 }
 
+fn alternate(id: i32, slug: &str, primary_id: i32, doc: Value) -> Value {
+    let mut doc = doc;
+    if let Some(fields) = doc.as_object_mut() {
+        fields.insert("id".into(), json!(id));
+        fields.insert("slug".into(), json!(slug));
+        fields.insert("primaryId".into(), json!(primary_id));
+        fields.insert("isPrimary".into(), json!(false));
+    }
+    doc
+}
+
+#[tokio::test]
+async fn a_line_found_only_in_an_alternate_reading_keeps_the_era_rank_of_its_poem() {
+    let Some(admin) = admin() else {
+        return;
+    };
+    let docs = [
+        dated(
+            1,
+            "Jahl",
+            "هل غادر الشعراء من متردم",
+            "هل غادر الشعراء من متردم*أم هل عرفت الدار بعد توهم",
+            "jahili",
+        ),
+        alternate(
+            2,
+            "JhlB",
+            1,
+            dated(
+                0,
+                "",
+                "هل غادر الشعراء من متردم",
+                "هل غادر الشعراء من متردم*ولقد ذكرتك والرماح نواهل",
+                "jahili",
+            ),
+        ),
+        dated(
+            3,
+            "Hdth",
+            "ولقد ذكرتك والرماح نواهل",
+            "ولقد ذكرتك والرماح نواهل*مني وبيض الهند تقطر من دمي",
+            "hadith",
+        ),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let found = slugs(&poem_hits(&es, &index, "ولقد ذكرتك والرماح نواهل").await);
+            assert_eq!(found, ["JhlB", "Hdth"]);
+        })
+        .await;
+}
+
 #[tokio::test]
 async fn an_exact_search_finds_a_poem_by_a_title_that_is_not_in_its_text() {
     let Some(admin) = admin() else {

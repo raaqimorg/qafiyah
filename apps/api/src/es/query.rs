@@ -215,9 +215,14 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         let mut gate = vec![recall_gate(&params.q, &POEM_FIELDS)];
         gate.extend(filters);
         let ranking = ranking_clauses(&params.q, &POEM_FIELDS);
-        let should = if params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS {
+        let verbatim = params.q.split_whitespace().count() >= VERBATIM_MIN_WORDS;
+        let should = if verbatim {
+            let ladder = scored(
+                json!({ "bool": { "should": ranking } }),
+                vec![alternate_reading_function()],
+            );
             vec![json!({ "dis_max": {
-                "queries": [verbatim_by_era(&params.q), { "bool": { "should": ranking } }],
+                "queries": [verbatim_by_era(&params.q), ladder],
                 "tie_breaker": VERBATIM_TIE_BREAKER,
             } })]
         } else {
@@ -234,7 +239,9 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         if params.q.contains(STANDALONE_HAMZA) {
             functions.push(typed_hamza_function(&params.q));
         }
-        functions.push(alternate_reading_function());
+        if !verbatim {
+            functions.push(alternate_reading_function());
+        }
         scored(ranked, functions)
     };
 
@@ -1015,8 +1022,33 @@ mod tests {
         );
         assert_eq!(
             dis_max["queries"][1],
-            json!({ "bool": { "should": ranking_clauses("قفا نبك من", &POEM_FIELDS) } })
+            json!({ "function_score": {
+                "query": { "bool": { "should": ranking_clauses("قفا نبك من", &POEM_FIELDS) } },
+                "functions": [{ "filter": { "term": { "isPrimary": false } }, "weight": 0.5 }],
+                "score_mode": "multiply",
+                "boost_mode": "multiply",
+            } })
         );
+    }
+
+    #[test]
+    fn a_verbatim_query_halves_an_alternate_reading_on_the_ladder_and_never_the_era_rank() {
+        for (params, outer) in [
+            (poems("قفا نبك من", 1, false), 1),
+            (with_era("قفا نبك من", false), 0),
+            (poems("الخيل والليل والبيداء", 1, false), 2),
+        ] {
+            let body = poem_search_body(&params);
+            let scored = &body["query"]["function_score"];
+            let functions = scored["functions"].as_array().expect("functions");
+            assert_eq!(functions.len(), outer, "{scored}");
+            assert!(
+                functions
+                    .iter()
+                    .all(|function| function["filter"]["term"].get("isPrimary").is_none()),
+                "{scored}"
+            );
+        }
     }
 
     #[test]
