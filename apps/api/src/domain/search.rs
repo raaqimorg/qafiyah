@@ -233,7 +233,7 @@ pub async fn search_poems(
                 slug: text(source, "slug"),
                 snippet: poem_snippet(highlighted_content(hit), &text(source, "content")),
                 poet: PoetRef {
-                    name: display(source, "poetNameDisplay", "poetName"),
+                    name: text(source, "poetNameDisplay"),
                     slug: text(source, "poetSlug"),
                     has_avatar: source["poetHasAvatar"].as_bool().unwrap_or(false),
                     is_anonymous: source["poetIsAnonymous"].as_bool().unwrap_or(false),
@@ -416,7 +416,7 @@ mod tests {
     fn a_poem_hit_maps_display_fields_snippets_and_scores() {
         let response = serde_json::json!({ "hits": { "total": { "value": 1 }, "hits": [poem_hit(
             serde_json::json!({ "slug": "TnKK", "title": "plain", "titleDisplay": "vocalized", "content": "a*b*c*d",
-                                "poetName": "p", "poetNameDisplay": "P", "poetSlug": "yoFB", "meterName": "m",
+                                "poetNameDisplay": "P", "poetSlug": "yoFB", "meterName": "m",
                                 "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi" }),
             Some("a*b <mark>x</mark>*c*d"), 3.5) ] } });
         let hits = hits(&response);
@@ -425,7 +425,7 @@ mod tests {
             display(&hit["_source"], "titleDisplay", "title"),
             "vocalized"
         );
-        assert_eq!(display(&hit["_source"], "poetNameDisplay", "poetName"), "P");
+        assert_eq!(text(&hit["_source"], "poetNameDisplay"), "P");
         assert_eq!(
             poem_snippet(highlighted_content(hit), &text(&hit["_source"], "content")),
             "a*b <mark>x</mark>"

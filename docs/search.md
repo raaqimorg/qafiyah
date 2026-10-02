@@ -35,11 +35,17 @@ Two layers, and the split matters: **what gets searched is not what gets display
 
 ### In Rust, at index time
 
-`title` and `poetName`/`name` are stored with tashkeel stripped (U+0610-061A, U+064B-065F,
-U+06D6-06ED, plus U+0640 tatweel). The original vocalized text is kept alongside in
-`titleDisplay`/`poetNameDisplay`/`nameDisplay`, mapped as `keyword, index: false`: stored for
-output, never searchable. API responses prefer the Display field, so a reader sees the vocalized
-original while matching happens against the stripped form.
+`title` (poems) and `name` (poets) are stored with tashkeel stripped (U+0610-061A, U+064B-065F,
+U+06D6-06ED, plus U+0640 tatweel). The original vocalized text is kept alongside in `titleDisplay`
+and `nameDisplay`, and a poem carries its poet's name only as `poetNameDisplay`, since poet names
+are searched on the poets index. API responses use the Display fields, so a reader sees the
+vocalized original while matching happens against the stripped form.
+
+Every field the API only shows (the Display fields, `eraName`, `meterName`, `slug`,
+`poetHasAvatar`, `poetIsAnonymous`) is mapped with `index: false` and `doc_values: false`: kept in
+`_source` for output, neither searchable nor sortable, so a reindex spends nothing on it. The
+`every_field_the_indices_can_search_or_sort_is_one_a_search_reads` test in `es/query.rs` builds
+every kind of request and fails when the schema indexes a field none of them reads.
 
 `content` is deliberately **not** stripped in Rust, it relies entirely on the analyzer below.
 `nameSort` is a fully folded keyword used only as an alphabetical tiebreaker when browsing.
@@ -62,20 +68,17 @@ isolate controls (U+202A to U+202E, U+2066 to U+2069). Rust strips the marks, th
 controls, from titles and names already; content keeps them for display, so the analyzer has to. Without it about 480 poems held
 words like `الْحٓرُّ` that indexed as `الحٓر` and never matched `الحر`.
 
-Three analyzers build on it, all with the `standard` tokenizer:
+Two analyzers build on it, both with the `standard` tokenizer:
 
 | Analyzer            | Filters                                                           | Used by                               |
 | ------------------- | ----------------------------------------------------------------- | ------------------------------------- |
 | `arabic_normalized` | `lowercase`, `decimal_digit` (٠-٩ to 0-9), `arabic_normalization` | default for `title`, `content`, names |
 | `arabic_stemmed`    | the above plus `_arabic_` stopwords and the Arabic stemmer        | the `.stemmed` subfield               |
-| `autocomplete_2`    | the above plus `edge_ngram` 2-20                                  | the `.autocomplete` subfield          |
 
-`autocomplete_2` is index-time only, its `search_analyzer` is `arabic_normalized`, so the query
-itself is never ngrammed.
-
-Multi-fields: `title` and the name fields get `.exact` (keyword), `.stemmed`, and
-`.autocomplete`. **`content` gets `.stemmed` only**, no `.exact` and no `.autocomplete`, which is
-asserted in the schema code. Both mappings are `dynamic: "strict"`.
+Multi-fields: `title` gets `.exact` (keyword), `.stemmed` and `.hamza`; `content` gets `.stemmed`
+and `.hamza`, never `.exact`. On the poets index `name` gets `.exact`, `.stemmed` and
+`.autocomplete`, and `nickname` gets `.stemmed` and `.autocomplete`. Both mappings are
+`dynamic: "strict"`.
 
 Deleting the standalone `ء` makes different words identical on every analyzed field (`ماء` and
 `ما`, `سماء` and `سما`), which helps recall, since poets drop the hamza for meter, but blurs
@@ -97,7 +100,8 @@ title holds punctuation, so without them a query with any punctuation never reac
 
 `name` and `nickname` on the poets index use their own analyzers (`arabic_name_normalized`,
 `arabic_name_stemmed`, `autocomplete_name`): the same folding and filters, plus two steps that only
-make sense for names. `name_equivalents` is a closed synonym list: the case forms of the five nouns
+make sense for names. `autocomplete_name` adds an `edge_ngram` of 2 to 20 letters at index time
+only (its `search_analyzer` is `arabic_name_normalized`), so the query itself is never ngrammed. `name_equivalents` is a closed synonym list: the case forms of the five nouns
 grammar inflects by letters (`ابو`/`ابي`/`ابا`, `اخو`/`اخي`/`اخا`, `ذو`/`ذي`/`ذا`), the three
 spellings of `امرؤ`, and `ابن`/`بن`. `name_compound_split` writes `عبدالله`, `ابوالطيب` and `ابوبكر`
 as two words, on the stored name and the query alike: `ابو` splits from any following run of two

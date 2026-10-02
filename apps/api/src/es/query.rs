@@ -41,21 +41,18 @@ struct FieldSpec {
     name: &'static str,
     surface_weight: i64,
     supports_exact: bool,
-    supports_autocomplete: bool,
 }
 
 const TITLE: FieldSpec = FieldSpec {
     name: "title",
     surface_weight: 4,
     supports_exact: true,
-    supports_autocomplete: false,
 };
 
 const CONTENT: FieldSpec = FieldSpec {
     name: "content",
     surface_weight: 1,
     supports_exact: false,
-    supports_autocomplete: false,
 };
 
 const POEM_FIELDS: [FieldSpec; 2] = [TITLE, CONTENT];
@@ -82,14 +79,6 @@ fn recall_gate(q: &str, fields: &[FieldSpec]) -> Value {
         fields
             .iter()
             .map(|field| json!({ "match": { field.name: { "query": q, "operator": "and" } } })),
-    );
-    should.extend(
-        fields
-            .iter()
-            .filter(|field| field.supports_autocomplete)
-            .map(|field| {
-                json!({ "match": { format!("{}.autocomplete", field.name): { "query": q } } })
-            }),
     );
     json!({ "bool": { "should": should, "minimum_should_match": 1 } })
 }
@@ -833,6 +822,106 @@ mod tests {
         assert_eq!(
             plain["highlight"]["fields"]["content"]["matched_fields"],
             json!(["content", "content.stemmed"])
+        );
+    }
+
+    fn every_name_in(value: &Value, names: &mut std::collections::BTreeSet<String>) {
+        match value {
+            Value::Object(map) => {
+                for (key, inner) in map {
+                    names.insert(key.clone());
+                    every_name_in(inner, names);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    every_name_in(item, names);
+                }
+            }
+            Value::String(text) => {
+                names.insert(text.clone());
+            }
+            Value::Null | Value::Bool(_) | Value::Number(_) => {}
+        }
+    }
+
+    fn searchable_or_sortable(properties: &Value) -> Vec<String> {
+        let mut found = Vec::new();
+        for (name, field) in properties.as_object().expect("properties") {
+            let mut paths = vec![(name.clone(), field)];
+            if let Some(subfields) = field["fields"].as_object() {
+                paths.extend(
+                    subfields
+                        .iter()
+                        .map(|(sub, spec)| (format!("{name}.{sub}"), spec)),
+                );
+            }
+            for (path, spec) in paths {
+                let searchable = spec["index"] != false;
+                let sortable = spec["type"] != "text" && spec["doc_values"] != false;
+                if searchable || sortable {
+                    found.push(path);
+                }
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn every_field_the_indices_can_search_or_sort_is_one_a_search_reads() {
+        let every_facet = |q: &str, era: bool| PoemSearchParams {
+            q: q.into(),
+            page: 1,
+            poet_slugs: vec!["yoFB".into()],
+            era_slugs: if era { vec!["abbasi".into()] } else { vec![] },
+            meter_slugs: vec!["altawil".into()],
+            theme_slugs: vec!["alnasib".into()],
+            rhyme_slugs: vec!["meem".into()],
+            poem_type_slugs: vec!["amudi".into()],
+            collection_slugs: vec!["almuallaqat".into()],
+            exact: false,
+        };
+        let mut bodies = Vec::new();
+        for q in ["حب", "قفا نبك من", "ماء"] {
+            bodies.push(poem_search_body(&poems(q, 1, false)));
+            bodies.push(poem_search_body(&poems(q, 1, true)));
+        }
+        for (q, era) in [("", false), ("", true), ("حب", false)] {
+            bodies.push(poem_search_body(&every_facet(q, era)));
+        }
+        for (q, exact, sort) in [
+            ("", false, PoetSort::Id),
+            ("", false, PoetSort::PoemsCount),
+            ("المتنبي", false, PoetSort::Id),
+            ("المتنبي", true, PoetSort::Id),
+        ] {
+            bodies.push(poet_search_body(&PoetSearchParams {
+                q: q.into(),
+                exact,
+                sort,
+                era_slugs: vec!["abbasi".into()],
+                ..PoetSearchParams::default()
+            }));
+        }
+        let mut read = std::collections::BTreeSet::new();
+        for body in &bodies {
+            every_name_in(body, &mut read);
+        }
+
+        let schema = qafiyah_elasticsearch::load();
+        let unread: Vec<String> = [("poems", &schema.poems), ("poets", &schema.poets)]
+            .into_iter()
+            .flat_map(|(index, definition)| {
+                searchable_or_sortable(&definition["mappings"]["properties"])
+                    .into_iter()
+                    .filter(|path| !read.contains(path))
+                    .map(move |path| format!("{index}: {path}"))
+            })
+            .collect();
+
+        assert!(
+            unread.is_empty(),
+            "indexed or given doc values but read by no search: {unread:?}"
         );
     }
 

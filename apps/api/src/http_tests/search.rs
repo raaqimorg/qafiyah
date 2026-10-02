@@ -9,7 +9,7 @@ fn one_poem_and_one_poet() -> serde_json::Value {
         "_score": 2.0,
         "_source": {
             "slug": "TnKK", "title": "t", "titleDisplay": "T", "content": "a*b*c",
-            "poetName": "p", "poetNameDisplay": "P", "poetSlug": "yoFB",
+            "poetNameDisplay": "P", "poetSlug": "yoFB",
             "meterName": "m", "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi",
             "name": "n", "nameDisplay": "N", "poemsCount": 7
         },

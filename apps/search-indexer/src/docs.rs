@@ -40,7 +40,6 @@ pub(crate) struct PoemDoc {
     pub slug: String,
     pub title: String,
     pub content: String,
-    pub poet_name: String,
     pub title_display: String,
     pub poet_name_display: String,
     pub poet_slug: String,
@@ -78,7 +77,6 @@ pub(crate) fn to_poem_doc(src: PoemSource) -> PoemDoc {
         slug: src.slug,
         title: strip_tashkeel(&src.title),
         content: src.content,
-        poet_name: strip_tashkeel(&src.poet_name),
         title_display: src.title,
         poet_name_display: src.poet_name,
         poet_slug: src.poet_slug,
@@ -160,7 +158,6 @@ mod tests {
         let doc = to_poem_doc(poem());
         assert_eq!(doc.title, "قصيدة");
         assert_eq!(doc.title_display, "قَصِيدَة");
-        assert_eq!(doc.poet_name, "المتنبي");
         assert_eq!(doc.poet_name_display, "المُتَنَبِّي");
         assert_eq!(doc.content, "أ*ب", "content is never stripped in Rust");
         assert_eq!(

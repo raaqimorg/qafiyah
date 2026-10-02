@@ -123,12 +123,6 @@
               "arabic_stemmer_filter"
             ]
           },
-          "autocomplete_2": {
-            "type": "custom",
-            "char_filter": ["arabic_letter_folding", "invisible_marks"],
-            "tokenizer": "standard",
-            "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
-          },
           "arabic_hamza_kept": {
             "type": "custom",
             "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
@@ -188,7 +182,9 @@
           "type": "integer"
         },
         "slug": {
-          "type": "keyword"
+          "type": "keyword",
+          "index": false,
+          "doc_values": false
         },
         "title": {
           "type": "text",
@@ -206,11 +202,6 @@
             "stemmed": {
               "type": "text",
               "analyzer": "arabic_stemmed"
-            },
-            "autocomplete": {
-              "type": "text",
-              "analyzer": "autocomplete_2",
-              "search_analyzer": "arabic_normalized"
             }
           }
         },
@@ -231,39 +222,25 @@
             }
           }
         },
-        "poetName": {
-          "type": "text",
-          "analyzer": "arabic_normalized",
-          "fields": {
-            "exact": {
-              "type": "keyword",
-              "normalizer": "arabic_exact",
-              "ignore_above": 256
-            },
-            "stemmed": {
-              "type": "text",
-              "analyzer": "arabic_stemmed"
-            },
-            "autocomplete": {
-              "type": "text",
-              "analyzer": "autocomplete_2",
-              "search_analyzer": "arabic_normalized"
-            }
-          }
-        },
         "titleDisplay": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         },
         "poetNameDisplay": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         },
         "poetHasAvatar": {
-          "type": "boolean"
+          "type": "boolean",
+          "index": false,
+          "doc_values": false
         },
         "poetIsAnonymous": {
-          "type": "boolean"
+          "type": "boolean",
+          "index": false,
+          "doc_values": false
         },
         "poetSlug": {
           "type": "keyword"
@@ -273,14 +250,16 @@
         },
         "eraName": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         },
         "meterSlug": {
           "type": "keyword"
         },
         "meterName": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         },
         "themeSlug": {
           "type": "keyword"
@@ -428,12 +407,6 @@
               "arabic_stemmer_filter"
             ]
           },
-          "autocomplete_2": {
-            "type": "custom",
-            "char_filter": ["arabic_letter_folding", "invisible_marks"],
-            "tokenizer": "standard",
-            "filter": ["lowercase", "decimal_digit", "arabic_normalization", "edge_ngram_2"]
-          },
           "arabic_hamza_kept": {
             "type": "custom",
             "char_filter": ["arabic_letter_folding_keep_hamza", "invisible_marks"],
@@ -493,7 +466,9 @@
           "type": "integer"
         },
         "slug": {
-          "type": "keyword"
+          "type": "keyword",
+          "index": false,
+          "doc_values": false
         },
         "name": {
           "type": "text",
@@ -532,7 +507,8 @@
         },
         "nameDisplay": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         },
         "nameSort": {
           "type": "keyword"
@@ -545,7 +521,8 @@
         },
         "eraName": {
           "type": "keyword",
-          "index": false
+          "index": false,
+          "doc_values": false
         }
       }
     }
