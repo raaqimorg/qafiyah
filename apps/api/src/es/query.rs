@@ -15,6 +15,7 @@ const VERBATIM_MIN_WORDS: usize = 3;
 const VERBATIM_FLOOR: f64 = 100_000_000.0;
 const VERBATIM_ERA_STEP: f64 = 1_000_000.0;
 const VERBATIM_TIE_BREAKER: f64 = 0.01;
+const SIMILARITY_ONLY_REWRITE: &str = "top_terms_boost_50";
 const TEXT_FIELDS: [&str; 2] = ["title", "content"];
 const TYPED_FIELDS: [&str; 2] = ["title.hamza", "content.hamza"];
 
@@ -436,7 +437,12 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
                 { "match_phrase": { "name": { "query": params.q, "boost": poet_boost::PHRASE } } },
                 { "match": { "name.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
                 { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
-                { "match": { "name": { "query": params.q, "fuzziness": "AUTO", "boost": poet_boost::FUZZY } } },
+                { "match": { "name": {
+                    "query": params.q,
+                    "fuzziness": "AUTO",
+                    "fuzzy_rewrite": SIMILARITY_ONLY_REWRITE,
+                    "boost": poet_boost::FUZZY,
+                } } },
                 { "match_phrase": { "nickname": { "query": params.q, "boost": poet_boost::PHRASE } } },
                 { "match": { "nickname.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
                 { "match": { "nickname.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
@@ -931,7 +937,12 @@ mod tests {
         );
         assert_eq!(
             should[4],
-            json!({ "match": { "name": { "query": "المتنبي", "fuzziness": "AUTO", "boost": 1 } } })
+            json!({ "match": { "name": {
+                "query": "المتنبي",
+                "fuzziness": "AUTO",
+                "fuzzy_rewrite": "top_terms_boost_50",
+                "boost": 1,
+            } } })
         );
         assert_eq!(
             should[5],
