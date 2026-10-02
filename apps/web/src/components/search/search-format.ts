@@ -1,6 +1,7 @@
 import { type ArabicNounForms, formatArabicCount, NON_ARABIC_BASIC_REGEX } from '@/lib/arabic';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
 import { RESULTS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
+import { ES_MAX_RESULT_WINDOW } from '@qafiyah/config';
 
 const QUERY_DISPLAY_TRUNCATE_LENGTH = 20;
 
@@ -21,5 +22,6 @@ export function getNoResultsText({
 }
 
 export function getSectionResultText({ count }: { readonly count: number }): string {
-  return `عثر على ${formatArabicCount({ count, nounForms: RESULTS_NOUN_FORMS })}`;
+  const found = formatArabicCount({ count, nounForms: RESULTS_NOUN_FORMS });
+  return count >= ES_MAX_RESULT_WINDOW ? `عثر على أكثر من ${found}` : `عثر على ${found}`;
 }

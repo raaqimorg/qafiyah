@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { ES_MAX_RESULT_WINDOW } from '@qafiyah/config';
+
 import { getBadgeCount, getNoResultsText, getSectionResultText } from './search-format';
 
 describe('getBadgeCount', () => {
@@ -31,5 +33,12 @@ describe('getNoResultsText', () => {
 describe('getSectionResultText', () => {
   it('reports the result count', () => {
     expect(getSectionResultText({ count: 5 })).toContain('٥');
+    expect(getSectionResultText({ count: ES_MAX_RESULT_WINDOW - 1 })).toBe('عثر على ٩٬٩٩٩ نتيجة');
+  });
+
+  it('says more than the result window when the count reaches it', () => {
+    expect(getSectionResultText({ count: ES_MAX_RESULT_WINDOW })).toBe(
+      'عثر على أكثر من ١٠٬٠٠٠ نتيجة'
+    );
   });
 });
