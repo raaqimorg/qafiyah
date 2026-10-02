@@ -6,12 +6,11 @@ Local development workflow for this monorepo. For architecture and per-app inter
 ## Prerequisites
 
 - [Bun](https://bun.sh) ≥ 1
-- A Docker Engine (Postgres, Elasticsearch, and the app containers run through Compose). On a
-  Mac, use [OrbStack](https://orbstack.dev) rather than Docker Desktop: `scripts/dev/run.ts`
-  auto-detects it (`docker info` reporting `OrbStack`) and, when present, talks to Elasticsearch
-  over OrbStack's `*.orb.local` container DNS instead of a mapped `localhost` port, so `dev`
-  doesn't need Elasticsearch's host port at all in that case. Docker Desktop still works, just
-  without that shortcut.
+- A Docker Engine (Postgres, Elasticsearch, and the app containers run through Compose), such as
+  [OrbStack](https://orbstack.dev) or Docker Desktop on a Mac. The API reaches both databases
+  through their published `localhost` ports, never through OrbStack's `*.orb.local` container
+  DNS: a multi-megabyte search response took 78 ms on a kept-alive connection there against 23 ms
+  through the published port.
 - Rust (`rust-toolchain.toml` pins the version; `bun run check:rust-toolchain` verifies it matches)
 - [ShellCheck](https://www.shellcheck.net), [actionlint](https://github.com/rhysd/actionlint), and [hadolint](https://github.com/hadolint/hadolint) for the static phase of the gate (`brew install shellcheck actionlint hadolint`)
 - Optional: the [GitHub CLI](https://cli.github.com) (`gh`, then `gh auth login`). Recommended when working with an AI agent, so it can read and file issues and open pull requests itself (`.github/CONTRIBUTING.md`, "Working with an AI agent").
@@ -97,7 +96,7 @@ bun run test              # turbo run test (TypeScript, per app/package)
 bun run rust:fmt          # cargo fmt --check
 bun run rust:lint         # cargo clippy, workspace, -D warnings; cargo's own warnings fail too
 bun run rust:test         # cargo test, workspace
-bun run rust:test:db      # database-backed API tests against the dev stack (needs Docker)
+bun run rust:test:db      # database-backed API and indexer tests against the dev stack (needs Docker)
 bun run smoke:dev         # black-box HTTP probes against a locally-managed dev server
 bun run ci                # the full gate (GitHub Actions runs it scoped to the change); --no-docker skips db and smoke, --docker-only runs just those
 ```
@@ -113,8 +112,9 @@ stack in the same Compose project and removes it at the end, then starts again w
 `bun run dev`, here or in another worktree, keeps running.
 
 `rust:test:db` brings up the dev Postgres and Elasticsearch, runs the one-shot indexer, and runs
-`apps/api/tests/db.rs` with the same connection strings `bun run dev` uses. Without the
-`QAFIYAH_TEST_*` variables that target skips itself, which is why plain `cargo test` stays pure.
+`apps/api/tests/db.rs` and then the indexer's tests with the same connection strings `bun run dev`
+uses. Without the `QAFIYAH_TEST_*` variables the database-backed tests skip themselves, which is why
+plain `cargo test` stays pure.
 
 Run `bun run ci` before opening a PR; it's the full gate. GitHub Actions runs the same gate, skipping a Docker
 phase when the change touches nothing it uses (`docs/topology.md`, "CI/CD topology"). `bun run ci --no-docker`

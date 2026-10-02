@@ -23,6 +23,54 @@
               ]
             }
           },
+          "highlight_query": {
+            "bool": {
+              "should": [
+                {
+                  "match_phrase": {
+                    "content": {
+                      "boost": 4096,
+                      "query": "حب"
+                    }
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "content.stemmed": {
+                      "boost": 512,
+                      "query": "حب"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content": {
+                      "boost": 64,
+                      "operator": "and",
+                      "query": "حب"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 8,
+                      "operator": "and",
+                      "query": "حب"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 1,
+                      "query": "حب"
+                    }
+                  }
+                }
+              ]
+            }
+          },
           "number_of_fragments": 0,
           "post_tags": [
             "</mark>"
@@ -247,6 +295,54 @@
               "matched_fields": [
                 "content",
                 "content.stemmed"
+              ]
+            }
+          },
+          "highlight_query": {
+            "bool": {
+              "should": [
+                {
+                  "match_phrase": {
+                    "content": {
+                      "boost": 4096,
+                      "query": "قفا نبك من"
+                    }
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "content.stemmed": {
+                      "boost": 512,
+                      "query": "قفا نبك من"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content": {
+                      "boost": 64,
+                      "operator": "and",
+                      "query": "قفا نبك من"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 8,
+                      "operator": "and",
+                      "query": "قفا نبك من"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 1,
+                      "query": "قفا نبك من"
+                    }
+                  }
+                }
               ]
             }
           },
@@ -587,6 +683,54 @@
               "matched_fields": [
                 "content",
                 "content.stemmed"
+              ]
+            }
+          },
+          "highlight_query": {
+            "bool": {
+              "should": [
+                {
+                  "match_phrase": {
+                    "content": {
+                      "boost": 4096,
+                      "query": "هذا"
+                    }
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "content.stemmed": {
+                      "boost": 512,
+                      "query": "هذا"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content": {
+                      "boost": 64,
+                      "operator": "and",
+                      "query": "هذا"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 8,
+                      "operator": "and",
+                      "query": "هذا"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 1,
+                      "query": "هذا"
+                    }
+                  }
+                }
               ]
             }
           },
@@ -1491,6 +1635,54 @@
               "matched_fields": [
                 "content",
                 "content.stemmed"
+              ]
+            }
+          },
+          "highlight_query": {
+            "bool": {
+              "should": [
+                {
+                  "match_phrase": {
+                    "content": {
+                      "boost": 4096,
+                      "query": "دمع"
+                    }
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "content.stemmed": {
+                      "boost": 512,
+                      "query": "دمع"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content": {
+                      "boost": 64,
+                      "operator": "and",
+                      "query": "دمع"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 8,
+                      "operator": "and",
+                      "query": "دمع"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "content.stemmed": {
+                      "boost": 1,
+                      "query": "دمع"
+                    }
+                  }
+                }
               ]
             }
           },

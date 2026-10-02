@@ -44,20 +44,21 @@ struct FieldSpec {
     supports_autocomplete: bool,
 }
 
-const POEM_FIELDS: [FieldSpec; 2] = [
-    FieldSpec {
-        name: "title",
-        surface_weight: 4,
-        supports_exact: true,
-        supports_autocomplete: false,
-    },
-    FieldSpec {
-        name: "content",
-        surface_weight: 1,
-        supports_exact: false,
-        supports_autocomplete: false,
-    },
-];
+const TITLE: FieldSpec = FieldSpec {
+    name: "title",
+    surface_weight: 4,
+    supports_exact: true,
+    supports_autocomplete: false,
+};
+
+const CONTENT: FieldSpec = FieldSpec {
+    name: "content",
+    surface_weight: 1,
+    supports_exact: false,
+    supports_autocomplete: false,
+};
+
+const POEM_FIELDS: [FieldSpec; 2] = [TITLE, CONTENT];
 
 fn term_filters(facets: &[(&str, &[String])]) -> Vec<Value> {
     facets
@@ -288,22 +289,26 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
 }
 
 fn poem_highlight(q: &str, exact: bool) -> Value {
-    if !exact && !q.contains(STANDALONE_HAMZA) {
-        return highlight(0, None, "content", &["content", "content.stemmed"]);
-    }
-    let mut hl = highlight(
-        0,
-        None,
-        "content",
-        &["content", "content.stemmed", "content.hamza"],
-    );
-    let typed = if exact {
-        json!({ "match_phrase": { "content.hamza": { "query": q } } })
+    const TYPED: [&str; 3] = ["content", "content.stemmed", "content.hamza"];
+    let (matched, marked): (&[&str], Value) = if exact {
+        (
+            &TYPED,
+            json!({ "match_phrase": { "content.hamza": { "query": q } } }),
+        )
+    } else if q.contains(STANDALONE_HAMZA) {
+        (
+            &TYPED,
+            json!({ "match": { "content.hamza": { "query": q } } }),
+        )
     } else {
-        json!({ "match": { "content.hamza": { "query": q } } })
+        (
+            &["content", "content.stemmed"],
+            json!({ "bool": { "should": ranking_clauses(q, &[CONTENT]) } }),
+        )
     };
+    let mut hl = highlight(0, None, "content", matched);
     if let Some(map) = hl.as_object_mut() {
-        map.insert("highlight_query".into(), typed);
+        map.insert("highlight_query".into(), marked);
     }
     hl
 }
@@ -820,11 +825,33 @@ mod tests {
             json!(["content", "content.stemmed", "content.hamza"])
         );
         let plain = poem_search_body(&poems("حب", 1, false));
-        assert!(plain["highlight"].get("highlight_query").is_none());
+        assert!(
+            !plain["highlight"]["highlight_query"]
+                .to_string()
+                .contains("content.hamza")
+        );
         assert_eq!(
             plain["highlight"]["fields"]["content"]["matched_fields"],
             json!(["content", "content.stemmed"])
         );
+    }
+
+    #[test]
+    fn a_ranked_query_highlights_the_text_through_the_content_tiers_alone() {
+        for (q, page) in [("قفا نبك من", 1), ("حب", 3)] {
+            let body = poem_search_body(&poems(q, page, false));
+            assert_eq!(
+                body["highlight"]["highlight_query"],
+                json!({ "bool": { "should": [
+                    { "match_phrase": { "content": { "query": q, "boost": 4096 } } },
+                    { "match_phrase": { "content.stemmed": { "query": q, "boost": 512 } } },
+                    { "match": { "content": { "query": q, "operator": "and", "boost": 64 } } },
+                    { "match": { "content.stemmed": { "query": q, "operator": "and", "boost": 8 } } },
+                    { "match": { "content.stemmed": { "query": q, "boost": 1 } } },
+                ] } }),
+                "{q}"
+            );
+        }
     }
 
     #[test]

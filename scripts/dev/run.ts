@@ -3,7 +3,6 @@
 import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } from '@qafiyah/config';
 
 import { ensureEnvFileFrom } from './env-file';
-import { detectOrbStack } from './orbstack';
 import {
   cargoProgress,
   composeProgress,
@@ -544,7 +543,6 @@ if (identity.isWorktree && !WORKTREE_FLAG) {
 }
 const isolating = WORKTREE_FLAG && identity.isWorktree;
 const offset = isolating && identity.isWorktree ? identity.offset : 0;
-const suffix = isolating && identity.isWorktree ? `-${identity.slug}` : '';
 
 if (isolating && identity.isWorktree) {
   console.log(`${bold('▶')} worktree: ${identity.slug} ${dim(`(ports +${offset})`)}`);
@@ -598,12 +596,7 @@ await runStage(
 );
 await ensureWebEnvFile(DEV_API_PORT + offset);
 
-const urls = serviceUrls({
-  env: process.env,
-  offset,
-  orbstack: await detectOrbStack(ROOT),
-  suffix,
-});
+const urls = serviceUrls({ env: process.env, offset });
 process.env['ELASTICSEARCH_URL'] = urls.elasticsearch;
 process.env['DATABASE_URL'] = urls.database;
 process.env['DATABASE_URL_ACCOUNTS'] = urls.accounts;

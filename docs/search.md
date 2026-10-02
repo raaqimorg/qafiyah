@@ -11,7 +11,8 @@ This doc is that missing commentary.
 
 `apps/search-indexer` reads Postgres (poem content assembled as hemistichs joined by `*`), maps
 rows to documents, bulk-writes them into a fresh versioned index (`poems_v<N>`, `poets_v<N>`),
-then atomically swaps the `poems`/`poets` alias onto it. The API only ever queries the alias, so
+force-merges it to a single segment (the index is never written again, and one segment halves
+the query phase), then atomically swaps the `poems`/`poets` alias onto it. The API only ever queries the alias, so
 a reindex is invisible to it. Poems and poets are **separate indices**.
 
 The poems index holds every reading that isn't hidden: primaries and their alternate readings
@@ -238,11 +239,25 @@ NFKC can expand one ligature (U+FDFA) to 18 letters.
 
 Highlighting asks for `number_of_fragments: 0`, so ES returns the **whole** content field with
 `<mark>` inserted rather than fragments, using `matched_fields` across `content` and
-`content.stemmed` so a stem hit still highlights the surface form. For a query with a standalone
-`ء`, a `highlight_query` on `content.hamza` marks only the words as typed (`ماء`, not `ما`); a poem
-that matched only through the folded spelling then has no highlight and shows its opening verse.
-An exact search always highlights through a `match_phrase` on `content.hamza`, so only the phrase
-as typed is marked.
+`content.stemmed` so a stem hit still highlights the surface form. Every request carries its own
+`highlight_query`, never the whole search query, because the highlighter runs that query again
+against each hit: a ranked search highlights through the five `content` tiers of the ladder (the
+same `<mark>`s as the full query, which only adds title clauses, era weights and the verbatim
+group, none of them on `content`), at a quarter of the cost on a long poem. For a query with a
+standalone `ء`, a `highlight_query` on `content.hamza` marks only the words as typed (`ماء`, not
+`ما`); a poem that matched only through the folded spelling then has no highlight and shows its
+opening verse. An exact search always highlights through a `match_phrase` on `content.hamza`, so
+only the phrase as typed is marked.
+
+`content` and its `.stemmed` and `.hamza` subfields index their character offsets
+(`index_options: offsets`), so the highlighter reads where each word sits from the index instead
+of analyzing the poem's text again. Without them a long poem cost its full length on every search
+that returned it: a search returning the longest poem (about 390,000 characters) took 176 ms, 10 ms
+of it without highlighting, and pages holding the longest poems now highlight eight to fourteen
+times faster with identical marks. Offsets make the merged poems index about a third larger (810 MB
+to 1.08 GB). The three fields change together or not at all: when the fields one highlight reads
+disagree, Elasticsearch refuses the whole search (`field 'content' was indexed without offsets,
+cannot highlight`), so every search that highlights fails.
 
 The API then picks one verse to show. It splits content on `*` and walks **two hemistichs at a
 time**, one verse per step, scoring each verse by its longest single `<mark>` run. Three details
