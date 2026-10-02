@@ -11,7 +11,7 @@ use crate::{Harness, admin, harness};
 fn poem(id: i32, slug: &str, title: &str, content: &str) -> Value {
     json!({
         "id": id, "slug": slug, "title": title, "content": content,
-        "poetName": "شاعر", "titleDisplay": title, "poetNameDisplay": "شاعر",
+        "titleDisplay": title, "poetNameDisplay": "شاعر",
         "poetSlug": "Pppp", "poetHasAvatar": false, "poetIsAnonymous": false,
         "eraSlug": "hadith", "eraName": "حديث", "meterSlug": "altawil", "meterName": "الطويل",
         "themeSlug": "alnasib", "rhymeSlug": "meem", "poemTypeSlug": "amudi", "collectionSlug": "",

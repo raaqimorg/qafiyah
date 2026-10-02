@@ -89,7 +89,7 @@ mod tests {
     {
         let schema = load();
         for (body, fields) in [
-            (&schema.poems, vec!["title", "poetName"]),
+            (&schema.poems, vec!["title"]),
             (&schema.poets, vec!["name"]),
         ] {
             let analysis = &body["settings"]["analysis"];
@@ -155,25 +155,17 @@ mod tests {
     }
 
     #[test]
-    fn autocomplete_is_edge_ngram_and_attached_to_name_like_fields_only() {
+    fn poet_name_autocomplete_is_an_edge_ngram_of_two_to_twenty_letters() {
         let schema = load();
-        let analysis = &schema.poems["settings"]["analysis"];
+        let analysis = &schema.poets["settings"]["analysis"];
         assert_eq!(analysis["filter"]["edge_ngram_2"]["type"], "edge_ngram");
         assert_eq!(analysis["filter"]["edge_ngram_2"]["min_gram"], 2);
         assert_eq!(analysis["filter"]["edge_ngram_2"]["max_gram"], 20);
-
-        let poems = &schema.poems["mappings"]["properties"];
         assert_eq!(
-            poems["title"]["fields"]["autocomplete"]["analyzer"],
-            "autocomplete_2"
-        );
-        assert_eq!(
-            poems["title"]["fields"]["autocomplete"]["search_analyzer"],
-            "arabic_normalized"
-        );
-        assert_eq!(
-            poems["poetName"]["fields"]["autocomplete"]["analyzer"],
-            "autocomplete_2"
+            analysis["analyzer"]["autocomplete_name"]["filter"]
+                .as_array()
+                .and_then(|filters| filters.last()),
+            Some(&json!("edge_ngram_2"))
         );
         assert_eq!(
             schema.poets["mappings"]["properties"]["name"]["fields"]["autocomplete"]["analyzer"],

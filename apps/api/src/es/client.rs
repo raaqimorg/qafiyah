@@ -39,15 +39,34 @@ impl Es {
             .await
             .map_err(|cause| AppError::Search(format!("{index}: {cause}")))?;
         let status = response.status();
-        let value: Value = response
-            .json()
+        let body = response
+            .bytes()
             .await
             .map_err(|cause| AppError::Search(format!("{index}: {cause}")))?;
         if !status.is_success() {
-            return Err(AppError::Search(format!("{index}: {status}")));
+            let refusal = serde_json::from_slice::<Value>(&body)
+                .ok()
+                .and_then(|value| refusal_reason(&value));
+            return Err(AppError::Search(match refusal {
+                Some(reason) => format!("{index}: {status}: {reason}"),
+                None => format!("{index}: {status}"),
+            }));
         }
-        Ok(value)
+        serde_json::from_slice(&body).map_err(|cause| AppError::Search(format!("{index}: {cause}")))
     }
+}
+
+fn refusal_reason(value: &Value) -> Option<String> {
+    let error = value.get("error")?;
+    error
+        .get("root_cause")
+        .and_then(Value::as_array)
+        .and_then(|causes| causes.first())
+        .and_then(|cause| cause.get("reason"))
+        .or_else(|| error.get("reason"))
+        .or(Some(error))
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 #[cfg(test)]
@@ -77,6 +96,65 @@ mod tests {
 
         let result = outcome.expect("the search must give up on its own, not be rescued");
         assert!(matches!(result, Err(AppError::Search(_))));
+    }
+
+    #[tokio::test]
+    async fn a_refused_search_carries_the_reason_elasticsearch_gave() {
+        let es = crate::test_support::FakeEs::serving(
+            axum::http::StatusCode::BAD_REQUEST,
+            serde_json::json!({
+                "error": {
+                    "root_cause": [{
+                        "type": "illegal_argument_exception",
+                        "reason": "no mapping found for `primaryId` in order to collapse on",
+                    }],
+                    "type": "search_phase_execution_exception",
+                    "reason": "all shards failed",
+                },
+                "status": 400,
+            }),
+        )
+        .await;
+        let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
+
+        let result = client.search("poems", &serde_json::json!({})).await;
+
+        assert!(
+            matches!(&result, Err(AppError::Search(message)) if message == "poems: 400 Bad Request: no mapping found for `primaryId` in order to collapse on"),
+            "{:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refused_search_whose_body_is_not_json_still_reports_its_status() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = vec![0u8; 4096];
+                let _read = tokio::io::AsyncReadExt::read(&mut socket, &mut request).await;
+                let page = "<html>bad gateway</html>";
+                let response = format!(
+                    "HTTP/1.1 502 Bad Gateway\r\ncontent-type: text/html\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{page}",
+                    page.len()
+                );
+                let _written =
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes()).await;
+            }
+        });
+        let client = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
+            .expect("an endpoint");
+
+        let result = client.search("poems", &serde_json::json!({})).await;
+
+        assert!(
+            matches!(&result, Err(AppError::Search(message)) if message == "poems: 502 Bad Gateway"),
+            "{:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
