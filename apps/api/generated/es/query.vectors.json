@@ -1998,6 +1998,7 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "أحمد"
                   }
                 }
@@ -2220,6 +2221,7 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "المتنبي"
                   }
                 }
@@ -2420,6 +2422,7 @@
                   "name": {
                     "boost": 1,
                     "fuzziness": "AUTO",
+                    "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "حب"
                   }
                 }

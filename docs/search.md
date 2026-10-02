@@ -170,7 +170,10 @@ the same. The list is the same eight eras as the related-poems pool (`tmp_pool` 
 `scripts/db/sql/refresh-poem-relations.sql`); change both together.
 
 Poets use a flatter, independent ladder over the name and the nickname: exact 12 (name only),
-phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO`, name only). As with poems,
+phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO`, name only). The fuzzy tier
+scores a typo match by its edit similarity alone (`fuzzy_rewrite: top_terms_boost_50`): the default
+rewrite blends document frequencies across the expansions, and with it the same query on the same
+index could rank poets differently from one Elasticsearch restart to the next. As with poems,
 a filter decides membership and the ladder only ranks. The filter, a `cross_fields` match with
 `operator: and`, admits a poet when every query word matches the name or the nickname as a stem, or
 every word matches as a prefix, or every word is within one typo of a word of the name
