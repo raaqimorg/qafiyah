@@ -38,5 +38,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 
 ## Agent workflow
 
+- Hard rule: never spawn subagents, workflows, or any other multi-agent tooling unless the user explicitly asks for it in that request. Do the work yourself in the current session.
+- Hard rule: never deploy unless the user explicitly asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
 - When executing a written implementation plan, prefer `superpowers:executing-plans` (inline, batch execution with checkpoints in the current session) over `superpowers:subagent-driven-development` (fresh subagent per task), unless the user asks for the latter.
 - When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`): one light sanity pass done yourself in the current session, never a subagent, workflow, `/code-review`, or `superpowers:requesting-code-review` unless the user names them.
