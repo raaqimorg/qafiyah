@@ -57,8 +57,8 @@ A second char filter, `invisible_marks`, runs in every analyzer and in the `arab
 right after the folding. It deletes what neither the folding nor Lucene's `arabic_normalization`
 removes: the marks U+0610 to U+061A, U+0653 to U+065F (maddah, hamza above and below, and the rest
 of that block) and U+06D6 to U+06ED (Quranic annotation), and the bidi embedding, override and
-isolate controls (U+202A to U+202E, U+2066 to U+2069). Rust strips these from titles and names
-already; content keeps them for display, so the analyzer has to. Without it about 480 poems held
+isolate controls (U+202A to U+202E, U+2066 to U+2069). Rust strips the marks, though not the bidi
+controls, from titles and names already; content keeps them for display, so the analyzer has to. Without it about 480 poems held
 words like `الْحٓرُّ` that indexed as `الحٓر` and never matched `الحر`.
 
 Three analyzers build on it, all with the `standard` tokenizer:

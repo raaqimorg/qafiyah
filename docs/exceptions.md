@@ -538,6 +538,14 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** delete them.
 - **Status:** Needs review
 
+### Snippets highlight the whole poem and the API picks the verse
+
+- **What:** the poem search asks Elasticsearch to highlight the whole `content` field (`number_of_fragments: 0`), then `domain/search.rs` splits it on `*`, rebalances the `<mark>` tags across hemistichs, and keeps the verse with the longest marked run.
+- **Where:** `apps/api/src/es/query.rs` (`poem_highlight`), `apps/api/src/domain/search.rs` (`poem_snippet`, `balanced_hemistichs`), `docs/search.md` ("Snippets")
+- **Why it's unusual:** the highlighter already picks and ranks fragments; here it returns the full text and the choice is redone in Rust. Measured on 2026-10-02 over 180 queries on the dev index: whole-field highlighting costs the same as one 120-character fragment (28.9 ms against 30.5 ms mean, 5.9 ms with no highlighting), and a fragmenter cannot cut on the verse separator, so it may well be justified. `index_options: offsets` on `content` halved highlighting (21.7 to 11.2 ms) for a 31% larger index.
+- **Normal approach:** `number_of_fragments: 1` with a `fragment_size` and a boundary scanner, or one document per verse searched with `inner_hits`.
+- **Status:** Needs review
+
 ## API (`apps/api`)
 
 The API is not just a thin DB connector, and the crate carries no doc comments: these entries are its module-level intent. Read them before assuming something is incidental.
@@ -653,6 +661,14 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 - **Why:** each special case is a measured planner win on the 346k-poem corpus (pgbench, prepared statements, 2026-09-26). A scalar lookup lets Postgres walk the `(facet, id)` partial index in id order and stop at the page, where `IN` joins and sorts every match: one theme's middle page 5.0 ms against 22.7 ms, its last page 9.8 against 24.8. Picking the page by id before joining poets and meters keeps the skipped rows inside that index, making deep pages 8 to 14 times faster. The `*_stats` total spares a count of up to about 200k rows on every single-term page, taking page 1 of a large facet from about 10 ms to 1 ms. The two count paths agree only while `refresh_taxonomy_stats()` has run since the last change to `poems`; `a_single_term_total_from_the_stats_table_equals_a_live_count_of_primaries` guards that.
 - **Normal approach:** `sqlx::QueryBuilder` with `push_bind` and a single `COUNT(*)` path.
 - **Date:** 2026-09-24
+
+### Famous lines rank by an era group with constant scores
+
+- **What:** a poem search of three words or more puts the poems holding the words as a phrase above every other result: a `dis_max` whose verbatim side is a constant score by era (101 to 109 million, the oldest classical era highest) and whose other side is the tier ladder. Exact search orders its hits the same way.
+- **Where:** `apps/api/src/es/query.rs` (`verbatim_by_era`, `verbatim_first`), `docs/search.md` ("Relevance")
+- **Why:** a famous line is quoted by many later poems, often as their title, and BM25 ranks the short later quotation first. The catalog has no popularity or citation data and the production database stays read-only for the API, so the poem's era is the only signal of where a line comes from. Measured on 76 famous lines: the source poem first in 46 before, 67 after (exact search 43 and 72). The constants dwarf every tier score so the group is a strict band; they also show in the `relevance` field.
+- **Normal approach:** a popularity or canonical-source field fed to a `rank_feature` or a `function_score`.
+- **Date:** 2026-10-02
 
 ## Web (`apps/web`)
 

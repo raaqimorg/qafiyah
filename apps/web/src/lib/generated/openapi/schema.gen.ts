@@ -1496,7 +1496,7 @@ export interface operations {
                  */
                 era?: string;
                 /**
-                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them as a stem or a prefix, or be within one typo of a name word.
+                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them as a stem or a prefix, or be a typo away from a name word: none for a word of up to three letters, one from four, two from seven.
                  * @example المتنبي
                  */
                 q?: string;
@@ -1813,7 +1813,7 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Search query in Arabic. An empty query returns no matches.
+                 * @description Search query in Arabic. When empty, the results are browsed rather than matched: poems most recently added first, classical eras first when no era is chosen, and poets most recently added first, all narrowed by the filters.
                  * @example المتنبي
                  */
                 q?: string;
