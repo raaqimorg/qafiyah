@@ -15,6 +15,7 @@ const VERBATIM_MIN_WORDS: usize = 3;
 const VERBATIM_FLOOR: f64 = 100_000_000.0;
 const VERBATIM_ERA_STEP: f64 = 1_000_000.0;
 const VERBATIM_TIE_BREAKER: f64 = 0.01;
+const NAME_FUZZINESS: &str = "AUTO:4,7";
 const SIMILARITY_ONLY_REWRITE: &str = "top_terms_boost_50";
 const TEXT_FIELDS: [&str; 2] = ["title", "content"];
 const TYPED_FIELDS: [&str; 2] = ["title.hamza", "content.hamza"];
@@ -425,7 +426,7 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
                 { "match": { "name": {
                     "query": params.q,
                     "operator": "and",
-                    "fuzziness": "AUTO",
+                    "fuzziness": NAME_FUZZINESS,
                     "prefix_length": 1,
                 } } },
             ],
@@ -439,7 +440,7 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
                 { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
                 { "match": { "name": {
                     "query": params.q,
-                    "fuzziness": "AUTO",
+                    "fuzziness": NAME_FUZZINESS,
                     "fuzzy_rewrite": SIMILARITY_ONLY_REWRITE,
                     "boost": poet_boost::FUZZY,
                 } } },
@@ -939,7 +940,7 @@ mod tests {
             should[4],
             json!({ "match": { "name": {
                 "query": "المتنبي",
-                "fuzziness": "AUTO",
+                "fuzziness": "AUTO:4,7",
                 "fuzzy_rewrite": "top_terms_boost_50",
                 "boost": 1,
             } } })
@@ -1023,7 +1024,7 @@ mod tests {
                         { "match": { "name": {
                             "query": "ابو الطيب",
                             "operator": "and",
-                            "fuzziness": "AUTO",
+                            "fuzziness": "AUTO:4,7",
                             "prefix_length": 1,
                         } } },
                     ],

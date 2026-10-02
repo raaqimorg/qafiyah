@@ -159,6 +159,15 @@ async fn a_one_letter_typo_in_a_poet_name_still_finds_the_poet() {
 }
 
 #[tokio::test]
+async fn a_three_letter_word_is_not_stretched_to_a_poet_name_by_a_typo() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    assert_eq!(searched_poets(&h, "موت").await, Vec::<String>::new());
+    assert_eq!(listed_poets(&h, "موت").await, Vec::<String>::new());
+}
+
+#[tokio::test]
 async fn a_line_of_verse_lists_no_poet() {
     let Some(h) = harness().await else {
         return;
