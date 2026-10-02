@@ -1948,7 +1948,7 @@
                     {
                       "match": {
                         "name": {
-                          "fuzziness": "AUTO",
+                          "fuzziness": "AUTO:4,7",
                           "operator": "and",
                           "prefix_length": 1,
                           "query": "أحمد"
@@ -1997,7 +1997,7 @@
                 "match": {
                   "name": {
                     "boost": 1,
-                    "fuzziness": "AUTO",
+                    "fuzziness": "AUTO:4,7",
                     "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "أحمد"
                   }
@@ -2171,7 +2171,7 @@
                     {
                       "match": {
                         "name": {
-                          "fuzziness": "AUTO",
+                          "fuzziness": "AUTO:4,7",
                           "operator": "and",
                           "prefix_length": 1,
                           "query": "المتنبي"
@@ -2220,7 +2220,7 @@
                 "match": {
                   "name": {
                     "boost": 1,
-                    "fuzziness": "AUTO",
+                    "fuzziness": "AUTO:4,7",
                     "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "المتنبي"
                   }
@@ -2372,7 +2372,7 @@
                     {
                       "match": {
                         "name": {
-                          "fuzziness": "AUTO",
+                          "fuzziness": "AUTO:4,7",
                           "operator": "and",
                           "prefix_length": 1,
                           "query": "حب"
@@ -2421,7 +2421,7 @@
                 "match": {
                   "name": {
                     "boost": 1,
-                    "fuzziness": "AUTO",
+                    "fuzziness": "AUTO:4,7",
                     "fuzzy_rewrite": "top_terms_boost_50",
                     "query": "حب"
                   }

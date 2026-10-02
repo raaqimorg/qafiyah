@@ -170,18 +170,21 @@ the same. The list is the same eight eras as the related-poems pool (`tmp_pool` 
 `scripts/db/sql/refresh-poem-relations.sql`); change both together.
 
 Poets use a flatter, independent ladder over the name and the nickname: exact 12 (name only),
-phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO`, name only). The fuzzy tier
+phrase 6, stemmed 3, prefix/autocomplete 2, fuzzy 1 (`fuzziness: AUTO:4,7`, name only). The fuzzy tier
 scores a typo match by its edit similarity alone (`fuzzy_rewrite: top_terms_boost_50`): the default
 rewrite blends document frequencies across the expansions, and with it the same query on the same
 index could rank poets differently from one Elasticsearch restart to the next. As with poems,
 a filter decides membership and the ladder only ranks. The filter, a `cross_fields` match with
 `operator: and`, admits a poet when every query word matches the name or the nickname as a stem, or
-every word matches as a prefix, or every word is within one typo of a word of the name
-(`fuzziness: AUTO`, `prefix_length: 1`, so the first letter must be right). A line of verse lists no
-poet; a single common word can, through prefixes (`حب` admits `حبيب`). Elasticsearch groups
-`cross_fields` fields by analyzer, which is why the two readings don't mix. Prefixes start at two
-letters, so a trailing one-letter word (`نزار ق`) admits no one, and words the analyzers drop, like
-punctuation, are ignored.
+every word matches as a prefix, or every word is within a typo of a word of the name
+(`fuzziness: AUTO:4,7`, `prefix_length: 1`: no typo for a word of up to three letters, one from four
+to six, two from seven, and the first letter must be right). Three-letter words get no typo because
+nearly every one is a letter away from some name word: `أمي` was one edit from `ابي`, which the name
+synonyms equate with every `أبو`, and listed 1,952 poets. A line of verse lists no poet; a single
+common word can, through a real name word (`الله` in `عبد الله`) or a prefix (`حب` admits `حبيب`).
+Elasticsearch groups `cross_fields` fields by analyzer, which is why the two readings don't mix.
+Prefixes start at two letters, so a trailing one-letter word (`نزار ق`) admits no one, and words the
+analyzers drop, like punctuation, are ignored.
 
 ## Poems and poets are queried separately
 
@@ -252,4 +255,4 @@ With no highlight, it falls back to the opening verse.
 
 Worth stating so nobody goes looking: no synonyms beyond that closed list of name forms, no recency decay, no cross-index score
 normalization, and no `search_as_you_type` field (the edge-ngram is hand-rolled). Fuzziness admits a
-poet within one typo of the name, and never applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.
+poet within a typo of the name (none below four letters), and never applies to poems. Poet highlighting is supported by the query builder but switched off in `/search`.
