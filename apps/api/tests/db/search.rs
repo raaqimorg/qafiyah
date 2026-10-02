@@ -273,8 +273,14 @@ async fn a_line_quoted_verbatim_ranks_the_oldest_classical_poem_first_from_three
                 let found = slugs(&poem_hits(&es, &index, q).await);
                 assert_eq!(found, ["Jahl", "Mmlk", "Hdth"], "{q}");
             }
-            let found = slugs(&poem_hits(&es, &index, "ستبدي لك").await);
-            assert_eq!(found.first().map(String::as_str), Some("Hdth"), "{found:?}");
+            for q in ["ستبدي لك", "ستبدي لك ؟", "ستبدي لك ..."] {
+                let found = slugs(&poem_hits(&es, &index, q).await);
+                assert_eq!(
+                    found.first().map(String::as_str),
+                    Some("Hdth"),
+                    "{q}: {found:?}"
+                );
+            }
         })
         .await;
 }

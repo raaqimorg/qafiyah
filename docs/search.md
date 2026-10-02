@@ -149,9 +149,11 @@ Here the alternate-reading half applies to the ladder only, never to the era con
 classical line that survives only in an alternate reading keeps its era's rank instead of falling
 below every later poem that quotes it; both readings of one poem share the constant, and the
 ladder still lets the primary represent it.
-One or two words would put thousands of poems in the group, so they keep the plain ladder. The
-later eras share a rank because their split does not follow time in practice (modern poets
-quoting a contemporary one are filed under the earlier era), and an unknown era is not a time.
+One or two words would put thousands of poems in the group, so they keep the plain ladder. Only
+words holding a letter or a digit count, so a lone `؟` or `...` does not turn a two-word query into
+a three-word one. The later eras share a rank because their split does not follow time in practice
+(modern poets quoting a contemporary one are filed under the earlier era), and an unknown era is not
+a time.
 
 When the query contains a standalone `ء`, a ranked poem search also multiplies by
 `TYPED_HAMZA_WEIGHT` (1.5) the score of a poem whose title or content has the query as typed, as a
