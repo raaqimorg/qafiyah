@@ -68,6 +68,10 @@ Three layers, outermost first:
   minute per address with a burst of 30, on `/api/v1/`, `/account`, `/api/me`,
   and `/auth/`. It keys on the exact address, so an IPv6 client rotating inside
   its /64 gets a fresh allowance each time.
+  It also holds each address to 10 requests in flight at once (`limit_conn`)
+  on `/api/v1/` and on `api.qafiyah.com`, which has no `limit_req`, so one
+  address cannot hold more than half of the API's 20 Postgres connections;
+  the excess gets the same 429.
 - **The API**, the hourly buckets above, for callers of `api.qafiyah.com`. The
   website's server-side calls carry `API_KEY_INTERNAL` and skip them. The
   website's browser proxy (`/api/v1/search`, `/api/v1/poems/random`, and,
