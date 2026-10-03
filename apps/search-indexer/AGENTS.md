@@ -4,11 +4,12 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 
 ## Shape
 
-- `main.rs`: reads the environment, then `bootstrap`: provisions the read-only Elasticsearch user the API connects as, skips the rebuild when both aliases already hold documents (unless forced), otherwise runs `reindex` for poems and then poets, then exits 0.
-- `pg.rs`: the batched streaming reads through Diesel, over the schema in `crates/corpus`. A poem page is two queries, its rows and then their verses, and each poem's content is its hemistichs joined by `*`.
+- `main.rs`: reads the environment, then `bootstrap`: provisions the read-only Elasticsearch user the API connects as, skips the rebuild when both aliases already hold documents (unless forced), otherwise wires the real adapters into `reindex` for poems and then poets, then exits 0.
+- `reindex.rs`: the rebuild itself, with no I/O of its own. It reads through the `CorpusSource` trait and writes through the `IndexStore` trait: it creates the next `_v<N>` index (`next_index_name`), streams batches by id cursor with refresh turned off, merges to one segment, swaps the alias, and drops the older indices; a failed write deletes only the index it created. Its tests drive it with in-memory fakes.
+- `pg.rs`: `PgCorpus`, the `CorpusSource` adapter: the batched streaming reads through Diesel, over the schema in `crates/corpus`. A poem page is two queries, its rows and then their verses, and each poem's content is its hemistichs joined by `*`.
 - `docs.rs`: row to document mapping (`to_poem_doc`, `to_poet_doc`).
 - `arabic.rs`: tashkeel stripping and the sort folding derived from the schema's char filter. `arabic-text.vectors.json` is the fixture the `matches_the_shared_vectors` test pins this crate's output to.
-- `es.rs`: the Elasticsearch calls (create index, bulk, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap, `next_index_name` for the `_v<N>` counter).
+- `es.rs`: the Elasticsearch client, which implements `IndexStore` (create index, bulk, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap) and also provisions the API's read-only user.
 - `log.rs`: one-line structured log output.
 
 ## Environment
@@ -22,7 +23,7 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 
 ## Tests
 
-Inline, next to the code they cover. The `es.rs` tests drive the client against a local listener standing in for Elasticsearch. `main.rs` holds two database-backed tests that run the real `reindex` for poets into a throwaway alias. One sets `index.translog.flush_threshold_size` low in its index definition so even a small dataset is written in several segments, and checks the alias lands on one merged segment holding every poet. The other follows a good reindex with one whose strict mapping rejects every poet, and checks searches stay on the first index and the half-built one is deleted. Both return early unless `QAFIYAH_TEST_DATABASE_URL` and `QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL` are set, so plain `cargo test` needs no infrastructure; `bun run rust:test:db` sets them from the dev stack, and CI's db phase runs them on the 96-poet sample.
+Inline, next to the code they cover. The `reindex.rs` tests run the whole rebuild against an in-memory corpus and index: batch order and cursor, the alias swap and cleanup, a failed write, and an empty corpus. The `es.rs` tests drive the client against a local listener standing in for Elasticsearch. `main.rs` holds two database-backed tests that run the real `reindex` for poets into a throwaway alias. One sets `index.translog.flush_threshold_size` low in its index definition so even a small dataset is written in several segments, and checks the alias lands on one merged segment holding every poet. The other follows a good reindex with one whose strict mapping rejects every poet, and checks searches stay on the first index and the half-built one is deleted. Both return early unless `QAFIYAH_TEST_DATABASE_URL` and `QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL` are set, so plain `cargo test` needs no infrastructure; `bun run rust:test:db` sets them from the dev stack, and CI's db phase runs them on the 96-poet sample.
 
 ## Deliberate, non-obvious behavior
 

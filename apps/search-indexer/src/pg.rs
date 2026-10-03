@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use diesel::dsl::not;
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -11,6 +12,7 @@ use qafiyah_corpus::schema::{
 };
 
 use crate::docs::{PoemSource, PoetSource};
+use crate::reindex::CorpusSource;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const QUERY_TIMEOUT: Duration = Duration::from_secs(60);
@@ -64,11 +66,16 @@ struct PoetRow {
     poems_count: Option<i64>,
 }
 
-pub(crate) async fn connect(url: &str) -> Result<AsyncPgConnection, String> {
-    tokio::time::timeout(CONNECT_TIMEOUT, AsyncPgConnection::establish(url))
+pub(crate) struct PgCorpus {
+    conn: AsyncPgConnection,
+}
+
+pub(crate) async fn connect(url: &str) -> Result<PgCorpus, String> {
+    let conn = tokio::time::timeout(CONNECT_TIMEOUT, AsyncPgConnection::establish(url))
         .await
         .map_err(|_| "postgres connect: timed out".to_string())?
-        .map_err(|e| format!("postgres connect: {e}"))
+        .map_err(|e| format!("postgres connect: {e}"))?;
+    Ok(PgCorpus { conn })
 }
 
 async fn within<T>(stage: &str, query: impl Future<Output = QueryResult<T>>) -> Result<T, String> {
@@ -110,7 +117,7 @@ fn poem_sources(rows: Vec<PoemRow>, verses: Vec<(i32, String)>) -> Vec<PoemSourc
         .collect()
 }
 
-pub(crate) async fn stream_poem_batch(
+async fn stream_poem_batch(
     mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
@@ -147,10 +154,7 @@ pub(crate) async fn stream_poem_batch(
     Ok(poem_sources(rows, verses))
 }
 
-pub(crate) async fn count_rows(
-    mut conn: &AsyncPgConnection,
-    is_poems: bool,
-) -> Result<i64, String> {
+async fn count_rows(mut conn: &AsyncPgConnection, is_poems: bool) -> Result<i64, String> {
     if is_poems {
         within(
             "countRows",
@@ -172,7 +176,7 @@ pub(crate) async fn count_rows(
     }
 }
 
-pub(crate) async fn stream_poet_batch(
+async fn stream_poet_batch(
     mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
@@ -205,6 +209,21 @@ pub(crate) async fn stream_poet_batch(
             })
         })
         .collect()
+}
+
+#[async_trait]
+impl CorpusSource for PgCorpus {
+    async fn count(&self, is_poems: bool) -> Result<i64, String> {
+        count_rows(&self.conn, is_poems).await
+    }
+
+    async fn poems_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoemSource>, String> {
+        stream_poem_batch(&self.conn, after_id, limit).await
+    }
+
+    async fn poets_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoetSource>, String> {
+        stream_poet_batch(&self.conn, after_id, limit).await
+    }
 }
 
 #[cfg(test)]
@@ -260,7 +279,7 @@ mod tests {
     }
 
     #[expect(clippy::print_stderr, reason = "the skip notice goes to stderr")]
-    async fn database() -> Option<AsyncPgConnection> {
+    async fn database() -> Option<PgCorpus> {
         let Ok(url) = std::env::var("QAFIYAH_TEST_DATABASE_URL") else {
             eprintln!("skipping: QAFIYAH_TEST_DATABASE_URL is not set");
             return None;
@@ -270,27 +289,28 @@ mod tests {
 
     #[tokio::test]
     async fn streamed_poets_add_up_to_the_poet_count_in_id_order() {
-        let Some(conn) = database().await else { return };
+        let Some(corpus) = database().await else {
+            return;
+        };
         let mut cursor = 0;
         let mut streamed = 0_i64;
         loop {
-            let batch = stream_poet_batch(&conn, cursor, 1000)
-                .await
-                .expect("a batch");
+            let batch = corpus.poets_after(cursor, 1000).await.expect("a batch");
             let Some(last) = batch.last() else { break };
             assert!(batch.iter().all(|poet| poet.id > cursor));
             assert!(batch.windows(2).all(|pair| pair[0].id < pair[1].id));
             cursor = last.id;
             streamed += i64::try_from(batch.len()).expect("a small batch");
         }
-        assert_eq!(streamed, count_rows(&conn, false).await.expect("a count"));
+        assert_eq!(streamed, corpus.count(false).await.expect("a count"));
     }
 
     #[tokio::test]
     async fn a_hidden_poem_is_skipped_and_a_recension_streams_with_its_primary() {
-        let Some(mut conn) = database().await else {
+        let Some(corpus) = database().await else {
             return;
         };
+        let mut conn = &corpus.conn;
         let hidden: Option<i32> = poems::table
             .filter(poems::is_hidden)
             .select(poems::id)
@@ -299,9 +319,7 @@ mod tests {
             .optional()
             .expect("a hidden poem lookup");
         if let Some(hidden) = hidden {
-            let batch = stream_poem_batch(&conn, hidden - 1, 1)
-                .await
-                .expect("a batch");
+            let batch = corpus.poems_after(hidden - 1, 1).await.expect("a batch");
             assert!(batch.iter().all(|poem| poem.id != hidden));
         }
         let recension: Option<(i32, Option<i32>)> = poems::table
@@ -313,7 +331,7 @@ mod tests {
             .optional()
             .expect("a recension lookup");
         if let Some((id, Some(primary))) = recension {
-            let batch = stream_poem_batch(&conn, id - 1, 1).await.expect("a batch");
+            let batch = corpus.poems_after(id - 1, 1).await.expect("a batch");
             assert_eq!(batch[0].id, id);
             assert_eq!((batch[0].primary_id, batch[0].is_primary), (primary, false));
             assert!(!batch[0].content.is_empty());
