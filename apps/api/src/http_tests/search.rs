@@ -1,11 +1,12 @@
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::http_tests::app_with;
+use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send};
 
 fn one_poem_and_one_poet() -> serde_json::Value {
-    json!({ "hits": { "total": { "value": 1 }, "hits": [ {
+    json!({ "timed_out": false, "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
+        "hits": { "total": { "value": 1 }, "hits": [ {
         "_score": 2.0,
         "_source": {
             "slug": "TnKK", "title": "t", "titleDisplay": "T", "content": "a*b*c",
@@ -87,6 +88,76 @@ async fn a_search_response_is_cacheable_json_with_an_etag() {
     let sent = send(app_with(&es), request("GET", "/v1/search?q=x")).await;
     assert!(sent.header("etag").is_some());
     assert_eq!(sent.header("content-type"), Some("application/json"));
+}
+
+const SEARCH_PATHS: [&str; 4] = [
+    "/v1/search?q=x",
+    "/v1/search?q=x&types=poems",
+    "/v1/search?q=x&types=poets",
+    "/v1/poets?q=x",
+];
+
+async fn assert_incomplete_search_is_unavailable(body: serde_json::Value) {
+    let es = FakeEs::serving(StatusCode::OK, body).await;
+    for path in SEARCH_PATHS {
+        for conditional in [false, true] {
+            let mut req = request("GET", path);
+            if conditional {
+                req.headers_mut()
+                    .insert("if-none-match", "*".parse().unwrap());
+            }
+            let sent = send(app_with(&es), req).await;
+            assert_eq!(
+                sent.status,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "{path}: {}",
+                sent.body
+            );
+            assert_eq!(sent.header("cache-control"), Some("no-store"));
+            assert_eq!(sent.header("retry-after"), Some("2"));
+            assert_eq!(
+                sent.header("content-type"),
+                Some("application/problem+json")
+            );
+            assert!(sent.header("etag").is_none());
+            assert_eq!(sent.json()["code"], "SERVICE_UNAVAILABLE");
+        }
+    }
+}
+
+#[tokio::test]
+async fn an_elasticsearch_timeout_never_becomes_a_cacheable_empty_search() {
+    let mut body = empty_hits();
+    body["timed_out"] = json!(true);
+    assert_incomplete_search_is_unavailable(body).await;
+}
+
+#[tokio::test]
+async fn failed_shards_never_become_cacheable_partial_search_results() {
+    let mut body = one_poem_and_one_poet();
+    body["_shards"] = json!({ "total": 2, "successful": 1, "skipped": 0, "failed": 1 });
+    assert_incomplete_search_is_unavailable(body).await;
+}
+
+#[tokio::test]
+async fn a_complete_empty_search_with_skipped_shards_remains_cacheable() {
+    let mut body = empty_hits();
+    body["_shards"] = json!({ "total": 2, "successful": 2, "skipped": 1, "failed": 0 });
+    let es = FakeEs::serving(StatusCode::OK, body).await;
+    for path in SEARCH_PATHS {
+        let app = app_with(&es);
+        let sent = send(app.clone(), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
+        assert_eq!(
+            sent.header("cache-control"),
+            Some(crate::constants::READ_CACHE_CONTROL)
+        );
+        let etag = sent.header("etag").expect("a complete search has an ETag");
+        let mut req = request("GET", path);
+        req.headers_mut()
+            .insert("if-none-match", etag.parse().unwrap());
+        assert_eq!(send(app, req).await.status, StatusCode::NOT_MODIFIED);
+    }
 }
 
 fn pdf_query() -> String {
