@@ -307,7 +307,6 @@ impl Admin {
         F: FnOnce(Es, String) -> Fut,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let index = format!("test-guard-poems-{}", unique_suffix());
         let mut definition = qafiyah_elasticsearch::load().poems;
         if let (Some(target), Some(extra)) = (
             definition
@@ -317,10 +316,28 @@ impl Admin {
         ) {
             target.extend(extra.clone());
         }
+        self.with_index("poems", &definition, docs, body).await;
+    }
+
+    pub async fn with_poets<F, Fut>(&self, docs: &[Value], body: F)
+    where
+        F: FnOnce(Es, String) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let definition = qafiyah_elasticsearch::load().poets;
+        self.with_index("poets", &definition, docs, body).await;
+    }
+
+    async fn with_index<F, Fut>(&self, kind: &str, definition: &Value, docs: &[Value], body: F)
+    where
+        F: FnOnce(Es, String) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let index = format!("test-guard-{kind}-{}", unique_suffix());
         let created = self
             .endpoint
             .request(Method::PUT, &format!("/{index}"))
-            .json(&definition)
+            .json(definition)
             .send()
             .await
             .expect("create the scratch index");
