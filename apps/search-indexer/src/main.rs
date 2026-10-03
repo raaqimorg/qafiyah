@@ -10,7 +10,7 @@ use serde_json::json;
 
 use crate::error::IndexerError;
 use crate::es::Es;
-use crate::reindex::{Ctx, Target, reindex};
+use crate::reindex::{CorpusSource, Outcome, Plan, Progress, bootstrap};
 use qafiyah_elasticsearch::{Schema, load as load_schema};
 
 struct Env {
@@ -35,82 +35,56 @@ fn read_env() -> Result<Env, IndexerError> {
     parse_env(|key| std::env::var(key).ok())
 }
 
-fn batch_size(configured: usize) -> Result<usize, IndexerError> {
-    if configured == 0 {
-        return Err(IndexerError::Config(
-            "bulkBatchSize must be at least 1".to_string(),
-        ));
-    }
-    Ok(configured)
+#[expect(
+    clippy::print_stdout,
+    reason = "this batch job's output is its structured log"
+)]
+fn report(progress: Progress<'_>) {
+    println!(
+        "{}",
+        log::event(
+            "progress",
+            json!({ "index": progress.index, "indexed": progress.indexed, "total": progress.total })
+        )
+    );
 }
 
 #[expect(
     clippy::print_stdout,
     reason = "this batch job's output is its structured log"
 )]
-async fn bootstrap(env: &Env, schema: &Schema) -> Result<(), IndexerError> {
+async fn run(env: &Env, schema: &Schema) -> Result<(), IndexerError> {
     let es = Es::new(&env.elasticsearch_url)?;
-    let id = &schema.identity;
-
-    es.ensure_read_only_user(
-        &id.api_role,
-        &id.api_username,
-        &env.es_reader_password,
-        &[
-            id.poems_alias.clone(),
-            id.poets_alias.clone(),
-            format!("{}*", id.poems_prefix),
-            format!("{}*", id.poets_prefix),
-        ],
+    let outcome = bootstrap(
+        &es,
+        &Plan {
+            schema,
+            reader_password: &env.es_reader_password,
+            force: env.force,
+        },
+        || async {
+            let corpus: Box<dyn CorpusSource> = Box::new(pg::connect(&env.database_url).await?);
+            Ok(corpus)
+        },
+        &report,
     )
     .await?;
-
-    let poems_ready = es.alias_count(&id.poems_alias).await?.unwrap_or(0) > 0;
-    let poets_ready = es.alias_count(&id.poets_alias).await?.unwrap_or(0) > 0;
-    if !env.force && poems_ready && poets_ready {
-        return Ok(());
+    if let Outcome::Rebuilt {
+        poems: (poems_index, poems_count),
+        poets: (poets_index, poets_count),
+    } = outcome
+    {
+        println!(
+            "{}",
+            log::event(
+                "reindex",
+                json!({
+                    "poems": { "index": poems_index, "count": poems_count },
+                    "poets": { "index": poets_index, "count": poets_count }
+                })
+            )
+        );
     }
-
-    let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
-    let corpus = pg::connect(&env.database_url).await?;
-
-    let ctx = Ctx {
-        index: &es,
-        corpus: &corpus,
-        batch_size: batch_size(id.bulk_batch_size)?,
-        rules: &rules,
-    };
-    let (poems_index, poems_count) = reindex(
-        &ctx,
-        &Target {
-            alias: &id.poems_alias,
-            prefix: &id.poems_prefix,
-            body: &schema.poems,
-            is_poems: true,
-        },
-    )
-    .await?;
-    let (poets_index, poets_count) = reindex(
-        &ctx,
-        &Target {
-            alias: &id.poets_alias,
-            prefix: &id.poets_prefix,
-            body: &schema.poets,
-            is_poems: false,
-        },
-    )
-    .await?;
-
-    println!(
-        "{}",
-        log::event(
-            "reindex",
-            json!({
-                "poems": { "index": poems_index, "count": poems_count },
-                "poets": { "index": poets_index, "count": poets_count }
-            })
-        )
-    );
     Ok(())
 }
 
@@ -133,7 +107,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = bootstrap(&env, &schema).await {
+    if let Err(e) = run(&env, &schema).await {
         eprintln!("{}", log::line("boot", &e.to_string()));
         std::process::exit(1);
     }
@@ -146,7 +120,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::reindex::{CorpusSource, IndexStore};
+    use crate::reindex::{CorpusSource, Ctx, IndexStore, Target, reindex};
 
     fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
         move |name| {
@@ -189,17 +163,6 @@ mod tests {
                 Some(IndexerError::Config(format!("{missing} is required")))
             );
         }
-    }
-
-    #[test]
-    fn a_zero_batch_size_is_refused_before_any_query_runs() {
-        assert_eq!(
-            batch_size(0),
-            Err(IndexerError::Config(
-                "bulkBatchSize must be at least 1".to_string()
-            ))
-        );
-        assert_eq!(batch_size(1000), Ok(1000));
     }
 
     async fn searchable_segments(admin_url: &str, alias: &str) -> u64 {
@@ -283,6 +246,7 @@ mod tests {
                 .div_ceil(20)
                 .max(10),
             rules: &rules,
+            progress: &|_| {},
         };
         let alias = scratch_alias("merged");
         let prefix = format!("{alias}_v");
@@ -326,6 +290,7 @@ mod tests {
             corpus: &corpus,
             batch_size: 1000,
             rules: &rules,
+            progress: &|_| {},
         };
         let alias = scratch_alias("rejected");
         let prefix = format!("{alias}_v");

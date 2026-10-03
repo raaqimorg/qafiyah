@@ -67,32 +67,6 @@ impl Es {
         Ok(value)
     }
 
-    pub(crate) async fn ensure_read_only_user(
-        &self,
-        role: &str,
-        username: &str,
-        password: &str,
-        index_patterns: &[String],
-    ) -> Result<(), IndexerError> {
-        let role_body = json!({
-            "indices": [{ "names": index_patterns, "privileges": ["read", "view_index_metadata"] }]
-        });
-        self.expect_ok(
-            Method::PUT,
-            &format!("/_security/role/{role}"),
-            Some(&role_body),
-        )
-        .await?;
-        let user_body = json!({ "password": password, "roles": [role] });
-        self.expect_ok(
-            Method::PUT,
-            &format!("/_security/user/{username}"),
-            Some(&user_body),
-        )
-        .await?;
-        Ok(())
-    }
-
     pub(crate) async fn index_exists(&self, index: &str) -> Result<bool, IndexerError> {
         let res = self
             .request(Method::HEAD, &format!("/{index}"))
@@ -100,22 +74,6 @@ impl Es {
             .await
             .map_err(|e| IndexerError::Elasticsearch(format!("exists {index}: {e}")))?;
         Ok(res.status().is_success())
-    }
-
-    pub(crate) async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError> {
-        let path = format!("/{alias}/_count");
-        let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
-        if status == StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-        if !status.is_success() {
-            return Err(IndexerError::Elasticsearch(format!(
-                "{path}: {status}: {value}"
-            )));
-        }
-        Ok(Some(
-            value.get("count").and_then(Value::as_u64).unwrap_or(0),
-        ))
     }
 }
 
@@ -222,6 +180,47 @@ impl IndexStore for Es {
             .request(Method::DELETE, &format!("/{index}?ignore_unavailable=true"))
             .send()
             .await;
+    }
+
+    async fn ensure_read_only_user(
+        &self,
+        role: &str,
+        username: &str,
+        password: &str,
+        index_patterns: &[String],
+    ) -> Result<(), IndexerError> {
+        let role_body = json!({
+            "indices": [{ "names": index_patterns, "privileges": ["read", "view_index_metadata"] }]
+        });
+        self.expect_ok(
+            Method::PUT,
+            &format!("/_security/role/{role}"),
+            Some(&role_body),
+        )
+        .await?;
+        let user_body = json!({ "password": password, "roles": [role] });
+        self.expect_ok(
+            Method::PUT,
+            &format!("/_security/user/{username}"),
+            Some(&user_body),
+        )
+        .await?;
+        Ok(())
+    }
+    async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError> {
+        let path = format!("/{alias}/_count");
+        let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
+        if status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            return Err(IndexerError::Elasticsearch(format!(
+                "{path}: {status}: {value}"
+            )));
+        }
+        Ok(Some(
+            value.get("count").and_then(Value::as_u64).unwrap_or(0),
+        ))
     }
 }
 
@@ -430,5 +429,103 @@ mod tests {
                 .expect("the count must give up on its own, not be rescued")
                 .is_err()
         );
+    }
+
+    type Captured = std::sync::Arc<std::sync::Mutex<Vec<(String, Value)>>>;
+
+    async fn read_request(socket: &mut tokio::net::TcpStream) -> (String, Value) {
+        let mut raw = Vec::new();
+        let mut chunk = [0u8; 4096];
+        loop {
+            let read = tokio::io::AsyncReadExt::read(socket, &mut chunk)
+                .await
+                .unwrap_or(0);
+            raw.extend_from_slice(&chunk[..read]);
+            let text = String::from_utf8_lossy(&raw).to_string();
+            if let Some((head, body)) = text.split_once("\r\n\r\n") {
+                let length = head
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())?
+                    })
+                    .unwrap_or(0);
+                if body.len() >= length || read == 0 {
+                    let line = head.lines().next().unwrap_or_default().to_string();
+                    return (line, serde_json::from_str(body).unwrap_or(Value::Null));
+                }
+            }
+            if read == 0 {
+                return (String::new(), Value::Null);
+            }
+        }
+    }
+
+    async fn serve_capturing(statuses: Vec<&'static str>) -> (std::net::SocketAddr, Captured) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        let captured: Captured = std::sync::Arc::default();
+        let seen = std::sync::Arc::clone(&captured);
+        let mut statuses = statuses.into_iter();
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let request = read_request(&mut socket).await;
+                seen.lock().expect("the request log").push(request);
+                let status = statuses.next().unwrap_or("500 Internal Server Error");
+                let response = format!(
+                    "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{{}}"
+                );
+                let _unused =
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes()).await;
+            }
+        });
+        (address, captured)
+    }
+
+    #[tokio::test]
+    async fn the_api_reader_gets_a_read_only_role_on_the_given_indices_then_its_user() {
+        let (address, captured) = serve_capturing(vec!["200 OK", "200 OK"]).await;
+        let es = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
+            .expect("a local endpoint");
+        es.ensure_read_only_user(
+            "reader_role",
+            "reader",
+            "secret",
+            &["poems".to_string(), "poems_v*".to_string()],
+        )
+        .await
+        .expect("a provisioned reader");
+        let requests = captured.lock().expect("the request log").clone();
+        assert_eq!(
+            requests,
+            [
+                (
+                    "PUT /_security/role/reader_role HTTP/1.1".to_string(),
+                    json!({ "indices": [{
+                        "names": ["poems", "poems_v*"],
+                        "privileges": ["read", "view_index_metadata"],
+                    }] })
+                ),
+                (
+                    "PUT /_security/user/reader HTTP/1.1".to_string(),
+                    json!({ "password": "secret", "roles": ["reader_role"] })
+                ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refused_role_stops_before_any_user_is_created() {
+        let (address, captured) = serve_capturing(vec!["403 Forbidden"]).await;
+        let es = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
+            .expect("a local endpoint");
+        let outcome = es
+            .ensure_read_only_user("reader_role", "reader", "secret", &["poems".to_string()])
+            .await;
+        assert!(outcome.is_err());
+        assert_eq!(captured.lock().expect("the request log").len(), 1);
     }
 }
