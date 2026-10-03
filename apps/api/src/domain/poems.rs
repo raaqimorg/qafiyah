@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{AssertSqlSafe, PgPool};
+use sqlx::{AssertSqlSafe, PgPool, Row};
 use utoipa::ToSchema;
 use utoipa::openapi::Schema;
 
@@ -328,10 +328,55 @@ impl Facets {
     }
 }
 
+struct FilterIds {
+    filter: Filter,
+    ids: Vec<i32>,
+}
+
+fn resolve_sql(filters: &[Filter]) -> String {
+    let lookups: Vec<String> = filters
+        .iter()
+        .enumerate()
+        .map(|(index, filter)| {
+            format!(
+                "ARRAY(SELECT id FROM {} WHERE slug = ANY(${}))",
+                filter.table(),
+                index.saturating_add(1)
+            )
+        })
+        .collect();
+    format!("SELECT {}", lookups.join(", "))
+}
+
+async fn resolve_ids(pg: &PgPool, facets: &Facets) -> Result<Vec<FilterIds>, AppError> {
+    let requested: Vec<Filter> = Filter::ALL
+        .into_iter()
+        .filter(|filter| !facets.values(*filter).is_empty())
+        .collect();
+    if requested.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut query = sqlx::query(AssertSqlSafe(resolve_sql(&requested)));
+    for filter in &requested {
+        query = query.bind(facets.values(*filter));
+    }
+    let row = query.fetch_one(pg).await?;
+    requested
+        .into_iter()
+        .enumerate()
+        .map(|(index, filter)| {
+            Ok(FilterIds {
+                filter,
+                ids: row.try_get(index)?,
+            })
+        })
+        .collect()
+}
+
 struct Clauses<'a> {
     conditions: Vec<String>,
     counted_by: Option<&'static str>,
-    bound: Vec<&'a Vec<String>>,
+    bound: Vec<&'a Vec<i32>>,
 }
 
 impl Clauses<'_> {
@@ -340,39 +385,28 @@ impl Clauses<'_> {
     }
 }
 
-fn clauses(facets: &Facets) -> Clauses<'_> {
-    clauses_except(facets, None)
+fn clauses(filters: &[FilterIds]) -> Clauses<'_> {
+    clauses_except(filters, None)
 }
 
-fn clauses_except(facets: &Facets, except: Option<Filter>) -> Clauses<'_> {
+fn clauses_except(filters: &[FilterIds], except: Option<Filter>) -> Clauses<'_> {
     let mut conditions: Vec<String> = vec![
         "p.recension_of_id IS NULL".to_string(),
         "NOT p.is_hidden".to_string(),
     ];
-    let mut bound: Vec<&Vec<String>> = Vec::new();
+    let mut bound: Vec<&Vec<i32>> = Vec::new();
     let mut stats: Vec<&'static str> = Vec::new();
-    for filter in Filter::ALL {
-        let values = facets.values(filter);
-        if values.is_empty() || except == Some(filter) {
+    for FilterIds { filter, ids } in filters {
+        if except == Some(*filter) {
             continue;
         }
-        bound.push(values);
+        bound.push(ids);
         stats.push(filter.stats_table());
-        let n = bound.len();
-        let (column, table) = (filter.column(), filter.table());
-        if values.len() == 1 {
-            conditions.push(format!(
-                "{column} = (SELECT id FROM {table} WHERE slug = (${n})[1])"
-            ));
-        } else {
-            conditions.push(format!(
-                "{column} IN (SELECT id FROM {table} WHERE slug = ANY(${n}))"
-            ));
-        }
+        conditions.push(format!("{} = ANY(${})", filter.column(), bound.len()));
     }
 
     let counted_by = match (bound.as_slice(), stats.as_slice()) {
-        ([values], [stats_table]) if values.len() == 1 => Some(*stats_table),
+        ([ids], [stats_table]) if ids.len() == 1 => Some(*stats_table),
         _ => None,
     };
 
@@ -403,7 +437,7 @@ fn list_sql(clauses: &Clauses<'_>) -> (String, String) {
     );
     let count_sql = match counted_by {
         Some(stats_table) => format!(
-            "SELECT (SELECT poems_count::int FROM {stats_table} WHERE slug = ($1)[1]) AS total"
+            "SELECT (SELECT poems_count::int FROM {stats_table} WHERE id = ($1)[1]) AS total"
         ),
         None => format!("SELECT COUNT(*)::int AS total FROM public.poems p {where_clause}"),
     };
@@ -416,14 +450,21 @@ pub async fn list(
     page: u32,
     page_size: u32,
 ) -> Result<(Vec<PoemListItem>, i32), AppError> {
-    let built = clauses(facets);
+    let filters = resolve_ids(pg, facets).await?;
+    if filters.iter().any(|filter| filter.ids.is_empty()) {
+        return Ok((Vec::new(), 0));
+    }
+    let built = clauses(&filters);
     let (rows_sql, count_sql) = list_sql(&built);
 
-    let mut rows_query = sqlx::query_as::<_, PoemListRow>(AssertSqlSafe(rows_sql));
-    let mut count_query = sqlx::query_scalar::<_, Option<i32>>(AssertSqlSafe(count_sql));
-    for values in &built.bound {
-        rows_query = rows_query.bind(*values);
-        count_query = count_query.bind(*values);
+    // Unnamed statements are planned for their ids; a cached generic plan walks every poem.
+    let mut rows_query =
+        sqlx::query_as::<_, PoemListRow>(AssertSqlSafe(rows_sql)).persistent(false);
+    let mut count_query =
+        sqlx::query_scalar::<_, Option<i32>>(AssertSqlSafe(count_sql)).persistent(false);
+    for ids in &built.bound {
+        rows_query = rows_query.bind(*ids);
+        count_query = count_query.bind(*ids);
     }
     rows_query = rows_query
         .bind(i64::from(page_size))
@@ -445,16 +486,18 @@ pub struct PoemFacets {
 
 struct FacetQuery<'a> {
     sql: String,
-    bound: Vec<&'a Vec<String>>,
+    bound: Vec<&'a Vec<i32>>,
+    selected: &'a Vec<String>,
 }
 
-fn facet_sql(counted: Filter, facets: &Facets) -> FacetQuery<'_> {
+fn facet_sql<'a>(
+    counted: Filter,
+    filters: &'a [FilterIds],
+    selected: &'a Vec<String>,
+) -> FacetQuery<'a> {
     let Clauses {
-        conditions,
-        mut bound,
-        ..
-    } = clauses_except(facets, Some(counted));
-    bound.push(facets.values(counted));
+        conditions, bound, ..
+    } = clauses_except(filters, Some(counted));
     let sql = format!(
         "SELECT t.name, t.slug, COUNT(p.id)::int AS poems_count FROM {} t \
          LEFT JOIN public.poems p ON {} = t.id AND {} \
@@ -464,22 +507,27 @@ fn facet_sql(counted: Filter, facets: &Facets) -> FacetQuery<'_> {
         counted.table(),
         counted.column(),
         conditions.join(" AND "),
-        bound.len()
+        bound.len().saturating_add(1)
     );
-    FacetQuery { sql, bound }
+    FacetQuery {
+        sql,
+        bound,
+        selected,
+    }
 }
 
 async fn count_facet(
     pg: &PgPool,
     counted: Filter,
+    filters: &[FilterIds],
     facets: &Facets,
 ) -> Result<Vec<PoemCountStats>, AppError> {
-    let built = facet_sql(counted, facets);
-    let mut query = sqlx::query_as::<_, PoemCountStats>(AssertSqlSafe(built.sql));
-    for values in built.bound {
-        query = query.bind(values);
+    let built = facet_sql(counted, filters, facets.values(counted));
+    let mut query = sqlx::query_as::<_, PoemCountStats>(AssertSqlSafe(built.sql)).persistent(false);
+    for ids in built.bound {
+        query = query.bind(ids);
     }
-    Ok(query.fetch_all(pg).await?)
+    Ok(query.bind(built.selected).fetch_all(pg).await?)
 }
 
 async fn poet_is_shown(pg: &PgPool, poets: &[String]) -> Result<bool, AppError> {
@@ -492,15 +540,16 @@ async fn poet_is_shown(pg: &PgPool, poets: &[String]) -> Result<bool, AppError> 
 }
 
 pub async fn facets(pg: &PgPool, facets: &Facets) -> Result<PoemFacets, AppError> {
-    let (is_shown, meters, rhymes, themes) = tokio::try_join!(
-        poet_is_shown(pg, &facets.poet),
-        count_facet(pg, Filter::Meter, facets),
-        count_facet(pg, Filter::Rhyme, facets),
-        count_facet(pg, Filter::Theme, facets),
-    )?;
+    let (is_shown, filters) =
+        tokio::try_join!(poet_is_shown(pg, &facets.poet), resolve_ids(pg, facets))?;
     if !is_shown {
         return Err(AppError::NotFound(Resource::Poet));
     }
+    let (meters, rhymes, themes) = tokio::try_join!(
+        count_facet(pg, Filter::Meter, &filters, facets),
+        count_facet(pg, Filter::Rhyme, &filters, facets),
+        count_facet(pg, Filter::Theme, &filters, facets),
+    )?;
     Ok(PoemFacets {
         meters,
         rhymes,
@@ -775,64 +824,54 @@ pub async fn random(pg: &PgPool, option: &RandomPoemOption, roll: f64) -> Result
 mod tests {
     use super::*;
 
+    fn ids(filter: Filter, ids: &[i32]) -> FilterIds {
+        FilterIds {
+            filter,
+            ids: ids.to_vec(),
+        }
+    }
+
     #[test]
     fn the_era_filter_reads_the_poems_own_era_without_joining_poets() {
-        let facets = Facets {
-            era: vec!["abbasi".into(), "umawi".into()],
-            ..Facets::default()
-        };
-        let (rows, count) = list_sql(&clauses(&facets));
+        let (rows, count) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
         assert_eq!(
             count,
             "SELECT COUNT(*)::int AS total FROM public.poems p \
-             WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"
+             WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1)"
         );
         assert_eq!(rows.matches("JOIN public.poets").count(), 1, "{rows}");
         assert!(!rows.contains("public.eras e"), "{rows}");
     }
-
     #[test]
     fn conditions_stay_in_bind_order() {
-        let facets = Facets {
-            era: vec!["abbasi".into()],
-            rhyme: vec!["meem".into()],
-            ..Facets::default()
-        };
-        let both = clauses(&facets);
+        let filters = [ids(Filter::Era, &[3]), ids(Filter::Rhyme, &[7])];
+        let both = clauses(&filters);
         assert_eq!(
             both.where_clause(),
-            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = (SELECT id FROM public.eras WHERE slug = ($1)[1]) \
-             AND p.rhyme_id = (SELECT id FROM public.rhymes WHERE slug = ($2)[1])"
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1) AND p.rhyme_id = ANY($2)"
         );
         assert_eq!(both.bound.len(), 2);
     }
 
     #[test]
-    fn a_single_facet_value_resolves_to_a_scalar_fk_lookup() {
-        let facets = Facets {
-            meter: vec!["altawil".into()],
-            ..Facets::default()
-        };
-        let single = clauses(&facets);
-        assert_eq!(
-            single.where_clause(),
-            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = (SELECT id FROM public.meters WHERE slug = ($1)[1])"
-        );
+    fn a_filter_matches_its_resolved_ids_whether_one_or_many() {
+        for resolved in [&[5][..], &[5, 9][..]] {
+            let filters = [ids(Filter::Meter, resolved)];
+            assert_eq!(
+                clauses(&filters).where_clause(),
+                "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = ANY($1)"
+            );
+        }
     }
 
     #[test]
-    fn multiple_facet_values_fall_back_to_a_set_lookup() {
-        let facets = Facets {
-            meter: vec!["altawil".into(), "alkamil".into()],
-            ..Facets::default()
-        };
-        let multi = clauses(&facets);
+    fn the_slug_lookup_reads_each_requested_filter_table_in_bind_order() {
         assert_eq!(
-            multi.where_clause(),
-            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id IN (SELECT id FROM public.meters WHERE slug = ANY($1))"
+            resolve_sql(&[Filter::Poet, Filter::Meter]),
+            "SELECT ARRAY(SELECT id FROM public.poets WHERE slug = ANY($1)), \
+             ARRAY(SELECT id FROM public.meters WHERE slug = ANY($2))"
         );
     }
-
     #[test]
     fn pairs_hemistichs_and_leaves_an_odd_one_half_empty() {
         let parsed = parse_poem_content("a*b*c");
@@ -908,33 +947,23 @@ mod tests {
     }
 
     #[test]
-    fn every_facet_together_binds_in_declaration_order() {
-        let facets = Facets {
-            poet: vec!["yoFB".into()],
-            era: vec!["abbasi".into(), "jahili".into()],
-            theme: vec!["alnasib".into()],
-            meter: vec!["altawil".into()],
-            rhyme: vec!["meem".into()],
-            collection: vec!["almuallaqat".into()],
-        };
-        let all = clauses(&facets);
+    fn every_filter_together_binds_one_id_array_each_in_order() {
+        let filters: Vec<FilterIds> = Filter::ALL
+            .into_iter()
+            .map(|filter| ids(filter, &[1, 2]))
+            .collect();
+        let all = clauses(&filters);
         assert_eq!(all.bound.len(), 6);
         assert_eq!(
             all.where_clause(),
-            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.poet_id = (SELECT id FROM public.poets WHERE slug = ($1)[1]) \
-             AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($2)) \
-             AND p.meter_id = (SELECT id FROM public.meters WHERE slug = ($3)[1]) \
-             AND p.theme_id = (SELECT id FROM public.themes WHERE slug = ($4)[1]) \
-             AND p.rhyme_id = (SELECT id FROM public.rhymes WHERE slug = ($5)[1]) \
-             AND p.collection_id = (SELECT id FROM public.collections WHERE slug = ($6)[1])"
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.poet_id = ANY($1) AND p.era_id = ANY($2) \
+             AND p.meter_id = ANY($3) AND p.theme_id = ANY($4) \
+             AND p.rhyme_id = ANY($5) AND p.collection_id = ANY($6)"
         );
     }
-
     #[test]
     fn the_list_sql_numbers_limit_and_offset_after_the_facet_binds() {
-        let unfiltered = Facets::default();
-        let none = clauses(&unfiltered);
-        let (rows, count) = list_sql(&none);
+        let (rows, count) = list_sql(&clauses(&[]));
         assert!(rows.starts_with("SELECT p.title AS title, p.slug AS slug, pt.name AS poet_name"));
         assert!(
             rows.contains("ORDER BY p.id LIMIT $1 OFFSET $2) page"),
@@ -946,25 +975,21 @@ mod tests {
         assert!(count.starts_with("SELECT COUNT(*)::int AS total FROM public.poems p"));
         assert!(!count.contains("JOIN"));
 
-        let two_eras = Facets {
-            era: vec!["abbasi".into(), "umawi".into()],
-            ..Facets::default()
-        };
-        let by_era = clauses(&two_eras);
-        let (rows, count) = list_sql(&by_era);
+        let (rows, count) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
         assert!(
-            rows.contains("ANY($1)) ORDER BY p.id LIMIT $2 OFFSET $3) page"),
+            rows.contains("ANY($1) ORDER BY p.id LIMIT $2 OFFSET $3) page"),
             "{rows}"
         );
         assert!(
-            count.ends_with("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id IN (SELECT id FROM public.eras WHERE slug = ANY($1))"),
+            count.ends_with(
+                "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1)"
+            ),
             "{count}"
         );
     }
-
     #[test]
     fn every_list_query_hides_recensions_and_hidden_poets_even_without_a_facet() {
-        let (rows, count) = list_sql(&clauses(&Facets::default()));
+        let (rows, count) = list_sql(&clauses(&[]));
         assert!(
             rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY p.id"),
             "{rows}"
@@ -973,11 +998,7 @@ mod tests {
             count,
             "SELECT COUNT(*)::int AS total FROM public.poems p WHERE p.recension_of_id IS NULL AND NOT p.is_hidden"
         );
-        let two = Facets {
-            theme: vec!["alnasib".into()],
-            meter: vec!["altawil".into()],
-            ..Facets::default()
-        };
+        let two = [ids(Filter::Meter, &[5]), ids(Filter::Theme, &[2])];
         let (rows, count) = list_sql(&clauses(&two));
         assert!(
             rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id"),
@@ -988,7 +1009,6 @@ mod tests {
             "{count}"
         );
     }
-
     #[test]
     fn the_detail_query_finds_prev_and_next_through_the_shown_primaries_index() {
         for alias in ["pp", "np"] {
@@ -1004,74 +1024,29 @@ mod tests {
 
     #[test]
     fn a_single_term_is_counted_from_its_stats_table() {
-        let one = |facets: Facets| list_sql(&clauses(&facets)).1;
-        let term = || vec!["x".to_string()];
-        for (count, stats_table) in [
-            (
-                one(Facets {
-                    poet: term(),
-                    ..Facets::default()
-                }),
-                "poet_stats",
-            ),
-            (
-                one(Facets {
-                    era: term(),
-                    ..Facets::default()
-                }),
-                "era_stats",
-            ),
-            (
-                one(Facets {
-                    meter: term(),
-                    ..Facets::default()
-                }),
-                "meter_stats",
-            ),
-            (
-                one(Facets {
-                    theme: term(),
-                    ..Facets::default()
-                }),
-                "theme_stats",
-            ),
-            (
-                one(Facets {
-                    rhyme: term(),
-                    ..Facets::default()
-                }),
-                "rhyme_stats",
-            ),
-            (
-                one(Facets {
-                    collection: term(),
-                    ..Facets::default()
-                }),
-                "collection_stats",
-            ),
+        for (filter, stats_table) in [
+            (Filter::Poet, "poet_stats"),
+            (Filter::Era, "era_stats"),
+            (Filter::Meter, "meter_stats"),
+            (Filter::Theme, "theme_stats"),
+            (Filter::Rhyme, "rhyme_stats"),
+            (Filter::Collection, "collection_stats"),
         ] {
+            let (_, count) = list_sql(&clauses(&[ids(filter, &[7])]));
             assert_eq!(
                 count,
                 format!(
-                    "SELECT (SELECT poems_count::int FROM public.{stats_table} WHERE slug = ($1)[1]) AS total"
+                    "SELECT (SELECT poems_count::int FROM public.{stats_table} WHERE id = ($1)[1]) AS total"
                 )
             );
         }
     }
-
     #[test]
     fn anything_wider_than_one_term_counts_the_poems_themselves() {
         for wider in [
-            Facets::default(),
-            Facets {
-                theme: vec!["alnasib".into(), "almadih".into()],
-                ..Facets::default()
-            },
-            Facets {
-                theme: vec!["alnasib".into()],
-                meter: vec!["altawil".into()],
-                ..Facets::default()
-            },
+            vec![],
+            vec![ids(Filter::Theme, &[1, 2])],
+            vec![ids(Filter::Theme, &[1]), ids(Filter::Meter, &[2])],
         ] {
             let (_, count) = list_sql(&clauses(&wider));
             assert!(
@@ -1080,7 +1055,6 @@ mod tests {
             );
         }
     }
-
     #[test]
     fn content_parsing_never_panics_and_keeps_every_hemistich() {
         let mut rng = crate::test_support::Rng::new(3);
@@ -1153,23 +1127,23 @@ mod tests {
 
     #[test]
     fn a_facet_is_counted_under_the_poet_and_the_other_selections_but_not_its_own() {
-        let facets = Facets {
-            poet: vec!["yoFB".into()],
-            meter: vec!["altawil".into()],
-            rhyme: vec!["meem".into(), "lam".into()],
-            ..Facets::default()
-        };
-        let meters = facet_sql(Filter::Meter, &facets);
+        let filters = [
+            ids(Filter::Poet, &[11]),
+            ids(Filter::Meter, &[5]),
+            ids(Filter::Rhyme, &[7, 8]),
+        ];
+        let selected = vec!["altawil".to_string()];
+        let meters = facet_sql(Filter::Meter, &filters, &selected);
         assert_eq!(
             meters.sql,
             "SELECT t.name, t.slug, COUNT(p.id)::int AS poems_count FROM public.meters t \
              LEFT JOIN public.poems p ON p.meter_id = t.id AND p.recension_of_id IS NULL \
-             AND NOT p.is_hidden AND p.poet_id = (SELECT id FROM public.poets WHERE slug = ($1)[1]) \
-             AND p.rhyme_id IN (SELECT id FROM public.rhymes WHERE slug = ANY($2)) \
+             AND NOT p.is_hidden AND p.poet_id = ANY($1) AND p.rhyme_id = ANY($2) \
              GROUP BY t.id, t.name, t.slug \
              HAVING COUNT(p.id) > 0 OR t.slug = ANY($3) \
              ORDER BY poems_count DESC, t.name"
         );
-        assert_eq!(meters.bound, [&facets.poet, &facets.rhyme, &facets.meter]);
+        assert_eq!(meters.bound, [&filters[0].ids, &filters[2].ids]);
+        assert_eq!(meters.selected, &selected);
     }
 }
