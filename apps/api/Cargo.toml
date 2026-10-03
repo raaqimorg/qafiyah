@@ -36,6 +36,14 @@ sentry = { version = "0.49", default-features = false, features = [
   "reqwest",
   "rustls",
 ] }
+diesel = { version = "2.3", default-features = false, features = [
+  "postgres_backend",
+  "serde_json",
+  "32-column-tables",
+] }
+diesel-async = { version = "0.9", features = ["postgres", "deadpool"] }
+deadpool = { version = "0.13", default-features = false, features = ["managed", "rt_tokio_1"] }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["sync", "time"] }

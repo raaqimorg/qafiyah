@@ -28,6 +28,16 @@ pub fn lazy_pool() -> PgPool {
         .expect("a lazy pool never connects at construction")
 }
 
+pub fn lazy_corpus_pool() -> crate::db::PgPool {
+    crate::db::pool(
+        UNREACHABLE_POSTGRES,
+        1,
+        Duration::from_millis(250),
+        String::new(),
+    )
+    .expect("a pool never connects at construction")
+}
+
 #[derive(Clone)]
 struct Canned {
     status: StatusCode,
@@ -79,7 +89,7 @@ impl FakeEs {
 
 pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
     AppState {
-        pg: lazy_pool(),
+        pg: lazy_corpus_pool(),
         accounts: lazy_pool(),
         es: Arc::new(Es::with_timeout(&es.url, Duration::from_secs(2)).expect("a fake endpoint")),
         keys: Arc::new(keys),

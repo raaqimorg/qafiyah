@@ -5,6 +5,7 @@ pub mod client_ip;
 pub mod config;
 pub mod constants;
 pub mod cors;
+pub mod db;
 pub mod domain;
 pub mod envelope;
 pub mod error;

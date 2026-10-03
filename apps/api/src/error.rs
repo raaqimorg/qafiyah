@@ -104,7 +104,7 @@ pub enum AppError {
     #[error("poem data could not be parsed")]
     PoemParse,
     #[error("database error")]
-    Database(#[from] sqlx::Error),
+    Database(String),
     #[error("search error: {0}")]
     Search(String),
     #[error("too many requests")]
@@ -201,6 +201,26 @@ impl From<RouteProblem> for AppError {
     }
 }
 
+impl From<sqlx::Error> for AppError {
+    fn from(error: sqlx::Error) -> Self {
+        AppError::Database(error.to_string())
+    }
+}
+
+impl From<diesel::result::Error> for AppError {
+    fn from(error: diesel::result::Error) -> Self {
+        AppError::Database(error.to_string())
+    }
+}
+
+impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for AppError {
+    fn from(
+        error: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>,
+    ) -> Self {
+        AppError::Database(error.to_string())
+    }
+}
+
 #[expect(
     clippy::print_stderr,
     reason = "database and search failures are logged to stderr before the response is built"
@@ -211,7 +231,7 @@ impl IntoResponse for AppError {
             AppError::Database(cause) => {
                 eprintln!(
                     "{}",
-                    stage_event("query", Some(("error", cause.to_string().into())))
+                    stage_event("query", Some(("error", cause.as_str().into())))
                 );
             }
             AppError::Search(cause) => {

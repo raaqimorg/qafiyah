@@ -18,6 +18,11 @@ use std::time::Duration;
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::http::{HeaderMap, Request, StatusCode};
+use diesel::pg::Pg;
+use diesel::query_builder::{BoxedSqlQuery, SqlQuery};
+use diesel::sql_types::{BigInt, Bool, Text};
+use diesel::{OptionalExtension, QueryableByName};
+use diesel_async::RunQueryDsl;
 use qafiyah_elasticsearch::Endpoint;
 use reqwest::Method;
 use serde_json::{Value, json};
@@ -38,7 +43,7 @@ pub const FULL: &str = "full-test-key";
 #[derive(Clone)]
 pub struct Harness {
     pub app: Router,
-    pub pg: PgPool,
+    pub pg: qafiyah_api::db::PgPool,
     pub accounts: PgPool,
 }
 
@@ -67,12 +72,13 @@ pub async fn harness() -> Option<Harness> {
         eprintln!("skipping: QAFIYAH_TEST_* variables are not set");
         return None;
     };
-    let pg = PgPoolOptions::new()
-        .max_connections(4)
-        .acquire_timeout(Duration::from_secs(10))
-        .connect(&pg_url)
-        .await
-        .expect("the corpus database");
+    let pg = qafiyah_api::db::pool(
+        &pg_url,
+        4,
+        Duration::from_secs(10),
+        qafiyah_api::db::corpus_setup(),
+    )
+    .expect("the corpus database");
     let accounts = PgPoolOptions::new()
         .max_connections(4)
         .acquire_timeout(Duration::from_secs(10))
@@ -100,7 +106,79 @@ pub async fn harness() -> Option<Harness> {
     })
 }
 
+#[derive(QueryableByName)]
+struct TextRow {
+    #[diesel(sql_type = Text)]
+    value: String,
+}
+
+#[derive(QueryableByName)]
+struct PairRow {
+    #[diesel(sql_type = Text)]
+    first: String,
+    #[diesel(sql_type = Text)]
+    second: String,
+}
+
+#[derive(QueryableByName)]
+struct CountRow {
+    #[diesel(sql_type = BigInt)]
+    value: i64,
+}
+
+#[derive(QueryableByName)]
+struct FlagRow {
+    #[diesel(sql_type = Bool)]
+    value: bool,
+}
+
+fn bound(sql: &str, binds: &[&str]) -> BoxedSqlQuery<'static, Pg, SqlQuery> {
+    let mut query = diesel::sql_query(sql).into_boxed();
+    for bind in binds {
+        query = query.bind::<Text, _>((*bind).to_string());
+    }
+    query
+}
+
 impl Harness {
+    pub async fn text(&self, sql: &str, binds: &[&str]) -> Option<String> {
+        let mut conn = self.pg.get().await.expect("a corpus connection");
+        bound(sql, binds)
+            .get_result::<TextRow>(&mut conn)
+            .await
+            .optional()
+            .expect(sql)
+            .map(|row| row.value)
+    }
+
+    pub async fn pair(&self, sql: &str, binds: &[&str]) -> Option<(String, String)> {
+        let mut conn = self.pg.get().await.expect("a corpus connection");
+        bound(sql, binds)
+            .get_result::<PairRow>(&mut conn)
+            .await
+            .optional()
+            .expect(sql)
+            .map(|row| (row.first, row.second))
+    }
+
+    pub async fn count(&self, sql: &str, binds: &[&str]) -> i64 {
+        let mut conn = self.pg.get().await.expect("a corpus connection");
+        bound(sql, binds)
+            .get_result::<CountRow>(&mut conn)
+            .await
+            .expect(sql)
+            .value
+    }
+
+    pub async fn flag(&self, sql: &str, binds: &[&str]) -> bool {
+        let mut conn = self.pg.get().await.expect("a corpus connection");
+        bound(sql, binds)
+            .get_result::<FlagRow>(&mut conn)
+            .await
+            .expect(sql)
+            .value
+    }
+
     pub async fn call(
         &self,
         method: &str,

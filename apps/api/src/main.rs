@@ -54,32 +54,15 @@ fn main() {
 }
 
 async fn serve(config: Config) {
-    let connect_options = match config.database_url.parse::<PgConnectOptions>() {
-        Ok(options) => options.options([(
-            "statement_timeout",
-            format!("{PG_STATEMENT_TIMEOUT_SECONDS}s"),
-        )]),
-        Err(e) => {
-            eprintln!(
-                "{}",
-                stage_event("boot_db", Some(("error", e.to_string().into())))
-            );
-            std::process::exit(1);
-        }
-    };
-
-    let pg = match PgPoolOptions::new()
-        .max_connections(PG_POOL_MAX_CONNECTIONS)
-        .acquire_timeout(Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS))
-        .connect_with(connect_options)
-        .await
-    {
+    let pg = match qafiyah_api::db::pool(
+        &config.database_url,
+        PG_POOL_MAX_CONNECTIONS,
+        Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
+        qafiyah_api::db::corpus_setup(),
+    ) {
         Ok(pool) => pool,
         Err(e) => {
-            eprintln!(
-                "{}",
-                stage_event("boot_db", Some(("error", e.to_string().into())))
-            );
+            eprintln!("{}", stage_event("boot_db", Some(("error", e.into()))));
             std::process::exit(1);
         }
     };

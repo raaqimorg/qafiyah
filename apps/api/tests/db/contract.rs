@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use axum::http::StatusCode;
 use serde_json::Value;
-use sqlx::AssertSqlSafe;
 
 use crate::{Harness, harness};
 
@@ -357,16 +356,15 @@ async fn a_poets_facets_partition_its_poems_and_narrow_under_each_other() {
         i64::try_from(matching).expect("fits i64")
     );
 
-    let unused: Option<String> = sqlx::query_scalar(
-        "SELECT m.slug FROM public.meters m WHERE NOT EXISTS \
+    let unused: Option<String> = h
+        .text(
+            "SELECT m.slug AS value FROM public.meters m WHERE NOT EXISTS \
          (SELECT 1 FROM public.poems p JOIN public.poets pt ON pt.id = p.poet_id \
           WHERE pt.slug = $1 AND p.meter_id = m.id AND p.recension_of_id IS NULL) \
          ORDER BY m.slug LIMIT 1",
-    )
-    .bind(&poet)
-    .fetch_optional(&h.pg)
-    .await
-    .expect("unused meter query");
+            &[poet.as_str()],
+        )
+        .await;
     if let Some(unused) = unused {
         let kept = h
             .get(&format!("/v1/poems/facets?poet={poet}&meter={unused}"))
@@ -391,26 +389,26 @@ async fn a_poets_facets_partition_its_poems_and_narrow_under_each_other() {
 #[tokio::test]
 async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
     let Some(h) = h().await else { return };
-    let with_poems: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.poets pt WHERE NOT pt.is_hidden AND EXISTS \
+    let with_poems: i64 = h
+        .count(
+            "SELECT count(*) AS value FROM public.poets pt WHERE NOT pt.is_hidden AND EXISTS \
          (SELECT 1 FROM public.poems p WHERE p.poet_id = pt.id AND p.recension_of_id IS NULL)",
-    )
-    .fetch_one(&h.pg)
-    .await
-    .expect("poets with poems");
+            &[],
+        )
+        .await;
     let stream = h.get("/v1/poets/slugs").await.json();
     assert_eq!(
         total_items(&stream),
         u64::try_from(with_poems).expect("fits u64")
     );
-    let empty: Option<String> = sqlx::query_scalar(
-        "SELECT pt.slug FROM public.poets pt WHERE NOT EXISTS \
+    let empty: Option<String> = h
+        .text(
+            "SELECT pt.slug AS value FROM public.poets pt WHERE NOT EXISTS \
          (SELECT 1 FROM public.poems p WHERE p.poet_id = pt.id AND p.recension_of_id IS NULL) \
          ORDER BY pt.slug LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("poet without poems");
+            &[],
+        )
+        .await;
     if let Some(empty) = empty {
         let listed = stream["data"].as_array().expect("slugs");
         assert!(listed.iter().all(|entry| entry["slug"] != empty.as_str()));
@@ -420,13 +418,13 @@ async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
 #[tokio::test]
 async fn a_retired_poet_slug_redirects_permanently_to_the_poet_that_absorbed_it() {
     let Some(h) = h().await else { return };
-    let pair: Option<(String, String)> = sqlx::query_as(
-        "SELECT a.slug, p.slug FROM public.poet_aliases a \
+    let pair: Option<(String, String)> = h
+        .pair(
+            "SELECT a.slug AS first, p.slug AS second FROM public.poet_aliases a \
          JOIN public.poets p ON p.id = a.poet_id ORDER BY a.slug LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("alias query");
+            &[],
+        )
+        .await;
     let Some((alias, survivor)) = pair else {
         return;
     };
@@ -444,14 +442,14 @@ async fn a_retired_poet_slug_redirects_permanently_to_the_poet_that_absorbed_it(
 #[tokio::test]
 async fn a_slug_that_is_neither_a_poet_nor_an_alias_is_still_not_found() {
     let Some(h) = h().await else { return };
-    let free: Option<String> = sqlx::query_scalar(
-        "SELECT c FROM unnest(ARRAY['Qzqz','Zqzq','Xqxq','Qxqx']) AS c \
+    let free: Option<String> = h
+        .text(
+            "SELECT c AS value FROM unnest(ARRAY['Qzqz','Zqzq','Xqxq','Qxqx']) AS c \
          WHERE NOT EXISTS (SELECT 1 FROM public.poets WHERE slug = c) \
          AND NOT EXISTS (SELECT 1 FROM public.poet_aliases WHERE slug = c) LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("free slug query");
+            &[],
+        )
+        .await;
     let Some(free) = free else { return };
     assert_eq!(
         h.get(&format!("/v1/poets/{free}")).await.status,
@@ -529,19 +527,18 @@ async fn every_random_poem_is_a_named_classical_amudi_poem_of_four_verses_or_mor
     for _ in 0..25 {
         let slug = h.get("/v1/poems/random").await;
         assert_eq!(slug.status, StatusCode::OK, "{}", slug.body);
-        let breaks_a_rule: bool = sqlx::query_scalar(
-            "SELECT p.recension_of_id IS NOT NULL OR p.is_hidden OR po.is_anonymous \
+        let breaks_a_rule: bool = h
+            .flag(
+                "SELECT (p.recension_of_id IS NOT NULL OR p.is_hidden OR po.is_anonymous \
              OR e.slug NOT IN ('jahili', 'islami', 'umawi', 'abbasi') OR ty.slug <> 'amudi' \
-             OR p.verse_count < 4 OR m.slug = 'ghayrmaruf' \
+             OR p.verse_count < 4 OR m.slug = 'ghayrmaruf') AS value \
              FROM public.poems p JOIN public.poets po ON po.id = p.poet_id \
              JOIN public.eras e ON e.id = po.era_id \
              JOIN public.poem_types ty ON ty.id = p.poem_type_id \
              JOIN public.meters m ON m.id = p.meter_id WHERE p.slug = $1",
-        )
-        .bind(&slug.body)
-        .fetch_one(&h.pg)
-        .await
-        .expect("random poem lookup");
+                &[slug.body.as_str()],
+            )
+            .await;
         assert!(!breaks_a_rule, "{} breaks a random poem rule", slug.body);
     }
 }
@@ -570,13 +567,13 @@ async fn every_json_success_carries_the_read_cache_policy_and_a_matching_conditi
 #[tokio::test]
 async fn a_retired_poem_slug_redirects_permanently_to_the_poem_that_absorbed_it() {
     let Some(h) = h().await else { return };
-    let pair: Option<(String, String)> = sqlx::query_as(
-        "SELECT a.slug, p.slug FROM public.poem_aliases a \
+    let pair: Option<(String, String)> = h
+        .pair(
+            "SELECT a.slug AS first, p.slug AS second FROM public.poem_aliases a \
          JOIN public.poems p ON p.id = a.poem_id ORDER BY a.slug LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("alias query");
+            &[],
+        )
+        .await;
     let Some((alias, survivor)) = pair else {
         return;
     };
@@ -600,14 +597,13 @@ async fn a_retired_poem_slug_redirects_permanently_to_the_poem_that_absorbed_it(
             }
         })
         .collect();
-    let taken: bool = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM public.poems WHERE slug = $1) \
-         OR EXISTS (SELECT 1 FROM public.poem_aliases WHERE slug = $1)",
-    )
-    .bind(&recased)
-    .fetch_one(&h.pg)
-    .await
-    .expect("recased lookup");
+    let taken: bool = h
+        .flag(
+            "SELECT (EXISTS (SELECT 1 FROM public.poems WHERE slug = $1) \
+         OR EXISTS (SELECT 1 FROM public.poem_aliases WHERE slug = $1)) AS value",
+            &[recased.as_str()],
+        )
+        .await;
     if !taken {
         assert_eq!(
             h.get(&format!("/v1/poems/{recased}")).await.status,
@@ -619,14 +615,14 @@ async fn a_retired_poem_slug_redirects_permanently_to_the_poem_that_absorbed_it(
 #[tokio::test]
 async fn a_slug_that_is_neither_a_poem_nor_an_alias_is_still_not_found() {
     let Some(h) = h().await else { return };
-    let free: Option<String> = sqlx::query_scalar(
-        "SELECT c FROM unnest(ARRAY['Qzqz','Zqzq','Xqxq','Qxqx']) AS c \
+    let free: Option<String> = h
+        .text(
+            "SELECT c AS value FROM unnest(ARRAY['Qzqz','Zqzq','Xqxq','Qxqx']) AS c \
          WHERE NOT EXISTS (SELECT 1 FROM public.poems WHERE slug = c) \
          AND NOT EXISTS (SELECT 1 FROM public.poem_aliases WHERE slug = c) LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("free slug query");
+            &[],
+        )
+        .await;
     let Some(free) = free else { return };
     assert_eq!(
         h.get(&format!("/v1/poems/{free}")).await.status,
@@ -637,13 +633,13 @@ async fn a_slug_that_is_neither_a_poem_nor_an_alias_is_still_not_found() {
 #[tokio::test]
 async fn a_hidden_poet_and_their_poems_are_not_found_or_listed() {
     let Some(h) = h().await else { return };
-    let hidden: Option<(String, String)> = sqlx::query_as(
-        "SELECT pt.slug, p.slug FROM public.poets pt JOIN public.poems p ON p.poet_id = pt.id \
+    let hidden: Option<(String, String)> = h
+        .pair(
+            "SELECT pt.slug AS first, p.slug AS second FROM public.poets pt JOIN public.poems p ON p.poet_id = pt.id \
          WHERE pt.is_hidden ORDER BY p.id LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("hidden poet query");
+            &[],
+        )
+        .await;
     let Some((poet, poem)) = hidden else { return };
     assert_eq!(
         h.get(&format!("/v1/poets/{poet}")).await.status,
@@ -666,25 +662,25 @@ async fn a_single_term_total_from_the_stats_table_equals_a_live_count_of_primari
     let Some(h) = h().await else { return };
     let body = h.get("/v1/poems?theme=almutafarriqat").await.json();
     let stats_total = total_items(&body);
-    let live: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.poems p JOIN public.themes t ON t.id = p.theme_id \
+    let live: i64 = h
+        .count(
+            "SELECT count(*) AS value FROM public.poems p JOIN public.themes t ON t.id = p.theme_id \
          WHERE t.slug = 'almutafarriqat' AND p.recension_of_id IS NULL AND NOT p.is_hidden",
-    )
-    .fetch_one(&h.pg)
-    .await
-    .unwrap_or(-1);
+            &[],
+        )
+        .await;
     assert_eq!(i64::try_from(stats_total).unwrap_or(-2), live);
 }
 
 #[tokio::test]
 async fn the_unfiltered_total_and_the_poem_count_equal_a_live_count_of_primaries() {
     let Some(h) = h().await else { return };
-    let live: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.poems WHERE recension_of_id IS NULL AND NOT is_hidden",
-    )
-    .fetch_one(&h.pg)
-    .await
-    .unwrap_or(-1);
+    let live: i64 = h
+        .count(
+            "SELECT count(*) AS value FROM public.poems WHERE recension_of_id IS NULL AND NOT is_hidden",
+            &[],
+        )
+        .await;
     let listed = total_items(&h.get("/v1/poems").await.json());
     let counted = h.get("/v1/poems/count").await.json()["data"]["total"].as_i64();
     assert_eq!(i64::try_from(listed).unwrap_or(-2), live);
@@ -715,14 +711,15 @@ async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primar
             .get(&format!("/v1/poems?{}", query.join("&")))
             .await
             .json();
-        let live: i64 = sqlx::query_scalar(AssertSqlSafe(format!(
-            "SELECT count(*) FROM public.poems p JOIN {table} t ON t.id = p.{column} \
-             WHERE t.slug = ANY($1) AND p.recension_of_id IS NULL AND NOT p.is_hidden"
-        )))
-        .bind(&slugs)
-        .fetch_one(&h.pg)
-        .await
-        .unwrap_or(-1);
+        let live: i64 = h
+            .count(
+                &format!(
+                    "SELECT count(*) AS value FROM public.poems p JOIN {table} t ON t.id = p.{column} \
+             WHERE t.slug IN ($1, $2) AND p.recension_of_id IS NULL AND NOT p.is_hidden"
+                ),
+                &slugs.iter().map(String::as_str).collect::<Vec<_>>(),
+            )
+            .await;
         assert_eq!(
             i64::try_from(total_items(&body)).unwrap_or(-2),
             live,
@@ -734,13 +731,13 @@ async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primar
 #[tokio::test]
 async fn a_recension_names_its_primary_and_the_primary_lists_it() {
     let Some(h) = h().await else { return };
-    let pair: Option<(String, String)> = sqlx::query_as(
-        "SELECT r.slug, p.slug FROM public.poems r JOIN public.poems p ON p.id = r.recension_of_id \
+    let pair: Option<(String, String)> = h
+        .pair(
+            "SELECT r.slug AS first, p.slug AS second FROM public.poems r JOIN public.poems p ON p.id = r.recension_of_id \
          ORDER BY r.id LIMIT 1",
-    )
-    .fetch_optional(&h.pg)
-    .await
-    .expect("recension query");
+            &[],
+        )
+        .await;
     let Some((recension, primary)) = pair else {
         return;
     };
@@ -752,15 +749,90 @@ async fn a_recension_names_its_primary_and_the_primary_lists_it() {
         .as_array()
         .expect("recensions array");
     assert!(listed.iter().any(|r| r["slug"] == recension.as_str()));
-    let chained: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.poems r JOIN public.poems p ON p.id = r.recension_of_id \
+    let chained: i64 = h
+        .count(
+            "SELECT count(*) AS value FROM public.poems r JOIN public.poems p ON p.id = r.recension_of_id \
          WHERE p.recension_of_id IS NOT NULL OR p.poet_id <> r.poet_id",
-    )
-    .fetch_one(&h.pg)
-    .await
-    .expect("chain query");
+            &[],
+        )
+        .await;
     assert_eq!(
         chained, 0,
         "a recension must point at a primary of the same poet"
     );
+}
+
+#[derive(diesel::QueryableByName)]
+struct Statement {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    statement: String,
+}
+
+#[tokio::test]
+async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
+    let Ok(url) = std::env::var("QAFIYAH_TEST_DATABASE_URL") else {
+        return;
+    };
+    let pool = qafiyah_api::db::pool(
+        &url,
+        1,
+        std::time::Duration::from_secs(10),
+        qafiyah_api::db::corpus_setup(),
+    )
+    .expect("a one-connection pool");
+    let facets = qafiyah_api::domain::poems::Facets {
+        meter: vec!["altawil".into(), "alkamil".into()],
+        rhyme: vec!["meem".into(), "lam".into()],
+        ..Default::default()
+    };
+    for _ in 0..6 {
+        qafiyah_api::domain::poems::list(&pool, &facets, 1, 30)
+            .await
+            .expect("a list");
+    }
+    qafiyah_api::domain::taxonomy::list_counted(
+        &pool,
+        qafiyah_api::domain::taxonomy::Counted::Meters,
+    )
+    .await
+    .expect("the meters");
+    let mut conn = pool.get().await.expect("the one connection");
+    let kept: Vec<String> = diesel_async::RunQueryDsl::load::<Statement>(
+        diesel::sql_query("SELECT statement FROM pg_prepared_statements WHERE name <> ''"),
+        &mut conn,
+    )
+    .await
+    .expect("the prepared statements")
+    .into_iter()
+    .map(|row| row.statement)
+    .collect();
+    assert!(
+        kept.iter().any(|sql| sql.contains("\"meter_stats\"")),
+        "an ordinary query is kept: {kept:?}"
+    );
+    assert!(
+        !kept
+            .iter()
+            .any(|sql| sql.starts_with("SELECT \"poems\".\"title\"")
+                || sql.contains("COUNT(*) FROM \"poems\"")),
+        "the list and its count are not kept: {kept:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_pooled_connection_carries_the_statement_timeout() {
+    let Some(h) = h().await else { return };
+    #[derive(diesel::QueryableByName)]
+    struct Setting {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        statement_timeout: String,
+    }
+    let mut conn = h.pg.get().await.expect("a connection");
+    let setting = diesel_async::RunQueryDsl::get_result::<Setting>(
+        diesel::sql_query("SHOW statement_timeout"),
+        &mut conn,
+    )
+    .await
+    .expect("the setting");
+    assert_eq!(setting.statement_timeout, "5s");
 }

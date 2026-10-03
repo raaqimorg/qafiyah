@@ -5,11 +5,12 @@ Read-only Rust/axum service over Postgres + Elasticsearch for the qafiyah.com Ar
 ## Shape
 
 - `domain/`: query building + row→DTO mapping per resource (poems, poets, taxonomy, search). Real logic lives here; `routes/` handlers stay thin.
+- `db.rs`: the corpus database through Diesel and diesel-async: the deadpool pool (`pool`, `corpus_setup`), the typed schema `db::corpus` (generated into `generated/diesel/corpus.gen.rs` by `bun run db:schema` from the dev database, checked with `bun run db:schema:check`), and `Uncached`, which sends one query unnamed so Postgres plans it for its values (see `docs/exceptions.md`).
 - `routes/`: one file per resource, wired into the OpenAPI contract in `lib.rs::app`.
 - `es/`: Elasticsearch query bodies for full-text search, including weighted relevance-ranking tiers (`es/query.rs`).
 - `accounts/`: the separate `qafiyah_accounts` database (key generation and hashing, the cached lookup, the usage flush). Its schema lives in `apps/api/migrations/`, the repo's only `sqlx` migrations; the corpus database is still managed by `data/db/` dumps and has no migrations.
 - `cors`, `log`, `error` wrap every route; `rate_limit` wraps the whole `/v1` nest. `cache` additionally wraps only the OpenAPI-contract routes (`routes::poems::random` and the `go` redirect routes are merged in outside the cache layer on purpose, see `lib.rs::app`).
-- `generated/`: nothing here is hand-authored (see `docs/code-conventions.md`'s "Generated files" rule): `openapi/openapi.json` is the `document()` output checked against by `openapi.rs`'s drift test (regenerate with `bun run openapi:snapshot`); `es/query.vectors.json` is the ES query-builder output checked by `es-query-dump.rs`'s drift test (regenerate with `bun run es:query:snapshot`). Both are compile-time `include_str!`'d only from `#[cfg(test)]` code, so moving or missing them never affects a release build, only `cargo test`.
+- `generated/`: nothing here is hand-authored (see `docs/code-conventions.md`'s "Generated files" rule): `openapi/openapi.json` is the `document()` output checked against by `openapi.rs`'s drift test (regenerate with `bun run openapi:snapshot`); `es/query.vectors.json` is the ES query-builder output checked by `es-query-dump.rs`'s drift test (regenerate with `bun run es:query:snapshot`). Both are compile-time `include_str!`'d only from `#[cfg(test)]` code, so moving or missing them never affects a release build, only `cargo test`. `diesel/corpus.gen.rs` is the Diesel schema `db.rs` compiles in; regenerate it with `bun run db:schema` after a dump that changes the corpus schema.
 
 ## Deliberate, non-obvious behavior
 
