@@ -13,8 +13,16 @@ use crate::es::query::{poem_search_body, poet_search_body};
 
 #[derive(Deserialize)]
 struct Response<S> {
+    timed_out: bool,
+    #[serde(rename = "_shards")]
+    shards: Shards,
     hits: Hits<S>,
     aggregations: Option<Aggregations>,
+}
+
+#[derive(Deserialize)]
+struct Shards {
+    failed: u32,
 }
 
 #[derive(Deserialize)]
@@ -73,6 +81,23 @@ struct PoetSource {
     poems_count: i64,
 }
 
+impl<S> Response<S> {
+    fn ensure_complete(&self, index: &str) -> Result<(), StoreError> {
+        if self.timed_out {
+            return Err(StoreError::Unavailable(format!(
+                "{index}: search timed out"
+            )));
+        }
+        if self.shards.failed > 0 {
+            return Err(StoreError::Unavailable(format!(
+                "{index}: search had {} failed shards",
+                self.shards.failed
+            )));
+        }
+        Ok(())
+    }
+}
+
 impl<S> Hit<S> {
     fn relevance(&self) -> f64 {
         self.score.unwrap_or_default()
@@ -104,6 +129,7 @@ impl SearchIndex for Es {
         let response: Response<PoemSource> = self
             .search(&self.poems_alias, &poem_search_body(params))
             .await?;
+        response.ensure_complete(&self.poems_alias)?;
         let total = response.poem_total();
         let hits = response
             .hits
@@ -137,6 +163,7 @@ impl SearchIndex for Es {
         let response: Response<PoetSource> = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
+        response.ensure_complete(&self.poets_alias)?;
         let hits = response
             .hits
             .hits
@@ -161,6 +188,7 @@ impl SearchIndex for Es {
         let response: Response<PoetSource> = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
+        response.ensure_complete(&self.poets_alias)?;
         let hits = response
             .hits
             .hits
@@ -223,7 +251,8 @@ mod tests {
     }
 
     fn found(total: u32, hits: Vec<Value>) -> Value {
-        json!({ "hits": { "total": { "value": total, "relation": "eq" }, "hits": hits } })
+        json!({ "timed_out": false, "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
+            "hits": { "total": { "value": total, "relation": "eq" }, "hits": hits } })
     }
 
     fn poem_hit(source: Value, highlight: Option<&str>, score: Value) -> Value {
@@ -329,6 +358,30 @@ mod tests {
             es.list_poets(&PoetSearchParams::default()).await,
             Err(StoreError::Search(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn a_search_without_valid_completion_metadata_is_rejected() {
+        for field in ["timed_out", "_shards"] {
+            let mut missing = found(0, vec![]);
+            missing.as_object_mut().expect("an object").remove(field);
+            assert!(matches!(
+                poems_searched(missing).await,
+                Err(StoreError::Search(_))
+            ));
+        }
+        for (field, value) in [
+            ("timed_out", json!("false")),
+            ("_shards", json!({})),
+            ("_shards", json!({ "failed": -1 })),
+        ] {
+            let mut malformed = found(0, vec![]);
+            malformed[field] = value;
+            assert!(matches!(
+                poems_searched(malformed).await,
+                Err(StoreError::Search(_))
+            ));
+        }
     }
 
     #[tokio::test]

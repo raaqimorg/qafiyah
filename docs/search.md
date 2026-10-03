@@ -205,6 +205,11 @@ The response carries separate `poems` and `poets` envelopes, each with its own p
 `relevance` is the raw `_score`, so **scores are not comparable between the two sets**, don't
 interleave them.
 
+Every Elasticsearch response must report `timed_out: false` and `_shards.failed: 0` before its
+hits are used. A timeout or failed shard returns 503 with `Retry-After` and
+`Cache-Control: no-store`, even when Elasticsearch returned HTTP 200. This also applies to `/poets`, so partial
+results never become a cached page or a 304. Complete empty results remain cacheable.
+
 Equal scores get an explicit tiebreak, so the order doesn't depend on Lucene's internal document
 order, which segment merges can reshuffle: ranked and exact poem searches sort by `_score desc`,
 then `id asc`; poet searches by `_score desc`, then the `/poets` list order (`poemsCount desc`,
