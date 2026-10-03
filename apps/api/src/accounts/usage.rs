@@ -1,9 +1,16 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use sqlx::PgPool;
+use chrono::DateTime;
+use diesel::dsl::now;
+use diesel::prelude::*;
+use diesel::upsert::excluded;
+use diesel_async::RunQueryDsl;
 
-use crate::constants::{SECONDS_PER_HOUR, USAGE_FLUSH_SECONDS};
+use crate::constants::{SECONDS_PER_HOUR, USAGE_FLUSH_BATCH_ROWS, USAGE_FLUSH_SECONDS};
+use crate::db::PgPool;
+use crate::db::accounts_schema::{api_keys, usage_hourly};
+use crate::error::AppError;
 
 #[derive(Default)]
 pub struct UsageRecorder {
@@ -31,37 +38,46 @@ impl UsageRecorder {
             .collect()
     }
 
-    pub async fn flush(&self, accounts: &PgPool) -> Result<u64, sqlx::Error> {
+    pub async fn flush(&self, accounts: &PgPool) -> Result<u64, AppError> {
         let batch = self.drain();
         if batch.is_empty() {
             return Ok(0);
         }
-        let key_ids: Vec<i64> = batch.iter().map(|(id, _, _)| *id).collect();
-        let hours: Vec<i64> = batch
-            .iter()
-            .map(|(_, hour, _)| hour.saturating_mul(SECONDS_PER_HOUR))
-            .collect();
-        let counts: Vec<i32> = batch.iter().map(|(_, _, n)| n.cast_signed()).collect();
+        let mut conn = accounts.get().await?;
+        for chunk in batch.chunks(USAGE_FLUSH_BATCH_ROWS) {
+            let rows = chunk
+                .iter()
+                .map(|&(key_id, hour, count)| {
+                    (
+                        usage_hourly::api_key_id.eq(key_id),
+                        usage_hourly::hour.eq(DateTime::from_timestamp(
+                            hour.saturating_mul(SECONDS_PER_HOUR),
+                            0,
+                        )
+                        .unwrap_or_default()),
+                        usage_hourly::requests.eq(count.cast_signed()),
+                    )
+                })
+                .collect::<Vec<_>>();
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "this addition builds SQL that Postgres evaluates"
+            )]
+            let accumulated = usage_hourly::requests + excluded(usage_hourly::requests);
+            diesel::insert_into(usage_hourly::table)
+                .values(rows)
+                .on_conflict((usage_hourly::api_key_id, usage_hourly::hour))
+                .do_update()
+                .set(usage_hourly::requests.eq(accumulated))
+                .execute(&mut conn)
+                .await?;
 
-        sqlx::query(
-            r#"
-      INSERT INTO usage_hourly (api_key_id, hour, requests)
-      SELECT k, to_timestamp(h), c
-      FROM unnest($1::bigint[], $2::bigint[], $3::int[]) AS t(k, h, c)
-      ON CONFLICT (api_key_id, hour)
-      DO UPDATE SET requests = usage_hourly.requests + EXCLUDED.requests
-    "#,
-        )
-        .bind(&key_ids)
-        .bind(&hours)
-        .bind(&counts)
-        .execute(accounts)
-        .await?;
-
-        sqlx::query("UPDATE api_keys SET last_used_at = now() WHERE id = ANY($1)")
-            .bind(&key_ids)
-            .execute(accounts)
-            .await?;
+            let key_ids: Vec<i64> = chunk.iter().map(|&(key_id, _, _)| key_id).collect();
+            diesel::update(api_keys::table.filter(api_keys::id.eq_any(key_ids)))
+                .set(api_keys::last_used_at.eq(now))
+                .execute(&mut conn)
+                .await?;
+        }
 
         Ok(u64::try_from(batch.len()).unwrap_or(u64::MAX))
     }

@@ -16,14 +16,12 @@ use std::time::Duration;
 
 use qafiyah_api::config::Config;
 use qafiyah_api::constants::{
-    PG_ACCOUNTS_POOL_MAX_CONNECTIONS, PG_ACQUIRE_TIMEOUT_SECONDS, PG_LOCK_TIMEOUT_SECONDS,
-    PG_POOL_MAX_CONNECTIONS, PG_STATEMENT_TIMEOUT_SECONDS,
+    PG_ACCOUNTS_POOL_MAX_CONNECTIONS, PG_ACQUIRE_TIMEOUT_SECONDS, PG_POOL_MAX_CONNECTIONS,
 };
 use qafiyah_api::es::client::Es;
 use qafiyah_api::log::stage_event;
 use qafiyah_api::sentry;
 use qafiyah_api::state::AppState;
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 fn main() {
     let config = match Config::from_env(8787) {
@@ -67,46 +65,26 @@ async fn serve(config: Config) {
         }
     };
 
-    let accounts_options = match config.database_url_accounts.parse::<PgConnectOptions>() {
-        Ok(options) => options.options([
-            (
-                "statement_timeout",
-                format!("{PG_STATEMENT_TIMEOUT_SECONDS}s"),
-            ),
-            ("lock_timeout", format!("{PG_LOCK_TIMEOUT_SECONDS}s")),
-        ]),
-        Err(e) => {
-            eprintln!(
-                "{}",
-                stage_event("boot_accounts", Some(("error", e.to_string().into())))
-            );
-            std::process::exit(1);
-        }
-    };
+    if let Err(e) = qafiyah_api::db::migrate(&config.database_url_accounts).await {
+        eprintln!("{}", stage_event("migrate", Some(("error", e.into()))));
+        std::process::exit(1);
+    }
 
-    let accounts = match PgPoolOptions::new()
-        .max_connections(PG_ACCOUNTS_POOL_MAX_CONNECTIONS)
-        .acquire_timeout(Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS))
-        .connect_with(accounts_options)
-        .await
-    {
+    let accounts = match qafiyah_api::db::pool(
+        &config.database_url_accounts,
+        PG_ACCOUNTS_POOL_MAX_CONNECTIONS,
+        Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
+        qafiyah_api::db::accounts_setup(),
+    ) {
         Ok(pool) => pool,
         Err(e) => {
             eprintln!(
                 "{}",
-                stage_event("boot_accounts", Some(("error", e.to_string().into())))
+                stage_event("boot_accounts", Some(("error", e.into())))
             );
             std::process::exit(1);
         }
     };
-
-    if let Err(e) = sqlx::migrate!("./migrations").run(&accounts).await {
-        eprintln!(
-            "{}",
-            stage_event("migrate", Some(("error", e.to_string().into())))
-        );
-        std::process::exit(1);
-    }
 
     let es = match Es::new(&config.elasticsearch_url) {
         Ok(es) => Arc::new(es),

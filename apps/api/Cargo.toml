@@ -11,12 +11,6 @@ workspace = true
 axum = "0.8"
 base64 = "0.23"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
-sqlx = { version = "0.9", default-features = false, features = [
-  "runtime-tokio",
-  "postgres",
-  "macros",
-  "migrate",
-] }
 qafiyah-elasticsearch = { path = "../../crates/elasticsearch" }
 serde = { version = "1", features = ["derive"] }
 form_urlencoded = "1"
@@ -39,11 +33,14 @@ sentry = { version = "0.49", default-features = false, features = [
 diesel = { version = "2.3", default-features = false, features = [
   "postgres_backend",
   "serde_json",
+  "chrono",
   "32-column-tables",
 ] }
-diesel-async = { version = "0.9", features = ["postgres", "deadpool"] }
+diesel-async = { version = "0.9", features = ["postgres", "deadpool", "migrations"] }
 deadpool = { version = "0.13", default-features = false, features = ["managed", "rt_tokio_1"] }
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+diesel_migrations = { version = "2.3", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["sync", "time"] }

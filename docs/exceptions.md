@@ -262,16 +262,8 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** the CLI inlines its own `INSERT INTO users` and `INSERT INTO api_keys` instead of calling `users::upsert` and `keys::create_for`.
 - **Where:** `apps/api/src/bin/issue-key.rs`, `apps/api/src/accounts/keys.rs`, `apps/api/src/accounts/users.rs`
-- **Why it's unusual:** it skips `MAX_ACTIVE_KEYS_PER_USER` and stores the raw email instead of `normalize_email`. Its `ON CONFLICT (lower(email)) DO UPDATE SET email = EXCLUDED.email` also rewrites an existing user's stored email casing.
+- **Why it's unusual:** it skips `MAX_ACTIVE_KEYS_PER_USER`, and its user upsert repeats the one in `users::upsert` without the identity link.
 - **Normal approach:** the CLI calls the same library functions the HTTP routes use.
-- **Status:** Needs review
-
-### Account timestamps are hand-formatted with a literal `Z`
-
-- **What:** timestamps are rendered in SQL with `to_char(.., 'YYYY-MM-DD"T"HH24:MI:SS"Z"')` into `String`, and usage hours are epoch-hour integers computed in Rust.
-- **Where:** `apps/api/src/accounts/keys.rs`, `apps/api/src/accounts/usage.rs`, `apps/api/src/rate_limit.rs`, `apps/api/src/main.rs` (connect options)
-- **Why it's unusual:** `to_char` on a `timestamptz` follows the session `TimeZone`, so the literal `Z` is correct only while the server default happens to be UTC, and no `TimeZone` is set on connect. The `civil_from_days` exception covers only `log.rs`.
-- **Normal approach:** sqlx's `time` or `chrono` feature with RFC 3339 serialization, or at least `TimeZone=UTC` in the connect options.
 - **Status:** Needs review
 
 ### API errors render through several paths and four problem structs
@@ -324,7 +316,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### The search indexer diverges from the API's stack
 
-- **What:** the indexer uses tokio-postgres where the API uses sqlx, and `Result<_, String>` throughout where conventions say `thiserror`. It also has a second hand-rolled `civil_from_days`, used only for a `lastReindexAt` field nobody reads, next to a `lastError` that is always null.
+- **What:** the indexer uses tokio-postgres where the API uses Diesel, and `Result<_, String>` throughout where conventions say `thiserror`. It also has a second hand-rolled `civil_from_days`, used only for a `lastReindexAt` field nobody reads, next to a `lastError` that is always null.
 - **Where:** `apps/search-indexer/Cargo.toml`, `apps/search-indexer/src/main.rs`, `apps/search-indexer/src/pg.rs`
 - **Why it's unusual:** one workspace ends up with two Postgres drivers and two error styles, and the approved `civil_from_days` entry lists only `apps/api/src/log.rs`. The pg tests assert on the SQL text instead of running it.
 - **Normal approach:** one driver per workspace, `thiserror` or `anyhow`, and SQL tested against the database with the existing `rust:test:db`.
@@ -343,7 +335,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **What:** ES query snapshots go through a dedicated `es-query-dump` binary, a Bun script, and a committed vectors file. An xorshift `Rng` drives the "never panics" loops, and DB tests return early, and so pass, when `QAFIYAH_TEST_*` is unset.
 - **Where:** `apps/api/src/bin/es-query-dump.rs`, `scripts/es/query-snapshot.ts`, `apps/api/generated/es/query.vectors.json`, `apps/api/src/test_support.rs`, `apps/api/tests/db.rs`, `apps/api/src/es/query.rs`
 - **Why it's unusual:** each piece is a homemade version of a standard crate. The dump binary ships in the release build, `rand` is already a dependency, and a skipped DB test shows up as a pass. `PoetSearchParams::default()` also enables highlighting that both production callers turn off, so only the dump and the tests use it.
-- **Normal approach:** `insta::assert_json_snapshot!`, `proptest` (or a seeded `rand` RNG), and `#[ignore = "needs QAFIYAH_TEST_*"]` or `#[sqlx::test]`.
+- **Normal approach:** `insta::assert_json_snapshot!`, `proptest` (or a seeded `rand` RNG), and `#[ignore = "needs QAFIYAH_TEST_*"]`.
 - **Status:** Needs review
 
 ### Text files and snapshots go through custom codegen and duplicate checks
@@ -614,19 +606,11 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 - **Normal approach:** an auth library that verifies and links accounts where the user row is written.
 - **Date:** 2026-09-21
 
-### `build.rs` exists only to watch `migrations/`
-
-- **What:** `apps/api/build.rs` does nothing but emit `cargo:rerun-if-changed=migrations`.
-- **Where:** `apps/api/build.rs`
-- **Why:** `sqlx::migrate!` embeds the SQL at compile time and cargo does not watch `migrations/` on its own, so a new migration file is silently ignored until something else triggers a rebuild.
-- **Normal approach:** no build script.
-- **Date:** 2026-09-21
-
 ### Shipped migrations are never edited, not even reformatted
 
 - **What:** a fix is always a new migration, no formatter touches `.sql` files, and a shipped migration that squawk flags is excluded in `.squawk.toml` rather than edited.
 - **Where:** `apps/api/migrations/`, `.squawk.toml`
-- **Why:** sqlx checksums every applied migration and API startup refuses one whose bytes changed. `bun run check:sql` runs squawk over new migrations (lock and timeout hazards, a `NOT NULL` column without a default, a blocking index build); `0001_accounts.sql` predates that and is excluded, and a squawk upgrade that flags a shipped migration gets the same exclusion.
+- **Why:** a shipped migration has already run on prod, so an edit changes only fresh databases and the two drift apart. `bun run check:sql` runs squawk over new migrations (lock and timeout hazards, a `NOT NULL` column without a default, a blocking index build); `0001_accounts/up.sql` predates that and is excluded, and a squawk upgrade that flags a shipped migration gets the same exclusion. The one edit so far made `0001_accounts/up.sql` idempotent when the runner moved from sqlx to Diesel: Diesel keeps its own `__diesel_schema_migrations` table, so it applies `0001` once more on a database sqlx already migrated. `_sqlx_migrations` stays so an older build can still boot.
 - **Normal approach:** fix lint and format findings in place.
 - **Date:** 2026-09-23
 

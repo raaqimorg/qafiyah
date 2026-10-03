@@ -47,7 +47,7 @@ async fn upsert_user(
     match users::upsert(&state.accounts, &identity).await {
         Ok(profile) => Ok(Json(profile)),
         Err(users::UpsertError::EmailTaken) => Err(AppError::EmailTaken),
-        Err(users::UpsertError::Database(e)) => Err(AppError::from(e)),
+        Err(users::UpsertError::Database(e)) => Err(e),
     }
 }
 
@@ -157,7 +157,7 @@ async fn create_key(
         })),
         Err(KeyError::TooMany) => Err(AppError::TooManyKeys),
         Err(KeyError::NoSuchUser) => Err(AppError::NotFound(Resource::Account)),
-        Err(KeyError::Database(e)) => Err(AppError::from(e)),
+        Err(KeyError::Database(e)) => Err(e),
     }
 }
 

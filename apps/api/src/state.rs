@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use sqlx::PgPool;
-
 use crate::accounts::cache::KeyCache;
 use crate::accounts::usage::UsageRecorder;
 use crate::auth::Keys;
@@ -12,7 +10,7 @@ use crate::rate_limit::Limiter;
 #[derive(Clone)]
 pub struct AppState {
     pub pg: db::PgPool,
-    pub accounts: PgPool,
+    pub accounts: db::PgPool,
     pub es: Arc<Es>,
     pub keys: Arc<Keys>,
     pub limiter: Arc<Limiter>,

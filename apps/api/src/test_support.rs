@@ -7,8 +7,6 @@ use axum::http::{HeaderMap, Request, StatusCode};
 use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::Value;
-use sqlx::PgPool;
-use sqlx::postgres::PgPoolOptions;
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
@@ -21,14 +19,7 @@ use crate::state::AppState;
 
 const UNREACHABLE_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
 
-pub fn lazy_pool() -> PgPool {
-    PgPoolOptions::new()
-        .acquire_timeout(Duration::from_millis(250))
-        .connect_lazy(UNREACHABLE_POSTGRES)
-        .expect("a lazy pool never connects at construction")
-}
-
-pub fn lazy_corpus_pool() -> crate::db::PgPool {
+pub fn lazy_pool() -> crate::db::PgPool {
     crate::db::pool(
         UNREACHABLE_POSTGRES,
         1,
@@ -89,7 +80,7 @@ impl FakeEs {
 
 pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
     AppState {
-        pg: lazy_corpus_pool(),
+        pg: lazy_pool(),
         accounts: lazy_pool(),
         es: Arc::new(Es::with_timeout(&es.url, Duration::from_secs(2)).expect("a fake endpoint")),
         keys: Arc::new(keys),

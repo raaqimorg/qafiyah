@@ -1,5 +1,11 @@
+use diesel::prelude::*;
+use diesel::upsert::excluded;
+use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+
+use crate::db::accounts_schema::{identities, users};
+use crate::db::{PgPool, coalesce, lower};
+use crate::error::AppError;
 
 #[derive(Debug, Deserialize)]
 pub struct Identity {
@@ -10,7 +16,8 @@ pub struct Identity {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Queryable, Selectable)]
+#[diesel(table_name = users, check_for_backend(diesel::pg::Pg))]
 pub struct Profile {
     pub id: i64,
     pub email: String,
@@ -27,80 +34,90 @@ pub enum UpsertError {
     #[error("this email already belongs to a different account")]
     EmailTaken,
     #[error(transparent)]
-    Database(#[from] sqlx::Error),
+    Database(#[from] AppError),
+}
+
+impl From<diesel::result::Error> for UpsertError {
+    fn from(error: diesel::result::Error) -> Self {
+        UpsertError::Database(error.into())
+    }
+}
+
+async fn upsert_with(
+    conn: &mut AsyncPgConnection,
+    identity: &Identity,
+    email: &str,
+) -> Result<Profile, UpsertError> {
+    let linked = identities::table
+        .filter(identities::provider.eq(&identity.provider))
+        .filter(identities::provider_uid.eq(&identity.provider_uid))
+        .select(identities::user_id)
+        .first::<i64>(&mut *conn)
+        .await
+        .optional()?;
+
+    let profile = if let Some(user_id) = linked {
+        let taken = users::table
+            .filter(lower(users::email).eq(email))
+            .filter(users::id.ne(user_id))
+            .select(users::id)
+            .first::<i64>(&mut *conn)
+            .await
+            .optional()?;
+        if taken.is_some() {
+            return Err(UpsertError::EmailTaken);
+        }
+        diesel::update(users::table.find(user_id))
+            .set((
+                users::email.eq(email),
+                users::display_name.eq(coalesce(
+                    identity.display_name.as_deref(),
+                    users::display_name,
+                )),
+                users::avatar_url.eq(coalesce(identity.avatar_url.as_deref(), users::avatar_url)),
+            ))
+            .returning(Profile::as_returning())
+            .get_result::<Profile>(&mut *conn)
+            .await?
+    } else {
+        diesel::insert_into(users::table)
+            .values((
+                users::email.eq(email),
+                users::display_name.eq(identity.display_name.as_deref()),
+                users::avatar_url.eq(identity.avatar_url.as_deref()),
+            ))
+            .on_conflict(users::email)
+            .do_update()
+            .set((
+                users::display_name
+                    .eq(coalesce(excluded(users::display_name), users::display_name)),
+                users::avatar_url.eq(coalesce(excluded(users::avatar_url), users::avatar_url)),
+            ))
+            .returning(Profile::as_returning())
+            .get_result::<Profile>(&mut *conn)
+            .await?
+    };
+
+    diesel::insert_into(identities::table)
+        .values((
+            identities::provider.eq(&identity.provider),
+            identities::provider_uid.eq(&identity.provider_uid),
+            identities::user_id.eq(profile.id),
+        ))
+        .on_conflict((identities::provider, identities::provider_uid))
+        .do_update()
+        .set(identities::user_id.eq(excluded(identities::user_id)))
+        .execute(&mut *conn)
+        .await?;
+    Ok(profile)
 }
 
 pub async fn upsert(accounts: &PgPool, identity: &Identity) -> Result<Profile, UpsertError> {
     let email = normalize_email(&identity.email);
-    let mut tx = accounts.begin().await?;
-
-    let linked: Option<i64> = sqlx::query_scalar(
-        "SELECT user_id FROM identities WHERE provider = $1 AND provider_uid = $2",
-    )
-    .bind(&identity.provider)
-    .bind(&identity.provider_uid)
-    .fetch_optional(&mut *tx)
-    .await?;
-
-    let profile = if let Some(user_id) = linked {
-        let taken: Option<i64> =
-            sqlx::query_scalar("SELECT id FROM users WHERE lower(email) = $1 AND id <> $2")
-                .bind(&email)
-                .bind(user_id)
-                .fetch_optional(&mut *tx)
-                .await?;
-        if taken.is_some() {
-            return Err(UpsertError::EmailTaken);
-        }
-        sqlx::query_as::<_, Profile>(
-            r#"
-      UPDATE users
-      SET email = $1,
-          display_name = COALESCE($2, display_name),
-          avatar_url   = COALESCE($3, avatar_url)
-      WHERE id = $4
-      RETURNING id, email, display_name, avatar_url
-      "#,
-        )
-        .bind(&email)
-        .bind(&identity.display_name)
-        .bind(&identity.avatar_url)
-        .bind(user_id)
-        .fetch_one(&mut *tx)
-        .await?
-    } else {
-        sqlx::query_as::<_, Profile>(
-            r#"
-      INSERT INTO users (email, display_name, avatar_url)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (lower(email)) DO UPDATE
-        SET display_name = COALESCE(EXCLUDED.display_name, users.display_name),
-            avatar_url   = COALESCE(EXCLUDED.avatar_url,   users.avatar_url)
-      RETURNING id, email, display_name, avatar_url
-      "#,
-        )
-        .bind(&email)
-        .bind(&identity.display_name)
-        .bind(&identity.avatar_url)
-        .fetch_one(&mut *tx)
-        .await?
-    };
-
-    sqlx::query(
-        r#"
-      INSERT INTO identities (provider, provider_uid, user_id)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (provider, provider_uid) DO UPDATE SET user_id = EXCLUDED.user_id
-      "#,
-    )
-    .bind(&identity.provider)
-    .bind(&identity.provider_uid)
-    .bind(profile.id)
-    .execute(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-    Ok(profile)
+    let mut pooled = accounts.get().await.map_err(AppError::from)?;
+    let conn: &mut AsyncPgConnection = &mut pooled;
+    conn.transaction::<_, UpsertError, _>(async |conn| upsert_with(conn, identity, &email).await)
+        .await
 }
 
 #[cfg(test)]
