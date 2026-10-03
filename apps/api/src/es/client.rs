@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use qafiyah_elasticsearch::Endpoint;
 use reqwest::Method;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::constants::ES_SEARCH_TIMEOUT_SECONDS;
@@ -29,7 +30,11 @@ impl Es {
         })
     }
 
-    pub async fn search(&self, index: &str, body: &Value) -> Result<Value, StoreError> {
+    pub async fn search<T: DeserializeOwned>(
+        &self,
+        index: &str,
+        body: &Value,
+    ) -> Result<T, StoreError> {
         let response = self
             .endpoint
             .request(Method::POST, &format!("/{index}/_search"))
@@ -91,7 +96,7 @@ mod tests {
         let es = Es::with_timeout(&format!("http://{address}"), timeout).expect("an endpoint");
         let outcome = tokio::time::timeout(
             timeout + Duration::from_secs(5),
-            es.search("poems", &serde_json::json!({})),
+            es.search::<Value>("poems", &serde_json::json!({})),
         )
         .await;
 
@@ -118,7 +123,9 @@ mod tests {
         .await;
         let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
 
-        let result = client.search("poems", &serde_json::json!({})).await;
+        let result = client
+            .search::<Value>("poems", &serde_json::json!({}))
+            .await;
 
         assert!(
             matches!(&result, Err(StoreError::Search(message)) if message == "poems: 400 Bad Request: no mapping found for `primaryId` in order to collapse on"),
@@ -149,7 +156,9 @@ mod tests {
         let client = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
             .expect("an endpoint");
 
-        let result = client.search("poems", &serde_json::json!({})).await;
+        let result = client
+            .search::<Value>("poems", &serde_json::json!({}))
+            .await;
 
         assert!(
             matches!(&result, Err(StoreError::Search(message)) if message == "poems: 502 Bad Gateway"),
@@ -166,7 +175,9 @@ mod tests {
         )
         .await;
         let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
-        let result = client.search("poems", &serde_json::json!({})).await;
+        let result = client
+            .search::<Value>("poems", &serde_json::json!({}))
+            .await;
         assert!(matches!(result, Err(StoreError::Search(message)) if message.contains("502")));
     }
 }

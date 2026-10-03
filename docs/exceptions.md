@@ -162,14 +162,6 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** `axum_extra::extract::Query<T>` (serde_html_form) on a `#[derive(Deserialize, IntoParams)]` struct per endpoint, so parsing and docs come from one type.
 - **Status:** Needs review
 
-### Elasticsearch responses are read as untyped JSON with silent defaults
-
-- **What:** search hits are mapped by indexing into `serde_json::Value`, so a missing or renamed field becomes `""`, `0`, or `false`.
-- **Where:** `apps/api/src/es/search.rs`, `apps/api/src/es/client.rs`
-- **Why it's unusual:** it contradicts the repo's own "validate at entry, fail loudly at boundaries" rule. A mapping drift would ship empty slugs and names with a 200, and a test pins the silent defaults. `total_hits` also accepts the pre-ES7 numeric `hits.total` shape, which this stack never returns.
-- **Normal approach:** `#[derive(Deserialize)]` structs for the response and each hit's `_source`, with required fields non-optional.
-- **Status:** Needs review
-
 ### JSON-LD builders validate their own output at runtime and throw
 
 - **What:** each schema.org builder builds an object from typed data, runs it through a hand-written valibot schema, and throws if validation fails.

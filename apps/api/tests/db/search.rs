@@ -31,7 +31,7 @@ async fn searched_poems(es: &Es, index: &str, q: &str, exact: bool) -> Vec<Value
         exact,
         ..PoemSearchParams::default()
     });
-    let response = es.search(index, &body).await.expect("a search");
+    let response: Value = es.search(index, &body).await.expect("a search");
     response
         .get("hits")
         .and_then(|hits| hits.get("hits"))
