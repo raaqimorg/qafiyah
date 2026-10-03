@@ -1,9 +1,12 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use qafiyah_elasticsearch::Endpoint;
 use reqwest::{Method, StatusCode};
 use serde::Serialize;
 use serde_json::{Value, json};
+
+use crate::reindex::IndexStore;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const FORCE_MERGE_TIMEOUT: Duration = Duration::from_secs(1800);
@@ -84,7 +87,33 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, String> {
+    pub(crate) async fn index_exists(&self, index: &str) -> Result<bool, String> {
+        let res = self
+            .request(Method::HEAD, &format!("/{index}"))
+            .send()
+            .await
+            .map_err(|e| format!("exists {index}: {e}"))?;
+        Ok(res.status().is_success())
+    }
+
+    pub(crate) async fn alias_count(&self, alias: &str) -> Result<Option<u64>, String> {
+        let path = format!("/{alias}/_count");
+        let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
+        if status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            return Err(format!("{path}: {status}: {value}"));
+        }
+        Ok(Some(
+            value.get("count").and_then(Value::as_u64).unwrap_or(0),
+        ))
+    }
+}
+
+#[async_trait]
+impl IndexStore for Es {
+    async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, String> {
         let path = format!("/_cat/indices/{prefix}*?format=json");
         let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
         if status == StatusCode::NOT_FOUND {
@@ -96,16 +125,7 @@ impl Es {
         Ok(index_names(&value))
     }
 
-    pub(crate) async fn index_exists(&self, index: &str) -> Result<bool, String> {
-        let res = self
-            .request(Method::HEAD, &format!("/{index}"))
-            .send()
-            .await
-            .map_err(|e| format!("exists {index}: {e}"))?;
-        Ok(res.status().is_success())
-    }
-
-    pub(crate) async fn create_index(&self, index: &str, body: &Value) -> Result<(), String> {
+    async fn create_index(&self, index: &str, body: &Value) -> Result<(), String> {
         if self.index_exists(index).await? {
             return Ok(());
         }
@@ -114,24 +134,20 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn put_refresh_interval(
-        &self,
-        index: &str,
-        value: &str,
-    ) -> Result<(), String> {
+    async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), String> {
         let body = json!({ "refresh_interval": value });
         self.expect_ok(Method::PUT, &format!("/{index}/_settings"), Some(&body))
             .await?;
         Ok(())
     }
 
-    pub(crate) async fn refresh(&self, index: &str) -> Result<(), String> {
+    async fn refresh(&self, index: &str) -> Result<(), String> {
         self.expect_ok::<()>(Method::POST, &format!("/{index}/_refresh"), None)
             .await?;
         Ok(())
     }
 
-    pub(crate) async fn force_merge(&self, index: &str) -> Result<(), String> {
+    async fn force_merge(&self, index: &str) -> Result<(), String> {
         let path = format!("/{index}/_forcemerge?max_num_segments=1");
         let res = self
             .endpoint
@@ -148,21 +164,7 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn alias_count(&self, alias: &str) -> Result<Option<u64>, String> {
-        let path = format!("/{alias}/_count");
-        let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
-        if status == StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-        if !status.is_success() {
-            return Err(format!("{path}: {status}: {value}"));
-        }
-        Ok(Some(
-            value.get("count").and_then(Value::as_u64).unwrap_or(0),
-        ))
-    }
-
-    pub(crate) async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), String> {
+    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), String> {
         let body = ndjson_body(index, docs);
         let res = self
             .request(Method::POST, "/_bulk")
@@ -182,12 +184,7 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn swap_alias(
-        &self,
-        alias: &str,
-        prefix: &str,
-        to_index: &str,
-    ) -> Result<(), String> {
+    async fn swap_alias(&self, alias: &str, prefix: &str, to_index: &str) -> Result<(), String> {
         let body = json!({
             "actions": [
                 { "remove": { "alias": alias, "index": format!("{prefix}*"), "must_exist": false } },
@@ -199,7 +196,7 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn delete_index_quietly(&self, index: &str) {
+    async fn delete_index_quietly(&self, index: &str) {
         let _result = self
             .request(Method::DELETE, &format!("/{index}?ignore_unavailable=true"))
             .send()
@@ -250,48 +247,9 @@ pub(crate) fn index_names(value: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub(crate) fn next_index_name(prefix: &str, existing: &[String]) -> String {
-    let next = existing
-        .iter()
-        .filter(|name| name.starts_with(prefix))
-        .filter_map(|name| {
-            name.get(prefix.len()..)
-                .and_then(|suffix| suffix.parse::<u32>().ok())
-        })
-        .max()
-        .map_or(1, |v| v.saturating_add(1));
-    format!("{prefix}{next}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_next_index_name_follows_the_audit_table() {
-        let owned = |names: &[&str]| names.iter().map(|n| (*n).to_string()).collect::<Vec<_>>();
-        assert_eq!(next_index_name("poems_v", &[]), "poems_v1");
-        assert_eq!(
-            next_index_name("poems_v", &owned(&["poems_v1", "poems_v3"])),
-            "poems_v4"
-        );
-        assert_eq!(
-            next_index_name("poems_v", &owned(&["poems_v2_old", "poems_v", "poems_v1"])),
-            "poems_v2"
-        );
-        assert_eq!(
-            next_index_name("poems_v", &owned(&["poems_v007"])),
-            "poems_v8"
-        );
-        assert_eq!(
-            next_index_name("poems_v", &owned(&["poems_v+5"])),
-            "poems_v6"
-        );
-        assert_eq!(
-            next_index_name("poems_v", &owned(&["poets_v9"])),
-            "poems_v1"
-        );
-    }
 
     #[test]
     fn the_bulk_body_is_one_action_line_and_one_document_line_per_doc() {

@@ -1545,6 +1545,7 @@ dependencies = [
 name = "qafiyah-search-indexer"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "diesel",
  "diesel-async",
  "qafiyah-corpus",

@@ -3,11 +3,12 @@ mod docs;
 mod es;
 mod log;
 mod pg;
+mod reindex;
 
 use serde_json::{Value, json};
 
-use crate::docs::{to_poem_doc, to_poet_doc};
-use crate::es::{Es, next_index_name};
+use crate::es::Es;
+use crate::reindex::{Ctx, Target, reindex};
 use qafiyah_elasticsearch::{Schema, load as load_schema};
 
 struct Env {
@@ -38,114 +39,6 @@ fn batch_size(configured: usize) -> Result<usize, String> {
     Ok(configured)
 }
 
-const PROGRESS_EVERY: usize = 10_000;
-
-fn reached_progress_mark(before: usize, after: usize) -> bool {
-    after / PROGRESS_EVERY > before / PROGRESS_EVERY
-}
-
-struct Target<'a> {
-    alias: &'a str,
-    prefix: &'a str,
-    body: &'a Value,
-    is_poems: bool,
-}
-
-struct Ctx<'a> {
-    es: &'a Es,
-    pgc: &'a diesel_async::AsyncPgConnection,
-    batch_size: usize,
-    rules: &'a [(String, String)],
-}
-
-async fn reindex(ctx: &Ctx<'_>, target_def: &Target<'_>) -> Result<(String, usize), String> {
-    let es = ctx.es;
-    let existing = es.list_indices_for_alias(target_def.prefix).await?;
-    let target = next_index_name(target_def.prefix, &existing);
-    es.create_index(&target, target_def.body).await?;
-
-    let populated = populate(ctx, &target, target_def.is_poems).await;
-    let count = match populated {
-        Ok(count) => count,
-        Err(e) => {
-            es.delete_index_quietly(&target).await;
-            return Err(e);
-        }
-    };
-
-    es.swap_alias(target_def.alias, target_def.prefix, &target)
-        .await?;
-    for name in existing.iter().filter(|n| *n != &target) {
-        es.delete_index_quietly(name).await;
-    }
-    Ok((target, count))
-}
-
-#[expect(
-    clippy::print_stdout,
-    reason = "this batch job's output is its structured log"
-)]
-async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, String> {
-    let (es, pgc, batch_size, rules) = (ctx.es, ctx.pgc, ctx.batch_size, ctx.rules);
-    let limit = i64::try_from(batch_size).map_err(|_| "bulkBatchSize exceeds i64".to_string())?;
-    let expected = pg::count_rows(pgc, is_poems).await?;
-    let index = if is_poems { "poems" } else { "poets" };
-    es.put_refresh_interval(target, "-1").await?;
-    let mut cursor: i32 = 0;
-    let mut total = 0usize;
-    loop {
-        let batch: Vec<(String, String)> = if is_poems {
-            let rows = pg::stream_poem_batch(pgc, cursor, limit).await?;
-            let Some(last) = rows.last() else {
-                break;
-            };
-            cursor = last.id;
-            rows.into_iter()
-                .map(to_poem_doc)
-                .map(|d| {
-                    (
-                        d.slug.clone(),
-                        serde_json::to_string(&d).unwrap_or_default(),
-                    )
-                })
-                .collect()
-        } else {
-            let rows = pg::stream_poet_batch(pgc, cursor, limit).await?;
-            let Some(last) = rows.last() else {
-                break;
-            };
-            cursor = last.id;
-            rows.into_iter()
-                .map(|r| to_poet_doc(r, rules))
-                .map(|d| {
-                    (
-                        d.slug.clone(),
-                        serde_json::to_string(&d).unwrap_or_default(),
-                    )
-                })
-                .collect()
-        };
-        let before = total;
-        total = total
-            .checked_add(batch.len())
-            .ok_or_else(|| "indexed count overflow".to_string())?;
-        es.bulk(target, &batch).await?;
-        if reached_progress_mark(before, total) {
-            println!(
-                "{}",
-                log::event(
-                    "progress",
-                    json!({ "index": index, "indexed": total, "total": expected })
-                )
-            );
-        }
-    }
-    es.put_refresh_interval(target, "1s").await?;
-    es.force_merge(target).await?;
-    es.refresh(target).await?;
-    Ok(total)
-}
-
 #[expect(
     clippy::print_stdout,
     reason = "this batch job's output is its structured log"
@@ -174,11 +67,11 @@ async fn bootstrap(env: &Env, schema: &Schema) -> Result<Value, String> {
     }
 
     let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
-    let pgc = pg::connect(&env.database_url).await?;
+    let corpus = pg::connect(&env.database_url).await?;
 
     let ctx = Ctx {
-        es: &es,
-        pgc: &pgc,
+        index: &es,
+        corpus: &corpus,
         batch_size: batch_size(id.bulk_batch_size)?,
         rules: &rules,
     };
@@ -298,15 +191,7 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn progress_is_reported_each_time_the_count_passes_a_multiple_of_ten_thousand() {
-        assert!(reached_progress_mark(9_000, 10_000));
-        assert!(reached_progress_mark(19_500, 20_500));
-        assert!(!reached_progress_mark(10_000, 11_000));
-        assert!(!reached_progress_mark(0, 1_000));
-        assert!(!reached_progress_mark(348_000, 348_691));
-    }
+    use crate::reindex::{CorpusSource, IndexStore};
 
     fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
         move |name| {
@@ -428,14 +313,14 @@ mod tests {
         let mut definition = schema.poets.clone();
         definition["settings"]["index.translog.flush_threshold_size"] = json!("1kb");
         let es = Es::new(&admin_url).expect("an Elasticsearch endpoint");
-        let pgc = pg::connect(&database_url)
+        let corpus = pg::connect(&database_url)
             .await
             .expect("the corpus database");
-        let poets = pg::count_rows(&pgc, false).await.expect("a poet count");
+        let poets = corpus.count(false).await.expect("a poet count");
         let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
         let ctx = Ctx {
-            es: &es,
-            pgc: &pgc,
+            index: &es,
+            corpus: &corpus,
             batch_size: usize::try_from(poets)
                 .expect("a count")
                 .div_ceil(20)
@@ -475,13 +360,13 @@ mod tests {
         };
         let schema = load_schema();
         let es = Es::new(&admin_url).expect("an Elasticsearch endpoint");
-        let pgc = pg::connect(&database_url)
+        let corpus = pg::connect(&database_url)
             .await
             .expect("the corpus database");
         let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
         let ctx = Ctx {
-            es: &es,
-            pgc: &pgc,
+            index: &es,
+            corpus: &corpus,
             batch_size: 1000,
             rules: &rules,
         };
