@@ -26,7 +26,7 @@ import {
   TATWEEL_AR,
   ZWNJ_AR,
 } from '../checks';
-import { expectJsonObject, expectPoemHits } from '../checks/body';
+import { expectJsonObject, expectOnlyEra, expectPoemHits } from '../checks/body';
 import { FIXTURE_POET } from '../fixtures';
 import { SEARCH } from '../target';
 
@@ -92,6 +92,18 @@ export const searchOkProbes: readonly Probe[] = [
     url: searchUrl({ types: ['poems'], eraSlugs: ['jahili'], meterSlugs: ['albasit'] }),
     expect: 'ok',
     note: 'filter-only, empty query',
+  },
+  {
+    url: searchUrl({ q: '', types: ['poems'], eraSlugs: ['jahili'] }),
+    expect: 'ok',
+    checks: [expectOnlyEra('poems', 'jahili')],
+    note: 'era-only browse lists poems of that era',
+  },
+  {
+    url: searchUrl({ q: '', types: ['poets'], eraSlugs: ['jahili'] }),
+    expect: 'ok',
+    checks: [expectOnlyEra('poets', 'jahili')],
+    note: 'era-only browse lists poets of that era',
   },
   {
     url: searchUrl({

@@ -38,6 +38,29 @@ export const expectPoemHits: Check = {
   },
 };
 
+function eraSlugOf(item: unknown): unknown {
+  if (typeof item !== 'object' || item === null || !('era' in item)) return undefined;
+  const era = item.era;
+  return typeof era === 'object' && era !== null && 'slug' in era ? era.slug : undefined;
+}
+
+export const expectOnlyEra = (section: 'poems' | 'poets', era: string): Check => ({
+  name: `${section} all from era ${era}`,
+  run: (body) => {
+    const parsed = parseJsonObject(body);
+    if (parsed.isErr()) return err(parsed.error);
+    const found = parsed.value[section];
+    const items =
+      typeof found === 'object' && found !== null && 'data' in found ? found.data : null;
+    if (!Array.isArray(items)) return err(`${section}.data is not an array`);
+    if (items.length === 0) return err(`no ${section} came back`);
+    const strays = items.filter((item: unknown) => eraSlugOf(item) !== era).length;
+    return strays === 0
+      ? ok(undefined)
+      : err(`${strays} of ${items.length} ${section} are not from era ${era}`);
+  },
+});
+
 export const notContainsText = (needle: string): Check => ({
   name: `does not contain ${JSON.stringify(needle)}`,
   run: (body) =>

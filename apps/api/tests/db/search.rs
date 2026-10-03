@@ -658,3 +658,45 @@ async fn an_exact_search_finds_a_poem_by_a_title_that_is_not_in_its_text() {
         })
         .await;
 }
+
+async fn browsed_eras(h: &Harness, section: &str) -> Vec<String> {
+    let sent = h
+        .get(&format!(
+            "/v1/search?q=&types={section}&poemsPage=1&poetsPage=1&eraSlugs=jahili&exact=false"
+        ))
+        .await;
+    assert_eq!(sent.status, StatusCode::OK, "{section}: {}", sent.body);
+    sent.json()
+        .get(section)
+        .and_then(|found| found.get("data"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|item| {
+            item.pointer("/era/slug")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn an_era_with_no_query_lists_only_the_poems_of_that_era() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    let eras = browsed_eras(&h, "poems").await;
+    assert!(!eras.is_empty(), "no poems came back");
+    assert!(eras.iter().all(|era| era == "jahili"), "{eras:?}");
+}
+
+#[tokio::test]
+async fn an_era_with_no_query_lists_only_the_poets_of_that_era() {
+    let Some(h) = harness().await else {
+        return;
+    };
+    let eras = browsed_eras(&h, "poets").await;
+    assert!(!eras.is_empty(), "no poets came back");
+    assert!(eras.iter().all(|era| era == "jahili"), "{eras:?}");
+}
