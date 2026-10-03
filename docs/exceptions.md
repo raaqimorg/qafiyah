@@ -258,14 +258,6 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** a `<dialog>` opened with `showModal()`, which provides the focus trap, Escape, an inert background, and focus return. A shadcn Sheet also works.
 - **Status:** Needs review
 
-### `issue-key` bypasses the library's key invariants
-
-- **What:** the CLI inlines its own `INSERT INTO users` and `INSERT INTO api_keys` instead of calling `users::upsert` and `keys::create_for`.
-- **Where:** `apps/api/src/bin/issue-key.rs`, `apps/api/src/accounts/keys.rs`, `apps/api/src/accounts/users.rs`
-- **Why it's unusual:** it skips `MAX_ACTIVE_KEYS_PER_USER`, and its user upsert repeats the one in `users::upsert` without the identity link.
-- **Normal approach:** the CLI calls the same library functions the HTTP routes use.
-- **Status:** Needs review
-
 ### API errors render through several paths and four problem structs
 
 - **What:** handlers return a bare status with a `Problem` in the response extensions, which `error::layer` re-renders. The limiter and the account guard call `render_at` directly, and `/account` JSON bodies fall back to axum's plain-text `Json` rejection.
@@ -553,8 +545,8 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 ### API key lookups are cached, misses included
 
 - **What:** `accounts/` resolves an `x-api-key` to a `Caller` by joining `api_keys` to `users` to `plans` in the separate `qafiyah_accounts` database, behind a 60-second in-memory cache that also caches misses.
-- **Where:** `apps/api/src/accounts/cache.rs`, `apps/api/src/accounts/keys.rs`, `apps/api/src/bin/issue-key.rs`
-- **Why:** caching misses stops key spraying from becoming a database amplifier. The cache flushes entirely at its ceiling rather than evicting, because entries rebuild cheaply and the ceiling only bounds memory under spraying. Only a key with the exact shape `keys::generate` and `bin/issue-key` emit (`qaf_` plus 32 ASCII alphanumerics) reaches the cache or the database; anything else is anonymous. A lookup that hangs or fails is bounded by a 500 ms timeout and cached as a 5-second miss, so an accounts outage costs one probe per key per TTL instead of one stall per request.
+- **Where:** `apps/api/src/accounts/cache.rs`, `apps/api/src/accounts/keys.rs`
+- **Why:** caching misses stops key spraying from becoming a database amplifier. The cache flushes entirely at its ceiling rather than evicting, because entries rebuild cheaply and the ceiling only bounds memory under spraying. Only a key with the exact shape `keys::generate` emits (`qaf_` plus 32 ASCII alphanumerics) reaches the cache or the database; anything else is anonymous. A lookup that hangs or fails is bounded by a 500 ms timeout and cached as a 5-second miss, so an accounts outage costs one probe per key per TTL instead of one stall per request.
 - **Normal approach:** query the database per request, or use an LRU cache crate with per-entry eviction.
 - **Date:** 2026-09-21
 

@@ -121,4 +121,17 @@ impl UserRepository for PgUsers {
         conn.transaction::<_, UpsertError, _>(async |conn| upsert_with(conn, identity, email).await)
             .await
     }
+
+    async fn find_or_create(&self, email: &str) -> Result<Profile, StoreError> {
+        let mut conn = self.pool.get().await?;
+        Ok(diesel::insert_into(users::table)
+            .values(users::email.eq(email))
+            .on_conflict(users::email)
+            .do_update()
+            .set(users::email.eq(excluded(users::email)))
+            .returning(ProfileRow::as_returning())
+            .get_result::<ProfileRow>(&mut conn)
+            .await?
+            .into())
+    }
 }
