@@ -10,6 +10,7 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 - `docs.rs`: row to document mapping (`to_poem_doc`, `to_poet_doc`).
 - `arabic.rs`: tashkeel stripping and the sort folding derived from the schema's char filter. `arabic-text.vectors.json` is the fixture the `matches_the_shared_vectors` test pins this crate's output to.
 - `es.rs`: the Elasticsearch client, which implements `IndexStore` (create index, bulk, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap) and also provisions the API's read-only user.
+- `error.rs`: `IndexerError`, which says which side failed (configuration, Postgres, or Elasticsearch) and keeps each failure's message.
 - `log.rs`: one-line structured log output.
 
 ## Environment

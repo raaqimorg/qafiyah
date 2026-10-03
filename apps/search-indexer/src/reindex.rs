@@ -2,26 +2,34 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use crate::docs::{PoemSource, PoetSource, to_poem_doc, to_poet_doc};
+use crate::error::IndexerError;
 use crate::log;
 
 const PROGRESS_EVERY: usize = 10_000;
 
 #[async_trait]
 pub(crate) trait CorpusSource: Send + Sync {
-    async fn count(&self, is_poems: bool) -> Result<i64, String>;
-    async fn poems_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoemSource>, String>;
-    async fn poets_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoetSource>, String>;
+    async fn count(&self, is_poems: bool) -> Result<i64, IndexerError>;
+    async fn poems_after(&self, after_id: i32, limit: i64)
+    -> Result<Vec<PoemSource>, IndexerError>;
+    async fn poets_after(&self, after_id: i32, limit: i64)
+    -> Result<Vec<PoetSource>, IndexerError>;
 }
 
 #[async_trait]
 pub(crate) trait IndexStore: Send + Sync {
-    async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, String>;
-    async fn create_index(&self, index: &str, body: &Value) -> Result<(), String>;
-    async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), String>;
-    async fn refresh(&self, index: &str) -> Result<(), String>;
-    async fn force_merge(&self, index: &str) -> Result<(), String>;
-    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), String>;
-    async fn swap_alias(&self, alias: &str, prefix: &str, to_index: &str) -> Result<(), String>;
+    async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, IndexerError>;
+    async fn create_index(&self, index: &str, body: &Value) -> Result<(), IndexerError>;
+    async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), IndexerError>;
+    async fn refresh(&self, index: &str) -> Result<(), IndexerError>;
+    async fn force_merge(&self, index: &str) -> Result<(), IndexerError>;
+    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError>;
+    async fn swap_alias(
+        &self,
+        alias: &str,
+        prefix: &str,
+        to_index: &str,
+    ) -> Result<(), IndexerError>;
     async fn delete_index_quietly(&self, index: &str);
 }
 
@@ -59,7 +67,7 @@ fn reached_progress_mark(before: usize, after: usize) -> bool {
 pub(crate) async fn reindex(
     ctx: &Ctx<'_>,
     target_def: &Target<'_>,
-) -> Result<(String, usize), String> {
+) -> Result<(String, usize), IndexerError> {
     let es = ctx.index;
     let existing = es.list_indices_for_alias(target_def.prefix).await?;
     let target = next_index_name(target_def.prefix, &existing);
@@ -86,9 +94,10 @@ pub(crate) async fn reindex(
     clippy::print_stdout,
     reason = "this batch job's output is its structured log"
 )]
-async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, String> {
+async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, IndexerError> {
     let (es, corpus, batch_size, rules) = (ctx.index, ctx.corpus, ctx.batch_size, ctx.rules);
-    let limit = i64::try_from(batch_size).map_err(|_| "bulkBatchSize exceeds i64".to_string())?;
+    let limit = i64::try_from(batch_size)
+        .map_err(|_| IndexerError::Config("bulkBatchSize exceeds i64".to_string()))?;
     let expected = corpus.count(is_poems).await?;
     let index = if is_poems { "poems" } else { "poets" };
     es.put_refresh_interval(target, "-1").await?;
@@ -129,7 +138,7 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
         let before = total;
         total = total
             .checked_add(batch.len())
-            .ok_or_else(|| "indexed count overflow".to_string())?;
+            .ok_or(IndexerError::CountOverflow)?;
         es.bulk(target, &batch).await?;
         if reached_progress_mark(before, total) {
             println!(
@@ -204,13 +213,17 @@ mod tests {
 
     #[async_trait]
     impl CorpusSource for Corpus {
-        async fn count(&self, _: bool) -> Result<i64, String> {
+        async fn count(&self, _: bool) -> Result<i64, IndexerError> {
             Ok(i64::try_from(self.ids.len()).expect("a small corpus"))
         }
-        async fn poems_after(&self, _: i32, _: i64) -> Result<Vec<PoemSource>, String> {
+        async fn poems_after(&self, _: i32, _: i64) -> Result<Vec<PoemSource>, IndexerError> {
             Ok(Vec::new())
         }
-        async fn poets_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoetSource>, String> {
+        async fn poets_after(
+            &self,
+            after_id: i32,
+            limit: i64,
+        ) -> Result<Vec<PoetSource>, IndexerError> {
             self.cursors.lock().expect("the cursors").push(after_id);
             Ok(self
                 .ids
@@ -256,33 +269,38 @@ mod tests {
 
     #[async_trait]
     impl IndexStore for Index {
-        async fn list_indices_for_alias(&self, _: &str) -> Result<Vec<String>, String> {
+        async fn list_indices_for_alias(&self, _: &str) -> Result<Vec<String>, IndexerError> {
             Ok(self.existing.clone())
         }
-        async fn create_index(&self, index: &str, _: &Value) -> Result<(), String> {
+        async fn create_index(&self, index: &str, _: &Value) -> Result<(), IndexerError> {
             self.record(format!("create {index}"));
             Ok(())
         }
-        async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), String> {
+        async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), IndexerError> {
             self.record(format!("refresh_interval {index} {value}"));
             Ok(())
         }
-        async fn refresh(&self, index: &str) -> Result<(), String> {
+        async fn refresh(&self, index: &str) -> Result<(), IndexerError> {
             self.record(format!("refresh {index}"));
             Ok(())
         }
-        async fn force_merge(&self, index: &str) -> Result<(), String> {
+        async fn force_merge(&self, index: &str) -> Result<(), IndexerError> {
             self.record(format!("force_merge {index}"));
             Ok(())
         }
-        async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), String> {
+        async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError> {
             if self.rejects_writes {
-                return Err("bulk errors: rejected".into());
+                return Err(IndexerError::Elasticsearch("bulk errors: rejected".into()));
             }
             self.record(format!("bulk {index} {}", docs.len()));
             Ok(())
         }
-        async fn swap_alias(&self, alias: &str, _: &str, to_index: &str) -> Result<(), String> {
+        async fn swap_alias(
+            &self,
+            alias: &str,
+            _: &str,
+            to_index: &str,
+        ) -> Result<(), IndexerError> {
             self.record(format!("swap {alias} {to_index}"));
             Ok(())
         }
@@ -291,7 +309,10 @@ mod tests {
         }
     }
 
-    async fn reindex_poets(index: &Index, corpus: &Corpus) -> Result<(String, usize), String> {
+    async fn reindex_poets(
+        index: &Index,
+        corpus: &Corpus,
+    ) -> Result<(String, usize), IndexerError> {
         let body = json!({});
         reindex(
             &Ctx {
@@ -340,7 +361,12 @@ mod tests {
         let mut index = Index::holding(&["poets_v1"]);
         index.rejects_writes = true;
         let outcome = reindex_poets(&index, &Corpus::of(&[1, 2, 3])).await;
-        assert_eq!(outcome, Err("bulk errors: rejected".to_string()));
+        assert_eq!(
+            outcome,
+            Err(IndexerError::Elasticsearch(
+                "bulk errors: rejected".to_string()
+            ))
+        );
         assert_eq!(
             index.calls(),
             [

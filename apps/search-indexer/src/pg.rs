@@ -12,6 +12,7 @@ use qafiyah_corpus::schema::{
 };
 
 use crate::docs::{PoemSource, PoetSource};
+use crate::error::IndexerError;
 use crate::reindex::CorpusSource;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -70,19 +71,22 @@ pub(crate) struct PgCorpus {
     conn: AsyncPgConnection,
 }
 
-pub(crate) async fn connect(url: &str) -> Result<PgCorpus, String> {
+pub(crate) async fn connect(url: &str) -> Result<PgCorpus, IndexerError> {
     let conn = tokio::time::timeout(CONNECT_TIMEOUT, AsyncPgConnection::establish(url))
         .await
-        .map_err(|_| "postgres connect: timed out".to_string())?
-        .map_err(|e| format!("postgres connect: {e}"))?;
+        .map_err(|_| IndexerError::Postgres("postgres connect: timed out".to_string()))?
+        .map_err(|e| IndexerError::Postgres(format!("postgres connect: {e}")))?;
     Ok(PgCorpus { conn })
 }
 
-async fn within<T>(stage: &str, query: impl Future<Output = QueryResult<T>>) -> Result<T, String> {
+async fn within<T>(
+    stage: &str,
+    query: impl Future<Output = QueryResult<T>>,
+) -> Result<T, IndexerError> {
     tokio::time::timeout(QUERY_TIMEOUT, query)
         .await
-        .map_err(|_| format!("{stage}: query timed out"))?
-        .map_err(|e| format!("{stage}: {e}"))
+        .map_err(|_| IndexerError::Postgres(format!("{stage}: query timed out")))?
+        .map_err(|e| IndexerError::Postgres(format!("{stage}: {e}")))
 }
 
 fn poem_sources(rows: Vec<PoemRow>, verses: Vec<(i32, String)>) -> Vec<PoemSource> {
@@ -121,7 +125,7 @@ async fn stream_poem_batch(
     mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
-) -> Result<Vec<PoemSource>, String> {
+) -> Result<Vec<PoemSource>, IndexerError> {
     let rows: Vec<PoemRow> = within(
         "streamPoemBatch",
         poems::table
@@ -154,7 +158,7 @@ async fn stream_poem_batch(
     Ok(poem_sources(rows, verses))
 }
 
-async fn count_rows(mut conn: &AsyncPgConnection, is_poems: bool) -> Result<i64, String> {
+async fn count_rows(mut conn: &AsyncPgConnection, is_poems: bool) -> Result<i64, IndexerError> {
     if is_poems {
         within(
             "countRows",
@@ -180,7 +184,7 @@ async fn stream_poet_batch(
     mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
-) -> Result<Vec<PoetSource>, String> {
+) -> Result<Vec<PoetSource>, IndexerError> {
     let rows: Vec<PoetRow> = within(
         "streamPoetBatch",
         poets::table
@@ -198,7 +202,10 @@ async fn stream_poet_batch(
         .map(|row| {
             Ok(PoetSource {
                 poems_count: i32::try_from(row.poems_count.unwrap_or(0)).map_err(|_| {
-                    format!("streamPoetBatch: poet {} poems_count out of range", row.id)
+                    IndexerError::Postgres(format!(
+                        "streamPoetBatch: poet {} poems_count out of range",
+                        row.id
+                    ))
                 })?,
                 id: row.id,
                 slug: row.slug,
@@ -213,15 +220,23 @@ async fn stream_poet_batch(
 
 #[async_trait]
 impl CorpusSource for PgCorpus {
-    async fn count(&self, is_poems: bool) -> Result<i64, String> {
+    async fn count(&self, is_poems: bool) -> Result<i64, IndexerError> {
         count_rows(&self.conn, is_poems).await
     }
 
-    async fn poems_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoemSource>, String> {
+    async fn poems_after(
+        &self,
+        after_id: i32,
+        limit: i64,
+    ) -> Result<Vec<PoemSource>, IndexerError> {
         stream_poem_batch(&self.conn, after_id, limit).await
     }
 
-    async fn poets_after(&self, after_id: i32, limit: i64) -> Result<Vec<PoetSource>, String> {
+    async fn poets_after(
+        &self,
+        after_id: i32,
+        limit: i64,
+    ) -> Result<Vec<PoetSource>, IndexerError> {
         stream_poet_batch(&self.conn, after_id, limit).await
     }
 }

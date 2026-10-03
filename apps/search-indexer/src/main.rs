@@ -1,12 +1,14 @@
 mod arabic;
 mod docs;
+mod error;
 mod es;
 mod log;
 mod pg;
 mod reindex;
 
-use serde_json::{Value, json};
+use serde_json::json;
 
+use crate::error::IndexerError;
 use crate::es::Es;
 use crate::reindex::{Ctx, Target, reindex};
 use qafiyah_elasticsearch::{Schema, load as load_schema};
@@ -18,8 +20,9 @@ struct Env {
     force: bool,
 }
 
-fn parse_env(lookup: impl Fn(&str) -> Option<String>) -> Result<Env, String> {
-    let need = |key: &str| lookup(key).ok_or_else(|| format!("{key} is required"));
+fn parse_env(lookup: impl Fn(&str) -> Option<String>) -> Result<Env, IndexerError> {
+    let need =
+        |key: &str| lookup(key).ok_or_else(|| IndexerError::Config(format!("{key} is required")));
     Ok(Env {
         database_url: need("DATABASE_URL")?,
         elasticsearch_url: need("ELASTICSEARCH_URL")?,
@@ -28,13 +31,15 @@ fn parse_env(lookup: impl Fn(&str) -> Option<String>) -> Result<Env, String> {
     })
 }
 
-fn read_env() -> Result<Env, String> {
+fn read_env() -> Result<Env, IndexerError> {
     parse_env(|key| std::env::var(key).ok())
 }
 
-fn batch_size(configured: usize) -> Result<usize, String> {
+fn batch_size(configured: usize) -> Result<usize, IndexerError> {
     if configured == 0 {
-        return Err("bulkBatchSize must be at least 1".to_string());
+        return Err(IndexerError::Config(
+            "bulkBatchSize must be at least 1".to_string(),
+        ));
     }
     Ok(configured)
 }
@@ -43,7 +48,7 @@ fn batch_size(configured: usize) -> Result<usize, String> {
     clippy::print_stdout,
     reason = "this batch job's output is its structured log"
 )]
-async fn bootstrap(env: &Env, schema: &Schema) -> Result<Value, String> {
+async fn bootstrap(env: &Env, schema: &Schema) -> Result<(), IndexerError> {
     let es = Es::new(&env.elasticsearch_url)?;
     let id = &schema.identity;
 
@@ -63,7 +68,7 @@ async fn bootstrap(env: &Env, schema: &Schema) -> Result<Value, String> {
     let poems_ready = es.alias_count(&id.poems_alias).await?.unwrap_or(0) > 0;
     let poets_ready = es.alias_count(&id.poets_alias).await?.unwrap_or(0) > 0;
     if !env.force && poems_ready && poets_ready {
-        return Ok(json!({ "lastReindexAt": Value::Null, "lastError": Value::Null }));
+        return Ok(());
     }
 
     let rules = qafiyah_elasticsearch::folding_rules(&schema.poems);
@@ -106,56 +111,7 @@ async fn bootstrap(env: &Env, schema: &Schema) -> Result<Value, String> {
             })
         )
     );
-    Ok(json!({ "lastReindexAt": now_iso(), "lastError": Value::Null }))
-}
-
-fn now_iso() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let days = secs / 86_400;
-    let rem = secs % 86_400;
-    let (y, m, d) = civil_from_days(i64::try_from(days).unwrap_or_default());
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.000Z",
-        rem / 3600,
-        (rem % 3600) / 60,
-        rem % 60
-    )
-}
-
-#[expect(
-    clippy::arithmetic_side_effects,
-    reason = "civil-from-days math runs on a days-since-epoch value bounded far below overflow"
-)]
-#[expect(
-    clippy::as_conversions,
-    reason = "each cast narrows a component the algorithm already bounds"
-)]
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "day and month are bounded to 31 and 12"
-)]
-#[expect(
-    clippy::cast_sign_loss,
-    reason = "the day-of-era is non-negative by construction"
-)]
-#[expect(
-    clippy::cast_possible_wrap,
-    reason = "the year-of-era is bounded to a few hundred"
-)]
-fn civil_from_days(z: i64) -> (i64, u32, u32) {
-    let z = z + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    (if m <= 2 { y + 1 } else { y }, m, d)
+    Ok(())
 }
 
 #[expect(
@@ -172,24 +128,23 @@ async fn main() {
     let env = match read_env() {
         Ok(env) => env,
         Err(e) => {
-            eprintln!("{}", log::line("env", &e));
+            eprintln!("{}", log::line("env", &e.to_string()));
             std::process::exit(1);
         }
     };
 
-    let state = match bootstrap(&env, &schema).await {
-        Ok(state) => state,
-        Err(e) => {
-            eprintln!("{}", log::line("boot", &e));
-            std::process::exit(1);
-        }
-    };
+    if let Err(e) = bootstrap(&env, &schema).await {
+        eprintln!("{}", log::line("boot", &e.to_string()));
+        std::process::exit(1);
+    }
 
-    println!("{}", log::event("done", state));
+    println!("{}", log::event("done", json!({})));
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
     use crate::reindex::{CorpusSource, IndexStore};
 
@@ -231,7 +186,7 @@ mod tests {
             .collect();
             assert_eq!(
                 parse_env(vars(&pairs)).err(),
-                Some(format!("{missing} is required"))
+                Some(IndexerError::Config(format!("{missing} is required")))
             );
         }
     }
@@ -240,7 +195,9 @@ mod tests {
     fn a_zero_batch_size_is_refused_before_any_query_runs() {
         assert_eq!(
             batch_size(0),
-            Err("bulkBatchSize must be at least 1".to_string())
+            Err(IndexerError::Config(
+                "bulkBatchSize must be at least 1".to_string()
+            ))
         );
         assert_eq!(batch_size(1000), Ok(1000));
     }
@@ -406,20 +363,12 @@ mod tests {
 
         let (served, _) = served.expect("the first reindex");
         assert!(
-            failed
-                .as_ref()
-                .is_err_and(|error| error.contains("dynamic introduction of [nameSort]")),
+            failed.as_ref().is_err_and(|error| error
+                .to_string()
+                .contains("dynamic introduction of [nameSort]")),
             "{failed:?}"
         );
         assert_eq!(aliased, std::slice::from_ref(&served));
         assert_eq!(left, Ok(vec![served]));
-    }
-
-    #[test]
-    fn civil_dates_round_trip_known_days() {
-        assert_eq!(civil_from_days(0), (1970, 1, 1));
-        assert_eq!(civil_from_days(11_016), (2000, 2, 29));
-        assert_eq!(civil_from_days(19_675), (2023, 11, 14));
-        assert_eq!(civil_from_days(-1), (1969, 12, 31));
     }
 }

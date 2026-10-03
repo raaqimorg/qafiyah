@@ -19,7 +19,7 @@ describe('indexerProgress', () => {
 
   test('ignores every other line the indexer or compose prints', () => {
     for (const line of [
-      '{"lastError":null,"lastReindexAt":null,"source":"search-indexer","stage":"done"}',
+      '{"source":"search-indexer","stage":"done"}',
       '{"poems":{"count":3,"index":"poems_v1"},"source":"search-indexer","stage":"reindex"}',
       ' Container qafiyah-dev-search-indexer-run-1 Created',
       '{"stage":"progress","index":"poems"}',

@@ -6,6 +6,7 @@ use reqwest::{Method, StatusCode};
 use serde::Serialize;
 use serde_json::{Value, json};
 
+use crate::error::IndexerError;
 use crate::reindex::IndexStore;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
@@ -17,13 +18,13 @@ pub(crate) struct Es {
 }
 
 impl Es {
-    pub(crate) fn new(url: &str) -> Result<Self, String> {
+    pub(crate) fn new(url: &str) -> Result<Self, IndexerError> {
         Self::with_timeout(url, REQUEST_TIMEOUT)
     }
 
-    fn with_timeout(url: &str, timeout: Duration) -> Result<Self, String> {
+    fn with_timeout(url: &str, timeout: Duration) -> Result<Self, IndexerError> {
         Ok(Self {
-            endpoint: Endpoint::new(url)?,
+            endpoint: Endpoint::new(url).map_err(IndexerError::Config)?,
             timeout,
         })
     }
@@ -37,12 +38,15 @@ impl Es {
         method: Method,
         path: &str,
         body: Option<&T>,
-    ) -> Result<(StatusCode, Value), String> {
+    ) -> Result<(StatusCode, Value), IndexerError> {
         let mut req = self.request(method, path);
         if let Some(b) = body {
             req = req.json(b);
         }
-        let res = req.send().await.map_err(|e| format!("{path}: {e}"))?;
+        let res = req
+            .send()
+            .await
+            .map_err(|e| IndexerError::Elasticsearch(format!("{path}: {e}")))?;
         let status = res.status();
         let value: Value = res.json().await.unwrap_or(Value::Null);
         Ok((status, value))
@@ -53,10 +57,12 @@ impl Es {
         method: Method,
         path: &str,
         body: Option<&T>,
-    ) -> Result<Value, String> {
+    ) -> Result<Value, IndexerError> {
         let (status, value) = self.send_json(method, path, body).await?;
         if !status.is_success() {
-            return Err(format!("{path}: {status}: {value}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "{path}: {status}: {value}"
+            )));
         }
         Ok(value)
     }
@@ -67,7 +73,7 @@ impl Es {
         username: &str,
         password: &str,
         index_patterns: &[String],
-    ) -> Result<(), String> {
+    ) -> Result<(), IndexerError> {
         let role_body = json!({
             "indices": [{ "names": index_patterns, "privileges": ["read", "view_index_metadata"] }]
         });
@@ -87,23 +93,25 @@ impl Es {
         Ok(())
     }
 
-    pub(crate) async fn index_exists(&self, index: &str) -> Result<bool, String> {
+    pub(crate) async fn index_exists(&self, index: &str) -> Result<bool, IndexerError> {
         let res = self
             .request(Method::HEAD, &format!("/{index}"))
             .send()
             .await
-            .map_err(|e| format!("exists {index}: {e}"))?;
+            .map_err(|e| IndexerError::Elasticsearch(format!("exists {index}: {e}")))?;
         Ok(res.status().is_success())
     }
 
-    pub(crate) async fn alias_count(&self, alias: &str) -> Result<Option<u64>, String> {
+    pub(crate) async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError> {
         let path = format!("/{alias}/_count");
         let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
         if status == StatusCode::NOT_FOUND {
             return Ok(None);
         }
         if !status.is_success() {
-            return Err(format!("{path}: {status}: {value}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "{path}: {status}: {value}"
+            )));
         }
         Ok(Some(
             value.get("count").and_then(Value::as_u64).unwrap_or(0),
@@ -113,19 +121,21 @@ impl Es {
 
 #[async_trait]
 impl IndexStore for Es {
-    async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, String> {
+    async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, IndexerError> {
         let path = format!("/_cat/indices/{prefix}*?format=json");
         let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
         if status == StatusCode::NOT_FOUND {
             return Ok(vec![]);
         }
         if !status.is_success() {
-            return Err(format!("{path}: {status}: {value}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "{path}: {status}: {value}"
+            )));
         }
         Ok(index_names(&value))
     }
 
-    async fn create_index(&self, index: &str, body: &Value) -> Result<(), String> {
+    async fn create_index(&self, index: &str, body: &Value) -> Result<(), IndexerError> {
         if self.index_exists(index).await? {
             return Ok(());
         }
@@ -134,20 +144,20 @@ impl IndexStore for Es {
         Ok(())
     }
 
-    async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), String> {
+    async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), IndexerError> {
         let body = json!({ "refresh_interval": value });
         self.expect_ok(Method::PUT, &format!("/{index}/_settings"), Some(&body))
             .await?;
         Ok(())
     }
 
-    async fn refresh(&self, index: &str) -> Result<(), String> {
+    async fn refresh(&self, index: &str) -> Result<(), IndexerError> {
         self.expect_ok::<()>(Method::POST, &format!("/{index}/_refresh"), None)
             .await?;
         Ok(())
     }
 
-    async fn force_merge(&self, index: &str) -> Result<(), String> {
+    async fn force_merge(&self, index: &str) -> Result<(), IndexerError> {
         let path = format!("/{index}/_forcemerge?max_num_segments=1");
         let res = self
             .endpoint
@@ -155,16 +165,18 @@ impl IndexStore for Es {
             .timeout(FORCE_MERGE_TIMEOUT)
             .send()
             .await
-            .map_err(|e| format!("{path}: {e}"))?;
+            .map_err(|e| IndexerError::Elasticsearch(format!("{path}: {e}")))?;
         let status = res.status();
         if !status.is_success() {
             let value: Value = res.json().await.unwrap_or(Value::Null);
-            return Err(format!("{path}: {status}: {value}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "{path}: {status}: {value}"
+            )));
         }
         Ok(())
     }
 
-    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), String> {
+    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError> {
         let body = ndjson_body(index, docs);
         let res = self
             .request(Method::POST, "/_bulk")
@@ -172,19 +184,28 @@ impl IndexStore for Es {
             .body(body)
             .send()
             .await
-            .map_err(|e| format!("bulk: {e}"))?;
+            .map_err(|e| IndexerError::Elasticsearch(format!("bulk: {e}")))?;
         let status = res.status();
         let value: Value = res.json().await.unwrap_or(Value::Null);
         if !status.is_success() {
-            return Err(format!("bulk: {status}: {value}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "bulk: {status}: {value}"
+            )));
         }
         if let Some(reason) = first_bulk_error(&value) {
-            return Err(format!("bulk errors: {reason}"));
+            return Err(IndexerError::Elasticsearch(format!(
+                "bulk errors: {reason}"
+            )));
         }
         Ok(())
     }
 
-    async fn swap_alias(&self, alias: &str, prefix: &str, to_index: &str) -> Result<(), String> {
+    async fn swap_alias(
+        &self,
+        alias: &str,
+        prefix: &str,
+        to_index: &str,
+    ) -> Result<(), IndexerError> {
         let body = json!({
             "actions": [
                 { "remove": { "alias": alias, "index": format!("{prefix}*"), "must_exist": false } },
@@ -367,7 +388,9 @@ mod tests {
         let refused = es.force_merge("poems_v4").await;
 
         assert!(
-            refused.as_ref().is_err_and(|e| e.contains("500")),
+            refused
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("500")),
             "{refused:?}"
         );
     }
