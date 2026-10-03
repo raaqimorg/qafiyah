@@ -160,11 +160,16 @@ mod tests {
         assert!(cache.get("qaf_never_seen", 0).is_none());
     }
 
-    struct Unreachable;
+    struct Failing {
+        hangs: bool,
+    }
 
     #[async_trait::async_trait]
-    impl KeyRepository for Unreachable {
+    impl KeyRepository for Failing {
         async fn caller(&self, _: &[u8; 32]) -> Result<Option<Caller>, StoreError> {
+            if self.hangs {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+            }
             Err(StoreError::Database("unreachable".into()))
         }
         async fn active_for(&self, _: i64) -> Result<Vec<KeyRecord>, StoreError> {
@@ -187,10 +192,25 @@ mod tests {
         }
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn a_lookup_that_hangs_gives_up_and_is_cached_as_a_short_lived_miss() {
+        let cache = KeyCache::default();
+        let outcome = cache
+            .resolve(&Failing { hangs: true }, "qaf_hanging", 0)
+            .await;
+        assert!(outcome.is_err_and(|error| error.to_string().contains("timed out")));
+        assert_eq!(cache.get("qaf_hanging", 1), Some(None));
+    }
+
     #[tokio::test]
     async fn a_lookup_failure_is_cached_as_a_short_lived_miss() {
         let cache = KeyCache::default();
-        assert!(cache.resolve(&Unreachable, "qaf_failing", 0).await.is_err());
+        assert!(
+            cache
+                .resolve(&Failing { hangs: false }, "qaf_failing", 0)
+                .await
+                .is_err()
+        );
         assert_eq!(cache.get("qaf_failing", 1), Some(None));
         assert!(cache.get("qaf_failing", 6).is_none());
     }

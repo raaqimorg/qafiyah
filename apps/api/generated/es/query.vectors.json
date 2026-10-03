@@ -2099,24 +2099,6 @@
     {
       "body": {
         "from": 0,
-        "highlight": {
-          "fields": {
-            "name": {
-              "matched_fields": [
-                "name",
-                "name.autocomplete"
-              ]
-            }
-          },
-          "fragment_size": 200,
-          "number_of_fragments": 1,
-          "post_tags": [
-            "</mark>"
-          ],
-          "pre_tags": [
-            "<mark>"
-          ]
-        },
         "query": {
           "bool": {
             "filter": [
@@ -2249,24 +2231,6 @@
     {
       "body": {
         "from": 0,
-        "highlight": {
-          "fields": {
-            "name": {
-              "matched_fields": [
-                "name",
-                "name.autocomplete"
-              ]
-            }
-          },
-          "fragment_size": 200,
-          "number_of_fragments": 1,
-          "post_tags": [
-            "</mark>"
-          ],
-          "pre_tags": [
-            "<mark>"
-          ]
-        },
         "query": {
           "bool": {
             "filter": [],
@@ -2322,7 +2286,6 @@
       "note": "the /poets list: sorted by poem count, no highlight, poem page size",
       "params": {
         "eraSlugs": [],
-        "highlight": false,
         "page": 1,
         "pageSize": 30,
         "q": "",
@@ -2467,7 +2430,6 @@
         "eraSlugs": [
           "abbasi"
         ],
-        "highlight": false,
         "page": 3,
         "pageSize": 30,
         "q": "المتنبي",
@@ -2478,24 +2440,6 @@
     {
       "body": {
         "from": 0,
-        "highlight": {
-          "fields": {
-            "name": {
-              "matched_fields": [
-                "name",
-                "name.autocomplete"
-              ]
-            }
-          },
-          "fragment_size": 200,
-          "number_of_fragments": 1,
-          "post_tags": [
-            "</mark>"
-          ],
-          "pre_tags": [
-            "<mark>"
-          ]
-        },
         "query": {
           "bool": {
             "filter": [],
@@ -2666,7 +2610,6 @@
       "note": "search section, no highlight",
       "params": {
         "eraSlugs": [],
-        "highlight": false,
         "page": 2,
         "q": "حب"
       }

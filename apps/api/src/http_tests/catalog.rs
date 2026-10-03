@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use axum::http::StatusCode;
 
+use crate::constants::RANDOM_POEM_MAX_ATTEMPTS;
 use crate::domain::poems::{
     FacetCounts, Facets, PoemListItem, PoemRecord, PoemRepository, RandomPoem,
 };
@@ -17,6 +19,14 @@ use crate::test_support::{FakeEs, request, send, state};
 struct Poems {
     survivor: Option<&'static str>,
     lines: Option<Vec<String>>,
+    randoms: Mutex<VecDeque<(&'static str, &'static str)>>,
+}
+
+fn drawing(randoms: &[(&'static str, &'static str)]) -> Poems {
+    Poems {
+        randoms: Mutex::new(randoms.iter().copied().collect()),
+        ..Poems::default()
+    }
 }
 
 fn record(lines: Vec<String>) -> PoemRecord {
@@ -82,7 +92,16 @@ impl PoemRepository for Poems {
         Ok(self.survivor.map(String::from))
     }
     async fn random(&self) -> Result<Option<RandomPoem>, StoreError> {
-        Ok(None)
+        Ok(self
+            .randoms
+            .lock()
+            .expect("the random queue")
+            .pop_front()
+            .map(|(slug, content)| RandomPoem {
+                poet_name: "Poet".into(),
+                content: content.into(),
+                slug: slug.into(),
+            }))
     }
 }
 
@@ -180,4 +199,59 @@ async fn a_merged_poet_slug_redirects_to_the_poet_it_was_merged_into() {
     let sent = send(crate::app(state), request("GET", "/v1/poets/yoFB")).await;
     assert_eq!(sent.status, StatusCode::MOVED_PERMANENTLY);
     assert_eq!(sent.header("location"), Some("/v1/poets/Abcd"));
+}
+
+#[tokio::test]
+async fn a_random_poem_is_its_slug_or_its_lines_and_any_other_option_is_refused() {
+    let (_es, state) = with_poems(drawing(&[
+        ("Abcd", "first*second"),
+        ("Efgh", "first*second"),
+    ]))
+    .await;
+    let app = crate::app(state);
+    let slug = send(app.clone(), request("GET", "/v1/poems/random")).await;
+    assert_eq!((slug.status, slug.body.as_str()), (StatusCode::OK, "Abcd"));
+    let lines = send(app.clone(), request("GET", "/v1/poems/random?option=lines")).await;
+    assert_eq!(
+        (lines.status, lines.body.as_str()),
+        (StatusCode::OK, "first\nsecond\n\nPoet")
+    );
+    let refused = send(app, request("GET", "/v1/poems/random?option=verse")).await;
+    assert_eq!(refused.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn random_lines_skip_a_poem_too_short_for_an_excerpt() {
+    let (_es, state) = with_poems(drawing(&[("Abcd", "alone"), ("Efgh", "first*second")])).await;
+    let sent = send(
+        crate::app(state),
+        request("GET", "/v1/poems/random?option=lines"),
+    )
+    .await;
+    assert_eq!(
+        (sent.status, sent.body.as_str()),
+        (StatusCode::OK, "first\nsecond\n\nPoet")
+    );
+}
+
+#[tokio::test]
+async fn random_lines_give_up_after_the_last_attempt() {
+    let unusable: Vec<(&str, &str)> = (0..RANDOM_POEM_MAX_ATTEMPTS)
+        .map(|_| ("Abcd", "alone"))
+        .collect();
+    let (_es, state) = with_poems(drawing(&unusable)).await;
+    let sent = send(
+        crate::app(state),
+        request("GET", "/v1/poems/random?option=lines"),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(sent.json()["detail"], "Failed to fetch random poem");
+}
+
+#[tokio::test]
+async fn no_random_poem_at_all_is_a_500_not_an_empty_answer() {
+    let (_es, state) = with_poems(Poems::default()).await;
+    let sent = send(crate::app(state), request("GET", "/v1/poems/random")).await;
+    assert_eq!(sent.status, StatusCode::INTERNAL_SERVER_ERROR);
 }

@@ -7,7 +7,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use qafiyah_api::constants::{POEMS_PER_PAGE, POETS_LIST_MAX_RESULT_WINDOW};
+use qafiyah_api::constants::{POEMS_PER_PAGE, POETS_LIST_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE};
 use qafiyah_api::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
 use qafiyah_api::es::query::{poem_search_body, poet_search_body};
 
@@ -37,8 +37,6 @@ struct PoetCase {
     page_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     sort: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    highlight: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     exact: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -150,7 +148,6 @@ const BROWSE: PoetCase = PoetCase {
     era_slugs: &[],
     page_size: None,
     sort: None,
-    highlight: None,
     exact: None,
     window: None,
 };
@@ -169,7 +166,6 @@ const POETS: &[(&str, PoetCase)] = &[
         PoetCase {
             page_size: Some(POEMS_PER_PAGE),
             sort: Some("poemsCount"),
-            highlight: Some(false),
             window: Some(POETS_LIST_MAX_RESULT_WINDOW),
             ..BROWSE
         },
@@ -182,7 +178,6 @@ const POETS: &[(&str, PoetCase)] = &[
             era_slugs: &["abbasi"],
             page_size: Some(POEMS_PER_PAGE),
             sort: Some("poemsCount"),
-            highlight: Some(false),
             window: Some(POETS_LIST_MAX_RESULT_WINDOW),
             ..BROWSE
         },
@@ -200,7 +195,6 @@ const POETS: &[(&str, PoetCase)] = &[
         PoetCase {
             q: "حب",
             page: 2,
-            highlight: Some(false),
             ..BROWSE
         },
     ),
@@ -214,6 +208,7 @@ fn poem_entry(note: &str, case: &PoemCase) -> Value {
     let body = poem_search_body(&PoemSearchParams {
         q: case.q.to_string(),
         page: case.page,
+        page_size: SEARCH_POEMS_PER_PAGE,
         poet_slugs: owned(case.poet_slugs),
         era_slugs: owned(case.era_slugs),
         meter_slugs: owned(case.meter_slugs),
@@ -237,7 +232,6 @@ fn poet_entry(note: &str, case: &PoetCase) -> Value {
             Some("poemsCount") => PoetSort::PoemsCount,
             _ => PoetSort::Id,
         },
-        highlight: case.highlight.unwrap_or(defaults.highlight),
         exact: case.exact.unwrap_or_default(),
         window: case.window.unwrap_or(defaults.window),
     });

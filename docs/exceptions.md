@@ -318,7 +318,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 - **What:** ES query snapshots go through a dedicated `es-query-dump` binary, a Bun script, and a committed vectors file. An xorshift `Rng` drives the "never panics" loops, and DB tests return early, and so pass, when `QAFIYAH_TEST_*` is unset.
 - **Where:** `apps/api/src/bin/es-query-dump.rs`, `scripts/es/query-snapshot.ts`, `apps/api/generated/es/query.vectors.json`, `apps/api/src/test_support.rs`, `apps/api/tests/db.rs`, `apps/api/src/es/query.rs`, `apps/api/src/domain/search.rs`
-- **Why it's unusual:** each piece is a homemade version of a standard crate. The dump binary ships in the release build, `rand` is already a dependency, and a skipped DB test shows up as a pass. `PoetSearchParams::default()` also enables highlighting that both production callers turn off, so only the dump and the tests use it.
+- **Why it's unusual:** each piece is a homemade version of a standard crate. The dump binary ships in the release build, `rand` is already a dependency, and a skipped DB test shows up as a pass.
 - **Normal approach:** `insta::assert_json_snapshot!`, `proptest` (or a seeded `rand` RNG), and `#[ignore = "needs QAFIYAH_TEST_*"]`.
 - **Status:** Needs review
 

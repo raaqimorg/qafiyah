@@ -8,7 +8,7 @@ use utoipa::openapi::Schema;
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
 use crate::domain::taxonomy::PoemCountStats;
 use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
-use crate::error::{AppError, Resource, RouteProblem, StoreError};
+use crate::error::StoreError;
 use crate::js;
 
 fn verse_list() -> utoipa::openapi::schema::Array {
@@ -186,6 +186,18 @@ pub struct RandomPoem {
     pub slug: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum PoemError {
+    #[error("the poet filter names no shown poet")]
+    PoetNotShown,
+    #[error("the poem has no verses")]
+    MissingVerses,
+    #[error("no random poem could be excerpted")]
+    NoRandomPoem,
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
 #[async_trait]
 pub trait PoemRepository: Send + Sync {
     async fn count(&self) -> Result<i32, StoreError>;
@@ -229,7 +241,7 @@ pub fn parse_poem_content(content: &str) -> ParsedContent {
     }
 }
 
-fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, AppError> {
+fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, PoemError> {
     let recension_of = record.recension_of_id.and_then(|primary| {
         record
             .family
@@ -250,7 +262,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, AppError> {
         })
         .collect();
     if record.lines.is_empty() {
-        return Err(AppError::PoemParse);
+        return Err(PoemError::MissingVerses);
     }
     let parsed = parse_poem_content(&record.lines.join("*"));
 
@@ -275,7 +287,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, AppError> {
     })
 }
 
-pub async fn get(poems: &dyn PoemRepository, slug: &str) -> Result<Option<PoemDetail>, AppError> {
+pub async fn get(poems: &dyn PoemRepository, slug: &str) -> Result<Option<PoemDetail>, PoemError> {
     match poems.find(slug).await? {
         Some(record) => detail(slug, record).map(Some),
         None => Ok(None),
@@ -291,11 +303,11 @@ fn shown_terms(terms: Vec<PoemCountStats>, selected: &[String]) -> Vec<PoemCount
     shown
 }
 
-pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<PoemFacets, AppError> {
+pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<PoemFacets, PoemError> {
     let counts = poems
         .facet_counts(facets)
         .await?
-        .ok_or(AppError::NotFound(Resource::Poet))?;
+        .ok_or(PoemError::PoetNotShown)?;
     Ok(PoemFacets {
         meters: shown_terms(counts.meters, &facets.meter),
         rhymes: shown_terms(counts.rhymes, &facets.rhyme),
@@ -306,23 +318,6 @@ pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<PoemF
 pub enum RandomPoemOption {
     Slug,
     Lines,
-}
-
-impl RandomPoemOption {
-    pub fn parse(raw: Option<&str>) -> Result<Self, AppError> {
-        match raw {
-            None | Some("slug") => Ok(RandomPoemOption::Slug),
-            Some("lines") => Ok(RandomPoemOption::Lines),
-            Some(_) => Err(RouteProblem::bad_request(
-                "Invalid ?option value (expected 'slug' or 'lines')",
-            )
-            .into()),
-        }
-    }
-}
-
-fn random_poem_failed() -> AppError {
-    RouteProblem::internal("Failed to fetch random poem").into()
 }
 
 #[expect(
@@ -347,10 +342,10 @@ fn excerpt_start(line_count: usize, roll: f64) -> usize {
     (((roll * verse_count as f64).floor() as usize) * 2).min(max_start)
 }
 
-fn build_excerpt(poem: &RandomPoem, roll: f64) -> Result<String, AppError> {
+fn build_excerpt(poem: &RandomPoem, roll: f64) -> Option<String> {
     let lines: Vec<&str> = poem.content.split('*').collect();
     if lines.len() < 2 {
-        return Err(random_poem_failed());
+        return None;
     }
     let start = excerpt_start(lines.len(), roll);
     let first = lines.get(start).copied().unwrap_or_default();
@@ -359,33 +354,27 @@ fn build_excerpt(poem: &RandomPoem, roll: f64) -> Result<String, AppError> {
         .copied()
         .unwrap_or_default();
     let excerpt = js::trim(&format!("{first}\n{second}\n\n{}", poem.poet_name)).to_string();
-    if excerpt.encode_utf16().count() > MAX_TWEET_LENGTH {
-        return Err(random_poem_failed());
-    }
-    Ok(excerpt)
+    (excerpt.encode_utf16().count() <= MAX_TWEET_LENGTH).then_some(excerpt)
 }
 
-async fn fetch_random_poem(poems: &dyn PoemRepository) -> Result<RandomPoem, AppError> {
-    poems.random().await?.ok_or_else(random_poem_failed)
+async fn fetch_random_poem(poems: &dyn PoemRepository) -> Result<RandomPoem, PoemError> {
+    poems.random().await?.ok_or(PoemError::NoRandomPoem)
 }
 
 pub async fn random(
     poems: &dyn PoemRepository,
     option: &RandomPoemOption,
     roll: f64,
-) -> Result<String, AppError> {
+) -> Result<String, PoemError> {
     match option {
         RandomPoemOption::Slug => Ok(fetch_random_poem(poems).await?.slug),
         RandomPoemOption::Lines => {
-            let mut last_err = None;
             for _ in 0..RANDOM_POEM_MAX_ATTEMPTS {
-                let poem = fetch_random_poem(poems).await?;
-                match build_excerpt(&poem, roll) {
-                    Ok(excerpt) => return Ok(excerpt),
-                    Err(err) => last_err = Some(err),
+                if let Some(excerpt) = build_excerpt(&fetch_random_poem(poems).await?, roll) {
+                    return Ok(excerpt);
                 }
             }
-            Err(last_err.unwrap_or_else(random_poem_failed))
+            Err(PoemError::NoRandomPoem)
         }
     }
 }
@@ -450,15 +439,15 @@ mod tests {
 
     #[test]
     fn rejects_a_fragment_with_fewer_than_two_hemistichs() {
-        assert!(build_excerpt(&random_poem("one lone hemistich"), 0.0).is_err());
-        assert!(build_excerpt(&random_poem(""), 0.0).is_err());
+        assert!(build_excerpt(&random_poem("one lone hemistich"), 0.0).is_none());
+        assert!(build_excerpt(&random_poem(""), 0.0).is_none());
     }
 
     #[test]
     fn rejects_an_excerpt_longer_than_a_tweet() {
         let long_line = "a".repeat(MAX_TWEET_LENGTH);
         let poem = random_poem(&format!("{long_line}*{long_line}"));
-        assert!(build_excerpt(&poem, 0.0).is_err());
+        assert!(build_excerpt(&poem, 0.0).is_none());
     }
 
     #[test]
@@ -502,25 +491,6 @@ mod tests {
     }
 
     #[test]
-    fn the_random_option_accepts_only_the_two_documented_values() {
-        assert!(matches!(
-            RandomPoemOption::parse(None),
-            Ok(RandomPoemOption::Slug)
-        ));
-        assert!(matches!(
-            RandomPoemOption::parse(Some("slug")),
-            Ok(RandomPoemOption::Slug)
-        ));
-        assert!(matches!(
-            RandomPoemOption::parse(Some("lines")),
-            Ok(RandomPoemOption::Lines)
-        ));
-        for raw in ["", "Lines", "verses", "slug "] {
-            assert!(RandomPoemOption::parse(Some(raw)).is_err(), "{raw}");
-        }
-    }
-
-    #[test]
     fn an_excerpt_at_exactly_the_tweet_cap_is_accepted_and_one_over_is_refused() {
         let hemistich = "ا".repeat(138);
         let at_cap = RandomPoem {
@@ -535,6 +505,6 @@ mod tests {
             content: format!("{hemistich}*{hemistich}"),
             slug: "TnKK".into(),
         };
-        assert!(build_excerpt(&over, 0.0).is_err());
+        assert!(build_excerpt(&over, 0.0).is_none());
     }
 }

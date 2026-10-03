@@ -3,12 +3,53 @@ use axum::extract::{Extension, State};
 
 use crate::domain::taxonomy::{Counted, CountedStats, PoemCountStats, PoemCounted};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
-use crate::error::AppError;
+use crate::error::{AppError, Resource};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
 use crate::openapi::{ListErrors, LookupErrors};
 use crate::slug;
 use crate::state::AppState;
+
+trait Kind: Copy {
+    fn resource(self) -> Resource;
+    fn log_field(self) -> &'static str;
+}
+
+impl Kind for Counted {
+    fn resource(self) -> Resource {
+        match self {
+            Counted::Meters => Resource::Meter,
+            Counted::Rhymes => Resource::Rhyme,
+            Counted::Eras => Resource::Era,
+            Counted::PoemTypes => Resource::PoemType,
+        }
+    }
+
+    fn log_field(self) -> &'static str {
+        match self {
+            Counted::Meters => "meter",
+            Counted::Rhymes => "rhyme",
+            Counted::Eras => "era",
+            Counted::PoemTypes => "poem_type",
+        }
+    }
+}
+
+impl Kind for PoemCounted {
+    fn resource(self) -> Resource {
+        match self {
+            PoemCounted::Themes => Resource::Theme,
+            PoemCounted::Collections => Resource::Collection,
+        }
+    }
+
+    fn log_field(self) -> &'static str {
+        match self {
+            PoemCounted::Themes => "theme",
+            PoemCounted::Collections => "collection",
+        }
+    }
+}
 
 fn listed<T>(rows: Vec<T>, log: &LogHandle) -> Json<ListEnvelope<T>> {
     let count = u32::try_from(rows.len()).unwrap_or(u32::MAX);

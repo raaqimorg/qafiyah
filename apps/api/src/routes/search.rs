@@ -91,43 +91,38 @@ pub(crate) async fn search(
         return Err(AppError::BadRequest);
     }
 
+    let poem_params = PoemSearchParams {
+        q: q.clone(),
+        page: poems_page,
+        page_size: SEARCH_POEMS_PER_PAGE,
+        poet_slugs: poet_slugs.clone(),
+        era_slugs: era_slugs.clone(),
+        meter_slugs,
+        theme_slugs,
+        rhyme_slugs,
+        poem_type_slugs,
+        collection_slugs,
+        exact,
+    };
+    let poet_params = PoetSearchParams {
+        q: q.clone(),
+        page: poets_page,
+        page_size: SEARCH_POETS_PER_PAGE,
+        era_slugs: era_slugs.clone(),
+        exact,
+        ..PoetSearchParams::default()
+    };
     let poems = async {
         if !want_poems {
             return Ok(None);
         }
-        state
-            .search
-            .search_poems(&PoemSearchParams {
-                q: q.clone(),
-                page: poems_page,
-                poet_slugs: poet_slugs.clone(),
-                era_slugs: era_slugs.clone(),
-                meter_slugs,
-                theme_slugs,
-                rhyme_slugs,
-                poem_type_slugs,
-                collection_slugs,
-                exact,
-            })
-            .await
-            .map(Some)
+        state.search.search_poems(&poem_params).await.map(Some)
     };
     let poets = async {
         if !want_poets {
             return Ok(None);
         }
-        state
-            .search
-            .search_poets(&PoetSearchParams {
-                q: q.clone(),
-                page: poets_page,
-                era_slugs: era_slugs.clone(),
-                highlight: false,
-                exact,
-                ..PoetSearchParams::default()
-            })
-            .await
-            .map(Some)
+        state.search.search_poets(&poet_params).await.map(Some)
     };
     let (poems, poets) = tokio::try_join!(poems, poets)?;
 
@@ -153,11 +148,11 @@ pub(crate) async fn search(
         q,
         poems: poems.map(|page| ListEnvelope {
             data: page.hits,
-            pagination: build_pagination(poems_page, SEARCH_POEMS_PER_PAGE, page.total),
+            pagination: build_pagination(poems_page, poem_params.page_size, page.total),
         }),
         poets: poets.map(|page| ListEnvelope {
             data: page.hits,
-            pagination: build_pagination(poets_page, SEARCH_POETS_PER_PAGE, page.total),
+            pagination: build_pagination(poets_page, poet_params.page_size, page.total),
         }),
     }))
 }

@@ -56,7 +56,6 @@ pub(crate) async fn list(
             era_slugs: era.into_iter().collect(),
             page_size: POEMS_PER_PAGE,
             sort: PoetSort::PoemsCount,
-            highlight: false,
             exact: false,
             window: POETS_LIST_MAX_RESULT_WINDOW,
         })

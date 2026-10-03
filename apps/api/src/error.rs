@@ -7,6 +7,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
 use crate::constants::{NO_STORE_CACHE_CONTROL, PROD_SITE_URL};
+use crate::domain::poems::PoemError;
 use crate::log::stage_event;
 use crate::sentry;
 
@@ -214,6 +215,17 @@ impl From<StoreError> for AppError {
         match error {
             StoreError::Database(cause) => AppError::Database(cause),
             StoreError::Search(cause) => AppError::Search(cause),
+        }
+    }
+}
+
+impl From<PoemError> for AppError {
+    fn from(error: PoemError) -> Self {
+        match error {
+            PoemError::PoetNotShown => AppError::NotFound(Resource::Poet),
+            PoemError::MissingVerses => AppError::PoemParse,
+            PoemError::NoRandomPoem => RouteProblem::internal("Failed to fetch random poem").into(),
+            PoemError::Store(error) => error.into(),
         }
     }
 }
