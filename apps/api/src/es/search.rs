@@ -349,8 +349,13 @@ mod tests {
             poems_searched(found(1, vec![poem_hit(source, None, json!(1.0))])).await,
             Err(StoreError::Search(_))
         ));
+        let mut missing_total = found(0, vec![]);
+        missing_total["hits"]
+            .as_object_mut()
+            .expect("an object")
+            .remove("total");
         assert!(matches!(
-            poems_searched(json!({ "hits": { "hits": [] } })).await,
+            poems_searched(missing_total).await,
             Err(StoreError::Search(_))
         ));
         let (_fake, es) = answering(found(1, vec![json!({ "_source": { "slug": "yoFB" } })])).await;
