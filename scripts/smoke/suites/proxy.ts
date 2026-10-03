@@ -1,6 +1,6 @@
 import { err, ok } from 'neverthrow';
 
-import { expectJsonObject } from '../checks/body';
+import { expectJsonObject, expectOnlyEra } from '../checks/body';
 import { headerIncludes } from '../checks/headers';
 import { isNoStore, isStatus } from '../checks/status';
 import { WEB } from '../target';
@@ -21,6 +21,13 @@ export const proxyProbes: readonly Probe[] = [
     note: 'proxy search passthrough, publicly cacheable',
     expect: 'ok',
     checks: [expectJsonObject, headerIncludes('Cache-Control', 'public')],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/api/v1/search?q=&types=poets&poemsPage=1&poetsPage=1&eraSlugs=jahili&exact=false`,
+    note: 'proxy era-only search in the form the search island sends',
+    expect: 'ok',
+    checks: [expectJsonObject, expectOnlyEra('poets', 'jahili')],
     surfaces: ALL,
   },
   {
