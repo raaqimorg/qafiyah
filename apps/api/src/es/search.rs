@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde_json::Value;
+use serde::Deserialize;
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
 use crate::domain::StoreError;
@@ -11,153 +11,169 @@ use crate::domain::{PoetBrief, Term};
 use crate::es::client::Es;
 use crate::es::query::{poem_search_body, poet_search_body};
 
-fn text(source: &Value, key: &str) -> String {
-    source
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
+#[derive(Deserialize)]
+struct Response<S> {
+    hits: Hits<S>,
+    aggregations: Option<Aggregations>,
 }
 
-fn display(source: &Value, display_key: &str, plain_key: &str) -> String {
-    match source.get(display_key).and_then(Value::as_str) {
-        Some(value) => value.to_string(),
-        None => text(source, plain_key),
+#[derive(Deserialize)]
+struct Hits<S> {
+    total: Count,
+    hits: Vec<Hit<S>>,
+}
+
+#[derive(Deserialize)]
+struct Aggregations {
+    poems: Count,
+}
+
+#[derive(Deserialize)]
+struct Count {
+    value: u32,
+}
+
+#[derive(Deserialize)]
+struct Hit<S> {
+    #[serde(rename = "_score")]
+    score: Option<f64>,
+    #[serde(rename = "_source")]
+    source: S,
+    highlight: Option<Highlight>,
+}
+
+#[derive(Deserialize)]
+struct Highlight {
+    content: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PoemSource {
+    title_display: String,
+    slug: String,
+    content: String,
+    poet_name_display: String,
+    poet_slug: String,
+    poet_has_avatar: bool,
+    poet_is_anonymous: bool,
+    meter_name: String,
+    meter_slug: String,
+    era_name: String,
+    era_slug: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PoetSource {
+    name_display: String,
+    slug: String,
+    era_name: String,
+    era_slug: String,
+    poems_count: i64,
+}
+
+impl<S> Hit<S> {
+    fn relevance(&self) -> f64 {
+        self.score.unwrap_or_default()
+    }
+
+    fn highlighted_content(&self) -> Option<&str> {
+        self.highlight
+            .as_ref()?
+            .content
+            .first()
+            .map(String::as_str)
+            .filter(|value| !value.is_empty())
     }
 }
 
-fn total_hits(response: &Value) -> u32 {
-    let total = response.get("hits").and_then(|hits| hits.get("total"));
-    let raw = total
-        .and_then(Value::as_u64)
-        .or_else(|| {
-            total
-                .and_then(|value| value.get("value"))
-                .and_then(Value::as_u64)
-        })
-        .unwrap_or(0);
-    u32::try_from(raw).unwrap_or(u32::MAX)
-}
-
-fn poem_total(response: &Value) -> u32 {
-    response
-        .get("aggregations")
-        .and_then(|aggregations| aggregations.get("poems"))
-        .and_then(|poems| poems.get("value"))
-        .and_then(Value::as_u64)
-        .map_or_else(
-            || total_hits(response),
-            |poems| {
-                u32::try_from(poems)
-                    .unwrap_or(u32::MAX)
-                    .min(ES_MAX_RESULT_WINDOW)
-            },
-        )
-}
-
-fn hits(response: &Value) -> Vec<&Value> {
-    response
-        .get("hits")
-        .and_then(|hits| hits.get("hits"))
-        .and_then(Value::as_array)
-        .map(|hits| hits.iter().collect())
-        .unwrap_or_default()
-}
-
-fn score(hit: &Value) -> f64 {
-    hit["_score"].as_f64().unwrap_or(0.0)
-}
-
-fn highlighted_content(hit: &Value) -> Option<&str> {
-    hit.get("highlight")
-        .and_then(|highlight| highlight.get("content"))
-        .and_then(Value::as_array)?
-        .first()?
-        .as_str()
-        .filter(|value| !value.is_empty())
+impl Response<PoemSource> {
+    fn poem_total(&self) -> u32 {
+        self.aggregations
+            .as_ref()
+            .map_or(self.hits.total.value, |aggregations| {
+                aggregations.poems.value.min(ES_MAX_RESULT_WINDOW)
+            })
+    }
 }
 
 #[async_trait]
 impl SearchIndex for Es {
     async fn search_poems(&self, params: &PoemSearchParams) -> Result<Page<PoemHit>, StoreError> {
-        let response = self
+        let response: Response<PoemSource> = self
             .search(&self.poems_alias, &poem_search_body(params))
             .await?;
-        let hits = hits(&response)
+        let total = response.poem_total();
+        let hits = response
+            .hits
+            .hits
             .into_iter()
-            .map(|hit| {
-                let source = &hit["_source"];
-                PoemHit {
-                    title: display(source, "titleDisplay", "title"),
-                    slug: text(source, "slug"),
-                    snippet: poem_snippet(highlighted_content(hit), &text(source, "content")),
-                    poet: PoetBrief {
-                        name: text(source, "poetNameDisplay"),
-                        slug: text(source, "poetSlug"),
-                        has_avatar: source["poetHasAvatar"].as_bool().unwrap_or(false),
-                        is_anonymous: source["poetIsAnonymous"].as_bool().unwrap_or(false),
-                    },
-                    meter: Term {
-                        name: text(source, "meterName"),
-                        slug: text(source, "meterSlug"),
-                    },
-                    era: Term {
-                        name: text(source, "eraName"),
-                        slug: text(source, "eraSlug"),
-                    },
-                    relevance: score(hit),
-                }
+            .map(|hit| PoemHit {
+                snippet: poem_snippet(hit.highlighted_content(), &hit.source.content),
+                relevance: hit.relevance(),
+                title: hit.source.title_display,
+                slug: hit.source.slug,
+                poet: PoetBrief {
+                    name: hit.source.poet_name_display,
+                    slug: hit.source.poet_slug,
+                    has_avatar: hit.source.poet_has_avatar,
+                    is_anonymous: hit.source.poet_is_anonymous,
+                },
+                meter: Term {
+                    name: hit.source.meter_name,
+                    slug: hit.source.meter_slug,
+                },
+                era: Term {
+                    name: hit.source.era_name,
+                    slug: hit.source.era_slug,
+                },
             })
             .collect();
-        Ok(Page {
-            hits,
-            total: poem_total(&response),
-        })
+        Ok(Page { hits, total })
     }
 
     async fn search_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetHit>, StoreError> {
-        let response = self
+        let response: Response<PoetSource> = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
-        let hits = hits(&response)
+        let hits = response
+            .hits
+            .hits
             .into_iter()
-            .map(|hit| {
-                let source = &hit["_source"];
-                PoetHit {
-                    name: display(source, "nameDisplay", "name"),
-                    slug: text(source, "slug"),
-                    era: Term {
-                        name: text(source, "eraName"),
-                        slug: text(source, "eraSlug"),
-                    },
-                    relevance: score(hit),
-                }
+            .map(|hit| PoetHit {
+                relevance: hit.relevance(),
+                name: hit.source.name_display,
+                slug: hit.source.slug,
+                era: Term {
+                    name: hit.source.era_name,
+                    slug: hit.source.era_slug,
+                },
             })
             .collect();
         Ok(Page {
             hits,
-            total: total_hits(&response),
+            total: response.hits.total.value,
         })
     }
 
     async fn list_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetListing>, StoreError> {
-        let response = self
+        let response: Response<PoetSource> = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
-        let hits = hits(&response)
+        let hits = response
+            .hits
+            .hits
             .into_iter()
-            .map(|hit| {
-                let source = &hit["_source"];
-                PoetListing {
-                    name: display(source, "nameDisplay", "name"),
-                    slug: text(source, "slug"),
-                    poems_count: source["poemsCount"].as_i64().unwrap_or(0),
-                }
+            .map(|hit| PoetListing {
+                name: hit.source.name_display,
+                slug: hit.source.slug,
+                poems_count: hit.source.poems_count,
             })
             .collect();
         Ok(Page {
             hits,
-            total: total_hits(&response),
+            total: response.hits.total.value,
         })
     }
 }
@@ -167,7 +183,7 @@ mod tests {
     use std::time::Duration;
 
     use axum::http::StatusCode;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use super::*;
     use crate::test_support::FakeEs;
@@ -178,11 +194,13 @@ mod tests {
         (fake, es)
     }
 
-    async fn poems_found(response: Value) -> Page<PoemHit> {
+    async fn poems_searched(response: Value) -> Result<Page<PoemHit>, StoreError> {
         let (_fake, es) = answering(response).await;
-        es.search_poems(&PoemSearchParams::default())
-            .await
-            .expect("a page of poems")
+        es.search_poems(&PoemSearchParams::default()).await
+    }
+
+    async fn poems_found(response: Value) -> Page<PoemHit> {
+        poems_searched(response).await.expect("a page of poems")
     }
 
     async fn poets_found(response: Value) -> Page<PoetHit> {
@@ -192,7 +210,23 @@ mod tests {
             .expect("a page of poets")
     }
 
-    fn poem_hit(source: Value, highlight: Option<&str>, score: f64) -> Value {
+    fn poem_source(slug: &str, content: &str) -> Value {
+        json!({ "slug": slug, "title": "plain", "titleDisplay": "vocalized", "content": content,
+                "poetNameDisplay": "P", "poetSlug": "yoFB", "poetHasAvatar": true,
+                "poetIsAnonymous": false, "meterName": "m", "meterSlug": "altawil",
+                "eraName": "e", "eraSlug": "abbasi" })
+    }
+
+    fn poet_source(slug: &str) -> Value {
+        json!({ "slug": slug, "name": "plain", "nameDisplay": "vocalized", "eraName": "e",
+                "eraSlug": "abbasi", "poemsCount": 12 })
+    }
+
+    fn found(total: u32, hits: Vec<Value>) -> Value {
+        json!({ "hits": { "total": { "value": total, "relation": "eq" }, "hits": hits } })
+    }
+
+    fn poem_hit(source: Value, highlight: Option<&str>, score: Value) -> Value {
         let mut hit = json!({ "_source": source, "_score": score });
         if let Some(highlight) = highlight {
             hit["highlight"] = json!({ "content": [highlight] });
@@ -202,11 +236,14 @@ mod tests {
 
     #[tokio::test]
     async fn a_poem_hit_shows_its_vocalized_title_its_highlighted_verse_and_its_score() {
-        let found = poems_found(json!({ "hits": { "total": { "value": 1 }, "hits": [poem_hit(
-            json!({ "slug": "TnKK", "title": "plain", "titleDisplay": "vocalized", "content": "a*b*c*d",
-                    "poetNameDisplay": "P", "poetSlug": "yoFB", "meterName": "m",
-                    "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi" }),
-            Some("a*b <mark>x</mark>*c*d"), 3.5) ] } }))
+        let found = poems_found(found(
+            1,
+            vec![poem_hit(
+                poem_source("TnKK", "a*b*c*d"),
+                Some("a*b <mark>x</mark>*c*d"),
+                json!(3.5),
+            )],
+        ))
         .await;
         let hit = &found.hits[0];
         assert_eq!(
@@ -217,6 +254,7 @@ mod tests {
             (hit.poet.name.as_str(), hit.poet.slug.as_str()),
             ("P", "yoFB")
         );
+        assert_eq!((hit.poet.has_avatar, hit.poet.is_anonymous), (true, false));
         assert_eq!(
             (hit.meter.slug.as_str(), hit.era.slug.as_str()),
             ("altawil", "abbasi")
@@ -227,73 +265,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_empty_vocalized_title_stays_empty_and_a_missing_one_falls_back_to_the_plain_title()
-    {
-        let found = poems_found(json!({ "hits": { "total": { "value": 2 }, "hits": [
-            poem_hit(json!({ "titleDisplay": "", "title": "plain" }), None, 1.0),
-            poem_hit(json!({ "title": "plain" }), None, 1.0),
-        ] } }))
-        .await;
-        assert_eq!(found.hits[0].title, "");
-        assert_eq!(found.hits[1].title, "plain");
-    }
-
-    #[tokio::test]
-    async fn the_poem_total_counts_poems_not_readings_and_stops_at_the_result_window() {
-        let grouped = poems_found(json!({
-            "hits": { "total": { "value": 12 }, "hits": [] },
-            "aggregations": { "poems": { "value": 9 } },
-        }))
-        .await;
-        assert_eq!(grouped.total, 9);
-        let many = poems_found(json!({
-            "hits": { "total": { "value": 10000 }, "hits": [] },
-            "aggregations": { "poems": { "value": 51234 } },
-        }))
-        .await;
-        assert_eq!(many.total, ES_MAX_RESULT_WINDOW);
-        let browse = poems_found(json!({ "hits": { "total": { "value": 7 }, "hits": [] } })).await;
-        assert_eq!(browse.total, 7);
-    }
-
-    #[tokio::test]
-    async fn the_poet_total_is_read_whether_elasticsearch_sends_a_number_or_an_object() {
+    async fn a_poet_hit_and_a_listed_poet_show_the_vocalized_name() {
+        let hits = vec![json!({ "_source": poet_source("yoFB"), "_score": 2.0 })];
+        let searched = poets_found(found(1, hits.clone())).await;
         assert_eq!(
-            poets_found(json!({ "hits": { "total": 7, "hits": [] } }))
-                .await
-                .total,
-            7
+            (
+                searched.hits[0].name.as_str(),
+                searched.hits[0].slug.as_str()
+            ),
+            ("vocalized", "yoFB")
         );
-        assert_eq!(
-            poets_found(json!({ "hits": { "total": { "value": 9 }, "hits": [] } }))
-                .await
-                .total,
-            9
-        );
-        assert_eq!(poets_found(json!({ "hits": {} })).await.total, 0);
-    }
-
-    #[tokio::test]
-    async fn a_hit_missing_its_fields_is_shown_with_empty_text_and_zero_counts() {
-        let found = poems_found(json!({ "hits": { "hits": [ { "_source": {} } ] } })).await;
-        let hit = &found.hits[0];
-        assert_eq!((hit.slug.as_str(), hit.snippet.as_str()), ("", ""));
-        assert_eq!(hit.relevance.to_bits(), 0.0_f64.to_bits());
-        assert_eq!(found.total, 0);
-        let (_fake, es) = answering(json!({ "hits": { "hits": [ { "_source": {} } ] } })).await;
+        assert_eq!(searched.hits[0].era.slug, "abbasi");
+        let (_fake, es) = answering(found(1, hits)).await;
         let listed = es
             .list_poets(&PoetSearchParams::default())
             .await
             .expect("a page of poets");
-        assert_eq!(listed.hits[0].poems_count, 0);
-        assert!(poems_found(json!({})).await.hits.is_empty());
+        assert_eq!(
+            (listed.hits[0].name.as_str(), listed.hits[0].poems_count),
+            ("vocalized", 12)
+        );
+        assert_eq!(listed.total, 1);
+    }
+
+    #[tokio::test]
+    async fn a_hit_sorted_without_a_score_has_no_relevance() {
+        let found = poems_found(found(
+            1,
+            vec![poem_hit(poem_source("TnKK", "a*b"), None, Value::Null)],
+        ))
+        .await;
+        assert_eq!(found.hits[0].relevance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[tokio::test]
+    async fn the_poem_total_counts_poems_not_readings_and_stops_at_the_result_window() {
+        let mut grouped = found(12, vec![]);
+        grouped["aggregations"] = json!({ "poems": { "value": 9 } });
+        assert_eq!(poems_found(grouped).await.total, 9);
+        let mut many = found(10_000, vec![]);
+        many["aggregations"] = json!({ "poems": { "value": 51_234 } });
+        assert_eq!(poems_found(many).await.total, ES_MAX_RESULT_WINDOW);
+        assert_eq!(poems_found(found(7, vec![])).await.total, 7);
+    }
+
+    #[tokio::test]
+    async fn a_response_missing_a_field_fails_the_search_instead_of_showing_empty_text() {
+        let mut source = poem_source("TnKK", "a*b");
+        source
+            .as_object_mut()
+            .expect("an object")
+            .remove("titleDisplay");
+        assert!(matches!(
+            poems_searched(found(1, vec![poem_hit(source, None, json!(1.0))])).await,
+            Err(StoreError::Search(_))
+        ));
+        assert!(matches!(
+            poems_searched(json!({ "hits": { "hits": [] } })).await,
+            Err(StoreError::Search(_))
+        ));
+        let (_fake, es) = answering(found(1, vec![json!({ "_source": { "slug": "yoFB" } })])).await;
+        assert!(matches!(
+            es.list_poets(&PoetSearchParams::default()).await,
+            Err(StoreError::Search(_))
+        ));
     }
 
     #[tokio::test]
     async fn an_empty_highlight_shows_the_opening_verse() {
-        let found = poems_found(json!({ "hits": { "hits": [
-            poem_hit(json!({ "content": "x*y*z" }), Some(""), 1.0)
-        ] } }))
+        let found = poems_found(found(
+            1,
+            vec![poem_hit(poem_source("TnKK", "x*y*z"), Some(""), json!(1.0))],
+        ))
         .await;
         assert_eq!(found.hits[0].snippet, "x*y");
     }
