@@ -6,11 +6,11 @@ process.env['INTERNAL_API_KEY'] = 'internal-key';
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
-function call(path: string, headers: Readonly<Record<string, string>> = {}) {
+function call(path: string, headers: Readonly<Record<string, string>> = {}, search = '?q=x') {
   return {
     params: { path },
     request: new Request(`https://qafiyah.com/api/v1/${path}`, { headers }),
-    url: new URL(`https://qafiyah.com/api/v1/${path}?q=x`),
+    url: new URL(`https://qafiyah.com/api/v1/${path}${search}`),
   };
 }
 
@@ -27,6 +27,20 @@ describe('the api proxy', () => {
     const response = await proxyRequest(call('poems/slugs'));
     expect(response.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a poem list that names no poet', async () => {
+    const { proxyRequest } = await import('./proxy-handler');
+    const response = await proxyRequest(call('poems', {}, '?meter=altawil&meter=alkamil'));
+    expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards one poet's poem list", async () => {
+    const { proxyRequest } = await import('./proxy-handler');
+    await proxyRequest(call('poems', {}, '?poet=imHZ&meter=altawil'));
+    const [target] = fetchMock.mock.calls[0] as [string];
+    expect(target).toBe('http://api.test/v1/poems?poet=imHZ&meter=altawil');
   });
 
   it('forwards an allowlisted path with the internal key', async () => {

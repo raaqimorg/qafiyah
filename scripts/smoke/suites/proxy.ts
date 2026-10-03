@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import { expectJsonObject, expectOnlyEra } from '../checks/body';
 import { headerIncludes } from '../checks/headers';
 import { isNoStore, isStatus } from '../checks/status';
+import { FIXTURE_POET } from '../fixtures';
 import { WEB } from '../target';
 
 import type { Check, Probe } from '../types';
@@ -35,6 +36,19 @@ export const proxyProbes: readonly Probe[] = [
     note: 'proxy random poem passthrough, never cached',
     expect: 'ok',
     checks: [isPoemSlug, isNoStore],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/api/v1/poems?poet=${FIXTURE_POET.slug}&page=1`,
+    note: "proxy one poet's poem list, as the poet page sends it",
+    expect: 'ok',
+    checks: [expectJsonObject],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/api/v1/poems?meter=altawil&meter=alkamil`,
+    note: 'proxy poem list naming no poet is 404',
+    checks: [isNoStore, isStatus(404)],
     surfaces: ALL,
   },
   {
