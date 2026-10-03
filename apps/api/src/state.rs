@@ -5,12 +5,13 @@ use sqlx::PgPool;
 use crate::accounts::cache::KeyCache;
 use crate::accounts::usage::UsageRecorder;
 use crate::auth::Keys;
+use crate::db;
 use crate::es::client::Es;
 use crate::rate_limit::Limiter;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub pg: PgPool,
+    pub pg: db::PgPool,
     pub accounts: PgPool,
     pub es: Arc<Es>,
     pub keys: Arc<Keys>,

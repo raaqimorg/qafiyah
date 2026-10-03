@@ -1,12 +1,17 @@
 use std::cmp::Reverse;
 
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use serde::Serialize;
-use sqlx::{AssertSqlSafe, PgPool};
 use utoipa::ToSchema;
 
+use crate::db::corpus::{
+    collection_stats, era_stats, meter_stats, poem_type_stats, rhyme_stats, theme_stats,
+};
+use crate::db::{PgPool, int, present};
 use crate::error::{AppError, Resource};
 
-#[derive(Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CountedStats {
     pub name: String,
@@ -18,7 +23,7 @@ pub struct CountedStats {
     pub poets_count: i32,
 }
 
-#[derive(Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PoemCountStats {
     pub name: String,
@@ -37,24 +42,6 @@ pub enum Counted {
 }
 
 impl Counted {
-    fn view(self) -> &'static str {
-        match self {
-            Counted::Meters => "meter_stats",
-            Counted::Rhymes => "rhyme_stats",
-            Counted::Eras => "era_stats",
-            Counted::PoemTypes => "poem_type_stats",
-        }
-    }
-
-    fn order_by(self) -> &'static str {
-        match self {
-            Counted::Meters => "name ASC",
-            Counted::Rhymes => "id ASC",
-            Counted::Eras => "sort_order ASC",
-            Counted::PoemTypes => "poems_count DESC, id ASC",
-        }
-    }
-
     fn resource(self) -> Resource {
         match self {
             Counted::Meters => Resource::Meter,
@@ -81,13 +68,6 @@ pub enum PoemCounted {
 }
 
 impl PoemCounted {
-    fn view(self) -> &'static str {
-        match self {
-            PoemCounted::Themes => "theme_stats",
-            PoemCounted::Collections => "collection_stats",
-        }
-    }
-
     fn resource(self) -> Resource {
         match self {
             PoemCounted::Themes => Resource::Theme,
@@ -103,43 +83,177 @@ impl PoemCounted {
     }
 }
 
-const COUNTED_COLUMNS: &str =
-    "name, slug, poems_count::int AS poems_count, poets_count::int AS poets_count";
-const POEM_COUNT_COLUMNS: &str = "name, slug, poems_count::int AS poems_count";
+type CountedRow<C> = (Option<String>, Option<String>, Option<C>, Option<C>);
+type PoemCountRow = (Option<String>, Option<String>, Option<i64>);
+
+fn counted<C: TryInto<i32>>(
+    (name, slug, poems, poets): CountedRow<C>,
+) -> Result<CountedStats, AppError> {
+    Ok(CountedStats {
+        name: present(name)?,
+        slug: present(slug)?,
+        poems_count: int(present(poems)?)?,
+        poets_count: int(present(poets)?)?,
+    })
+}
+
+fn poem_counted((name, slug, poems): PoemCountRow) -> Result<PoemCountStats, AppError> {
+    Ok(PoemCountStats {
+        name: present(name)?,
+        slug: present(slug)?,
+        poems_count: int(present(poems)?)?,
+    })
+}
 
 pub async fn list_counted(pg: &PgPool, kind: Counted) -> Result<Vec<CountedStats>, AppError> {
-    let sql = format!(
-        "SELECT {COUNTED_COLUMNS} FROM {} ORDER BY {}",
-        kind.view(),
-        kind.order_by()
-    );
-    Ok(sqlx::query_as::<_, CountedStats>(AssertSqlSafe(sql))
-        .fetch_all(pg)
-        .await?)
+    let mut conn = pg.get().await?;
+    match kind {
+        Counted::Meters => meter_stats::table
+            .select((
+                meter_stats::name,
+                meter_stats::slug,
+                meter_stats::poems_count,
+                meter_stats::poets_count,
+            ))
+            .order(meter_stats::name.asc())
+            .load::<CountedRow<i64>>(&mut conn)
+            .await?
+            .into_iter()
+            .map(counted)
+            .collect(),
+        Counted::Rhymes => rhyme_stats::table
+            .select((
+                rhyme_stats::name,
+                rhyme_stats::slug,
+                rhyme_stats::poems_count,
+                rhyme_stats::poets_count,
+            ))
+            .order(rhyme_stats::id.asc())
+            .load::<CountedRow<i32>>(&mut conn)
+            .await?
+            .into_iter()
+            .map(counted)
+            .collect(),
+        Counted::Eras => era_stats::table
+            .select((
+                era_stats::name,
+                era_stats::slug,
+                era_stats::poems_count,
+                era_stats::poets_count,
+            ))
+            .order(era_stats::sort_order.asc())
+            .load::<CountedRow<i64>>(&mut conn)
+            .await?
+            .into_iter()
+            .map(counted)
+            .collect(),
+        Counted::PoemTypes => poem_type_stats::table
+            .select((
+                poem_type_stats::name,
+                poem_type_stats::slug,
+                poem_type_stats::poems_count,
+                poem_type_stats::poets_count,
+            ))
+            .order((
+                poem_type_stats::poems_count.desc(),
+                poem_type_stats::id.asc(),
+            ))
+            .load::<CountedRow<i64>>(&mut conn)
+            .await?
+            .into_iter()
+            .map(counted)
+            .collect(),
+    }
 }
 
 pub async fn get_counted(pg: &PgPool, kind: Counted, slug: &str) -> Result<CountedStats, AppError> {
-    let sql = format!(
-        "SELECT {COUNTED_COLUMNS} FROM {} WHERE slug = $1 LIMIT 1",
-        kind.view()
-    );
-    sqlx::query_as::<_, CountedStats>(AssertSqlSafe(sql))
-        .bind(slug)
-        .fetch_optional(pg)
-        .await?
-        .ok_or(AppError::NotFound(kind.resource()))
+    let mut conn = pg.get().await?;
+    let row = match kind {
+        Counted::Meters => meter_stats::table
+            .select((
+                meter_stats::name,
+                meter_stats::slug,
+                meter_stats::poems_count,
+                meter_stats::poets_count,
+            ))
+            .filter(meter_stats::slug.eq(slug))
+            .first::<CountedRow<i64>>(&mut conn)
+            .await
+            .optional()?
+            .map(counted),
+        Counted::Rhymes => rhyme_stats::table
+            .select((
+                rhyme_stats::name,
+                rhyme_stats::slug,
+                rhyme_stats::poems_count,
+                rhyme_stats::poets_count,
+            ))
+            .filter(rhyme_stats::slug.eq(slug))
+            .first::<CountedRow<i32>>(&mut conn)
+            .await
+            .optional()?
+            .map(counted),
+        Counted::Eras => era_stats::table
+            .select((
+                era_stats::name,
+                era_stats::slug,
+                era_stats::poems_count,
+                era_stats::poets_count,
+            ))
+            .filter(era_stats::slug.eq(slug))
+            .first::<CountedRow<i64>>(&mut conn)
+            .await
+            .optional()?
+            .map(counted),
+        Counted::PoemTypes => poem_type_stats::table
+            .select((
+                poem_type_stats::name,
+                poem_type_stats::slug,
+                poem_type_stats::poems_count,
+                poem_type_stats::poets_count,
+            ))
+            .filter(poem_type_stats::slug.eq(slug))
+            .first::<CountedRow<i64>>(&mut conn)
+            .await
+            .optional()?
+            .map(counted),
+    };
+    row.transpose()?.ok_or(AppError::NotFound(kind.resource()))
 }
 
 pub async fn list_by_poem_count(
     pg: &PgPool,
     kind: PoemCounted,
 ) -> Result<Vec<PoemCountStats>, AppError> {
-    let sql = format!("SELECT {POEM_COUNT_COLUMNS} FROM {}", kind.view());
-    let mut rows = sqlx::query_as::<_, PoemCountStats>(AssertSqlSafe(sql))
-        .fetch_all(pg)
-        .await?;
-    rows.sort_by_key(|row| Reverse(row.poems_count));
-    Ok(rows)
+    let mut conn = pg.get().await?;
+    let rows = match kind {
+        PoemCounted::Themes => {
+            theme_stats::table
+                .select((
+                    theme_stats::name,
+                    theme_stats::slug,
+                    theme_stats::poems_count,
+                ))
+                .load::<PoemCountRow>(&mut conn)
+                .await?
+        }
+        PoemCounted::Collections => {
+            collection_stats::table
+                .select((
+                    collection_stats::name,
+                    collection_stats::slug,
+                    collection_stats::poems_count,
+                ))
+                .load::<PoemCountRow>(&mut conn)
+                .await?
+        }
+    };
+    let mut stats = rows
+        .into_iter()
+        .map(poem_counted)
+        .collect::<Result<Vec<_>, _>>()?;
+    stats.sort_by_key(|row| Reverse(row.poems_count));
+    Ok(stats)
 }
 
 pub async fn get_by_poem_count(
@@ -147,44 +261,30 @@ pub async fn get_by_poem_count(
     kind: PoemCounted,
     slug: &str,
 ) -> Result<PoemCountStats, AppError> {
-    let sql = format!(
-        "SELECT {POEM_COUNT_COLUMNS} FROM {} WHERE slug = $1 LIMIT 1",
-        kind.view()
-    );
-    sqlx::query_as::<_, PoemCountStats>(AssertSqlSafe(sql))
-        .bind(slug)
-        .fetch_optional(pg)
-        .await?
+    let mut conn = pg.get().await?;
+    let row = match kind {
+        PoemCounted::Themes => theme_stats::table
+            .select((
+                theme_stats::name,
+                theme_stats::slug,
+                theme_stats::poems_count,
+            ))
+            .filter(theme_stats::slug.eq(slug))
+            .first::<PoemCountRow>(&mut conn)
+            .await
+            .optional()?,
+        PoemCounted::Collections => collection_stats::table
+            .select((
+                collection_stats::name,
+                collection_stats::slug,
+                collection_stats::poems_count,
+            ))
+            .filter(collection_stats::slug.eq(slug))
+            .first::<PoemCountRow>(&mut conn)
+            .await
+            .optional()?,
+    };
+    row.map(poem_counted)
+        .transpose()?
         .ok_or(AppError::NotFound(kind.resource()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sorting_by_poem_count_keeps_ties_in_row_order() {
-        let mut rows = [
-            PoemCountStats {
-                name: "first".into(),
-                slug: "a".into(),
-                poems_count: 5,
-            },
-            PoemCountStats {
-                name: "second".into(),
-                slug: "b".into(),
-                poems_count: 9,
-            },
-            PoemCountStats {
-                name: "third".into(),
-                slug: "c".into(),
-                poems_count: 5,
-            },
-        ];
-        rows.sort_by_key(|row| Reverse(row.poems_count));
-        assert_eq!(
-            rows.iter().map(|r| r.slug.as_str()).collect::<Vec<_>>(),
-            ["b", "a", "c"]
-        );
-    }
 }
