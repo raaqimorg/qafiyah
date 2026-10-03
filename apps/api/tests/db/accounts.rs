@@ -154,6 +154,25 @@ async fn sessions_are_created_resolved_and_deleted_through_the_internal_api() {
 }
 
 #[tokio::test]
+async fn an_email_finds_or_creates_one_user_whatever_its_case() {
+    let Some(h) = harness().await else { return };
+    h.isolated("for-email", |h, email| async move {
+        let created = users::for_email(
+            h.state.users.as_ref(),
+            &format!(" {} ", email.to_uppercase()),
+        )
+        .await
+        .expect("a user");
+        let found = users::for_email(h.state.users.as_ref(), &email)
+            .await
+            .expect("the same user");
+        assert_eq!(created.id, found.id);
+        assert_eq!(created.email, email);
+    })
+    .await;
+}
+
+#[tokio::test]
 async fn keys_are_capped_per_user_listed_with_their_plan_and_revocable_once() {
     let Some(h) = harness().await else { return };
     h.isolated("keys", |h, email| async move {

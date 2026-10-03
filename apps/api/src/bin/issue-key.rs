@@ -7,17 +7,18 @@
     reason = "usage and database errors go to stderr"
 )]
 
-use diesel::prelude::*;
-use diesel::upsert::excluded;
-use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
-use qafiyah_api::accounts::keys;
-use qafiyah_api::accounts::users::normalize_email;
-use qafiyah_api::db::accounts_schema::{api_keys, users};
+use std::time::Duration;
+
+use qafiyah_api::accounts::keys::{self, KeyError};
+use qafiyah_api::accounts::users;
+use qafiyah_api::constants::{MAX_ACTIVE_KEYS_PER_USER, PG_ACQUIRE_TIMEOUT_SECONDS};
+use qafiyah_api::db::keys::PgKeys;
+use qafiyah_api::db::users::PgUsers;
 
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(email) = args.next().map(|raw| normalize_email(&raw)) else {
+    let Some(email) = args.next() else {
         eprintln!("usage: issue-key <email> [label]");
         std::process::exit(2);
     };
@@ -31,46 +32,43 @@ async fn main() {
         }
     };
 
-    let mut conn = match AsyncPgConnection::establish(&url).await {
-        Ok(conn) => conn,
+    let pool = match qafiyah_api::db::pool(
+        &url,
+        1,
+        Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
+        qafiyah_api::db::accounts_setup(),
+    ) {
+        Ok(pool) => pool,
         Err(e) => {
             eprintln!("could not connect: {e}");
             std::process::exit(1);
         }
     };
 
-    let user_id: i64 = match diesel::insert_into(users::table)
-        .values(users::email.eq(&email))
-        .on_conflict(users::email)
-        .do_update()
-        .set(users::email.eq(excluded(users::email)))
-        .returning(users::id)
-        .get_result(&mut conn)
-        .await
-    {
-        Ok(id) => id,
+    let user = match users::for_email(&PgUsers::new(pool.clone()), &email).await {
+        Ok(user) => user,
         Err(e) => {
             eprintln!("could not upsert the user: {e}");
             std::process::exit(1);
         }
     };
 
-    let key = keys::generate();
-    if let Err(e) = diesel::insert_into(api_keys::table)
-        .values((
-            api_keys::user_id.eq(user_id),
-            api_keys::key_hash.eq(key.hash.as_slice()),
-            api_keys::prefix.eq(&key.prefix),
-            api_keys::label.eq(label.as_deref()),
-        ))
-        .execute(&mut conn)
-        .await
-    {
-        eprintln!("could not insert the key: {e}");
-        std::process::exit(1);
-    }
+    let key = match keys::create_for(&PgKeys::new(pool), user.id, label.as_deref()).await {
+        Ok(key) => key,
+        Err(KeyError::TooMany) => {
+            eprintln!(
+                "{} already has {MAX_ACTIVE_KEYS_PER_USER} active keys; revoke one first",
+                user.email
+            );
+            std::process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("could not insert the key: {e}");
+            std::process::exit(1);
+        }
+    };
 
-    println!("user:   {email} (id {user_id})");
+    println!("user:   {} (id {})", user.email, user.id);
     println!("prefix: {}", key.prefix);
     println!("key:    {}", key.value);
     println!();

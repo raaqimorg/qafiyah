@@ -35,6 +35,11 @@ pub enum UpsertError {
 #[async_trait]
 pub trait UserRepository: Send + Sync {
     async fn upsert(&self, identity: &Identity, email: &str) -> Result<Profile, UpsertError>;
+    async fn find_or_create(&self, email: &str) -> Result<Profile, StoreError>;
+}
+
+pub async fn for_email(users: &dyn UserRepository, raw: &str) -> Result<Profile, StoreError> {
+    users.find_or_create(&normalize_email(raw)).await
 }
 
 pub async fn upsert(

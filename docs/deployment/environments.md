@@ -166,7 +166,7 @@ Issue a key with:
 DATABASE_URL_ACCOUNTS=... cargo run -p qafiyah-api --bin issue-key -- <email> [label]
 ```
 
-The raw key is printed once and never recoverable; only its hash is stored.
+It goes through the same library calls as the account API: the email is normalized, the user is created if it is new, and a user who already holds `MAX_ACTIVE_KEYS_PER_USER` active keys is refused until one is revoked. The raw key is printed once and never recoverable; only its hash is stored.
 
 Two consistency windows are deliberate and worth knowing before debugging
 either: a revoked key keeps working for up to 60 seconds
