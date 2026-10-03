@@ -21,4 +21,6 @@ pub enum StoreError {
     Database(String),
     #[error("search error: {0}")]
     Search(String),
+    #[error("unavailable: {0}")]
+    Unavailable(String),
 }

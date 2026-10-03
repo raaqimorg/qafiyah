@@ -9,7 +9,12 @@ import {
 } from '@qafiyah/config';
 
 const PROXY_TIMEOUT_MS = 8000;
-const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control', 'etag'] as const;
+const FORWARDED_RESPONSE_HEADERS = [
+  'content-type',
+  'cache-control',
+  'etag',
+  'retry-after',
+] as const;
 
 export type ProxyContext = {
   readonly params: Readonly<Record<string, string | undefined>>;

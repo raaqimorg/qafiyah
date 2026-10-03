@@ -802,6 +802,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "collections.get": {
@@ -872,6 +883,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "eras.list": {
@@ -912,6 +934,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -988,6 +1021,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "meters.list": {
@@ -1028,6 +1072,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1104,6 +1159,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "poemTypes.list": {
@@ -1144,6 +1210,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1214,6 +1291,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1323,6 +1411,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "poems.count": {
@@ -1363,6 +1462,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1460,6 +1570,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "poems.listSlugs": {
@@ -1515,6 +1636,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1600,6 +1732,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "poets.list": {
@@ -1671,6 +1814,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "poets.listSlugs": {
@@ -1726,6 +1880,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1811,6 +1976,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "rhymes.list": {
@@ -1851,6 +2027,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1921,6 +2108,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2054,6 +2252,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     "themes.list": {
@@ -2094,6 +2303,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2164,6 +2384,17 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: string;
                     [name: string]: unknown;
                 };
                 content: {

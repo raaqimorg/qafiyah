@@ -773,6 +773,28 @@ struct Statement {
 }
 
 #[tokio::test]
+async fn a_read_that_finds_every_connection_busy_is_unavailable_not_a_database_error() {
+    let Ok(url) = std::env::var("QAFIYAH_TEST_DATABASE_URL") else {
+        return;
+    };
+    let pool = qafiyah_api::db::pool(
+        &url,
+        1,
+        std::time::Duration::from_millis(200),
+        qafiyah_api::db::corpus_setup(),
+    )
+    .expect("a one-connection pool");
+    let held = pool.get().await.expect("the one connection");
+    let result = PgPoems::new(pool.clone()).count().await;
+    assert!(
+        matches!(result, Err(qafiyah_api::domain::StoreError::Unavailable(_))),
+        "{result:?}"
+    );
+    drop(held);
+    assert!(PgPoems::new(pool).count().await.is_ok());
+}
+
+#[tokio::test]
 async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
     let Ok(url) = std::env::var("QAFIYAH_TEST_DATABASE_URL") else {
         return;

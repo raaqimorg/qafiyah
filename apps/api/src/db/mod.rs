@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use deadpool::Runtime;
+use deadpool::managed::PoolError;
 use diesel::pg::Pg;
 use diesel::query_builder::{AstPass, Query, QueryFragment, QueryId};
 use diesel::sql_types::{Interval, Nullable, Text, Timestamptz};
@@ -118,10 +119,15 @@ impl From<diesel::result::Error> for StoreError {
     }
 }
 
-impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for StoreError {
-    fn from(
-        error: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>,
-    ) -> Self {
-        StoreError::Database(error.to_string())
+impl From<PoolError<diesel_async::pooled_connection::PoolError>> for StoreError {
+    fn from(error: PoolError<diesel_async::pooled_connection::PoolError>) -> Self {
+        match error {
+            PoolError::Timeout(_) | PoolError::Backend(_) | PoolError::Closed => {
+                StoreError::Unavailable(error.to_string())
+            }
+            PoolError::NoRuntimeSpecified | PoolError::PostCreateHook(_) => {
+                StoreError::Database(error.to_string())
+            }
+        }
     }
 }

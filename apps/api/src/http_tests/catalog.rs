@@ -17,6 +17,7 @@ use crate::test_support::{FakeEs, request, send, state};
 
 #[derive(Default)]
 struct Poems {
+    stall: bool,
     survivor: Option<&'static str>,
     lines: Option<Vec<String>>,
     randoms: Mutex<VecDeque<(&'static str, &'static str)>>,
@@ -69,6 +70,9 @@ fn record(lines: Vec<String>) -> PoemRecord {
 #[async_trait]
 impl PoemRepository for Poems {
     async fn count(&self) -> Result<i32, StoreError> {
+        if self.stall {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
         Ok(0)
     }
     async fn list_slugs(&self, _: u32, _: u32) -> Result<Vec<String>, StoreError> {
@@ -254,4 +258,17 @@ async fn no_random_poem_at_all_is_a_500_not_an_empty_answer() {
     let (_es, state) = with_poems(Poems::default()).await;
     let sent = send(crate::app(state), request("GET", "/v1/poems/random")).await;
     assert_eq!(sent.status, StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_request_past_its_deadline_is_a_temporary_problem_not_a_hang() {
+    let (_es, state) = with_poems(Poems {
+        stall: true,
+        ..Poems::default()
+    })
+    .await;
+    let sent = send(crate::app(state), request("GET", "/v1/poems/count")).await;
+    assert_eq!(sent.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(sent.header("retry-after"), Some("2"));
+    assert_eq!(sent.json()["code"], "SERVICE_UNAVAILABLE");
 }

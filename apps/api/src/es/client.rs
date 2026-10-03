@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use qafiyah_elasticsearch::Endpoint;
-use reqwest::Method;
+use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -42,23 +42,38 @@ impl Es {
             .json(body)
             .send()
             .await
-            .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))?;
+            .map_err(|cause| failed(index, &cause))?;
         let status = response.status();
         let body = response
             .bytes()
             .await
-            .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))?;
+            .map_err(|cause| failed(index, &cause))?;
         if !status.is_success() {
             let refusal = serde_json::from_slice::<Value>(&body)
                 .ok()
                 .and_then(|value| refusal_reason(&value));
-            return Err(StoreError::Search(match refusal {
+            let message = match refusal {
                 Some(reason) => format!("{index}: {status}: {reason}"),
                 None => format!("{index}: {status}"),
-            }));
+            };
+            return Err(match status {
+                StatusCode::TOO_MANY_REQUESTS
+                | StatusCode::SERVICE_UNAVAILABLE
+                | StatusCode::GATEWAY_TIMEOUT => StoreError::Unavailable(message),
+                _ => StoreError::Search(message),
+            });
         }
         serde_json::from_slice(&body)
             .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))
+    }
+}
+
+fn failed(index: &str, cause: &reqwest::Error) -> StoreError {
+    let message = format!("{index}: {cause}");
+    if cause.is_timeout() || cause.is_connect() {
+        StoreError::Unavailable(message)
+    } else {
+        StoreError::Search(message)
     }
 }
 
@@ -101,13 +116,13 @@ mod tests {
         .await;
 
         let result = outcome.expect("the search must give up on its own, not be rescued");
-        assert!(matches!(result, Err(StoreError::Search(_))));
+        assert!(matches!(result, Err(StoreError::Unavailable(_))));
     }
 
     #[tokio::test]
     async fn a_refused_search_carries_the_reason_elasticsearch_gave() {
         let es = crate::test_support::FakeEs::serving(
-            axum::http::StatusCode::BAD_REQUEST,
+            StatusCode::BAD_REQUEST,
             serde_json::json!({
                 "error": {
                     "root_cause": [{
@@ -170,7 +185,7 @@ mod tests {
     #[tokio::test]
     async fn a_non_success_status_with_a_json_body_is_a_search_error() {
         let es = crate::test_support::FakeEs::serving(
-            axum::http::StatusCode::BAD_GATEWAY,
+            StatusCode::BAD_GATEWAY,
             serde_json::json!({ "error": "down" }),
         )
         .await;
@@ -179,5 +194,34 @@ mod tests {
             .search::<Value>("poems", &serde_json::json!({}))
             .await;
         assert!(matches!(result, Err(StoreError::Search(message)) if message.contains("502")));
+    }
+
+    #[tokio::test]
+    async fn a_busy_or_unreachable_elasticsearch_is_unavailable_not_a_search_error() {
+        for status in [
+            StatusCode::SERVICE_UNAVAILABLE,
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::GATEWAY_TIMEOUT,
+        ] {
+            let fake = crate::test_support::FakeEs::serving(
+                status,
+                serde_json::json!({ "error": "busy" }),
+            )
+            .await;
+            let es = Es::new(&fake.url).expect("a fake endpoint");
+            let result = es.search::<Value>("poems", &serde_json::json!({})).await;
+            assert!(
+                matches!(result, Err(StoreError::Unavailable(_))),
+                "{status}"
+            );
+        }
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        drop(listener);
+        let es = Es::new(&format!("http://{address}")).expect("an endpoint");
+        let result = es.search::<Value>("poems", &serde_json::json!({})).await;
+        assert!(matches!(result, Err(StoreError::Unavailable(_))));
     }
 }

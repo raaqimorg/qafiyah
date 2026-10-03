@@ -64,7 +64,7 @@ The first run starts Postgres and Elasticsearch in Docker, restores a 100-poem s
 | Free key | 500 requests per hour, burst of 10 per second                 |
 | Higher   | write to [api@qafiyah.com](mailto:api@qafiyah.com)            |
 
-Sign in with Google or GitHub on the [developers page](https://qafiyah.com/developers) to create a key, and send it as the `x-api-key` header. Responses report `x-ratelimit-remaining`, a refused request returns 429 with `Retry-After`, and errors are RFC 9457 problem+json.
+Sign in with Google or GitHub on the [developers page](https://qafiyah.com/developers) to create a key, and send it as the `x-api-key` header. Responses report `x-ratelimit-remaining`, a refused request returns 429 and a temporarily overloaded API 503, both with `Retry-After`, and errors are RFC 9457 problem+json.
 
 ## Data
 

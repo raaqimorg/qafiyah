@@ -6,7 +6,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
-use crate::constants::{NO_STORE_CACHE_CONTROL, PROD_SITE_URL};
+use crate::constants::{NO_STORE_CACHE_CONTROL, PROD_SITE_URL, UNAVAILABLE_RETRY_AFTER_SECONDS};
 use crate::domain::StoreError;
 use crate::domain::poems::PoemError;
 use crate::log::stage_event;
@@ -109,6 +109,8 @@ pub enum AppError {
     Database(String),
     #[error("search error: {0}")]
     Search(String),
+    #[error("unavailable: {0}")]
+    Unavailable(String),
     #[error("too many requests")]
     TooManyRequests,
     #[error("{0:?}")]
@@ -176,6 +178,12 @@ impl AppError {
                 "Internal server error",
                 "Internal server error",
             ),
+            AppError::Unavailable(_) => contract(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "SERVICE_UNAVAILABLE",
+                "Service unavailable",
+                "Temporarily unavailable, try again shortly",
+            ),
             AppError::TooManyRequests => contract(
                 StatusCode::TOO_MANY_REQUESTS,
                 "TOO_MANY_REQUESTS",
@@ -208,6 +216,7 @@ impl From<StoreError> for AppError {
         match error {
             StoreError::Database(cause) => AppError::Database(cause),
             StoreError::Search(cause) => AppError::Search(cause),
+            StoreError::Unavailable(cause) => AppError::Unavailable(cause),
         }
     }
 }
@@ -240,6 +249,12 @@ impl IntoResponse for AppError {
                 eprintln!(
                     "{}",
                     stage_event("search", Some(("error", cause.as_str().into())))
+                );
+            }
+            AppError::Unavailable(cause) => {
+                eprintln!(
+                    "{}",
+                    stage_event("unavailable", Some(("error", cause.as_str().into())))
                 );
             }
             AppError::NotFound(_)
@@ -305,6 +320,12 @@ fn render(problem: &Problem, instance: &str) -> Response {
         header::CACHE_CONTROL,
         HeaderValue::from_static(NO_STORE_CACHE_CONTROL),
     );
+    if problem.status == StatusCode::SERVICE_UNAVAILABLE {
+        response.headers_mut().insert(
+            header::RETRY_AFTER,
+            HeaderValue::from(UNAVAILABLE_RETRY_AFTER_SECONDS),
+        );
+    }
     response
 }
 
