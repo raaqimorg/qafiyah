@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use qafiyah_elasticsearch::{Schema, folding_rules};
+use serde_json::Value;
 
 use crate::docs::{PoemSource, PoetSource, to_poem_doc, to_poet_doc};
 use crate::error::IndexerError;
-use crate::log;
 
 const PROGRESS_EVERY: usize = 10_000;
 
@@ -31,6 +31,20 @@ pub(crate) trait IndexStore: Send + Sync {
         to_index: &str,
     ) -> Result<(), IndexerError>;
     async fn delete_index_quietly(&self, index: &str);
+    async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError>;
+    async fn ensure_read_only_user(
+        &self,
+        role: &str,
+        username: &str,
+        password: &str,
+        index_patterns: &[String],
+    ) -> Result<(), IndexerError>;
+}
+
+pub(crate) struct Progress<'a> {
+    pub index: &'a str,
+    pub indexed: usize,
+    pub total: i64,
 }
 
 pub(crate) struct Target<'a> {
@@ -45,6 +59,31 @@ pub(crate) struct Ctx<'a> {
     pub corpus: &'a dyn CorpusSource,
     pub batch_size: usize,
     pub rules: &'a [(String, String)],
+    pub progress: &'a (dyn Fn(Progress<'_>) + Sync),
+}
+
+pub(crate) struct Plan<'a> {
+    pub schema: &'a Schema,
+    pub reader_password: &'a str,
+    pub force: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Outcome {
+    Skipped,
+    Rebuilt {
+        poems: (String, usize),
+        poets: (String, usize),
+    },
+}
+
+pub(crate) fn batch_size(configured: usize) -> Result<usize, IndexerError> {
+    if configured == 0 {
+        return Err(IndexerError::Config(
+            "bulkBatchSize must be at least 1".to_string(),
+        ));
+    }
+    Ok(configured)
 }
 
 pub(crate) fn next_index_name(prefix: &str, existing: &[String]) -> String {
@@ -90,10 +129,6 @@ pub(crate) async fn reindex(
     Ok((target, count))
 }
 
-#[expect(
-    clippy::print_stdout,
-    reason = "this batch job's output is its structured log"
-)]
 async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, IndexerError> {
     let (es, corpus, batch_size, rules) = (ctx.index, ctx.corpus, ctx.batch_size, ctx.rules);
     let limit = i64::try_from(batch_size)
@@ -141,13 +176,11 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
             .ok_or(IndexerError::CountOverflow)?;
         es.bulk(target, &batch).await?;
         if reached_progress_mark(before, total) {
-            println!(
-                "{}",
-                log::event(
-                    "progress",
-                    json!({ "index": index, "indexed": total, "total": expected })
-                )
-            );
+            (ctx.progress)(Progress {
+                index,
+                indexed: total,
+                total: expected,
+            });
         }
     }
     es.put_refresh_interval(target, "1s").await?;
@@ -156,9 +189,77 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
     Ok(total)
 }
 
+pub(crate) async fn bootstrap<Connect, Connecting>(
+    index: &dyn IndexStore,
+    plan: &Plan<'_>,
+    connect: Connect,
+    progress: &(dyn Fn(Progress<'_>) + Sync),
+) -> Result<Outcome, IndexerError>
+where
+    Connect: FnOnce() -> Connecting,
+    Connecting: Future<Output = Result<Box<dyn CorpusSource>, IndexerError>>,
+{
+    let id = &plan.schema.identity;
+    index
+        .ensure_read_only_user(
+            &id.api_role,
+            &id.api_username,
+            plan.reader_password,
+            &[
+                id.poems_alias.clone(),
+                id.poets_alias.clone(),
+                format!("{}*", id.poems_prefix),
+                format!("{}*", id.poets_prefix),
+            ],
+        )
+        .await?;
+
+    let poems_ready = index.alias_count(&id.poems_alias).await?.unwrap_or(0) > 0;
+    let poets_ready = index.alias_count(&id.poets_alias).await?.unwrap_or(0) > 0;
+    if !plan.force && poems_ready && poets_ready {
+        return Ok(Outcome::Skipped);
+    }
+
+    let rules = folding_rules(&plan.schema.poems);
+    let batch_size = batch_size(id.bulk_batch_size)?;
+    let corpus = connect().await?;
+    let ctx = Ctx {
+        index,
+        corpus: corpus.as_ref(),
+        batch_size,
+        rules: &rules,
+        progress,
+    };
+    let poems = reindex(
+        &ctx,
+        &Target {
+            alias: &id.poems_alias,
+            prefix: &id.poems_prefix,
+            body: &plan.schema.poems,
+            is_poems: true,
+        },
+    )
+    .await?;
+    let poets = reindex(
+        &ctx,
+        &Target {
+            alias: &id.poets_alias,
+            prefix: &id.poets_prefix,
+            body: &plan.schema.poets,
+            is_poems: false,
+        },
+    )
+    .await?;
+    Ok(Outcome::Rebuilt { poems, poets })
+}
+
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use serde_json::json;
 
     use super::*;
 
@@ -197,24 +298,34 @@ mod tests {
         assert!(!reached_progress_mark(348_000, 348_691));
     }
 
+    #[test]
+    fn a_zero_batch_size_is_refused() {
+        assert_eq!(
+            batch_size(0),
+            Err(IndexerError::Config(
+                "bulkBatchSize must be at least 1".to_string()
+            ))
+        );
+        assert_eq!(batch_size(1000), Ok(1000));
+    }
+
     struct Corpus {
-        ids: Vec<i32>,
-        cursors: Mutex<Vec<i32>>,
+        poet_ids: Vec<i32>,
     }
 
     impl Corpus {
-        fn of(ids: &[i32]) -> Self {
+        fn of(poet_ids: impl IntoIterator<Item = i32>) -> Self {
             Self {
-                ids: ids.to_vec(),
-                cursors: Mutex::new(Vec::new()),
+                poet_ids: poet_ids.into_iter().collect(),
             }
         }
     }
 
     #[async_trait]
     impl CorpusSource for Corpus {
-        async fn count(&self, _: bool) -> Result<i64, IndexerError> {
-            Ok(i64::try_from(self.ids.len()).expect("a small corpus"))
+        async fn count(&self, is_poems: bool) -> Result<i64, IndexerError> {
+            let poets = i64::try_from(self.poet_ids.len()).expect("a small corpus");
+            Ok(if is_poems { 0 } else { poets })
         }
         async fn poems_after(&self, _: i32, _: i64) -> Result<Vec<PoemSource>, IndexerError> {
             Ok(Vec::new())
@@ -224,9 +335,8 @@ mod tests {
             after_id: i32,
             limit: i64,
         ) -> Result<Vec<PoetSource>, IndexerError> {
-            self.cursors.lock().expect("the cursors").push(after_id);
             Ok(self
-                .ids
+                .poet_ids
                 .iter()
                 .filter(|id| **id > after_id)
                 .take(usize::try_from(limit).expect("a small limit"))
@@ -243,56 +353,108 @@ mod tests {
         }
     }
 
-    struct Index {
-        existing: Vec<String>,
-        rejects_writes: bool,
-        calls: Mutex<Vec<String>>,
+    #[derive(Default)]
+    struct Stored {
+        slugs: Vec<String>,
+        refresh: String,
+        merged: bool,
     }
 
-    impl Index {
-        fn holding(existing: &[&str]) -> Self {
-            Self {
-                existing: existing.iter().map(|name| (*name).to_string()).collect(),
-                rejects_writes: false,
-                calls: Mutex::new(Vec::new()),
-            }
+    #[derive(Default)]
+    struct Cluster {
+        indices: Mutex<BTreeMap<String, Stored>>,
+        aliases: Mutex<BTreeMap<String, String>>,
+        readers: Mutex<Vec<(String, Vec<String>)>>,
+        rejects_writes: bool,
+    }
+
+    impl Cluster {
+        fn serving(alias: &str, index: &str, slugs: &[&str]) -> Self {
+            let cluster = Cluster::default();
+            cluster.indices.lock().expect("indices").insert(
+                index.to_string(),
+                Stored {
+                    slugs: slugs.iter().map(|slug| (*slug).to_string()).collect(),
+                    refresh: "1s".into(),
+                    merged: true,
+                },
+            );
+            cluster
+                .aliases
+                .lock()
+                .expect("aliases")
+                .insert(alias.to_string(), index.to_string());
+            cluster
         }
 
-        fn record(&self, call: String) {
-            self.calls.lock().expect("the calls").push(call);
+        fn alias(&self, alias: &str) -> Option<String> {
+            self.aliases.lock().expect("aliases").get(alias).cloned()
         }
 
-        fn calls(&self) -> Vec<String> {
-            self.calls.lock().expect("the calls").clone()
+        fn index_names(&self) -> Vec<String> {
+            self.indices
+                .lock()
+                .expect("indices")
+                .keys()
+                .cloned()
+                .collect()
+        }
+
+        fn with_index<T>(&self, index: &str, read: impl FnOnce(&Stored) -> T) -> T {
+            read(
+                self.indices
+                    .lock()
+                    .expect("indices")
+                    .get(index)
+                    .expect("the index"),
+            )
         }
     }
 
     #[async_trait]
-    impl IndexStore for Index {
-        async fn list_indices_for_alias(&self, _: &str) -> Result<Vec<String>, IndexerError> {
-            Ok(self.existing.clone())
+    impl IndexStore for Cluster {
+        async fn list_indices_for_alias(&self, prefix: &str) -> Result<Vec<String>, IndexerError> {
+            Ok(self
+                .index_names()
+                .into_iter()
+                .filter(|name| name.starts_with(prefix))
+                .collect())
         }
         async fn create_index(&self, index: &str, _: &Value) -> Result<(), IndexerError> {
-            self.record(format!("create {index}"));
+            self.indices
+                .lock()
+                .expect("indices")
+                .entry(index.to_string())
+                .or_insert_with(|| Stored {
+                    refresh: "1s".into(),
+                    ..Stored::default()
+                });
             Ok(())
         }
         async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), IndexerError> {
-            self.record(format!("refresh_interval {index} {value}"));
+            if let Some(stored) = self.indices.lock().expect("indices").get_mut(index) {
+                stored.refresh = value.to_string();
+            }
             Ok(())
         }
-        async fn refresh(&self, index: &str) -> Result<(), IndexerError> {
-            self.record(format!("refresh {index}"));
+        async fn refresh(&self, _: &str) -> Result<(), IndexerError> {
             Ok(())
         }
         async fn force_merge(&self, index: &str) -> Result<(), IndexerError> {
-            self.record(format!("force_merge {index}"));
+            if let Some(stored) = self.indices.lock().expect("indices").get_mut(index) {
+                stored.merged = true;
+            }
             Ok(())
         }
         async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError> {
             if self.rejects_writes {
                 return Err(IndexerError::Elasticsearch("bulk errors: rejected".into()));
             }
-            self.record(format!("bulk {index} {}", docs.len()));
+            if let Some(stored) = self.indices.lock().expect("indices").get_mut(index) {
+                stored
+                    .slugs
+                    .extend(docs.iter().map(|(slug, _)| slug.clone()));
+            }
             Ok(())
         }
         async fn swap_alias(
@@ -301,25 +463,53 @@ mod tests {
             _: &str,
             to_index: &str,
         ) -> Result<(), IndexerError> {
-            self.record(format!("swap {alias} {to_index}"));
+            self.aliases
+                .lock()
+                .expect("aliases")
+                .insert(alias.to_string(), to_index.to_string());
             Ok(())
         }
         async fn delete_index_quietly(&self, index: &str) {
-            self.record(format!("delete {index}"));
+            self.indices.lock().expect("indices").remove(index);
+            self.aliases
+                .lock()
+                .expect("aliases")
+                .retain(|_, aliased| aliased != index);
+        }
+        async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError> {
+            Ok(self.alias(alias).map(|index| {
+                self.with_index(&index, |stored| {
+                    u64::try_from(stored.slugs.len()).expect("a small index")
+                })
+            }))
+        }
+        async fn ensure_read_only_user(
+            &self,
+            _: &str,
+            username: &str,
+            _: &str,
+            index_patterns: &[String],
+        ) -> Result<(), IndexerError> {
+            self.readers
+                .lock()
+                .expect("readers")
+                .push((username.to_string(), index_patterns.to_vec()));
+            Ok(())
         }
     }
 
     async fn reindex_poets(
-        index: &Index,
+        cluster: &Cluster,
         corpus: &Corpus,
     ) -> Result<(String, usize), IndexerError> {
         let body = json!({});
         reindex(
             &Ctx {
-                index,
+                index: cluster,
                 corpus,
                 batch_size: 2,
                 rules: &[],
+                progress: &|_| {},
             },
             &Target {
                 alias: "poets",
@@ -332,57 +522,180 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_reindex_writes_every_batch_then_moves_the_alias_and_drops_the_older_indices() {
-        let index = Index::holding(&["poets_v1", "poets_v2"]);
-        let corpus = Corpus::of(&[3, 5, 8, 13, 21]);
-        let outcome = reindex_poets(&index, &corpus).await;
-        assert_eq!(outcome, Ok(("poets_v3".to_string(), 5)));
+    async fn a_reindex_moves_the_alias_to_a_new_merged_index_holding_every_poet_once() {
+        let cluster = Cluster::serving("poets", "poets_v1", &["stale"]);
+        let outcome = reindex_poets(&cluster, &Corpus::of([3, 5, 8, 13, 21])).await;
+        assert_eq!(outcome, Ok(("poets_v2".to_string(), 5)));
+        assert_eq!(cluster.alias("poets").as_deref(), Some("poets_v2"));
         assert_eq!(
-            index.calls(),
-            [
-                "create poets_v3",
-                "refresh_interval poets_v3 -1",
-                "bulk poets_v3 2",
-                "bulk poets_v3 2",
-                "bulk poets_v3 1",
-                "refresh_interval poets_v3 1s",
-                "force_merge poets_v3",
-                "refresh poets_v3",
-                "swap poets poets_v3",
-                "delete poets_v1",
-                "delete poets_v2",
-            ]
+            cluster.index_names(),
+            ["poets_v2"],
+            "the old index is dropped"
         );
-        assert_eq!(*corpus.cursors.lock().expect("the cursors"), [0, 5, 13, 21]);
+        cluster.with_index("poets_v2", |stored| {
+            assert_eq!(
+                stored.slugs,
+                ["poet-3", "poet-5", "poet-8", "poet-13", "poet-21"]
+            );
+            assert_eq!(stored.refresh, "1s", "refresh is turned back on");
+            assert!(stored.merged);
+        });
     }
 
     #[tokio::test]
-    async fn a_failed_write_removes_its_own_index_and_never_moves_the_alias() {
-        let mut index = Index::holding(&["poets_v1"]);
-        index.rejects_writes = true;
-        let outcome = reindex_poets(&index, &Corpus::of(&[1, 2, 3])).await;
+    async fn a_failed_write_keeps_searches_on_the_old_index_and_leaves_no_half_built_one() {
+        let mut cluster = Cluster::serving("poets", "poets_v1", &["kept"]);
+        cluster.rejects_writes = true;
+        let outcome = reindex_poets(&cluster, &Corpus::of([1, 2, 3])).await;
         assert_eq!(
             outcome,
             Err(IndexerError::Elasticsearch(
                 "bulk errors: rejected".to_string()
             ))
         );
-        assert_eq!(
-            index.calls(),
-            [
-                "create poets_v2",
-                "refresh_interval poets_v2 -1",
-                "delete poets_v2"
-            ]
-        );
+        assert_eq!(cluster.alias("poets").as_deref(), Some("poets_v1"));
+        assert_eq!(cluster.index_names(), ["poets_v1"]);
+        cluster.with_index("poets_v1", |stored| assert_eq!(stored.slugs, ["kept"]));
     }
 
     #[tokio::test]
     async fn an_empty_corpus_still_ends_on_a_live_empty_index() {
-        let index = Index::holding(&[]);
-        let outcome = reindex_poets(&index, &Corpus::of(&[])).await;
+        let cluster = Cluster::default();
+        let outcome = reindex_poets(&cluster, &Corpus::of([])).await;
         assert_eq!(outcome, Ok(("poets_v1".to_string(), 0)));
-        assert!(index.calls().contains(&"swap poets poets_v1".to_string()));
-        assert!(!index.calls().iter().any(|call| call.starts_with("bulk")));
+        assert_eq!(cluster.alias("poets").as_deref(), Some("poets_v1"));
+        cluster.with_index("poets_v1", |stored| assert!(stored.slugs.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn progress_is_reported_each_time_another_ten_thousand_are_written() {
+        let cluster = Cluster::default();
+        let reports = Mutex::new(Vec::new());
+        let record = |progress: Progress<'_>| {
+            reports.lock().expect("reports").push((
+                progress.index.to_string(),
+                progress.indexed,
+                progress.total,
+            ));
+        };
+        let body = json!({});
+        reindex(
+            &Ctx {
+                index: &cluster,
+                corpus: &Corpus::of(1..=25_000),
+                batch_size: 5_000,
+                rules: &[],
+                progress: &record,
+            },
+            &Target {
+                alias: "poets",
+                prefix: "poets_v",
+                body: &body,
+                is_poems: false,
+            },
+        )
+        .await
+        .expect("a reindex");
+        assert_eq!(
+            *reports.lock().expect("reports"),
+            [
+                ("poets".to_string(), 10_000, 25_000),
+                ("poets".to_string(), 20_000, 25_000)
+            ]
+        );
+    }
+
+    async fn boot(cluster: &Cluster, force: bool) -> (Result<Outcome, IndexerError>, bool) {
+        let schema = qafiyah_elasticsearch::load();
+        let connected = AtomicBool::new(false);
+        let outcome = bootstrap(
+            cluster,
+            &Plan {
+                schema: &schema,
+                reader_password: "secret",
+                force,
+            },
+            || async {
+                connected.store(true, Ordering::SeqCst);
+                let corpus: Box<dyn CorpusSource> = Box::new(Corpus::of([1, 2]));
+                Ok(corpus)
+            },
+            &|_| {},
+        )
+        .await;
+        (outcome, connected.load(Ordering::SeqCst))
+    }
+
+    fn serving_both() -> Cluster {
+        let identity = qafiyah_elasticsearch::load().identity;
+        let cluster = Cluster::serving(&identity.poems_alias, "poems_v1", &["a poem"]);
+        let poets = Cluster::serving(&identity.poets_alias, "poets_v1", &["a poet"]);
+        cluster
+            .indices
+            .lock()
+            .expect("indices")
+            .append(&mut poets.indices.lock().expect("indices"));
+        cluster
+            .aliases
+            .lock()
+            .expect("aliases")
+            .append(&mut poets.aliases.lock().expect("aliases"));
+        cluster
+    }
+
+    #[tokio::test]
+    async fn a_store_whose_aliases_hold_documents_is_left_alone_and_postgres_is_never_asked() {
+        let cluster = serving_both();
+        let (outcome, connected) = boot(&cluster, false).await;
+        assert_eq!(outcome, Ok(Outcome::Skipped));
+        assert!(!connected);
+        assert_eq!(cluster.index_names(), ["poems_v1", "poets_v1"]);
+    }
+
+    #[tokio::test]
+    async fn a_forced_run_rebuilds_both_indices_even_when_they_hold_documents() {
+        let cluster = serving_both();
+        let (outcome, connected) = boot(&cluster, true).await;
+        assert!(connected);
+        assert_eq!(
+            outcome,
+            Ok(Outcome::Rebuilt {
+                poems: ("poems_v2".to_string(), 0),
+                poets: ("poets_v2".to_string(), 2),
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn an_alias_that_is_missing_or_empty_rebuilds_both_indices() {
+        let identity = qafiyah_elasticsearch::load().identity;
+        let cluster = Cluster::serving(&identity.poems_alias, "poems_v1", &["a poem"]);
+        let (outcome, connected) = boot(&cluster, false).await;
+        assert!(connected);
+        assert!(matches!(outcome, Ok(Outcome::Rebuilt { .. })));
+        assert_eq!(
+            cluster.alias(&identity.poets_alias).as_deref(),
+            Some("poets_v1")
+        );
+    }
+
+    #[tokio::test]
+    async fn the_api_reader_may_read_only_the_aliases_and_their_versioned_indices() {
+        let identity = qafiyah_elasticsearch::load().identity;
+        let cluster = serving_both();
+        let (outcome, _) = boot(&cluster, false).await;
+        assert_eq!(outcome, Ok(Outcome::Skipped));
+        assert_eq!(
+            *cluster.readers.lock().expect("readers"),
+            [(
+                identity.api_username.clone(),
+                vec![
+                    identity.poems_alias.clone(),
+                    identity.poets_alias.clone(),
+                    format!("{}*", identity.poems_prefix),
+                    format!("{}*", identity.poets_prefix),
+                ]
+            )]
+        );
     }
 }
