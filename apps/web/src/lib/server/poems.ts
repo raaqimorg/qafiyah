@@ -2,7 +2,7 @@ import { poemUrl } from '@/lib/urls';
 
 import { isNotFoundStatus } from './api-error';
 import { apiServer } from './client';
-import { apiFailure, getOrNull, safeCall } from './unwrap';
+import { apiFailure, getOrNull, safeCall, unwrap } from './unwrap';
 
 import type { Ok } from './types';
 import type {
@@ -27,6 +27,12 @@ export type PoemFilters = {
 };
 
 type PoemsList = Ok<'/poems'>;
+
+export const getPoemCount = async (): Promise<number> =>
+  (await unwrap(() => apiServer.GET('/poems/count'))).total;
+
+export const getPoemSlugsPage = (page: number): Promise<readonly string[] | null> =>
+  getOrNull(() => apiServer.GET('/poems/slugs', { params: { query: { page: String(page) } } }));
 
 export const getPoem = (slug: PoemSlug): Promise<Poem | null> =>
   getOrNull(() => apiServer.GET('/poems/{slug}', { params: { path: { slug } } }));
