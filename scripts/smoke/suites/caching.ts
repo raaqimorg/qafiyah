@@ -1,5 +1,6 @@
 import { headerIncludes, headerPresent } from '../checks/headers';
 import { isNoStore, isStatus } from '../checks/status';
+import { FIXTURE_POET } from '../fixtures';
 import { API, WEB } from '../target';
 
 import type { Probe } from '../types';
@@ -34,6 +35,20 @@ export const cachingProbes: readonly Probe[] = [
     note: 'account redirect is no-store',
     redirect: 'manual',
     checks: [isStatus(302), isNoStore],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/meters/altawil?page=02`,
+    note: 'a padded page number redirects to the canonical page URL',
+    redirect: 'manual',
+    checks: [isStatus(301), headerIncludes('Location', '/meters/altawil?page=2')],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/poets/${FIXTURE_POET.slug}?utm_source=smoke`,
+    note: 'an unknown parameter on a poet page redirects to the canonical URL',
+    redirect: 'manual',
+    checks: [isStatus(301), headerIncludes('Location', `/poets/${FIXTURE_POET.slug}`)],
     surfaces: ALL,
   },
   {

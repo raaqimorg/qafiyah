@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canonicalPoetFilters,
   everyPoetFilterListed,
   hasPoetFilters,
   NO_POET_FILTERS,
@@ -12,6 +13,14 @@ const FACETS = {
   rhymes: [{ slug: 'meem' }],
   themes: [{ slug: 'alnasib' }],
 };
+
+describe('canonicalPoetFilters', () => {
+  it('sorts each list and drops repeats', () => {
+    expect(
+      canonicalPoetFilters({ meter: ['altawil', 'alkamil', 'altawil'], rhyme: ['noon'], theme: [] })
+    ).toEqual({ meter: ['alkamil', 'altawil'], rhyme: ['noon'], theme: [] });
+  });
+});
 
 describe('hasPoetFilters', () => {
   it('is true once any list has a value', () => {

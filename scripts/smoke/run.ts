@@ -16,6 +16,7 @@ import {
   type ServerUnready,
 } from './http';
 import { conditionals, differentials } from './probes/http-shape';
+import { searchBursts, sharedEntries } from './probes/page-cache';
 import { hammers } from './probes/rate-limit';
 import { SUITES } from './suites';
 import { latencyTargets } from './suites/latency';
@@ -236,6 +237,73 @@ async function runConditional(c: (typeof conditionals)[number]): Promise<Outcome
   if (second.value.status !== 304)
     return fail(c.note, c.url, ms, `expected 304, got ${second.value.status}`);
   return pass(c.note, c.url, ms);
+}
+
+const SERVED_FROM_CACHE = new Set(['HIT', 'STALE', 'UPDATING', 'REVALIDATED']);
+
+async function runSharedEntry(entry: (typeof sharedEntries)[number]): Promise<Outcome> {
+  const started = performance.now();
+  const warm = await fetchWireResilient(entry.url, REQUEST_TIMEOUT_MS, smokeInit(entry.url));
+  if (warm.isErr())
+    return fail(
+      entry.note,
+      entry.url,
+      performance.now() - started,
+      `warm-up ${warm.error.message}`
+    );
+  if (warm.value.status !== 200)
+    return fail(
+      entry.note,
+      entry.url,
+      performance.now() - started,
+      `warm-up returned ${warm.value.status}`
+    );
+  const variant = `${entry.url}?smoke=${crypto.randomUUID()}`;
+  const second = await fetchWireResilient(variant, REQUEST_TIMEOUT_MS, smokeInit(variant));
+  const ms = performance.now() - started;
+  if (second.isErr())
+    return fail(entry.note, variant, ms, `${second.error.kind}: ${second.error.message}`);
+  if (second.value.status !== 200)
+    return fail(entry.note, variant, ms, `returned ${second.value.status}`);
+  const cache = second.value.res.headers.get('x-cache-status');
+  if (cache === null || !SERVED_FROM_CACHE.has(cache))
+    return fail(
+      entry.note,
+      variant,
+      ms,
+      `x-cache-status ${cache ?? 'missing'}, expected the cached entry`
+    );
+  return pass(entry.note, variant, ms);
+}
+
+async function runBurst(burst: (typeof searchBursts)[number]): Promise<Outcome> {
+  const started = performance.now();
+  const results = await Promise.all(
+    Array.from({ length: burst.count }, () =>
+      fetchWire(burst.url, REQUEST_TIMEOUT_MS, smokeInit(burst.url))
+    )
+  );
+  const ms = performance.now() - started;
+  let limited = 0;
+  for (const [index, result] of results.entries()) {
+    const label = `request ${index + 1}/${burst.count}`;
+    if (result.isErr())
+      return fail(
+        burst.note,
+        burst.url,
+        ms,
+        `${label} ${result.error.kind}: ${result.error.message}`
+      );
+    const { status, res } = result.value;
+    if (status >= 500) return fail(burst.note, burst.url, ms, `${label} returned ${status}`);
+    if (status === 429) {
+      if (res.headers.get('retry-after') === null)
+        return fail(burst.note, burst.url, ms, `${label} is a 429 without Retry-After`);
+      limited += 1;
+    }
+  }
+  if (limited === 0) return fail(burst.note, burst.url, ms, `none of ${burst.count} was limited`);
+  return pass(burst.note, burst.url, ms);
 }
 
 async function runHammer(hammer: (typeof hammers)[number]): Promise<Outcome> {
@@ -469,6 +537,20 @@ async function main() {
     runConditional
   );
   for (const o of condOutcomes) record(o);
+
+  if (SURFACE.name === 'stack') {
+    console.log(
+      `\n${cyan('[')} ${bold('page cache (a stray query string shares the entry)')} ${cyan(']')}`
+    );
+    for (const entry of sharedEntries) record(await runSharedEntry(entry));
+    console.log(`\n${cyan('[')} ${bold('poet search limit (burst)')} ${cyan(']')}`);
+    for (const burst of searchBursts) record(await runBurst(burst));
+  } else {
+    for (const entry of sharedEntries)
+      record(skip(entry.note, entry.url, 'stack-only; it reads the origin nginx cache status'));
+    for (const burst of searchBursts)
+      record(skip(burst.note, burst.url, 'stack-only; never burst a live site'));
+  }
 
   if (SURFACE.name === 'prod') {
     console.log(`\n${cyan('[')} ${bold('unkeyed anti-scraping (hammer)')} ${cyan(']')}`);
