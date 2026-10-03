@@ -5,12 +5,12 @@ use async_trait::async_trait;
 use axum::http::StatusCode;
 
 use crate::constants::RANDOM_POEM_MAX_ATTEMPTS;
+use crate::domain::StoreError;
 use crate::domain::poems::{
     FacetCounts, Facets, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
 };
 use crate::domain::poets::{PoetProfile, PoetRepository, PoetSlug};
 use crate::domain::{PoetBrief, Term};
-use crate::error::StoreError;
 use crate::http_tests::empty_hits;
 use crate::state::AppState;
 use crate::test_support::{FakeEs, request, send, state};

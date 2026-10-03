@@ -4,9 +4,9 @@ use diesel_async::RunQueryDsl;
 
 use crate::db::corpus::{eras, poet_aliases, poet_stats, poets};
 use crate::db::{PgPool, int};
+use crate::domain::StoreError;
 use crate::domain::Term;
 use crate::domain::poets::{PoetProfile, PoetRepository, PoetSlug};
-use crate::error::StoreError;
 
 pub struct PgPoets {
     pool: PgPool,

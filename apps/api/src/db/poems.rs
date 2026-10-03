@@ -15,13 +15,13 @@ use crate::db::corpus::{
     theme_stats, themes, verses,
 };
 use crate::db::{PgPool, Uncached, int};
+use crate::domain::StoreError;
 use crate::domain::poems::{
     FacetCounts, Facets, Filter, PoemLink, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
     Recension,
 };
 use crate::domain::taxonomy::TermCount;
 use crate::domain::{PoetBrief, Term};
-use crate::error::StoreError;
 
 pub struct PgPoems {
     pool: PgPool,

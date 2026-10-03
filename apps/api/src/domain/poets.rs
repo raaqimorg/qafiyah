@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
+use crate::domain::StoreError;
 use crate::domain::Term;
-use crate::error::StoreError;
 
 pub struct PoetProfile {
     pub name: String,

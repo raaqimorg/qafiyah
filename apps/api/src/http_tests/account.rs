@@ -6,7 +6,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 
 use crate::accounts::users::{Identity, Profile, UpsertError, UserRepository};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send, state};
 

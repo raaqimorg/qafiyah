@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::accounts::users::Profile;
 use crate::constants::{SESSION_ID_BYTES, SESSION_TTL_DAYS};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub fn generate_id() -> Vec<u8> {
     let mut rng = rand::rng();

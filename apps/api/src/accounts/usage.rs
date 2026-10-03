@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use async_trait::async_trait;
 
 use crate::constants::USAGE_FLUSH_SECONDS;
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 #[async_trait]
 pub trait UsageRepository: Send + Sync {

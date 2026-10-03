@@ -5,7 +5,7 @@ use reqwest::Method;
 use serde_json::Value;
 
 use crate::constants::ES_SEARCH_TIMEOUT_SECONDS;
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub struct Es {
     endpoint: Endpoint,

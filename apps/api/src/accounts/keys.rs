@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use crate::constants::{
     API_KEY_BODY_LENGTH, API_KEY_DISPLAY_PREFIX_LENGTH, API_KEY_PREFIX, MAX_ACTIVE_KEYS_PER_USER,
 };
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 const UNBIASED_CEILING: u8 = 248;

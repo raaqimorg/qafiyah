@@ -3,6 +3,7 @@ use diesel::{ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
 use serde_json::json;
 
+use qafiyah_api::accounts::usage::UsageRepository;
 use qafiyah_api::accounts::{keys, sessions, users};
 use qafiyah_api::db::accounts_schema::usage_hourly;
 use qafiyah_api::db::usage::PgUsage;
@@ -311,6 +312,38 @@ async fn a_real_key_is_limited_by_its_plan_and_its_usage_is_flushed() {
             .await
             .expect("a row");
         assert_eq!(used, 3, "a later flush adds to the same hour");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn usage_that_cannot_be_stored_as_counted_is_refused_and_writes_nothing() {
+    let Some(h) = harness().await else { return };
+    h.isolated("usage-range", |h, email| async move {
+        let profile = users::upsert(h.state.users.as_ref(), &identity(&email))
+            .await
+            .expect("a user");
+        keys::create_for(h.state.api_keys.as_ref(), profile.id, None)
+            .await
+            .expect("a key");
+        let key_id = h.state.api_keys.active_for(profile.id).await.expect("keys")[0].id;
+        let usage = PgUsage::new(h.accounts.clone());
+        assert!(
+            usage.add(&[(key_id, i64::MAX, 1)]).await.is_err(),
+            "an hour past the calendar"
+        );
+        assert!(
+            usage.add(&[(key_id, 500_000, u32::MAX)]).await.is_err(),
+            "a count past the column's range"
+        );
+        let mut conn = h.accounts.get().await.expect("an accounts connection");
+        let rows: i64 = usage_hourly::table
+            .filter(usage_hourly::api_key_id.eq(key_id))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .expect("a count");
+        assert_eq!(rows, 0);
     })
     .await;
 }

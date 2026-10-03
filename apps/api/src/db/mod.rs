@@ -12,7 +12,7 @@ use diesel_async::{AsyncConnection, AsyncPgConnection, SimpleAsyncConnection};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 use crate::constants::{PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub use qafiyah_corpus::schema as corpus;
 

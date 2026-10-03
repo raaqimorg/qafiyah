@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
+use crate::domain::StoreError;
 use crate::domain::{PoetBrief, Term};
-use crate::error::StoreError;
 use crate::js;
 
 pub struct PoemHit {

@@ -7,7 +7,7 @@ use crate::constants::{
     ACCOUNTS_LOOKUP_TIMEOUT_MILLIS, API_KEY_CACHE_MAX_ENTRIES, API_KEY_CACHE_MISS_TTL_SECONDS,
     API_KEY_CACHE_TTL_SECONDS,
 };
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 struct Entry {
     record: Option<Caller>,
