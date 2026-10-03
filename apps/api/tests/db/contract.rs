@@ -837,3 +837,102 @@ async fn a_pooled_connection_carries_the_statement_timeout() {
     .expect("the setting");
     assert_eq!(setting.statement_timeout, "5s");
 }
+
+const SHOWN: &str = "recension_of_id IS NULL AND NOT is_hidden";
+
+#[expect(clippy::expect_used, reason = "a missing page is a failed test")]
+async fn listed_slugs(h: &Harness, query: &str) -> Vec<String> {
+    let sent = h.get(&format!("/v1/poems?{query}")).await;
+    assert_eq!(sent.status, StatusCode::OK, "{query}: {}", sent.body);
+    sent.json()
+        .get("data")
+        .and_then(Value::as_array)
+        .expect("a page")
+        .iter()
+        .filter_map(|poem| poem.get("slug").and_then(Value::as_str).map(str::to_string))
+        .collect()
+}
+
+async fn page_holding(h: &Harness, unshown: &str) -> Option<i64> {
+    h.text(
+        &format!("SELECT min(id)::text AS value FROM public.poems WHERE {unshown}"),
+        &[],
+    )
+    .await?;
+    let before = h
+        .count(
+            &format!(
+                "SELECT count(*) AS value FROM public.poems WHERE {SHOWN} \
+                 AND id < (SELECT min(id) FROM public.poems WHERE {unshown})"
+            ),
+            &[],
+        )
+        .await;
+    Some(before.div_euclid(30).saturating_add(1))
+}
+
+#[tokio::test]
+async fn a_list_page_is_the_next_thirty_shown_primary_poems_in_id_order() {
+    let Some(h) = h().await else { return };
+    for unshown in ["recension_of_id IS NOT NULL", "is_hidden"] {
+        let Some(page) = page_holding(&h, unshown).await else {
+            continue;
+        };
+        let offset = ((page - 1) * 30).to_string();
+        let expected = h
+            .texts(
+                &format!(
+                    "SELECT slug AS value FROM public.poems WHERE {SHOWN} \
+                     ORDER BY id LIMIT 30 OFFSET $1::int"
+                ),
+                &[&offset],
+            )
+            .await;
+        assert_eq!(expected.len(), 30, "{unshown}");
+        assert_eq!(
+            listed_slugs(&h, &format!("page={page}")).await,
+            expected,
+            "the page that would hold the first poem where {unshown}"
+        );
+    }
+    let expected = h
+        .texts(
+            &format!(
+                "SELECT slug AS value FROM public.poems WHERE {SHOWN} \
+                 AND meter_id = (SELECT id FROM public.meters WHERE slug = $1) \
+                 ORDER BY id LIMIT 30 OFFSET 30"
+            ),
+            &["altawil"],
+        )
+        .await;
+    assert_eq!(listed_slugs(&h, "meter=altawil&page=2").await, expected);
+}
+
+#[tokio::test]
+async fn previous_and_next_skip_the_poets_recensions_and_hidden_poems() {
+    let Some(h) = h().await else { return };
+    for unshown in ["r.recension_of_id IS NOT NULL", "r.is_hidden"] {
+        let Some((before, after)) = h
+            .pair(
+                &format!(
+                    "SELECT p.slug AS first, n.slug AS second FROM public.poems r \
+                     CROSS JOIN LATERAL (SELECT q.slug FROM public.poems q WHERE q.poet_id = r.poet_id \
+                       AND q.id < r.id AND q.recension_of_id IS NULL AND NOT q.is_hidden \
+                       ORDER BY q.id DESC LIMIT 1) p \
+                     CROSS JOIN LATERAL (SELECT q.slug FROM public.poems q WHERE q.poet_id = r.poet_id \
+                       AND q.id > r.id AND q.recension_of_id IS NULL AND NOT q.is_hidden \
+                       ORDER BY q.id LIMIT 1) n \
+                     WHERE {unshown} ORDER BY r.id LIMIT 1"
+                ),
+                &[],
+            )
+            .await
+        else {
+            continue;
+        };
+        let earlier = h.get(&format!("/v1/poems/{before}")).await.json();
+        assert_eq!(earlier["data"]["next"]["slug"], after.as_str(), "{unshown}");
+        let later = h.get(&format!("/v1/poems/{after}")).await.json();
+        assert_eq!(later["data"]["prev"]["slug"], before.as_str(), "{unshown}");
+    }
+}

@@ -395,3 +395,45 @@ async fn creating_a_key_for_an_unknown_user_is_a_not_found() {
     assert_eq!(sent.status, StatusCode::NOT_FOUND, "{}", sent.body);
     assert_eq!(sent.json()["detail"], "Account not found");
 }
+
+#[tokio::test]
+async fn the_issue_key_command_normalizes_the_email_issues_working_keys_and_stops_at_the_cap() {
+    let Some(h) = harness().await else { return };
+    let url = std::env::var("QAFIYAH_TEST_DATABASE_URL_ACCOUNTS").expect("the accounts URL");
+    h.isolated("issue-key", |h, email| async move {
+        let run = |label: &str| {
+            std::process::Command::new(env!("CARGO_BIN_EXE_issue-key"))
+                .arg(format!("  {}  ", email.to_uppercase()))
+                .arg(label)
+                .env("DATABASE_URL_ACCOUNTS", &url)
+                .output()
+                .expect("the command runs")
+        };
+        let first = run("one");
+        assert!(first.status.success(), "{first:?}");
+        let printed = String::from_utf8(first.stdout).expect("UTF-8 output");
+        assert!(
+            printed.contains(&format!("user:   {email} (id ")),
+            "{printed}"
+        );
+        let raw = printed
+            .lines()
+            .find_map(|line| line.strip_prefix("key:    "))
+            .expect("the printed key")
+            .to_string();
+        assert!(keys::is_well_formed(&raw));
+        let caller = keys::lookup(h.state.api_keys.as_ref(), &raw)
+            .await
+            .expect("a lookup");
+        assert!(caller.is_some(), "the issued key authenticates");
+
+        assert!(run("two").status.success());
+        let third = run("three");
+        assert_eq!(third.status.code(), Some(1));
+        assert!(
+            String::from_utf8_lossy(&third.stderr).contains("revoke one first"),
+            "{third:?}"
+        );
+    })
+    .await;
+}
