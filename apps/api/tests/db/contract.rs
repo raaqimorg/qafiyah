@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use axum::http::StatusCode;
 use serde_json::Value;
+use sqlx::AssertSqlSafe;
 
 use crate::{Harness, harness};
 
@@ -673,6 +674,46 @@ async fn a_single_term_total_from_the_stats_table_equals_a_live_count_of_primari
     .await
     .unwrap_or(-1);
     assert_eq!(i64::try_from(stats_total).unwrap_or(-2), live);
+}
+
+#[tokio::test]
+async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primaries() {
+    let Some(h) = h().await else { return };
+    for (param, list, table, column) in [
+        ("poet", "/v1/poets", "public.poets", "poet_id"),
+        ("era", "/v1/eras", "public.eras", "era_id"),
+        ("meter", "/v1/meters", "public.meters", "meter_id"),
+        ("theme", "/v1/themes", "public.themes", "theme_id"),
+        ("rhyme", "/v1/rhymes", "public.rhymes", "rhyme_id"),
+    ] {
+        let terms = h.get(list).await.json();
+        let slugs: Vec<String> = terms["data"]
+            .as_array()
+            .expect("terms")
+            .iter()
+            .take(2)
+            .map(|term| term["slug"].as_str().expect("slug").to_string())
+            .collect();
+        assert_eq!(slugs.len(), 2, "{list}");
+        let query: Vec<String> = slugs.iter().map(|slug| format!("{param}={slug}")).collect();
+        let body = h
+            .get(&format!("/v1/poems?{}", query.join("&")))
+            .await
+            .json();
+        let live: i64 = sqlx::query_scalar(AssertSqlSafe(format!(
+            "SELECT count(*) FROM public.poems p JOIN {table} t ON t.id = p.{column} \
+             WHERE t.slug = ANY($1) AND p.recension_of_id IS NULL AND NOT p.is_hidden"
+        )))
+        .bind(&slugs)
+        .fetch_one(&h.pg)
+        .await
+        .unwrap_or(-1);
+        assert_eq!(
+            i64::try_from(total_items(&body)).unwrap_or(-2),
+            live,
+            "{param}: {slugs:?}"
+        );
+    }
 }
 
 #[tokio::test]

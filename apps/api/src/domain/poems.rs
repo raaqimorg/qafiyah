@@ -405,8 +405,8 @@ fn clauses_except(filters: &[FilterIds], except: Option<Filter>) -> Clauses<'_> 
         conditions.push(format!("{} = ANY(${})", filter.column(), bound.len()));
     }
 
-    let counted_by = match (bound.as_slice(), stats.as_slice()) {
-        ([ids], [stats_table]) if ids.len() == 1 => Some(*stats_table),
+    let counted_by = match stats.as_slice() {
+        [stats_table] => Some(*stats_table),
         _ => None,
     };
 
@@ -437,7 +437,7 @@ fn list_sql(clauses: &Clauses<'_>) -> (String, String) {
     );
     let count_sql = match counted_by {
         Some(stats_table) => format!(
-            "SELECT (SELECT poems_count::int FROM {stats_table} WHERE id = ($1)[1]) AS total"
+            "SELECT (SELECT SUM(poems_count)::int FROM {stats_table} WHERE id = ANY($1)) AS total"
         ),
         None => format!("SELECT COUNT(*)::int AS total FROM public.poems p {where_clause}"),
     };
@@ -833,11 +833,12 @@ mod tests {
 
     #[test]
     fn the_era_filter_reads_the_poems_own_era_without_joining_poets() {
-        let (rows, count) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
-        assert_eq!(
-            count,
-            "SELECT COUNT(*)::int AS total FROM public.poems p \
-             WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1)"
+        let (rows, _) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
+        assert!(
+            rows.contains(
+                "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1)"
+            ),
+            "{rows}"
         );
         assert_eq!(rows.matches("JOIN public.poets").count(), 1, "{rows}");
         assert!(!rows.contains("public.eras e"), "{rows}");
@@ -975,16 +976,10 @@ mod tests {
         assert!(count.starts_with("SELECT COUNT(*)::int AS total FROM public.poems p"));
         assert!(!count.contains("JOIN"));
 
-        let (rows, count) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
+        let (rows, _) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
         assert!(
             rows.contains("ANY($1) ORDER BY p.id LIMIT $2 OFFSET $3) page"),
             "{rows}"
-        );
-        assert!(
-            count.ends_with(
-                "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1)"
-            ),
-            "{count}"
         );
     }
     #[test]
@@ -1023,7 +1018,7 @@ mod tests {
     }
 
     #[test]
-    fn a_single_term_is_counted_from_its_stats_table() {
+    fn one_filter_is_counted_from_its_stats_table_however_many_values_it_has() {
         for (filter, stats_table) in [
             (Filter::Poet, "poet_stats"),
             (Filter::Era, "era_stats"),
@@ -1032,21 +1027,23 @@ mod tests {
             (Filter::Rhyme, "rhyme_stats"),
             (Filter::Collection, "collection_stats"),
         ] {
-            let (_, count) = list_sql(&clauses(&[ids(filter, &[7])]));
-            assert_eq!(
-                count,
-                format!(
-                    "SELECT (SELECT poems_count::int FROM public.{stats_table} WHERE id = ($1)[1]) AS total"
-                )
-            );
+            for resolved in [&[7][..], &[7, 8][..]] {
+                let (_, count) = list_sql(&clauses(&[ids(filter, resolved)]));
+                assert_eq!(
+                    count,
+                    format!(
+                        "SELECT (SELECT SUM(poems_count)::int FROM public.{stats_table} WHERE id = ANY($1)) AS total"
+                    )
+                );
+            }
         }
     }
     #[test]
-    fn anything_wider_than_one_term_counts_the_poems_themselves() {
+    fn no_filter_or_several_filters_count_the_poems_themselves() {
         for wider in [
             vec![],
-            vec![ids(Filter::Theme, &[1, 2])],
             vec![ids(Filter::Theme, &[1]), ids(Filter::Meter, &[2])],
+            vec![ids(Filter::Theme, &[1, 2]), ids(Filter::Meter, &[2, 3])],
         ] {
             let (_, count) = list_sql(&clauses(&wider));
             assert!(
