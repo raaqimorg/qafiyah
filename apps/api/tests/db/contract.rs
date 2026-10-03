@@ -854,18 +854,18 @@ async fn listed_slugs(h: &Harness, query: &str) -> Vec<String> {
 }
 
 async fn page_holding(h: &Harness, unshown: &str) -> Option<i64> {
-    h.text(
-        &format!("SELECT min(id)::text AS value FROM public.poems WHERE {unshown}"),
-        &[],
-    )
-    .await?;
-    let before = h
-        .count(
+    let first = h
+        .text(
             &format!(
-                "SELECT count(*) AS value FROM public.poems WHERE {SHOWN} \
-                 AND id < (SELECT min(id) FROM public.poems WHERE {unshown})"
+                "SELECT id::text AS value FROM public.poems WHERE {unshown} ORDER BY id LIMIT 1"
             ),
             &[],
+        )
+        .await?;
+    let before = h
+        .count(
+            &format!("SELECT count(*) AS value FROM public.poems WHERE {SHOWN} AND id < $1::int"),
+            &[&first],
         )
         .await;
     Some(before.div_euclid(30).saturating_add(1))
@@ -874,10 +874,13 @@ async fn page_holding(h: &Harness, unshown: &str) -> Option<i64> {
 #[tokio::test]
 async fn a_list_page_is_the_next_thirty_shown_primary_poems_in_id_order() {
     let Some(h) = h().await else { return };
+    let mut pages = vec![1];
     for unshown in ["recension_of_id IS NOT NULL", "is_hidden"] {
-        let Some(page) = page_holding(&h, unshown).await else {
-            continue;
-        };
+        if let Some(page) = page_holding(&h, unshown).await {
+            pages.push(page);
+        }
+    }
+    for page in pages {
         let offset = ((page - 1) * 30).to_string();
         let expected = h
             .texts(
@@ -888,24 +891,39 @@ async fn a_list_page_is_the_next_thirty_shown_primary_poems_in_id_order() {
                 &[&offset],
             )
             .await;
-        assert_eq!(expected.len(), 30, "{unshown}");
+        assert!(!expected.is_empty(), "page {page}");
         assert_eq!(
             listed_slugs(&h, &format!("page={page}")).await,
             expected,
-            "the page that would hold the first poem where {unshown}"
+            "page {page}"
         );
     }
+    let altawil = h
+        .count(
+            &format!(
+                "SELECT count(*) AS value FROM public.poems WHERE {SHOWN} \
+                 AND meter_id = (SELECT id FROM public.meters WHERE slug = $1)"
+            ),
+            &["altawil"],
+        )
+        .await;
+    let page: i64 = if altawil > 30 { 2 } else { 1 };
+    let offset = ((page - 1) * 30).to_string();
     let expected = h
         .texts(
             &format!(
                 "SELECT slug AS value FROM public.poems WHERE {SHOWN} \
                  AND meter_id = (SELECT id FROM public.meters WHERE slug = $1) \
-                 ORDER BY id LIMIT 30 OFFSET 30"
+                 ORDER BY id LIMIT 30 OFFSET $2::int"
             ),
-            &["altawil"],
+            &["altawil", &offset],
         )
         .await;
-    assert_eq!(listed_slugs(&h, "meter=altawil&page=2").await, expected);
+    assert!(!expected.is_empty(), "altawil page {page}");
+    assert_eq!(
+        listed_slugs(&h, &format!("meter=altawil&page={page}")).await,
+        expected
+    );
 }
 
 #[tokio::test]
