@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
-use sqlx::PgPool;
+use crate::db::PgPool;
+use crate::error::AppError;
 
 use crate::accounts::keys::Caller;
 use crate::constants::{
@@ -79,7 +80,7 @@ impl KeyCache {
         accounts: &PgPool,
         raw: &str,
         now: i64,
-    ) -> Result<Option<Caller>, sqlx::Error> {
+    ) -> Result<Option<Caller>, AppError> {
         if let Some(cached) = self.get(raw, now) {
             return Ok(cached);
         }
@@ -96,7 +97,7 @@ impl KeyCache {
             }
             Err(_) => {
                 self.store_failure(raw, now);
-                return Err(sqlx::Error::PoolTimedOut);
+                return Err(AppError::Database("api key lookup timed out".to_string()));
             }
         };
         self.store(raw, record, now);

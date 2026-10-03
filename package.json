@@ -14,7 +14,7 @@
     "check:no-parent-imports": "bun scripts/check/no-parent-imports.ts",
     "check:rust-toolchain": "bun scripts/check/rust-toolchain.ts",
     "check:shell": "bun scripts/check/shell.ts",
-    "check:sql": "bun scripts/check/sql.ts && squawk --no-error-on-unmatched-pattern 'apps/api/migrations/*.sql' </dev/null",
+    "check:sql": "bun scripts/check/sql.ts && squawk --no-error-on-unmatched-pattern 'apps/api/migrations/*/up.sql' </dev/null",
     "check:syncpack": "syncpack lint",
     "check:workflows": "actionlint",
     "ci": "bun scripts/ci.ts",

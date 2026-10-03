@@ -201,12 +201,6 @@ impl From<RouteProblem> for AppError {
     }
 }
 
-impl From<sqlx::Error> for AppError {
-    fn from(error: sqlx::Error) -> Self {
-        AppError::Database(error.to_string())
-    }
-}
-
 impl From<diesel::result::Error> for AppError {
     fn from(error: diesel::result::Error) -> Self {
         AppError::Database(error.to_string())

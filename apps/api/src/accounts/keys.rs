@@ -1,7 +1,14 @@
+use chrono::{DateTime, SecondsFormat, Utc};
+use diesel::dsl::{now, sum};
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use rand::RngExt;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
+
+use crate::db::accounts_schema::{api_keys, plans, usage_hourly, users};
+use crate::db::{PgPool, date_trunc};
+use crate::error::AppError;
 
 use crate::constants::{
     API_KEY_BODY_LENGTH, API_KEY_DISPLAY_PREFIX_LENGTH, API_KEY_PREFIX, MAX_ACTIVE_KEYS_PER_USER,
@@ -64,37 +71,31 @@ pub struct Caller {
     pub ip_ceiling: Option<u32>,
 }
 
-#[derive(sqlx::FromRow)]
-struct CallerRow {
-    key_id: i64,
-    user_id: i64,
-    requests: i32,
-    burst: i32,
-    ip_ceiling: Option<i32>,
-}
-
-pub async fn lookup(accounts: &PgPool, raw: &str) -> Result<Option<Caller>, sqlx::Error> {
-    let row = sqlx::query_as::<_, CallerRow>(
-        r#"
-      SELECT k.id AS key_id, u.id AS user_id, p.requests, p.burst, p.ip_ceiling
-      FROM api_keys k
-      JOIN users u ON u.id = k.user_id
-      JOIN plans p ON p.slug = u.plan
-      WHERE k.key_hash = $1 AND k.revoked_at IS NULL
-      LIMIT 1
-    "#,
+pub async fn lookup(accounts: &PgPool, raw: &str) -> Result<Option<Caller>, AppError> {
+    let mut conn = accounts.get().await?;
+    let row = api_keys::table
+        .inner_join(users::table.inner_join(plans::table))
+        .filter(api_keys::key_hash.eq(hash(raw).as_slice()))
+        .filter(api_keys::revoked_at.is_null())
+        .select((
+            api_keys::id,
+            users::id,
+            plans::requests,
+            plans::burst,
+            plans::ip_ceiling,
+        ))
+        .first::<(i64, i64, i32, i32, Option<i32>)>(&mut conn)
+        .await
+        .optional()?;
+    Ok(
+        row.map(|(key_id, user_id, requests, burst, ip_ceiling)| Caller {
+            key_id,
+            user_id,
+            requests: requests.max(0).cast_unsigned(),
+            burst: burst.max(0).cast_unsigned(),
+            ip_ceiling: ip_ceiling.map(|ceiling| ceiling.max(0).cast_unsigned()),
+        }),
     )
-    .bind(hash(raw).as_slice())
-    .fetch_optional(accounts)
-    .await?;
-
-    Ok(row.map(|row| Caller {
-        key_id: row.key_id,
-        user_id: row.user_id,
-        requests: row.requests.max(0).cast_unsigned(),
-        burst: row.burst.max(0).cast_unsigned(),
-        ip_ceiling: row.ip_ceiling.map(|ceiling| ceiling.max(0).cast_unsigned()),
-    }))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -104,10 +105,16 @@ pub enum KeyError {
     #[error("no user with this id")]
     NoSuchUser,
     #[error(transparent)]
-    Database(#[from] sqlx::Error),
+    Database(#[from] AppError),
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+impl From<diesel::result::Error> for KeyError {
+    fn from(error: diesel::result::Error) -> Self {
+        KeyError::Database(error.into())
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct KeySummary {
     pub id: i64,
     pub prefix: String,
@@ -117,29 +124,55 @@ pub struct KeySummary {
     pub requests_this_hour: i64,
 }
 
-pub async fn list_for(accounts: &PgPool, user_id: i64) -> Result<Vec<KeySummary>, sqlx::Error> {
-    sqlx::query_as::<_, KeySummary>(
-        r#"
-      SELECT k.id,
-             k.prefix,
-             k.label,
-             to_char(k.created_at,   'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
-             to_char(k.last_used_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS last_used_at,
-             COALESCE(u.requests, 0)::bigint AS requests_this_hour
-      FROM api_keys k
-      LEFT JOIN usage_hourly u
-        ON u.api_key_id = k.id
-       AND u.hour = date_trunc('hour', now())
-      WHERE k.user_id = $1 AND k.revoked_at IS NULL
-      ORDER BY k.created_at
-    "#,
-    )
-    .bind(user_id)
-    .fetch_all(accounts)
-    .await
+fn instant(at: DateTime<Utc>) -> String {
+    at.to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+type KeyRow = (
+    i64,
+    String,
+    Option<String>,
+    DateTime<Utc>,
+    Option<DateTime<Utc>>,
+    Option<i32>,
+);
+
+pub async fn list_for(accounts: &PgPool, user_id: i64) -> Result<Vec<KeySummary>, AppError> {
+    let mut conn = accounts.get().await?;
+    Ok(api_keys::table
+        .left_join(
+            usage_hourly::table.on(usage_hourly::api_key_id
+                .eq(api_keys::id)
+                .and(usage_hourly::hour.eq(date_trunc("hour", now)))),
+        )
+        .filter(api_keys::user_id.eq(user_id))
+        .filter(api_keys::revoked_at.is_null())
+        .order(api_keys::created_at.asc())
+        .select((
+            api_keys::id,
+            api_keys::prefix,
+            api_keys::label,
+            api_keys::created_at,
+            api_keys::last_used_at,
+            usage_hourly::requests.nullable(),
+        ))
+        .load::<KeyRow>(&mut conn)
+        .await?
+        .into_iter()
+        .map(
+            |(id, prefix, label, created_at, last_used_at, requests)| KeySummary {
+                id,
+                prefix,
+                label,
+                created_at: instant(created_at),
+                last_used_at: last_used_at.map(instant),
+                requests_this_hour: i64::from(requests.unwrap_or(0)),
+            },
+        )
+        .collect())
+}
+
+#[derive(Debug, Serialize)]
 pub struct PlanView {
     pub plan: String,
     pub requests: i32,
@@ -147,26 +180,76 @@ pub struct PlanView {
     pub used: i64,
 }
 
-pub async fn plan_for(accounts: &PgPool, user_id: i64) -> Result<Option<PlanView>, sqlx::Error> {
-    sqlx::query_as::<_, PlanView>(
-        r#"
-      SELECT p.slug AS plan,
-             p.requests,
-             p.burst,
-             COALESCE((
-               SELECT sum(h.requests)
-               FROM usage_hourly h
-               JOIN api_keys k ON k.id = h.api_key_id
-               WHERE k.user_id = $1 AND h.hour = date_trunc('hour', now())
-             ), 0)::bigint AS used
-      FROM users u
-      JOIN plans p ON p.slug = u.plan
-      WHERE u.id = $1
-    "#,
-    )
-    .bind(user_id)
-    .fetch_optional(accounts)
-    .await
+async fn plan_row(
+    mut conn: &AsyncPgConnection,
+    user_id: i64,
+) -> QueryResult<Option<(String, i32, i32)>> {
+    users::table
+        .inner_join(plans::table)
+        .filter(users::id.eq(user_id))
+        .select((plans::slug, plans::requests, plans::burst))
+        .first(&mut conn)
+        .await
+        .optional()
+}
+
+async fn used_this_hour(mut conn: &AsyncPgConnection, user_id: i64) -> QueryResult<Option<i64>> {
+    usage_hourly::table
+        .inner_join(api_keys::table)
+        .filter(api_keys::user_id.eq(user_id))
+        .filter(usage_hourly::hour.eq(date_trunc("hour", now)))
+        .select(sum(usage_hourly::requests))
+        .first(&mut conn)
+        .await
+}
+
+pub async fn plan_for(accounts: &PgPool, user_id: i64) -> Result<Option<PlanView>, AppError> {
+    let pooled = accounts.get().await?;
+    let conn: &AsyncPgConnection = &pooled;
+    let (plan, used) = tokio::try_join!(plan_row(conn, user_id), used_this_hour(conn, user_id))?;
+    Ok(plan.map(|(plan, requests, burst)| PlanView {
+        plan,
+        requests,
+        burst,
+        used: used.unwrap_or(0),
+    }))
+}
+
+async fn create_with(
+    conn: &mut AsyncPgConnection,
+    user_id: i64,
+    label: Option<&str>,
+) -> Result<RawKey, KeyError> {
+    let user = users::table
+        .find(user_id)
+        .select(users::id)
+        .for_update()
+        .first::<i64>(&mut *conn)
+        .await
+        .optional()?;
+    if user.is_none() {
+        return Err(KeyError::NoSuchUser);
+    }
+    let active: i64 = api_keys::table
+        .filter(api_keys::user_id.eq(user_id))
+        .filter(api_keys::revoked_at.is_null())
+        .count()
+        .get_result(&mut *conn)
+        .await?;
+    if active >= MAX_ACTIVE_KEYS_PER_USER {
+        return Err(KeyError::TooMany);
+    }
+    let key = generate();
+    diesel::insert_into(api_keys::table)
+        .values((
+            api_keys::user_id.eq(user_id),
+            api_keys::key_hash.eq(key.hash.as_slice()),
+            api_keys::prefix.eq(&key.prefix),
+            api_keys::label.eq(label),
+        ))
+        .execute(&mut *conn)
+        .await?;
+    Ok(key)
 }
 
 pub async fn create_for(
@@ -174,60 +257,24 @@ pub async fn create_for(
     user_id: i64,
     label: Option<&str>,
 ) -> Result<RawKey, KeyError> {
-    let mut tx = accounts.begin().await?;
-
-    let user = sqlx::query("SELECT id FROM users WHERE id = $1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut *tx)
-        .await?;
-    if user.is_none() {
-        return Err(KeyError::NoSuchUser);
-    }
-
-    let active: i64 = sqlx::query_scalar(
-        r#"
-      SELECT count(*) FROM api_keys
-      WHERE user_id = $1 AND revoked_at IS NULL
-    "#,
-    )
-    .bind(user_id)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    if active >= MAX_ACTIVE_KEYS_PER_USER {
-        return Err(KeyError::TooMany);
-    }
-
-    let key = generate();
-    sqlx::query(
-        r#"
-      INSERT INTO api_keys (user_id, key_hash, prefix, label)
-      VALUES ($1, $2, $3, $4)
-    "#,
-    )
-    .bind(user_id)
-    .bind(key.hash.as_slice())
-    .bind(&key.prefix)
-    .bind(label)
-    .execute(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-    Ok(key)
+    let mut pooled = accounts.get().await.map_err(AppError::from)?;
+    let conn: &mut AsyncPgConnection = &mut pooled;
+    conn.transaction::<_, KeyError, _>(async |conn| create_with(conn, user_id, label).await)
+        .await
 }
 
-pub async fn revoke(accounts: &PgPool, user_id: i64, key_id: i64) -> Result<u64, sqlx::Error> {
-    let done = sqlx::query(
-        r#"
-      UPDATE api_keys SET revoked_at = now()
-      WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
-    "#,
+pub async fn revoke(accounts: &PgPool, user_id: i64, key_id: i64) -> Result<u64, AppError> {
+    let mut conn = accounts.get().await?;
+    let done = diesel::update(
+        api_keys::table
+            .filter(api_keys::id.eq(key_id))
+            .filter(api_keys::user_id.eq(user_id))
+            .filter(api_keys::revoked_at.is_null()),
     )
-    .bind(key_id)
-    .bind(user_id)
-    .execute(accounts)
+    .set(api_keys::revoked_at.eq(now))
+    .execute(&mut conn)
     .await?;
-    Ok(done.rows_affected())
+    Ok(u64::try_from(done).unwrap_or(u64::MAX))
 }
 
 #[cfg(test)]

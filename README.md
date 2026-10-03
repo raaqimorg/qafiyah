@@ -90,16 +90,16 @@ flowchart LR
     telemetry --> sentry[("Sentry")]
 ```
 
-| Part                                                     | Role                                                                                | Built with                                                 |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`apps/web`](apps/web/AGENTS.md)                         | Server-rendered pages, with React islands for search, the random poem, and settings | Astro, React, Tailwind CSS, Bun, PostHog                   |
-| [`apps/api`](apps/api/AGENTS.md)                         | Read-only `/v1` API, its OpenAPI contract generated from the code                   | Rust, axum, Diesel, sqlx (accounts), utoipa, PostgreSQL 18 |
-| [`apps/search-indexer`](apps/search-indexer/AGENTS.md)   | One-shot job that builds a fresh index from Postgres and swaps the alias            | Rust, Elasticsearch 9                                      |
-| [`crates/elasticsearch`](crates/elasticsearch/AGENTS.md) | Index schema, Arabic analyzers, and client shared by the two above                  | Rust                                                       |
-| [`apps/edge-gateway`](apps/edge-gateway/AGENTS.md)       | Web application firewall in front of everything, configuration only                 | nginx, OWASP ModSecurity CRS                               |
-| [`apps/telemetry-proxy`](apps/telemetry-proxy/AGENTS.md) | Forwards browser error reports to Sentry from a first-party hostname                | Cloudflare Workers                                         |
-| [`apps/inspector`](apps/inspector/AGENTS.md)             | Dev-only report of the metadata on every page type                                  | TypeScript                                                 |
-| [`scripts/`](scripts/AGENTS.md)                          | Repo tooling and the CI gate, one `bun run` name per entry point                    | Bun, Turborepo, oxlint, oxfmt, vitest                      |
+| Part                                                     | Role                                                                                | Built with                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| [`apps/web`](apps/web/AGENTS.md)                         | Server-rendered pages, with React islands for search, the random poem, and settings | Astro, React, Tailwind CSS, Bun, PostHog  |
+| [`apps/api`](apps/api/AGENTS.md)                         | Read-only `/v1` API, its OpenAPI contract generated from the code                   | Rust, axum, Diesel, utoipa, PostgreSQL 18 |
+| [`apps/search-indexer`](apps/search-indexer/AGENTS.md)   | One-shot job that builds a fresh index from Postgres and swaps the alias            | Rust, Elasticsearch 9                     |
+| [`crates/elasticsearch`](crates/elasticsearch/AGENTS.md) | Index schema, Arabic analyzers, and client shared by the two above                  | Rust                                      |
+| [`apps/edge-gateway`](apps/edge-gateway/AGENTS.md)       | Web application firewall in front of everything, configuration only                 | nginx, OWASP ModSecurity CRS              |
+| [`apps/telemetry-proxy`](apps/telemetry-proxy/AGENTS.md) | Forwards browser error reports to Sentry from a first-party hostname                | Cloudflare Workers                        |
+| [`apps/inspector`](apps/inspector/AGENTS.md)             | Dev-only report of the metadata on every page type                                  | TypeScript                                |
+| [`scripts/`](scripts/AGENTS.md)                          | Repo tooling and the CI gate, one `bun run` name per entry point                    | Bun, Turborepo, oxlint, oxfmt, vitest     |
 
 Search reads Arabic the way people do: hamza forms, alif maqsura, and ta marbuta fold to their base letters, diacritics are ignored for matching and kept for display, and an exact title always outranks scattered matches. The full account is in [`docs/search.md`](docs/search.md).
 

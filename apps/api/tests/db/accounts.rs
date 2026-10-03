@@ -1,7 +1,10 @@
 use axum::http::StatusCode;
+use diesel::{ExpressionMethods, QueryDsl};
+use diesel_async::RunQueryDsl;
 use serde_json::json;
 
 use qafiyah_api::accounts::{keys, sessions, users};
+use qafiyah_api::db::accounts_schema::usage_hourly;
 
 use crate::{FULL, INTERNAL, harness, unique_email};
 
@@ -265,13 +268,17 @@ async fn a_real_key_is_limited_by_its_plan_and_its_usage_is_flushed() {
         let key_id = keys::list_for(&h.accounts, profile.id).await.expect("keys")[0].id;
         recorder.record(key_id, 500_000);
         assert_eq!(recorder.flush(&h.accounts).await.expect("flush"), 1);
-        let used: i32 =
-            sqlx::query_scalar("SELECT requests FROM usage_hourly WHERE api_key_id = $1")
-                .bind(key_id)
-                .fetch_one(&h.accounts)
-                .await
-                .expect("a row");
-        assert_eq!(used, 1);
+        recorder.record(key_id, 500_000);
+        recorder.record(key_id, 500_000);
+        assert_eq!(recorder.flush(&h.accounts).await.expect("flush"), 1);
+        let mut conn = h.accounts.get().await.expect("an accounts connection");
+        let used: i32 = usage_hourly::table
+            .filter(usage_hourly::api_key_id.eq(key_id))
+            .select(usage_hourly::requests)
+            .first(&mut conn)
+            .await
+            .expect("a row");
+        assert_eq!(used, 3, "a later flush adds to the same hour");
     })
     .await;
 }
@@ -333,11 +340,7 @@ async fn the_same_provider_identity_with_a_new_email_keeps_its_account_and_keys(
     );
 
     for email in [&first, &second, &third] {
-        sqlx::query("DELETE FROM users WHERE lower(email) = lower($1)")
-            .bind(email)
-            .execute(&h.accounts)
-            .await
-            .expect("cleanup");
+        h.delete_user(email).await;
     }
 }
 

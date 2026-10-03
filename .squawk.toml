@@ -1,4 +1,4 @@
 pg_version = "18.0"
 assume_in_transaction = true
 excluded_rules = ["prefer-bigint-over-int"]
-excluded_paths = ["*0001_accounts.sql"]
+excluded_paths = ["*0001_accounts/up.sql"]

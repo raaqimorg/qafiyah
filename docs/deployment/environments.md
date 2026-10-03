@@ -245,8 +245,8 @@ without the first two.
    SQL
    ```
 
-   The API runs `sqlx::migrate!` against that database at startup, so the tables
-   create themselves on the first boot after this. Verify with
+   The API runs its Diesel migrations (`apps/api/migrations/`) against that database
+   at startup, so the tables create themselves on the first boot after this. Verify with
    `docker compose exec db psql -U "$POSTGRES_USER" -d qafiyah_accounts -c '\dt'`.
 
 3. **Create a private R2 bucket for backups and a token scoped to it.** Not

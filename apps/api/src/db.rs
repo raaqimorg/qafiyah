@@ -3,21 +3,56 @@ use std::time::Duration;
 use deadpool::Runtime;
 use diesel::pg::Pg;
 use diesel::query_builder::{AstPass, Query, QueryFragment, QueryId};
-use diesel::{ConnectionError, QueryResult};
+use diesel::sql_types::{Interval, Nullable, Text, Timestamptz};
+use diesel::{Connection, ConnectionError, QueryResult};
+use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
 use diesel_async::pooled_connection::deadpool::Pool;
 use diesel_async::pooled_connection::{AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::{AsyncConnection, AsyncPgConnection, SimpleAsyncConnection};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
-use crate::constants::PG_STATEMENT_TIMEOUT_SECONDS;
+use crate::constants::{PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS};
 use crate::error::AppError;
 
 #[path = "../generated/diesel/corpus.gen.rs"]
 pub mod corpus;
 
+#[path = "../generated/diesel/accounts.gen.rs"]
+pub mod accounts_schema;
+
+#[diesel::declare_sql_function]
+extern "SQL" {
+    fn lower(value: Text) -> Text;
+    fn coalesce(value: Nullable<Text>, fallback: Nullable<Text>) -> Nullable<Text>;
+    fn date_trunc(field: Text, value: Timestamptz) -> Timestamptz;
+    fn date_add(value: Timestamptz, step: Interval) -> Timestamptz;
+}
+
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+
 pub type PgPool = Pool<AsyncPgConnection>;
 
 pub fn corpus_setup() -> String {
     format!("SET statement_timeout = '{PG_STATEMENT_TIMEOUT_SECONDS}s'")
+}
+
+pub fn accounts_setup() -> String {
+    format!(
+        "SET statement_timeout = '{PG_STATEMENT_TIMEOUT_SECONDS}s'; SET lock_timeout = '{PG_LOCK_TIMEOUT_SECONDS}s'"
+    )
+}
+
+pub async fn migrate(url: &str) -> Result<(), String> {
+    let url = url.to_string();
+    tokio::task::spawn_blocking(move || {
+        let mut conn = <AsyncConnectionWrapper<AsyncPgConnection> as Connection>::establish(&url)
+            .map_err(|error| error.to_string())?;
+        conn.run_pending_migrations(MIGRATIONS)
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 // Sent unnamed so Postgres plans it for its ids; a cached generic plan walks every poem.

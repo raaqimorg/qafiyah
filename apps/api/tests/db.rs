@@ -21,18 +21,19 @@ use axum::http::{HeaderMap, Request, StatusCode};
 use diesel::pg::Pg;
 use diesel::query_builder::{BoxedSqlQuery, SqlQuery};
 use diesel::sql_types::{BigInt, Bool, Text};
-use diesel::{OptionalExtension, QueryableByName};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, QueryableByName};
 use diesel_async::RunQueryDsl;
 use qafiyah_elasticsearch::Endpoint;
 use reqwest::Method;
 use serde_json::{Value, json};
-use sqlx::PgPool;
-use sqlx::postgres::PgPoolOptions;
+use tokio::sync::OnceCell;
 use tower::ServiceExt;
 
 use qafiyah_api::accounts::cache::KeyCache;
 use qafiyah_api::accounts::usage::UsageRecorder;
 use qafiyah_api::auth::Keys;
+use qafiyah_api::db::accounts_schema::users;
+use qafiyah_api::db::lower;
 use qafiyah_api::es::client::Es;
 use qafiyah_api::rate_limit::Limiter;
 use qafiyah_api::state::AppState;
@@ -44,7 +45,7 @@ pub const FULL: &str = "full-test-key";
 pub struct Harness {
     pub app: Router,
     pub pg: qafiyah_api::db::PgPool,
-    pub accounts: PgPool,
+    pub accounts: qafiyah_api::db::PgPool,
 }
 
 pub struct Sent {
@@ -79,16 +80,21 @@ pub async fn harness() -> Option<Harness> {
         qafiyah_api::db::corpus_setup(),
     )
     .expect("the corpus database");
-    let accounts = PgPoolOptions::new()
-        .max_connections(4)
-        .acquire_timeout(Duration::from_secs(10))
-        .connect(&accounts_url)
-        .await
-        .expect("the accounts database");
-    sqlx::migrate!("./migrations")
-        .run(&accounts)
-        .await
-        .expect("migrations apply");
+    static MIGRATED: OnceCell<()> = OnceCell::const_new();
+    MIGRATED
+        .get_or_init(async || {
+            qafiyah_api::db::migrate(&accounts_url)
+                .await
+                .expect("migrations apply");
+        })
+        .await;
+    let accounts = qafiyah_api::db::pool(
+        &accounts_url,
+        4,
+        Duration::from_secs(10),
+        qafiyah_api::db::accounts_setup(),
+    )
+    .expect("the accounts database");
     let state = AppState {
         pg: pg.clone(),
         accounts: accounts.clone(),
@@ -219,6 +225,14 @@ impl Harness {
         self.call("GET", path, Some(FULL), None).await
     }
 
+    pub async fn delete_user(&self, email: &str) {
+        let mut conn = self.accounts.get().await.expect("an accounts connection");
+        diesel::delete(users::table.filter(lower(users::email).eq(lower(email))))
+            .execute(&mut conn)
+            .await
+            .expect("cleanup");
+    }
+
     pub async fn isolated<F, Fut>(&self, tag: &str, body: F)
     where
         F: FnOnce(Harness, String) -> Fut,
@@ -226,11 +240,7 @@ impl Harness {
     {
         let email = unique_email(tag);
         let outcome = tokio::spawn(body(self.clone(), email.clone())).await;
-        sqlx::query("DELETE FROM users WHERE lower(email) = lower($1)")
-            .bind(&email)
-            .execute(&self.accounts)
-            .await
-            .expect("cleanup");
+        self.delete_user(&email).await;
         if let Err(error) = outcome {
             std::panic::resume_unwind(error.into_panic());
         }
