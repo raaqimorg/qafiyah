@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use crate::error::{Resource, StoreError};
+use crate::error::StoreError;
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -34,46 +34,10 @@ pub enum Counted {
     PoemTypes,
 }
 
-impl Counted {
-    pub fn resource(self) -> Resource {
-        match self {
-            Counted::Meters => Resource::Meter,
-            Counted::Rhymes => Resource::Rhyme,
-            Counted::Eras => Resource::Era,
-            Counted::PoemTypes => Resource::PoemType,
-        }
-    }
-
-    pub fn log_field(self) -> &'static str {
-        match self {
-            Counted::Meters => "meter",
-            Counted::Rhymes => "rhyme",
-            Counted::Eras => "era",
-            Counted::PoemTypes => "poem_type",
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 pub enum PoemCounted {
     Themes,
     Collections,
-}
-
-impl PoemCounted {
-    pub fn resource(self) -> Resource {
-        match self {
-            PoemCounted::Themes => Resource::Theme,
-            PoemCounted::Collections => Resource::Collection,
-        }
-    }
-
-    pub fn log_field(self) -> &'static str {
-        match self {
-            PoemCounted::Themes => "theme",
-            PoemCounted::Collections => "collection",
-        }
-    }
 }
 
 #[async_trait]

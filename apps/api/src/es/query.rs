@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE};
+use crate::constants::ES_MAX_RESULT_WINDOW;
 use crate::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
 
 const RECALL_FLOOR: &str = "2<75%";
@@ -240,8 +240,8 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
         params
             .page
             .saturating_sub(1)
-            .saturating_mul(SEARCH_POEMS_PER_PAGE),
-        SEARCH_POEMS_PER_PAGE,
+            .saturating_mul(params.page_size),
+        params.page_size,
         ES_MAX_RESULT_WINDOW,
         query,
         Some(if has_text {
@@ -422,15 +422,14 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         } else {
             browse_sort
         }),
-        params
-            .highlight
-            .then(|| highlight(1, Some(200), "name", &["name", "name.autocomplete"])),
+        None,
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::SEARCH_POEMS_PER_PAGE;
 
     fn poems(q: &str, page: u32, exact: bool) -> PoemSearchParams {
         PoemSearchParams {
@@ -827,6 +826,7 @@ mod tests {
         let every_facet = |q: &str, era: bool| PoemSearchParams {
             q: q.into(),
             page: 1,
+            page_size: SEARCH_POEMS_PER_PAGE,
             poet_slugs: vec!["yoFB".into()],
             era_slugs: if era { vec!["abbasi".into()] } else { vec![] },
             meter_slugs: vec!["altawil".into()],
@@ -918,6 +918,7 @@ mod tests {
         let params = PoemSearchParams {
             q: "x".into(),
             page: 1,
+            page_size: SEARCH_POEMS_PER_PAGE,
             poet_slugs: vec!["yoFB".into()],
             era_slugs: vec![],
             meter_slugs: vec!["altawil".into()],
@@ -973,7 +974,6 @@ mod tests {
     fn poets_browse_by_count_then_name_then_id_and_search_by_the_flat_ladder() {
         let browse = poet_search_body(&PoetSearchParams {
             sort: PoetSort::PoemsCount,
-            highlight: false,
             ..PoetSearchParams::default()
         });
         assert_eq!(
@@ -983,7 +983,7 @@ mod tests {
         assert!(browse.get("highlight").is_none());
         let by_id = poet_search_body(&PoetSearchParams::default());
         assert_eq!(by_id["sort"], json!([{ "id": "desc" }]));
-        assert_eq!(by_id["highlight"]["fragment_size"], 200);
+        assert!(by_id.get("highlight").is_none());
         let ranked = poet_search_body(&PoetSearchParams {
             q: "المتنبي".into(),
             ..PoetSearchParams::default()

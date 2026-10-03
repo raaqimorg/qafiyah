@@ -1,8 +1,14 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use serde_json::json;
 
+use crate::accounts::users::{Identity, Profile, UpsertError, UserRepository};
+use crate::error::StoreError;
 use crate::http_tests::{app_with, empty_hits};
-use crate::test_support::{FakeEs, request, send};
+use crate::test_support::{FakeEs, request, send, state};
 
 fn keyed(method: &str, path: &str, key: &str) -> Request<Body> {
     Request::builder()
@@ -81,4 +87,43 @@ async fn the_wildcard_cors_origin_is_stamped_on_account_responses_pinned_not_end
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let sent = send(app_with(&es), request("GET", "/account/nope")).await;
     assert_eq!(sent.header("access-control-allow-origin"), Some("*"));
+}
+
+struct EmailTaken;
+
+#[async_trait]
+impl UserRepository for EmailTaken {
+    async fn upsert(&self, _: &Identity, _: &str) -> Result<Profile, UpsertError> {
+        Err(UpsertError::EmailTaken)
+    }
+    async fn find_or_create(&self, _: &str) -> Result<Profile, StoreError> {
+        Err(StoreError::Database("not used here".into()))
+    }
+}
+
+#[tokio::test]
+async fn an_email_that_belongs_to_another_account_is_a_409_conflict() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let mut state = state(&es);
+    state.users = Arc::new(EmailTaken);
+    let identity = json!({
+        "provider": "github",
+        "provider_uid": "42",
+        "email": "taken@example.test",
+        "display_name": null,
+        "avatar_url": null,
+    });
+    let sent = send(
+        crate::app(state),
+        Request::builder()
+            .method("POST")
+            .uri("/account/users")
+            .header("x-api-key", "internal")
+            .header("content-type", "application/json")
+            .body(Body::from(identity.to_string()))
+            .expect("a request"),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::CONFLICT);
+    assert_eq!(sent.json()["code"], "EMAIL_TAKEN");
 }

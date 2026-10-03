@@ -13,7 +13,7 @@ use crate::domain::poems::{
     self, Facets, PoemDetail, PoemFacets, PoemListItem, RandomPoemOption, Total,
 };
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
-use crate::error::{AppError, Resource};
+use crate::error::{AppError, Resource, RouteProblem};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
 use crate::openapi::{
@@ -211,11 +211,22 @@ pub(crate) async fn detail(
     Ok(Json(ItemEnvelope { data: poem }).into_response())
 }
 
+fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {
+    match raw {
+        None | Some("slug") => Ok(RandomPoemOption::Slug),
+        Some("lines") => Ok(RandomPoemOption::Lines),
+        Some(_) => Err(RouteProblem::bad_request(
+            "Invalid ?option value (expected 'slug' or 'lines')",
+        )
+        .into()),
+    }
+}
+
 async fn random(
     State(state): State<AppState>,
     RawQuery(raw): RawQuery,
 ) -> Result<Response, AppError> {
-    let option = RandomPoemOption::parse(Query::parse(raw.as_deref()).first("option").as_deref())?;
+    let option = random_option(Query::parse(raw.as_deref()).first("option").as_deref())?;
     let roll: f64 = rand::rng().random();
     let body = poems::random(state.poems.as_ref(), &option, roll).await?;
     Ok((

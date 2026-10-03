@@ -3,7 +3,7 @@ use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 use utoipa::ToSchema;
 
-use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POETS_PER_PAGE};
+use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
 use crate::domain::{EraRef, MeterRef, PoetRef};
 use crate::error::StoreError;
 use crate::js;
@@ -64,10 +64,10 @@ pub struct Page<T> {
     pub total: u32,
 }
 
-#[derive(Default)]
 pub struct PoemSearchParams {
     pub q: String,
     pub page: u32,
+    pub page_size: u32,
     pub poet_slugs: Vec<String>,
     pub era_slugs: Vec<String>,
     pub meter_slugs: Vec<String>,
@@ -76,6 +76,24 @@ pub struct PoemSearchParams {
     pub poem_type_slugs: Vec<String>,
     pub collection_slugs: Vec<String>,
     pub exact: bool,
+}
+
+impl Default for PoemSearchParams {
+    fn default() -> Self {
+        Self {
+            q: String::new(),
+            page: 1,
+            page_size: SEARCH_POEMS_PER_PAGE,
+            poet_slugs: Vec::new(),
+            era_slugs: Vec::new(),
+            meter_slugs: Vec::new(),
+            theme_slugs: Vec::new(),
+            rhyme_slugs: Vec::new(),
+            poem_type_slugs: Vec::new(),
+            collection_slugs: Vec::new(),
+            exact: false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -90,7 +108,6 @@ pub struct PoetSearchParams {
     pub era_slugs: Vec<String>,
     pub page_size: u32,
     pub sort: PoetSort,
-    pub highlight: bool,
     pub exact: bool,
     pub window: u32,
 }
@@ -103,7 +120,6 @@ impl Default for PoetSearchParams {
             era_slugs: Vec::new(),
             page_size: SEARCH_POETS_PER_PAGE,
             sort: PoetSort::Id,
-            highlight: true,
             exact: false,
             window: ES_MAX_RESULT_WINDOW,
         }
