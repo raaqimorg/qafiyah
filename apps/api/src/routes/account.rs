@@ -44,10 +44,10 @@ async fn upsert_user(
     State(state): State<AppState>,
     Json(identity): Json<Identity>,
 ) -> Result<Json<Profile>, AppError> {
-    match users::upsert(&state.accounts, &identity).await {
+    match users::upsert(state.users.as_ref(), &identity).await {
         Ok(profile) => Ok(Json(profile)),
         Err(users::UpsertError::EmailTaken) => Err(AppError::EmailTaken),
-        Err(users::UpsertError::Database(e)) => Err(e),
+        Err(users::UpsertError::Store(e)) => Err(e.into()),
     }
 }
 
@@ -65,7 +65,7 @@ async fn create_session(
     State(state): State<AppState>,
     Json(body): Json<UserRef>,
 ) -> Result<Json<CreatedSession>, AppError> {
-    let id = sessions::create(&state.accounts, body.user_id).await?;
+    let id = sessions::create(state.sessions.as_ref(), body.user_id).await?;
     Ok(Json(CreatedSession {
         id: sessions::encode_id(&id),
     }))
@@ -78,7 +78,7 @@ async fn resolve_session(
     let Some(id) = sessions::decode_id(&encoded) else {
         return Err(AppError::Unauthorized);
     };
-    sessions::resolve(&state.accounts, &id)
+    sessions::resolve(state.sessions.as_ref(), &id)
         .await?
         .map(Json)
         .ok_or(AppError::Unauthorized)
@@ -89,7 +89,7 @@ async fn delete_session(
     SafePath(encoded): SafePath<String>,
 ) -> Result<StatusCode, AppError> {
     if let Some(id) = sessions::decode_id(&encoded) {
-        sessions::delete(&state.accounts, &id).await?;
+        sessions::delete(state.sessions.as_ref(), &id).await?;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -98,7 +98,7 @@ async fn delete_all_sessions(
     State(state): State<AppState>,
     Json(body): Json<UserRef>,
 ) -> Result<StatusCode, AppError> {
-    sessions::delete_all_for(&state.accounts, body.user_id).await?;
+    state.sessions.delete_all_for(body.user_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -133,10 +133,12 @@ async fn list_keys(
     State(state): State<AppState>,
     SafePath(user_id): SafePath<i64>,
 ) -> Result<Json<AccountView>, AppError> {
-    let plan = keys::plan_for(&state.accounts, user_id)
+    let plan = state
+        .api_keys
+        .plan_for(user_id)
         .await?
         .ok_or(AppError::NotFound(Resource::Account))?;
-    let keys = keys::list_for(&state.accounts, user_id).await?;
+    let keys = keys::list_for(state.api_keys.as_ref(), user_id).await?;
     Ok(Json(AccountView {
         plan: plan.plan,
         requests: plan.requests,
@@ -150,14 +152,14 @@ async fn create_key(
     State(state): State<AppState>,
     Json(body): Json<CreateKey>,
 ) -> Result<Json<CreatedKey>, AppError> {
-    match keys::create_for(&state.accounts, body.user_id, body.label.as_deref()).await {
+    match keys::create_for(state.api_keys.as_ref(), body.user_id, body.label.as_deref()).await {
         Ok(key) => Ok(Json(CreatedKey {
             value: key.value,
             prefix: key.prefix,
         })),
         Err(KeyError::TooMany) => Err(AppError::TooManyKeys),
         Err(KeyError::NoSuchUser) => Err(AppError::NotFound(Resource::Account)),
-        Err(KeyError::Database(e)) => Err(e),
+        Err(KeyError::Store(e)) => Err(e.into()),
     }
 }
 
@@ -165,9 +167,10 @@ async fn revoke_key(
     State(state): State<AppState>,
     Json(body): Json<RevokeKey>,
 ) -> Result<StatusCode, AppError> {
-    match keys::revoke(&state.accounts, body.user_id, body.key_id).await? {
-        0 => Err(AppError::NotFound(Resource::ApiKey)),
-        _ => Ok(StatusCode::NO_CONTENT),
+    if state.api_keys.revoke(body.user_id, body.key_id).await? {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(AppError::NotFound(Resource::ApiKey))
     }
 }
 

@@ -2,14 +2,12 @@ use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
-use crate::db::PgPool;
-use crate::error::AppError;
-
-use crate::accounts::keys::Caller;
+use crate::accounts::keys::{Caller, KeyRepository};
 use crate::constants::{
     ACCOUNTS_LOOKUP_TIMEOUT_MILLIS, API_KEY_CACHE_MAX_ENTRIES, API_KEY_CACHE_MISS_TTL_SECONDS,
     API_KEY_CACHE_TTL_SECONDS,
 };
+use crate::error::StoreError;
 
 struct Entry {
     record: Option<Caller>,
@@ -77,16 +75,16 @@ impl KeyCache {
 
     pub async fn resolve(
         &self,
-        accounts: &PgPool,
+        keys: &dyn KeyRepository,
         raw: &str,
         now: i64,
-    ) -> Result<Option<Caller>, AppError> {
+    ) -> Result<Option<Caller>, StoreError> {
         if let Some(cached) = self.get(raw, now) {
             return Ok(cached);
         }
         let lookup = tokio::time::timeout(
             Duration::from_millis(ACCOUNTS_LOOKUP_TIMEOUT_MILLIS),
-            crate::accounts::keys::lookup(accounts, raw),
+            crate::accounts::keys::lookup(keys, raw),
         )
         .await;
         let record = match lookup {
@@ -97,7 +95,7 @@ impl KeyCache {
             }
             Err(_) => {
                 self.store_failure(raw, now);
-                return Err(AppError::Database("api key lookup timed out".to_string()));
+                return Err(StoreError::Database("api key lookup timed out".to_string()));
             }
         };
         self.store(raw, record, now);
@@ -108,6 +106,7 @@ impl KeyCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::accounts::keys::{KeyError, KeyRecord, PlanView, RawKey};
 
     fn caller(key_id: i64) -> Caller {
         Caller {
@@ -161,11 +160,37 @@ mod tests {
         assert!(cache.get("qaf_never_seen", 0).is_none());
     }
 
+    struct Unreachable;
+
+    #[async_trait::async_trait]
+    impl KeyRepository for Unreachable {
+        async fn caller(&self, _: &[u8; 32]) -> Result<Option<Caller>, StoreError> {
+            Err(StoreError::Database("unreachable".into()))
+        }
+        async fn active_for(&self, _: i64) -> Result<Vec<KeyRecord>, StoreError> {
+            Err(StoreError::Database("unreachable".into()))
+        }
+        async fn plan_for(&self, _: i64) -> Result<Option<PlanView>, StoreError> {
+            Err(StoreError::Database("unreachable".into()))
+        }
+        async fn create_below(
+            &self,
+            _: i64,
+            _: &RawKey,
+            _: Option<&str>,
+            _: i64,
+        ) -> Result<(), KeyError> {
+            Err(StoreError::Database("unreachable".into()).into())
+        }
+        async fn revoke(&self, _: i64, _: i64) -> Result<bool, StoreError> {
+            Err(StoreError::Database("unreachable".into()))
+        }
+    }
+
     #[tokio::test]
     async fn a_lookup_failure_is_cached_as_a_short_lived_miss() {
         let cache = KeyCache::default();
-        let accounts = crate::test_support::lazy_pool();
-        assert!(cache.resolve(&accounts, "qaf_failing", 0).await.is_err());
+        assert!(cache.resolve(&Unreachable, "qaf_failing", 0).await.is_err());
         assert_eq!(cache.get("qaf_failing", 1), Some(None));
         assert!(cache.get("qaf_failing", 6).is_none());
     }

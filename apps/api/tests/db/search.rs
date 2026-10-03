@@ -2,9 +2,9 @@ use axum::http::StatusCode;
 use reqwest::Method;
 use serde_json::{Value, json};
 
-use qafiyah_api::domain::search;
+use qafiyah_api::domain::search::{PoemSearchParams, SearchIndex};
 use qafiyah_api::es::client::Es;
-use qafiyah_api::es::query::{PoemSearchParams, poem_search_body};
+use qafiyah_api::es::query::poem_search_body;
 
 use crate::{Harness, admin, harness};
 
@@ -238,15 +238,12 @@ fn searching(es: Es, index: String) -> Es {
 
 #[expect(clippy::expect_used, reason = "a failed search is a failed test")]
 async fn shown_snippets(es: &Es, q: &str, exact: bool) -> Vec<String> {
-    search::search_poems(
-        es,
-        &PoemSearchParams {
-            q: q.into(),
-            page: 1,
-            exact,
-            ..PoemSearchParams::default()
-        },
-    )
+    es.search_poems(&PoemSearchParams {
+        q: q.into(),
+        page: 1,
+        exact,
+        ..PoemSearchParams::default()
+    })
     .await
     .expect("a search")
     .hits

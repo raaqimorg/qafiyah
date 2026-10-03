@@ -6,11 +6,11 @@ use crate::constants::{
     API_V1_PREFIX, LIST_POETS_MAX_PAGE, MAX_QUERY_LENGTH, POEMS_PER_PAGE,
     POETS_LIST_MAX_RESULT_WINDOW, READ_CACHE_CONTROL, SITEMAP_POETS_PER_SHARD,
 };
-use crate::domain::poets::{self, PoetSlugEntry, PoetStats};
+use crate::domain::poets::{PoetSlugEntry, PoetStats};
 use crate::domain::search::{self, PoetListItem};
+use crate::domain::search::{PoetSearchParams, PoetSort};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
-use crate::es::query::{PoetSearchParams, PoetSort};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
 use crate::openapi::{FilteredListErrors, LookupErrors};
@@ -48,9 +48,9 @@ pub(crate) async fn list(
         .unwrap_or_default();
     let era = query.scalar_slug("era", slug::transliterated)?;
 
-    let found = search::list_poets(
-        &state.es,
-        &PoetSearchParams {
+    let found = state
+        .search
+        .list_poets(&PoetSearchParams {
             q,
             page,
             era_slugs: era.into_iter().collect(),
@@ -59,9 +59,8 @@ pub(crate) async fn list(
             highlight: false,
             exact: false,
             window: POETS_LIST_MAX_RESULT_WINDOW,
-        },
-    )
-    .await?;
+        })
+        .await?;
 
     log.set("result_count", found.total);
     log.set("page", page);
@@ -94,8 +93,8 @@ pub(crate) async fn list_slugs(
 ) -> Result<Json<ListEnvelope<PoetSlugEntry>>, AppError> {
     let page = Query::parse(raw.as_deref()).unbounded_page()?;
     let (data, total) = tokio::try_join!(
-        poets::list_slugs(&state.pg, page, SITEMAP_POETS_PER_SHARD),
-        poets::count_with_poems(&state.pg)
+        state.poets.list_slugs(page, SITEMAP_POETS_PER_SHARD),
+        state.poets.count_with_poems()
     )?;
     log.set(
         "result_count",
@@ -131,19 +130,15 @@ pub(crate) async fn detail(
 ) -> Result<Response, AppError> {
     let slug = slug::four_letters(&raw)?;
     log.set("poet_id", slug);
-    let poet = match poets::get(&state.pg, slug).await {
-        Ok(poet) => poet,
-        Err(AppError::NotFound(Resource::Poet)) => {
-            let Some(survivor) = poets::alias_target(&state.pg, slug).await? else {
-                return Err(AppError::NotFound(Resource::Poet));
-            };
-            log.set("alias_of", survivor.clone());
-            return Ok(permanent_redirect(
-                &format!("{API_V1_PREFIX}/poets/{survivor}"),
-                READ_CACHE_CONTROL,
-            ));
-        }
-        Err(error) => return Err(error),
+    let Some(poet) = state.poets.get(slug).await? else {
+        let Some(survivor) = state.poets.alias_target(slug).await? else {
+            return Err(AppError::NotFound(Resource::Poet));
+        };
+        log.set("alias_of", survivor.clone());
+        return Ok(permanent_redirect(
+            &format!("{API_V1_PREFIX}/poets/{survivor}"),
+            READ_CACHE_CONTROL,
+        ));
     };
     Ok(Json(ItemEnvelope { data: poet }).into_response())
 }

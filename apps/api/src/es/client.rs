@@ -5,7 +5,7 @@ use reqwest::Method;
 use serde_json::Value;
 
 use crate::constants::ES_SEARCH_TIMEOUT_SECONDS;
-use crate::error::AppError;
+use crate::error::StoreError;
 
 pub struct Es {
     endpoint: Endpoint,
@@ -29,7 +29,7 @@ impl Es {
         })
     }
 
-    pub async fn search(&self, index: &str, body: &Value) -> Result<Value, AppError> {
+    pub async fn search(&self, index: &str, body: &Value) -> Result<Value, StoreError> {
         let response = self
             .endpoint
             .request(Method::POST, &format!("/{index}/_search"))
@@ -37,22 +37,23 @@ impl Es {
             .json(body)
             .send()
             .await
-            .map_err(|cause| AppError::Search(format!("{index}: {cause}")))?;
+            .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))?;
         let status = response.status();
         let body = response
             .bytes()
             .await
-            .map_err(|cause| AppError::Search(format!("{index}: {cause}")))?;
+            .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))?;
         if !status.is_success() {
             let refusal = serde_json::from_slice::<Value>(&body)
                 .ok()
                 .and_then(|value| refusal_reason(&value));
-            return Err(AppError::Search(match refusal {
+            return Err(StoreError::Search(match refusal {
                 Some(reason) => format!("{index}: {status}: {reason}"),
                 None => format!("{index}: {status}"),
             }));
         }
-        serde_json::from_slice(&body).map_err(|cause| AppError::Search(format!("{index}: {cause}")))
+        serde_json::from_slice(&body)
+            .map_err(|cause| StoreError::Search(format!("{index}: {cause}")))
     }
 }
 
@@ -95,7 +96,7 @@ mod tests {
         .await;
 
         let result = outcome.expect("the search must give up on its own, not be rescued");
-        assert!(matches!(result, Err(AppError::Search(_))));
+        assert!(matches!(result, Err(StoreError::Search(_))));
     }
 
     #[tokio::test]
@@ -120,7 +121,7 @@ mod tests {
         let result = client.search("poems", &serde_json::json!({})).await;
 
         assert!(
-            matches!(&result, Err(AppError::Search(message)) if message == "poems: 400 Bad Request: no mapping found for `primaryId` in order to collapse on"),
+            matches!(&result, Err(StoreError::Search(message)) if message == "poems: 400 Bad Request: no mapping found for `primaryId` in order to collapse on"),
             "{:?}",
             result.err()
         );
@@ -151,7 +152,7 @@ mod tests {
         let result = client.search("poems", &serde_json::json!({})).await;
 
         assert!(
-            matches!(&result, Err(AppError::Search(message)) if message == "poems: 502 Bad Gateway"),
+            matches!(&result, Err(StoreError::Search(message)) if message == "poems: 502 Bad Gateway"),
             "{:?}",
             result.err()
         );
@@ -166,6 +167,6 @@ mod tests {
         .await;
         let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
         let result = client.search("poems", &serde_json::json!({})).await;
-        assert!(matches!(result, Err(AppError::Search(message)) if message.contains("502")));
+        assert!(matches!(result, Err(StoreError::Search(message)) if message.contains("502")));
     }
 }

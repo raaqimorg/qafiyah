@@ -12,12 +12,19 @@ use diesel_async::{AsyncConnection, AsyncPgConnection, SimpleAsyncConnection};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 use crate::constants::{PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS};
-use crate::error::AppError;
+use crate::error::StoreError;
 
 pub use qafiyah_corpus::schema as corpus;
 
-#[path = "../generated/diesel/accounts.gen.rs"]
+#[path = "../../generated/diesel/accounts.gen.rs"]
 pub mod accounts_schema;
+pub mod keys;
+pub mod poems;
+pub mod poets;
+pub mod sessions;
+pub mod taxonomy;
+pub mod usage;
+pub mod users;
 
 #[diesel::declare_sql_function]
 extern "SQL" {
@@ -95,12 +102,26 @@ pub fn pool(url: &str, max_size: usize, wait: Duration, setup: String) -> Result
         .map_err(|error| error.to_string())
 }
 
-pub fn present<T>(value: Option<T>) -> Result<T, AppError> {
-    value.ok_or_else(|| AppError::Database("unexpected null column".to_string()))
+pub fn present<T>(value: Option<T>) -> Result<T, StoreError> {
+    value.ok_or_else(|| StoreError::Database("unexpected null column".to_string()))
 }
 
-pub fn int<T: TryInto<i32>>(value: T) -> Result<i32, AppError> {
+pub fn int<T: TryInto<i32>>(value: T) -> Result<i32, StoreError> {
     value
         .try_into()
-        .map_err(|_| AppError::Database("integer out of range".to_string()))
+        .map_err(|_| StoreError::Database("integer out of range".to_string()))
+}
+
+impl From<diesel::result::Error> for StoreError {
+    fn from(error: diesel::result::Error) -> Self {
+        StoreError::Database(error.to_string())
+    }
+}
+
+impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for StoreError {
+    fn from(
+        error: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>,
+    ) -> Self {
+        StoreError::Database(error.to_string())
+    }
 }

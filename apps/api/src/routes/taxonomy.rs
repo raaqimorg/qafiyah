@@ -1,7 +1,7 @@
 use axum::Json;
 use axum::extract::{Extension, State};
 
-use crate::domain::taxonomy::{self, Counted, CountedStats, PoemCountStats, PoemCounted};
+use crate::domain::taxonomy::{Counted, CountedStats, PoemCountStats, PoemCounted};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::AppError;
 use crate::extract::SafePath;
@@ -24,7 +24,7 @@ async fn list_counted_kind(
     Extension(log): Extension<LogHandle>,
     kind: Counted,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
-    Ok(listed(taxonomy::list_counted(&state.pg, kind).await?, &log))
+    Ok(listed(state.taxonomy.list_counted(kind).await?, &log))
 }
 
 async fn get_counted_kind(
@@ -36,7 +36,11 @@ async fn get_counted_kind(
     let slug = slug::transliterated(&raw)?;
     log.set(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
-        data: taxonomy::get_counted(&state.pg, kind, slug).await?,
+        data: state
+            .taxonomy
+            .get_counted(kind, slug)
+            .await?
+            .ok_or(AppError::NotFound(kind.resource()))?,
     }))
 }
 
@@ -45,10 +49,7 @@ async fn list_poem_counted_kind(
     Extension(log): Extension<LogHandle>,
     kind: PoemCounted,
 ) -> Result<Json<ListEnvelope<PoemCountStats>>, AppError> {
-    Ok(listed(
-        taxonomy::list_by_poem_count(&state.pg, kind).await?,
-        &log,
-    ))
+    Ok(listed(state.taxonomy.list_by_poem_count(kind).await?, &log))
 }
 
 async fn get_poem_counted_kind(
@@ -60,7 +61,11 @@ async fn get_poem_counted_kind(
     let slug = slug::transliterated(&raw)?;
     log.set(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
-        data: taxonomy::get_by_poem_count(&state.pg, kind, slug).await?,
+        data: state
+            .taxonomy
+            .get_by_poem_count(kind, slug)
+            .await?
+            .ok_or(AppError::NotFound(kind.resource()))?,
     }))
 }
 

@@ -1,16 +1,12 @@
+use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use diesel::dsl::{IntervalDsl, now};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use rand::RngExt;
 use sha2::{Digest, Sha256};
 
 use crate::accounts::users::Profile;
 use crate::constants::{SESSION_ID_BYTES, SESSION_TTL_DAYS};
-use crate::db::accounts_schema::{sessions, users};
-use crate::db::{PgPool, date_add};
-use crate::error::AppError;
+use crate::error::StoreError;
 
 pub fn generate_id() -> Vec<u8> {
     let mut rng = rand::rng();
@@ -30,49 +26,31 @@ pub fn decode_id(encoded: &str) -> Option<Vec<u8>> {
     (decoded.len() == SESSION_ID_BYTES).then_some(decoded)
 }
 
-pub async fn create(accounts: &PgPool, user_id: i64) -> Result<Vec<u8>, AppError> {
-    let mut conn = accounts.get().await?;
-    diesel::delete(sessions::table.filter(sessions::expires_at.le(now)))
-        .execute(&mut conn)
-        .await?;
+#[async_trait]
+pub trait SessionRepository: Send + Sync {
+    async fn create(&self, user_id: i64, id_hash: &[u8], ttl_days: i64) -> Result<(), StoreError>;
+    async fn profile_for(&self, id_hash: &[u8]) -> Result<Option<Profile>, StoreError>;
+    async fn delete(&self, id_hash: &[u8]) -> Result<(), StoreError>;
+    async fn delete_all_for(&self, user_id: i64) -> Result<(), StoreError>;
+}
+
+pub async fn create(sessions: &dyn SessionRepository, user_id: i64) -> Result<Vec<u8>, StoreError> {
     let id = generate_id();
-    diesel::insert_into(sessions::table)
-        .values((
-            sessions::id.eq(hash_id(&id)),
-            sessions::user_id.eq(user_id),
-            sessions::expires_at.eq(date_add(now, SESSION_TTL_DAYS.days())),
-        ))
-        .execute(&mut conn)
+    sessions
+        .create(user_id, &hash_id(&id), SESSION_TTL_DAYS)
         .await?;
     Ok(id)
 }
 
-pub async fn resolve(accounts: &PgPool, id: &[u8]) -> Result<Option<Profile>, AppError> {
-    let mut conn = accounts.get().await?;
-    Ok(sessions::table
-        .inner_join(users::table)
-        .filter(sessions::id.eq(hash_id(id)))
-        .filter(sessions::expires_at.gt(now))
-        .select(Profile::as_select())
-        .first(&mut conn)
-        .await
-        .optional()?)
+pub async fn resolve(
+    sessions: &dyn SessionRepository,
+    id: &[u8],
+) -> Result<Option<Profile>, StoreError> {
+    sessions.profile_for(&hash_id(id)).await
 }
 
-pub async fn delete(accounts: &PgPool, id: &[u8]) -> Result<(), AppError> {
-    let mut conn = accounts.get().await?;
-    diesel::delete(sessions::table.filter(sessions::id.eq(hash_id(id))))
-        .execute(&mut conn)
-        .await?;
-    Ok(())
-}
-
-pub async fn delete_all_for(accounts: &PgPool, user_id: i64) -> Result<(), AppError> {
-    let mut conn = accounts.get().await?;
-    diesel::delete(sessions::table.filter(sessions::user_id.eq(user_id)))
-        .execute(&mut conn)
-        .await?;
-    Ok(())
+pub async fn delete(sessions: &dyn SessionRepository, id: &[u8]) -> Result<(), StoreError> {
+    sessions.delete(&hash_id(id)).await
 }
 
 #[cfg(test)]

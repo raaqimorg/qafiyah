@@ -165,7 +165,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 ### Elasticsearch responses are read as untyped JSON with silent defaults
 
 - **What:** search hits are mapped by indexing into `serde_json::Value`, so a missing or renamed field becomes `""`, `0`, or `false`.
-- **Where:** `apps/api/src/domain/search.rs`, `apps/api/src/es/client.rs`
+- **Where:** `apps/api/src/es/search.rs`, `apps/api/src/es/client.rs`
 - **Why it's unusual:** it contradicts the repo's own "validate at entry, fail loudly at boundaries" rule. A mapping drift would ship empty slugs and names with a 200, and a test pins the silent defaults. `total_hits` also accepts the pre-ES7 numeric `hits.total` shape, which this stack never returns.
 - **Normal approach:** `#[derive(Deserialize)]` structs for the response and each hit's `_source`, with required fields non-optional.
 - **Status:** Needs review
@@ -333,7 +333,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 ### The API's tests use homemade snapshot, randomness, and skip tooling
 
 - **What:** ES query snapshots go through a dedicated `es-query-dump` binary, a Bun script, and a committed vectors file. An xorshift `Rng` drives the "never panics" loops, and DB tests return early, and so pass, when `QAFIYAH_TEST_*` is unset.
-- **Where:** `apps/api/src/bin/es-query-dump.rs`, `scripts/es/query-snapshot.ts`, `apps/api/generated/es/query.vectors.json`, `apps/api/src/test_support.rs`, `apps/api/tests/db.rs`, `apps/api/src/es/query.rs`
+- **Where:** `apps/api/src/bin/es-query-dump.rs`, `scripts/es/query-snapshot.ts`, `apps/api/generated/es/query.vectors.json`, `apps/api/src/test_support.rs`, `apps/api/tests/db.rs`, `apps/api/src/es/query.rs`, `apps/api/src/domain/search.rs`
 - **Why it's unusual:** each piece is a homemade version of a standard crate. The dump binary ships in the release build, `rand` is already a dependency, and a skipped DB test shows up as a pass. `PoetSearchParams::default()` also enables highlighting that both production callers turn off, so only the dump and the tests use it.
 - **Normal approach:** `insta::assert_json_snapshot!`, `proptest` (or a seeded `rand` RNG), and `#[ignore = "needs QAFIYAH_TEST_*"]`.
 - **Status:** Needs review
@@ -357,7 +357,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 ### Poets are served from two stores with different count types
 
 - **What:** `GET /poets` reads Elasticsearch, while `GET /poets/{slug}` and `/poets/slugs` read Postgres.
-- **Where:** `apps/api/src/routes/poets.rs`, `apps/api/src/domain/search.rs`, `apps/api/src/domain/poets.rs`, `apps/api/generated/openapi/openapi.json`
+- **Where:** `apps/api/src/routes/poets.rs`, `apps/api/src/es/search.rs`, `apps/api/src/db/poets.rs`, `apps/api/generated/openapi/openapi.json`
 - **Why it's unusual:** the two reads can disagree on counts until a reindex, and the contract shows the same `poemsCount` as `int64` in `PoetListItem` and `int32` in `PoetStats`.
 - **Normal approach:** one source per resource, or at least one type for the shared field.
 - **Status:** Needs review
@@ -641,7 +641,7 @@ The API is not just a thin DB connector, and the crate carries no doc comments: 
 ### The poem list picks its SQL shape for the planner
 
 - **What:** `resolve_ids` turns every filter's slugs into ids (one small query per filter, pipelined on one connection), and `list` returns an empty page without querying `poems` when a filter matches no id. `matching` builds `column = $n` for one id and `column = ANY($n)` for several, always behind the shown-primary condition. The page's ids are picked in an `IN` subquery, ordered and limited, before poets and meters are joined. The list rows, the count of several combined filters, and the facets' grouped counts are sent unnamed through `db::Uncached`; every other query is a cached prepared statement. The total is the sum of the filter's `*_stats` rows (added up in Rust) when there is one filter, of `meter_stats` when there is none, and `COUNT(*)` only when several filters combine. The facets group the matching poems by the counted column and attach names and slugs from the taxonomy table read in name order.
-- **Where:** `apps/api/src/domain/poems.rs`, `apps/api/src/db.rs` (`Uncached`), `apps/api/src/domain/taxonomy.rs`, `scripts/db/sql/refresh-taxonomy-stats.sql`
+- **Where:** `apps/api/src/db/poems.rs`, `apps/api/src/db/mod.rs` (`Uncached`), `apps/api/src/db/taxonomy.rs`, `scripts/db/sql/refresh-taxonomy-stats.sql`
 - **Why:** each special case is a measured planner win on the corpus. Concrete ids let the planner read its statistics: with slug subqueries, a filter that matches no poem or only a rare combination walked every poem in id order (113 to 145 ms, now 2 to 5 ms, #127). A scalar for one id lets Postgres walk the `(facet, id)` partial index in id order and stop at the page, where `= ANY` walks every poem and `IN` joins and sorts every match: one theme's last page takes 9.8 ms against 44.9 ms with `= ANY` (#142), its middle page 5.0 ms against 22.7 ms with `IN`. Picking the page by id before joining poets and meters keeps the skipped rows inside that index, making deep pages 8 to 14 times faster. `Uncached` keeps Postgres from settling on a generic plan that cannot see the ids: with every list query cached, a rare combination reached 76 ms after 400 common runs on the same connections, and 4.4 ms at most with it (#138); it is Diesel's documented extension point (a `QueryFragment` wrapper, as in its `Paginated` guide example) calling `unsafe_to_cache_prepared`, which Diesel itself does for `sql_query`. Planning every query instead (`plan_cache_mode = force_custom_plan`) made the poem detail's five cached lookups 0.9 ms slower. The `*_stats` totals spare a count of up to about 227k rows on every filtered or unfiltered page (#133, #135); a poem has exactly one value per filter, so the rows add up exactly. They agree with a live count only while `refresh_taxonomy_stats()` has run since the last change to `poems`; `a_single_term_total_from_the_stats_table_equals_a_live_count_of_primaries`, `a_total_over_several_values_of_one_filter_equals_a_live_count_of_primaries`, and `the_unfiltered_total_and_the_poem_count_equal_a_live_count_of_primaries` guard that, and `a_planner_sensitive_list_is_never_kept_as_a_prepared_statement` guards `Uncached`.
 - **Normal approach:** Diesel boxed queries, all cached, and a single `COUNT(*)` path.
 - **Date:** 2026-09-24, updated 2026-10-03
