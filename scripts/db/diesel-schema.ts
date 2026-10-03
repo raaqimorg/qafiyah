@@ -42,7 +42,7 @@ const database = process.env['POSTGRES_DB'] ?? 'qafiyah';
 
 const SCHEMAS = [
   {
-    output: 'apps/api/generated/diesel/corpus.gen.rs',
+    output: 'crates/corpus/generated/diesel/corpus.gen.rs',
     url: `postgres://qafiyah:${ownerPassword}@localhost:${DEV_POSTGRES_PORT}/${database}`,
     tables: CORPUS_TABLES,
   },

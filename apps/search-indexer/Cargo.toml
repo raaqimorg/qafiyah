@@ -8,9 +8,14 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+qafiyah-corpus = { path = "../../crates/corpus" }
 qafiyah-elasticsearch = { path = "../../crates/elasticsearch" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
-tokio-postgres = "0.7"
+diesel = { version = "2.3", default-features = false, features = [
+  "postgres_backend",
+  "32-column-tables",
+] }
+diesel-async = { version = "0.9", features = ["postgres"] }
 reqwest = { version = "0.13", default-features = false, features = ["json"] }

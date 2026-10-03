@@ -1507,6 +1507,7 @@ dependencies = [
  "form_urlencoded",
  "futures-util",
  "http-body-util",
+ "qafiyah-corpus",
  "qafiyah-elasticsearch",
  "rand",
  "reqwest",
@@ -1524,6 +1525,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "qafiyah-corpus"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+]
+
+[[package]]
 name = "qafiyah-elasticsearch"
 version = "0.0.0"
 dependencies = [
@@ -1536,12 +1544,14 @@ dependencies = [
 name = "qafiyah-search-indexer"
 version = "0.0.0"
 dependencies = [
+ "diesel",
+ "diesel-async",
+ "qafiyah-corpus",
  "qafiyah-elasticsearch",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
- "tokio-postgres",
 ]
 
 [[package]]

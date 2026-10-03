@@ -53,7 +53,7 @@ struct Target<'a> {
 
 struct Ctx<'a> {
     es: &'a Es,
-    pgc: &'a tokio_postgres::Client,
+    pgc: &'a diesel_async::AsyncPgConnection,
     batch_size: usize,
     rules: &'a [(String, String)],
 }

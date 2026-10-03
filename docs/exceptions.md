@@ -316,10 +316,10 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### The search indexer diverges from the API's stack
 
-- **What:** the indexer uses tokio-postgres where the API uses Diesel, and `Result<_, String>` throughout where conventions say `thiserror`. It also has a second hand-rolled `civil_from_days`, used only for a `lastReindexAt` field nobody reads, next to a `lastError` that is always null.
-- **Where:** `apps/search-indexer/Cargo.toml`, `apps/search-indexer/src/main.rs`, `apps/search-indexer/src/pg.rs`
-- **Why it's unusual:** one workspace ends up with two Postgres drivers and two error styles, and the approved `civil_from_days` entry lists only `apps/api/src/log.rs`. The pg tests assert on the SQL text instead of running it.
-- **Normal approach:** one driver per workspace, `thiserror` or `anyhow`, and SQL tested against the database with the existing `rust:test:db`.
+- **What:** the indexer uses `Result<_, String>` throughout where conventions say `thiserror`. It also has a second hand-rolled `civil_from_days`, used only for a `lastReindexAt` field nobody reads, next to a `lastError` that is always null.
+- **Where:** `apps/search-indexer/src/main.rs`, `apps/search-indexer/src/pg.rs`, `apps/search-indexer/src/es.rs`
+- **Why it's unusual:** one workspace ends up with two error styles, and the approved `civil_from_days` entry lists only `apps/api/src/log.rs`.
+- **Normal approach:** `thiserror` or `anyhow`, and no field that nothing reads.
 - **Status:** Needs review
 
 ### Branded slug types are never validated

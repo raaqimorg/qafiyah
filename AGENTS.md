@@ -6,6 +6,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 
 - `apps/`: deployable services, each with its own `AGENTS.md`: `api` (Rust), `web` (Astro/React), `search-indexer` (Rust), `edge-gateway` (nginx config only), `telemetry-proxy` (Cloudflare Worker), `inspector` (TypeScript, dev-only).
 - `crates/elasticsearch/`: the Elasticsearch schema and client shared by `api` and `search-indexer` (see its `AGENTS.md`).
+- `crates/corpus/`: the corpus database's Diesel schema shared by `api` and `search-indexer` (see its `AGENTS.md`).
 - `packages/tsconfig/`: the TypeScript config bases (`base`, `astro`, `bun`).
 - `config.ts` (root): constants shared by every TypeScript app and script, imported as `@qafiyah/config` through each `tsconfig.json`'s `paths`. `scripts/check/constants.ts` keeps the Rust side in sync.
 - `scripts/`: repo tooling and CI checks, one `bun run` name per entry point (see `scripts/AGENTS.md`).

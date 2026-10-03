@@ -93,6 +93,7 @@ flowchart LR
     end
     tsconfig["packages/tsconfig"]
     es_crate["crates/elasticsearch"]
+    corpus_crate["crates/corpus"]
     config["config.ts (root)"]
 
     web --> tsconfig
@@ -102,10 +103,12 @@ flowchart LR
     inspector --> config
     api --> es_crate
     indexer --> es_crate
+    api --> corpus_crate
+    indexer --> corpus_crate
 ```
 
 Turborepo orchestrates the TypeScript workspace (`apps/*` + `packages/*`); a separate Cargo
-workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `crates/elasticsearch`).
+workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `crates/elasticsearch`, `crates/corpus`).
 `apps/edge-gateway` is config only (no build step, an nginx image plus a template override).
 Conventions: `docs/code-conventions.md`, `docs/typescript-conventions.md`,
 `docs/rust-conventions.md`. Each component's `AGENTS.md` is listed in `README.md` ("Documentation map").

@@ -4,13 +4,16 @@
 
 "⚙️ api":
   - changed-files:
-      - any-glob-to-any-file: apps/api/**
+      - any-glob-to-any-file:
+          - apps/api/**
+          - crates/corpus/**
 
 "🗂️ indexer":
   - changed-files:
       - any-glob-to-any-file:
           - apps/search-indexer/**
           - crates/elasticsearch/**
+          - crates/corpus/**
 
 "🏗️ infra":
   - changed-files:
