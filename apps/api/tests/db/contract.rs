@@ -210,6 +210,45 @@ async fn every_poem_facet_narrows_the_list_to_a_subset_of_the_unfiltered_total()
 }
 
 #[tokio::test]
+async fn a_poem_filter_that_matches_nothing_lists_an_empty_page() {
+    let Some(h) = h().await else { return };
+    let first = h.get("/v1/poems").await.json()["data"][0].clone();
+    let meter = first["meter"]["slug"].as_str().expect("meter").to_string();
+    for query in [
+        "meter=zzzzz".to_string(),
+        "poet=Zzzz".to_string(),
+        "theme=zzzzz&theme=yyyyy".to_string(),
+        format!("meter={meter}&rhyme=zzzzz"),
+    ] {
+        let sent = h.get(&format!("/v1/poems?{query}")).await;
+        assert_eq!(sent.status, StatusCode::OK, "{query}: {}", sent.body);
+        let body = sent.json();
+        assert_eq!(total_items(&body), 0, "{query}");
+        assert_eq!(body["data"].as_array().map(Vec::len), Some(0), "{query}");
+    }
+}
+
+#[tokio::test]
+async fn two_meters_list_the_poems_of_either_one() {
+    let Some(h) = h().await else { return };
+    let meters = h.get("/v1/meters").await.json();
+    let slug = |index: usize| {
+        meters["data"][index]["slug"]
+            .as_str()
+            .expect("meter")
+            .to_string()
+    };
+    let (a, b) = (slug(0), slug(1));
+    let total = |query: String| {
+        let h = &h;
+        async move { total_items(&h.get(&format!("/v1/poems?{query}")).await.json()) }
+    };
+    let either = total(format!("meter={a}&meter={b}")).await;
+    let sum = total(format!("meter={a}")).await + total(format!("meter={b}")).await;
+    assert_eq!(either, sum);
+}
+
+#[tokio::test]
 async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() {
     let Some(h) = h().await else { return };
     let list = h.get("/v1/poets").await;
