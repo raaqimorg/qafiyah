@@ -311,24 +311,70 @@ mod tests {
 
     struct Corpus {
         poet_ids: Vec<i32>,
+        poem_ids: Vec<i32>,
     }
 
     impl Corpus {
         fn of(poet_ids: impl IntoIterator<Item = i32>) -> Self {
             Self {
                 poet_ids: poet_ids.into_iter().collect(),
+                poem_ids: Vec::new(),
             }
+        }
+
+        fn with_poems(self, poem_ids: impl IntoIterator<Item = i32>) -> Self {
+            Self {
+                poem_ids: poem_ids.into_iter().collect(),
+                ..self
+            }
+        }
+    }
+
+    fn poem(id: i32) -> PoemSource {
+        PoemSource {
+            id,
+            slug: format!("poem-{id}"),
+            title: format!("Poem {id}"),
+            content: "first*second".into(),
+            poet_name: "Poet".into(),
+            poet_slug: "poet".into(),
+            poet_has_avatar: false,
+            poet_is_anonymous: false,
+            era_name: "Era".into(),
+            era_slug: "era".into(),
+            meter_name: "Meter".into(),
+            meter_slug: "meter".into(),
+            theme_slug: "theme".into(),
+            rhyme_slug: "rhyme".into(),
+            poem_type_slug: "amudi".into(),
+            collection_slug: String::new(),
+            primary_id: id,
+            is_primary: true,
         }
     }
 
     #[async_trait]
     impl CorpusSource for Corpus {
         async fn count(&self, is_poems: bool) -> Result<i64, IndexerError> {
-            let poets = i64::try_from(self.poet_ids.len()).expect("a small corpus");
-            Ok(if is_poems { 0 } else { poets })
+            let ids = if is_poems {
+                &self.poem_ids
+            } else {
+                &self.poet_ids
+            };
+            Ok(i64::try_from(ids.len()).expect("a small corpus"))
         }
-        async fn poems_after(&self, _: i32, _: i64) -> Result<Vec<PoemSource>, IndexerError> {
-            Ok(Vec::new())
+        async fn poems_after(
+            &self,
+            after_id: i32,
+            limit: i64,
+        ) -> Result<Vec<PoemSource>, IndexerError> {
+            Ok(self
+                .poem_ids
+                .iter()
+                .filter(|id| **id > after_id)
+                .take(usize::try_from(limit).expect("a small limit"))
+                .map(|id| poem(*id))
+                .collect())
         }
         async fn poets_after(
             &self,
@@ -617,7 +663,8 @@ mod tests {
             },
             || async {
                 connected.store(true, Ordering::SeqCst);
-                let corpus: Box<dyn CorpusSource> = Box::new(Corpus::of([1, 2]));
+                let corpus: Box<dyn CorpusSource> =
+                    Box::new(Corpus::of([1, 2]).with_poems([10, 20, 30]));
                 Ok(corpus)
             },
             &|_| {},
@@ -660,10 +707,16 @@ mod tests {
         assert_eq!(
             outcome,
             Ok(Outcome::Rebuilt {
-                poems: ("poems_v2".to_string(), 0),
+                poems: ("poems_v2".to_string(), 3),
                 poets: ("poets_v2".to_string(), 2),
             })
         );
+        cluster.with_index("poems_v2", |stored| {
+            assert_eq!(stored.slugs, ["poem-10", "poem-20", "poem-30"]);
+        });
+        cluster.with_index("poets_v2", |stored| {
+            assert_eq!(stored.slugs, ["poet-1", "poet-2"]);
+        });
     }
 
     #[tokio::test]
