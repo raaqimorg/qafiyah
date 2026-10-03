@@ -241,12 +241,13 @@ pub fn parse_poem_content(content: &str) -> ParsedContent {
     }
 }
 
+const ALL_POEMS_TOTAL_SQL: &str =
+    "SELECT (SELECT SUM(poems_count)::int FROM public.meter_stats) AS total";
+
 pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
-    let total: Option<i32> = sqlx::query_scalar(
-        "SELECT COUNT(*)::int AS total FROM poems WHERE recension_of_id IS NULL AND NOT is_hidden",
-    )
-    .fetch_one(pg)
-    .await?;
+    let total: Option<i32> = sqlx::query_scalar(ALL_POEMS_TOTAL_SQL)
+        .fetch_one(pg)
+        .await?;
     Ok(total.unwrap_or(0))
 }
 
@@ -439,6 +440,7 @@ fn list_sql(clauses: &Clauses<'_>) -> (String, String) {
         Some(stats_table) => format!(
             "SELECT (SELECT SUM(poems_count)::int FROM {stats_table} WHERE id = ANY($1)) AS total"
         ),
+        None if bound.is_empty() => ALL_POEMS_TOTAL_SQL.to_string(),
         None => format!("SELECT COUNT(*)::int AS total FROM public.poems p {where_clause}"),
     };
     (rows_sql, count_sql)
@@ -843,6 +845,7 @@ mod tests {
         assert_eq!(rows.matches("JOIN public.poets").count(), 1, "{rows}");
         assert!(!rows.contains("public.eras e"), "{rows}");
     }
+
     #[test]
     fn conditions_stay_in_bind_order() {
         let filters = [ids(Filter::Era, &[3]), ids(Filter::Rhyme, &[7])];
@@ -873,6 +876,7 @@ mod tests {
              ARRAY(SELECT id FROM public.meters WHERE slug = ANY($2))"
         );
     }
+
     #[test]
     fn pairs_hemistichs_and_leaves_an_odd_one_half_empty() {
         let parsed = parse_poem_content("a*b*c");
@@ -962,9 +966,10 @@ mod tests {
              AND p.rhyme_id = ANY($5) AND p.collection_id = ANY($6)"
         );
     }
+
     #[test]
     fn the_list_sql_numbers_limit_and_offset_after_the_facet_binds() {
-        let (rows, count) = list_sql(&clauses(&[]));
+        let (rows, _) = list_sql(&clauses(&[]));
         assert!(rows.starts_with("SELECT p.title AS title, p.slug AS slug, pt.name AS poet_name"));
         assert!(
             rows.contains("ORDER BY p.id LIMIT $1 OFFSET $2) page"),
@@ -973,8 +978,6 @@ mod tests {
         assert!(rows.ends_with("ORDER BY p.id"), "{rows}");
         assert!(rows.contains("JOIN public.poets pt") && rows.contains("JOIN public.meters m"));
         assert!(rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY"));
-        assert!(count.starts_with("SELECT COUNT(*)::int AS total FROM public.poems p"));
-        assert!(!count.contains("JOIN"));
 
         let (rows, _) = list_sql(&clauses(&[ids(Filter::Era, &[3, 4])]));
         assert!(
@@ -982,16 +985,13 @@ mod tests {
             "{rows}"
         );
     }
+
     #[test]
     fn every_list_query_hides_recensions_and_hidden_poets_even_without_a_facet() {
-        let (rows, count) = list_sql(&clauses(&[]));
+        let (rows, _) = list_sql(&clauses(&[]));
         assert!(
             rows.contains("WHERE p.recension_of_id IS NULL AND NOT p.is_hidden ORDER BY p.id"),
             "{rows}"
-        );
-        assert_eq!(
-            count,
-            "SELECT COUNT(*)::int AS total FROM public.poems p WHERE p.recension_of_id IS NULL AND NOT p.is_hidden"
         );
         let two = [ids(Filter::Meter, &[5]), ids(Filter::Theme, &[2])];
         let (rows, count) = list_sql(&clauses(&two));
@@ -1004,6 +1004,7 @@ mod tests {
             "{count}"
         );
     }
+
     #[test]
     fn the_detail_query_finds_prev_and_next_through_the_shown_primaries_index() {
         for alias in ["pp", "np"] {
@@ -1038,10 +1039,19 @@ mod tests {
             }
         }
     }
+
     #[test]
-    fn no_filter_or_several_filters_count_the_poems_themselves() {
+    fn no_filter_reads_the_total_of_every_shown_poem_from_the_meter_stats() {
+        assert_eq!(
+            ALL_POEMS_TOTAL_SQL,
+            "SELECT (SELECT SUM(poems_count)::int FROM public.meter_stats) AS total"
+        );
+        assert_eq!(list_sql(&clauses(&[])).1, ALL_POEMS_TOTAL_SQL);
+    }
+
+    #[test]
+    fn several_filters_count_the_poems_themselves() {
         for wider in [
-            vec![],
             vec![ids(Filter::Theme, &[1]), ids(Filter::Meter, &[2])],
             vec![ids(Filter::Theme, &[1, 2]), ids(Filter::Meter, &[2, 3])],
         ] {
@@ -1052,6 +1062,7 @@ mod tests {
             );
         }
     }
+
     #[test]
     fn content_parsing_never_panics_and_keeps_every_hemistich() {
         let mut rng = crate::test_support::Rng::new(3);

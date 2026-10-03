@@ -677,6 +677,21 @@ async fn a_single_term_total_from_the_stats_table_equals_a_live_count_of_primari
 }
 
 #[tokio::test]
+async fn the_unfiltered_total_and_the_poem_count_equal_a_live_count_of_primaries() {
+    let Some(h) = h().await else { return };
+    let live: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM public.poems WHERE recension_of_id IS NULL AND NOT is_hidden",
+    )
+    .fetch_one(&h.pg)
+    .await
+    .unwrap_or(-1);
+    let listed = total_items(&h.get("/v1/poems").await.json());
+    let counted = h.get("/v1/poems/count").await.json()["data"]["total"].as_i64();
+    assert_eq!(i64::try_from(listed).unwrap_or(-2), live);
+    assert_eq!(counted, Some(live));
+}
+
+#[tokio::test]
 async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primaries() {
     let Some(h) = h().await else { return };
     for (param, list, table, column) in [
