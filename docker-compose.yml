@@ -27,6 +27,16 @@ services:
         "shared_preload_libraries=pg_stat_statements",
         "-c",
         "pg_stat_statements.track=all",
+        "-c",
+        "idle_in_transaction_session_timeout=30s",
+        "-c",
+        "tcp_keepalives_idle=60",
+        "-c",
+        "tcp_keepalives_interval=10",
+        "-c",
+        "tcp_keepalives_count=3",
+        "-c",
+        "client_connection_check_interval=10s",
       ]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-qafiyah}
