@@ -2,51 +2,74 @@ import { describe, expect, it } from 'vitest';
 
 import { normalizeProxyPath, resolveProxyPath } from './proxy-allowlist';
 
+const resolve = (path: string | undefined, search = '') =>
+  resolveProxyPath(path, new URLSearchParams(search));
+
 describe('resolveProxyPath', () => {
   it('allows the endpoints the browser needs', () => {
-    expect(resolveProxyPath('search')).toBe('search');
-    expect(resolveProxyPath('poems/random')).toBe('poems/random');
-    expect(resolveProxyPath('poems')).toBe('poems');
-    expect(resolveProxyPath('poems/facets')).toBe('poems/facets');
+    expect(resolve('search', 'q=x')).toBe('search');
+    expect(resolve('poems/random')).toBe('poems/random');
+    expect(resolve('poems', 'poet=imHZ')).toBe('poems');
+    expect(resolve('poems/facets', 'poet=imHZ')).toBe('poems/facets');
+  });
+
+  it('forwards a poem list only when it names exactly one poet', () => {
+    expect(resolve('poems')).toBeUndefined();
+    expect(resolve('poems', 'meter=altawil&meter=alkamil')).toBeUndefined();
+    expect(resolve('poems', 'poet=imHZ&poet=oNbs')).toBeUndefined();
+    expect(resolve('poems/facets', 'meter=altawil')).toBeUndefined();
+    expect(resolve('poems/facets', 'poet=imHZ&poet=oNbs')).toBeUndefined();
+  });
+
+  it('counts every spelling of poet the api reads', () => {
+    expect(resolve('poems', 'poet%5B0%5D=imHZ')).toBe('poems');
+    expect(resolve('poems', 'poet=imHZ&poet%5B%5D=oNbs')).toBeUndefined();
+    expect(resolve('poems', 'poet%5B0%5D=imHZ&poet%5B1%5D=oNbs')).toBeUndefined();
   });
 
   it('refuses every other corpus endpoint', () => {
-    expect(resolveProxyPath('poems/slugs')).toBeUndefined();
-    expect(resolveProxyPath('poems/kdmy')).toBeUndefined();
-    expect(resolveProxyPath('poets')).toBeUndefined();
-    expect(resolveProxyPath('poets/slugs')).toBeUndefined();
-    expect(resolveProxyPath('poets/oNbs')).toBeUndefined();
-    expect(resolveProxyPath('meters')).toBeUndefined();
+    expect(resolve('poems/slugs')).toBeUndefined();
+    expect(resolve('poems/kdmy')).toBeUndefined();
+    expect(resolve('poets')).toBeUndefined();
+    expect(resolve('poets/slugs')).toBeUndefined();
+    expect(resolve('poets/oNbs')).toBeUndefined();
+    expect(resolve('meters')).toBeUndefined();
+  });
+
+  it('refuses a name every object inherits', () => {
+    expect(resolve('constructor')).toBeUndefined();
+    expect(resolve('__proto__')).toBeUndefined();
+    expect(resolve('toString')).toBeUndefined();
   });
 
   it('refuses traversal and empty input', () => {
-    expect(resolveProxyPath('../../etc/passwd')).toBeUndefined();
-    expect(resolveProxyPath('poems/random/../../poems')).toBeUndefined();
-    expect(resolveProxyPath('')).toBeUndefined();
-    expect(resolveProxyPath(undefined)).toBeUndefined();
+    expect(resolve('../../etc/passwd')).toBeUndefined();
+    expect(resolve('poems/random/../../poems')).toBeUndefined();
+    expect(resolve('')).toBeUndefined();
+    expect(resolve(undefined)).toBeUndefined();
   });
 
   it('tolerates surrounding slashes', () => {
-    expect(resolveProxyPath('/search')).toBe('search');
-    expect(resolveProxyPath('/poems/random/')).toBe('poems/random');
+    expect(resolve('/search')).toBe('search');
+    expect(resolve('/poems/random/')).toBe('poems/random');
   });
 
   it('is case-sensitive so an uppercased endpoint is refused', () => {
-    expect(resolveProxyPath('Search')).toBeUndefined();
-    expect(resolveProxyPath('SEARCH')).toBeUndefined();
+    expect(resolve('Search')).toBeUndefined();
+    expect(resolve('SEARCH')).toBeUndefined();
   });
 
   it('refuses a decoded slash that turns into a longer path', () => {
-    expect(resolveProxyPath('search/poems')).toBeUndefined();
+    expect(resolve('search/poems')).toBeUndefined();
   });
 
   it('refuses a dot segment that escapes the allowlist', () => {
-    expect(resolveProxyPath('search/../poems')).toBeUndefined();
-    expect(resolveProxyPath('poems/random/../search')).toBeUndefined();
+    expect(resolve('search/../poems')).toBeUndefined();
+    expect(resolve('poems/random/../search')).toBeUndefined();
   });
 
   it('refuses an internal double slash', () => {
-    expect(resolveProxyPath('search//x')).toBeUndefined();
+    expect(resolve('search//x')).toBeUndefined();
   });
 });
 

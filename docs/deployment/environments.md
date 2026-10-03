@@ -70,8 +70,9 @@ Three layers, outermost first:
   its /64 gets a fresh allowance each time.
 - **The API**, the hourly buckets above, for callers of `api.qafiyah.com`. The
   website's server-side calls carry `API_KEY_INTERNAL` and skip them. The
-  website's browser proxy (`/api/v1/search`, `/api/v1/poems/random`,
-  `/api/v1/poems`, and `/api/v1/poems/facets`) also sends the visitor's
+  website's browser proxy (`/api/v1/search`, `/api/v1/poems/random`, and,
+  for a request naming exactly one poet, `/api/v1/poems` and
+  `/api/v1/poems/facets`) also sends the visitor's
   address, from the `X-Real-IP` nginx sets, as
   `CF-Connecting-IP`. The API counts those requests per visitor:
   `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour per /64 or IPv4
@@ -106,7 +107,8 @@ server-only, read at SSR time, and never reaches the
 browser. No key of any kind ships in the browser bundle: the browser calls
 `/api/v1/search`, `/api/v1/poems/random`, `/api/v1/poems`, and
 `/api/v1/poems/facets` on its own origin, and
-`apps/web/src/lib/api/proxy-allowlist.ts` refuses every other path.
+`apps/web/src/lib/api/proxy-allowlist.ts` refuses every other path, and a
+`poems` or `poems/facets` request that does not name exactly one poet.
 
 ### The anonymous limit
 

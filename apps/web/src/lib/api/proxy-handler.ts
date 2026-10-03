@@ -18,7 +18,7 @@ export type ProxyContext = {
 };
 
 export async function proxyRequest({ params, request, url }: ProxyContext): Promise<Response> {
-  const path = resolveProxyPath(params['path']);
+  const path = resolveProxyPath(params['path'], url.searchParams);
   if (path === undefined) {
     return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
