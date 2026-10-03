@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "agents:link": "bun scripts/dev/link-agent-files.ts",
+    "api:compare": "bun scripts/api/compare.ts",
     "api:conformance": "bun scripts/api/conformance.ts",
     "build": "turbo run build",
     "build:images": "bun scripts/deploy/build-images.ts",
