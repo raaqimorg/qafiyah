@@ -285,10 +285,7 @@ async fn a_real_key_is_limited_by_its_plan_and_its_usage_is_flushed() {
         assert_eq!(sent.header("x-ratelimit-limit"), Some("500"));
         assert_eq!(sent.header("x-ratelimit-remaining"), Some("499"));
         let recorder = qafiyah_api::accounts::usage::UsageRecorder::default();
-        let key_id = keys::list_for(h.state.api_keys.as_ref(), profile.id)
-            .await
-            .expect("keys")[0]
-            .id;
+        let key_id = h.state.api_keys.active_for(profile.id).await.expect("keys")[0].id;
         recorder.record(key_id, 500_000);
         assert_eq!(
             recorder
@@ -348,7 +345,10 @@ async fn the_same_provider_identity_with_a_new_email_keeps_its_account_and_keys(
     assert_eq!(relinked.id, original.id, "the identity keeps its account");
     assert_eq!(relinked.email, second, "the email follows the identity");
 
-    let listed = keys::list_for(h.state.api_keys.as_ref(), original.id)
+    let listed = h
+        .state
+        .api_keys
+        .active_for(original.id)
         .await
         .expect("keys");
     assert_eq!(listed.len(), 1);

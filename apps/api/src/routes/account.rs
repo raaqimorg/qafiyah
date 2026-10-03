@@ -4,9 +4,10 @@ use axum::middleware::{Next, from_fn_with_state};
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::accounts::keys::{self, KeyError, KeySummary};
+use crate::accounts::keys::{self, KeyError, KeyRecord};
 use crate::accounts::sessions;
 use crate::accounts::users::{self, Identity, Profile};
 
@@ -15,6 +16,73 @@ use crate::constants::{API_KEY_HEADER, NO_STORE_CACHE_CONTROL};
 use crate::error::{AppError, Resource};
 use crate::extract::SafePath;
 use crate::state::AppState;
+
+#[derive(Deserialize)]
+struct IdentityBody {
+    provider: String,
+    provider_uid: String,
+    email: String,
+    display_name: Option<String>,
+    avatar_url: Option<String>,
+}
+
+impl From<IdentityBody> for Identity {
+    fn from(body: IdentityBody) -> Self {
+        Identity {
+            provider: body.provider,
+            provider_uid: body.provider_uid,
+            email: body.email,
+            display_name: body.display_name,
+            avatar_url: body.avatar_url,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ProfileView {
+    id: i64,
+    email: String,
+    display_name: Option<String>,
+    avatar_url: Option<String>,
+}
+
+impl From<Profile> for ProfileView {
+    fn from(profile: Profile) -> Self {
+        ProfileView {
+            id: profile.id,
+            email: profile.email,
+            display_name: profile.display_name,
+            avatar_url: profile.avatar_url,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct KeySummary {
+    id: i64,
+    prefix: String,
+    label: Option<String>,
+    created_at: String,
+    last_used_at: Option<String>,
+    requests_this_hour: i64,
+}
+
+fn instant(at: DateTime<Utc>) -> String {
+    at.to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+impl From<KeyRecord> for KeySummary {
+    fn from(key: KeyRecord) -> Self {
+        KeySummary {
+            id: key.id,
+            prefix: key.prefix,
+            label: key.label,
+            created_at: instant(key.created_at),
+            last_used_at: key.last_used_at.map(instant),
+            requests_this_hour: key.requests_this_hour,
+        }
+    }
+}
 
 fn is_internal(keys: &Keys, presented: Option<&str>) -> bool {
     keys.is_internal(presented)
@@ -42,10 +110,10 @@ async fn guard(State(state): State<AppState>, request: Request, next: Next) -> R
 
 async fn upsert_user(
     State(state): State<AppState>,
-    Json(identity): Json<Identity>,
-) -> Result<Json<Profile>, AppError> {
-    match users::upsert(state.users.as_ref(), &identity).await {
-        Ok(profile) => Ok(Json(profile)),
+    Json(identity): Json<IdentityBody>,
+) -> Result<Json<ProfileView>, AppError> {
+    match users::upsert(state.users.as_ref(), &identity.into()).await {
+        Ok(profile) => Ok(Json(profile.into())),
         Err(users::UpsertError::EmailTaken) => Err(AppError::EmailTaken),
         Err(users::UpsertError::Store(e)) => Err(e.into()),
     }
@@ -74,13 +142,13 @@ async fn create_session(
 async fn resolve_session(
     State(state): State<AppState>,
     SafePath(encoded): SafePath<String>,
-) -> Result<Json<Profile>, AppError> {
+) -> Result<Json<ProfileView>, AppError> {
     let Some(id) = sessions::decode_id(&encoded) else {
         return Err(AppError::Unauthorized);
     };
     sessions::resolve(state.sessions.as_ref(), &id)
         .await?
-        .map(Json)
+        .map(|profile| Json(profile.into()))
         .ok_or(AppError::Unauthorized)
 }
 
@@ -138,7 +206,13 @@ async fn list_keys(
         .plan_for(user_id)
         .await?
         .ok_or(AppError::NotFound(Resource::Account))?;
-    let keys = keys::list_for(state.api_keys.as_ref(), user_id).await?;
+    let keys = state
+        .api_keys
+        .active_for(user_id)
+        .await?
+        .into_iter()
+        .map(KeySummary::from)
+        .collect();
     Ok(Json(AccountView {
         plan: plan.plan,
         requests: plan.requests,
@@ -217,5 +291,22 @@ mod tests {
         assert!(!is_internal(&keys(), Some("qaf_some_users_key")));
         assert!(!is_internal(&keys(), Some("")));
         assert!(!is_internal(&keys(), None));
+    }
+
+    #[test]
+    fn a_key_is_listed_with_utc_timestamps_to_the_second() {
+        let created = DateTime::from_timestamp(1_791_116_658, 123_000_000).expect("an instant");
+        let listed = serde_json::to_value(KeySummary::from(KeyRecord {
+            id: 7,
+            prefix: "qaf_abcd1234".into(),
+            label: None,
+            created_at: created,
+            last_used_at: None,
+            requests_this_hour: 3,
+        }))
+        .expect("serializable");
+        assert_eq!(listed["created_at"], "2026-10-04T12:24:18Z");
+        assert!(listed["last_used_at"].is_null());
+        assert_eq!(listed["requests_this_hour"], 3);
     }
 }

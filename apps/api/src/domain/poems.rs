@@ -1,101 +1,50 @@
 use std::cmp::Reverse;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-use utoipa::openapi::Schema;
 
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
-use crate::domain::taxonomy::PoemCountStats;
-use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
+use crate::domain::taxonomy::TermCount;
+use crate::domain::{PoetBrief, Term};
 use crate::error::StoreError;
 use crate::js;
 
-fn verse_list() -> utoipa::openapi::schema::Array {
-    use utoipa::openapi::RefOr;
-    use utoipa::openapi::schema::ArrayBuilder;
-
-    ArrayBuilder::new()
-        .items(RefOr::T(Schema::Array(hemistich_pair())))
-        .build()
-}
-
-fn hemistich_pair() -> utoipa::openapi::schema::Array {
-    use utoipa::openapi::schema::{ArrayBuilder, ArrayItems, ObjectBuilder, Type};
-
-    let hemistich = || Schema::Object(ObjectBuilder::new().schema_type(Type::String).build());
-    ArrayBuilder::new()
-        .prefix_items([hemistich(), hemistich()])
-        .items(ArrayItems::False)
-        .min_items(Some(2))
-        .max_items(Some(2))
-        .build()
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PoemListItem {
+pub struct PoemSummary {
     pub title: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "TnKK")]
     pub slug: String,
-    pub poet: PoetRef,
-    pub meter: MeterRef,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(nullable = false)]
-    pub era: Option<EraRef>,
+    pub poet: PoetBrief,
+    pub meter: Term,
+    pub era: Option<Term>,
 }
 
-#[derive(Serialize, ToSchema)]
-pub struct PoemNavRef {
+pub struct PoemLink {
     pub title: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "TnKK")]
     pub slug: String,
 }
 
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PoemRecensionRef {
+pub struct RecensionLink {
     pub title: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "TnKK")]
     pub slug: String,
     pub verse_count: i32,
 }
 
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PoemDetail {
+pub struct Poem {
     pub title: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "TnKK")]
     pub slug: String,
-    #[schema(schema_with = verse_list)]
     pub verses: Vec<[String; 2]>,
-    #[schema(example = 10)]
     pub verse_count: i32,
     pub sample: String,
     pub keywords: String,
-    pub poet: PoetRef,
-    pub era: EraRef,
-    pub meter: MeterRef,
-    pub theme: ThemeRef,
-    pub rhyme: RhymeRef,
-    pub poem_type: PoemTypeRef,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(nullable = false)]
-    pub prev: Option<PoemNavRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(nullable = false)]
-    pub next: Option<PoemNavRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(nullable = false)]
-    pub recension_of: Option<PoemNavRef>,
-    pub recensions: Vec<PoemRecensionRef>,
-    pub related_poems: Vec<PoemListItem>,
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct Total {
-    #[schema(example = 394174)]
-    pub total: i32,
+    pub poet: PoetBrief,
+    pub era: Term,
+    pub meter: Term,
+    pub theme: Term,
+    pub rhyme: Term,
+    pub poem_type: Term,
+    pub prev: Option<PoemLink>,
+    pub next: Option<PoemLink>,
+    pub recension_of: Option<PoemLink>,
+    pub recensions: Vec<RecensionLink>,
+    pub related: Vec<PoemSummary>,
 }
 
 #[derive(Default)]
@@ -142,17 +91,10 @@ impl Facets {
     }
 }
 
-#[derive(Serialize, ToSchema)]
-pub struct PoemFacets {
-    pub meters: Vec<PoemCountStats>,
-    pub rhymes: Vec<PoemCountStats>,
-    pub themes: Vec<PoemCountStats>,
-}
-
 pub struct FacetCounts {
-    pub meters: Vec<PoemCountStats>,
-    pub rhymes: Vec<PoemCountStats>,
-    pub themes: Vec<PoemCountStats>,
+    pub meters: Vec<TermCount>,
+    pub rhymes: Vec<TermCount>,
+    pub themes: Vec<TermCount>,
 }
 
 pub struct Recension {
@@ -166,20 +108,19 @@ pub struct PoemRecord {
     pub title: String,
     pub verse_count: i32,
     pub recension_of_id: Option<i32>,
-    pub poet: PoetRef,
-    pub era: EraRef,
-    pub meter: MeterRef,
-    pub theme: ThemeRef,
-    pub rhyme: RhymeRef,
-    pub poem_type: PoemTypeRef,
+    pub poet: PoetBrief,
+    pub era: Term,
+    pub meter: Term,
+    pub theme: Term,
+    pub rhyme: Term,
+    pub poem_type: Term,
     pub lines: Vec<String>,
-    pub prev: Option<PoemNavRef>,
-    pub next: Option<PoemNavRef>,
+    pub prev: Option<PoemLink>,
+    pub next: Option<PoemLink>,
     pub family: Vec<Recension>,
-    pub related: Vec<PoemListItem>,
+    pub related: Vec<PoemSummary>,
 }
 
-#[derive(Deserialize)]
 pub struct RandomPoem {
     pub poet_name: String,
     pub content: String,
@@ -207,7 +148,7 @@ pub trait PoemRepository: Send + Sync {
         facets: &Facets,
         page: u32,
         page_size: u32,
-    ) -> Result<(Vec<PoemListItem>, i32), StoreError>;
+    ) -> Result<(Vec<PoemSummary>, i32), StoreError>;
     async fn facet_counts(&self, facets: &Facets) -> Result<Option<FacetCounts>, StoreError>;
     async fn find(&self, slug: &str) -> Result<Option<PoemRecord>, StoreError>;
     async fn alias_target(&self, slug: &str) -> Result<Option<String>, StoreError>;
@@ -241,13 +182,13 @@ pub fn parse_poem_content(content: &str) -> ParsedContent {
     }
 }
 
-fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, PoemError> {
+fn detail(slug: &str, record: PoemRecord) -> Result<Poem, PoemError> {
     let recension_of = record.recension_of_id.and_then(|primary| {
         record
             .family
             .iter()
             .find(|relative| relative.id == primary)
-            .map(|relative| PoemNavRef {
+            .map(|relative| PoemLink {
                 title: relative.title.clone(),
                 slug: relative.slug.clone(),
             })
@@ -255,7 +196,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, PoemError> {
     let recensions = record
         .family
         .into_iter()
-        .map(|relative| PoemRecensionRef {
+        .map(|relative| RecensionLink {
             title: relative.title,
             slug: relative.slug,
             verse_count: relative.verse_count,
@@ -266,7 +207,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, PoemError> {
     }
     let parsed = parse_poem_content(&record.lines.join("*"));
 
-    Ok(PoemDetail {
+    Ok(Poem {
         title: record.title,
         slug: slug.to_string(),
         verses: parsed.verses,
@@ -283,19 +224,19 @@ fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, PoemError> {
         next: record.next,
         recension_of,
         recensions,
-        related_poems: record.related,
+        related: record.related,
     })
 }
 
-pub async fn get(poems: &dyn PoemRepository, slug: &str) -> Result<Option<PoemDetail>, PoemError> {
+pub async fn get(poems: &dyn PoemRepository, slug: &str) -> Result<Option<Poem>, PoemError> {
     match poems.find(slug).await? {
         Some(record) => detail(slug, record).map(Some),
         None => Ok(None),
     }
 }
 
-fn shown_terms(terms: Vec<PoemCountStats>, selected: &[String]) -> Vec<PoemCountStats> {
-    let mut shown: Vec<PoemCountStats> = terms
+fn shown_terms(terms: Vec<TermCount>, selected: &[String]) -> Vec<TermCount> {
+    let mut shown: Vec<TermCount> = terms
         .into_iter()
         .filter(|term| term.poems_count > 0 || selected.contains(&term.slug))
         .collect();
@@ -303,12 +244,12 @@ fn shown_terms(terms: Vec<PoemCountStats>, selected: &[String]) -> Vec<PoemCount
     shown
 }
 
-pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<PoemFacets, PoemError> {
+pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<FacetCounts, PoemError> {
     let counts = poems
         .facet_counts(facets)
         .await?
         .ok_or(PoemError::PoetNotShown)?;
-    Ok(PoemFacets {
+    Ok(FacetCounts {
         meters: shown_terms(counts.meters, &facets.meter),
         rhymes: shown_terms(counts.rhymes, &facets.rhyme),
         themes: shown_terms(counts.themes, &facets.theme),

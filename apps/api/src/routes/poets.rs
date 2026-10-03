@@ -6,9 +6,9 @@ use crate::constants::{
     API_V1_PREFIX, LIST_POETS_MAX_PAGE, MAX_QUERY_LENGTH, POEMS_PER_PAGE,
     POETS_LIST_MAX_RESULT_WINDOW, READ_CACHE_CONTROL, SITEMAP_POETS_PER_SHARD,
 };
-use crate::domain::poets::{PoetSlugEntry, PoetStats};
-use crate::domain::search::{self, PoetListItem};
-use crate::domain::search::{PoetSearchParams, PoetSort};
+use crate::contract::poets::{PoetSlugEntry, PoetStats};
+use crate::contract::search::PoetListItem;
+use crate::domain::search::{self, PoetSearchParams, PoetSort};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::SafePath;
@@ -65,7 +65,7 @@ pub(crate) async fn list(
     log.set("page", page);
     log.set("page_size", POEMS_PER_PAGE);
     let envelope = ListEnvelope {
-        data: found.hits,
+        data: found.hits.into_iter().map(PoetListItem::from).collect(),
         pagination: build_pagination(page, POEMS_PER_PAGE, found.total),
     };
     Ok(Json(envelope))
@@ -101,7 +101,7 @@ pub(crate) async fn list_slugs(
     );
     log.set("page", page);
     let envelope = ListEnvelope {
-        data,
+        data: data.into_iter().map(PoetSlugEntry::from).collect(),
         pagination: build_pagination(page, SITEMAP_POETS_PER_SHARD, total.cast_unsigned()),
     };
     Ok(Json(envelope))
@@ -139,5 +139,8 @@ pub(crate) async fn detail(
             READ_CACHE_CONTROL,
         ));
     };
-    Ok(Json(ItemEnvelope { data: poet }).into_response())
+    Ok(Json(ItemEnvelope {
+        data: PoetStats::from(poet),
+    })
+    .into_response())
 }

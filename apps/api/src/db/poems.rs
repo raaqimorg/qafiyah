@@ -7,6 +7,7 @@ use diesel::prelude::*;
 use diesel::sql_types::{Bool, Integer, Json, Nullable};
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use futures_util::future::try_join_all;
+use serde::Deserialize;
 
 use crate::db::corpus::{
     collection_stats, collections, era_stats, eras, meter_stats, meters, poem_aliases,
@@ -15,11 +16,11 @@ use crate::db::corpus::{
 };
 use crate::db::{PgPool, Uncached, int};
 use crate::domain::poems::{
-    FacetCounts, Facets, Filter, PoemListItem, PoemNavRef, PoemRecord, PoemRepository, RandomPoem,
+    FacetCounts, Facets, Filter, PoemLink, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
     Recension,
 };
-use crate::domain::taxonomy::PoemCountStats;
-use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
+use crate::domain::taxonomy::TermCount;
+use crate::domain::{PoetBrief, Term};
 use crate::error::StoreError;
 
 pub struct PgPoems {
@@ -34,18 +35,18 @@ impl PgPoems {
 
 type PoemListRow = (String, String, String, String, bool, bool, String, String);
 
-fn list_item(row: PoemListRow) -> PoemListItem {
+fn list_item(row: PoemListRow) -> PoemSummary {
     let (title, slug, poet_name, poet_slug, has_avatar, is_anonymous, meter_name, meter_slug) = row;
-    PoemListItem {
+    PoemSummary {
         title,
         slug,
-        poet: PoetRef {
+        poet: PoetBrief {
             name: poet_name,
             slug: poet_slug,
             has_avatar,
             is_anonymous,
         },
-        meter: MeterRef {
+        meter: Term {
             name: meter_name,
             slug: meter_slug,
         },
@@ -66,7 +67,7 @@ type RelatedRow = (
     String,
 );
 
-fn related_item(row: RelatedRow) -> PoemListItem {
+fn related_item(row: RelatedRow) -> PoemSummary {
     let (
         title,
         slug,
@@ -79,20 +80,20 @@ fn related_item(row: RelatedRow) -> PoemListItem {
         era_name,
         era_slug,
     ) = row;
-    PoemListItem {
+    PoemSummary {
         title,
         slug,
-        poet: PoetRef {
+        poet: PoetBrief {
             name: poet_name,
             slug: poet_slug,
             has_avatar,
             is_anonymous,
         },
-        meter: MeterRef {
+        meter: Term {
             name: meter_name,
             slug: meter_slug,
         },
-        era: Some(EraRef {
+        era: Some(Term {
             name: era_name,
             slug: era_slug,
         }),
@@ -414,7 +415,7 @@ async fn term_counts(
     conn: &AsyncPgConnection,
     counted: Filter,
     filters: &[FilterIds],
-) -> Result<Vec<PoemCountStats>, StoreError> {
+) -> Result<Vec<TermCount>, StoreError> {
     let (counts, terms) = tokio::try_join!(
         grouped_counts(conn, counted, filters),
         named_terms(conn, counted)
@@ -423,7 +424,7 @@ async fn term_counts(
     terms
         .into_iter()
         .map(|(id, name, slug)| {
-            Ok(PoemCountStats {
+            Ok(TermCount {
                 name,
                 slug,
                 poems_count: int(count_of.get(&id).copied().unwrap_or(0))?,
@@ -469,7 +470,7 @@ async fn neighbours(
     mut conn: &AsyncPgConnection,
     poet_id: i32,
     id: i32,
-) -> QueryResult<(Option<PoemNavRef>, Option<PoemNavRef>)> {
+) -> QueryResult<(Option<PoemLink>, Option<PoemLink>)> {
     let rows = neighbour(poet_id, id, true)
         .union_all(neighbour(poet_id, id, false))
         .load::<(i32, String, String)>(&mut conn)
@@ -477,7 +478,7 @@ async fn neighbours(
     let pick = |before: bool| {
         rows.iter()
             .find(|(other, _, _)| (*other < id) == before)
-            .map(|(_, title, slug)| PoemNavRef {
+            .map(|(_, title, slug)| PoemLink {
                 title: title.clone(),
                 slug: slug.clone(),
             })
@@ -509,7 +510,7 @@ async fn recensions_of(
         .await
 }
 
-async fn related_of(mut conn: &AsyncPgConnection, id: i32) -> QueryResult<Vec<PoemListItem>> {
+async fn related_of(mut conn: &AsyncPgConnection, id: i32) -> QueryResult<Vec<PoemSummary>> {
     Ok(poem_relations::table
         .inner_join(poems::table.on(poems::id.eq(poem_relations::related_id)))
         .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
@@ -539,6 +540,13 @@ async fn related_of(mut conn: &AsyncPgConnection, id: i32) -> QueryResult<Vec<Po
 #[diesel::declare_sql_function]
 extern "SQL" {
     fn random_poem_json() -> Nullable<Json>;
+}
+
+#[derive(Deserialize)]
+struct RandomRow {
+    poet_name: String,
+    content: String,
+    slug: String,
 }
 
 #[async_trait]
@@ -571,7 +579,7 @@ impl PoemRepository for PgPoems {
         facets: &Facets,
         page: u32,
         page_size: u32,
-    ) -> Result<(Vec<PoemListItem>, i32), StoreError> {
+    ) -> Result<(Vec<PoemSummary>, i32), StoreError> {
         let pooled = self.pool.get().await?;
         let conn: &AsyncPgConnection = &pooled;
         let filters = resolve_ids(conn, facets).await?;
@@ -677,29 +685,29 @@ impl PoemRepository for PgPoems {
             title,
             verse_count,
             recension_of_id,
-            poet: PoetRef {
+            poet: PoetBrief {
                 name: poet_name,
                 slug: poet_slug,
                 has_avatar: poet_has_avatar,
                 is_anonymous: poet_is_anonymous,
             },
-            era: EraRef {
+            era: Term {
                 name: era_name,
                 slug: era_slug,
             },
-            meter: MeterRef {
+            meter: Term {
                 name: meter_name,
                 slug: meter_slug,
             },
-            theme: ThemeRef {
+            theme: Term {
                 name: theme_name,
                 slug: theme_slug,
             },
-            rhyme: RhymeRef {
+            rhyme: Term {
                 name: rhyme_name,
                 slug: rhyme_slug,
             },
-            poem_type: PoemTypeRef {
+            poem_type: Term {
                 name: poem_type_name,
                 slug: poem_type_slug,
             },
@@ -737,7 +745,12 @@ impl PoemRepository for PgPoems {
             .get_result::<Option<serde_json::Value>>(&mut conn)
             .await?
             .map(|payload| {
-                serde_json::from_value(payload)
+                serde_json::from_value::<RandomRow>(payload)
+                    .map(|row| RandomPoem {
+                        poet_name: row.poet_name,
+                        content: row.content,
+                        slug: row.slug,
+                    })
                     .map_err(|error| StoreError::Database(error.to_string()))
             })
             .transpose()

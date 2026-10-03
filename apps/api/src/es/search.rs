@@ -3,10 +3,10 @@ use serde_json::Value;
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
 use crate::domain::search::{
-    Page, PoemResult, PoemSearchParams, PoetListItem, PoetResult, PoetSearchParams, SearchIndex,
+    Page, PoemHit, PoemSearchParams, PoetHit, PoetListing, PoetSearchParams, SearchIndex,
     poem_snippet,
 };
-use crate::domain::{EraRef, MeterRef, PoetRef};
+use crate::domain::{PoetBrief, Term};
 use crate::error::StoreError;
 use crate::es::client::Es;
 use crate::es::query::{poem_search_body, poet_search_body};
@@ -79,10 +79,7 @@ fn highlighted_content(hit: &Value) -> Option<&str> {
 
 #[async_trait]
 impl SearchIndex for Es {
-    async fn search_poems(
-        &self,
-        params: &PoemSearchParams,
-    ) -> Result<Page<PoemResult>, StoreError> {
+    async fn search_poems(&self, params: &PoemSearchParams) -> Result<Page<PoemHit>, StoreError> {
         let response = self
             .search(&self.poems_alias, &poem_search_body(params))
             .await?;
@@ -90,22 +87,21 @@ impl SearchIndex for Es {
             .into_iter()
             .map(|hit| {
                 let source = &hit["_source"];
-                PoemResult {
-                    kind: "poem",
+                PoemHit {
                     title: display(source, "titleDisplay", "title"),
                     slug: text(source, "slug"),
                     snippet: poem_snippet(highlighted_content(hit), &text(source, "content")),
-                    poet: PoetRef {
+                    poet: PoetBrief {
                         name: text(source, "poetNameDisplay"),
                         slug: text(source, "poetSlug"),
                         has_avatar: source["poetHasAvatar"].as_bool().unwrap_or(false),
                         is_anonymous: source["poetIsAnonymous"].as_bool().unwrap_or(false),
                     },
-                    meter: MeterRef {
+                    meter: Term {
                         name: text(source, "meterName"),
                         slug: text(source, "meterSlug"),
                     },
-                    era: EraRef {
+                    era: Term {
                         name: text(source, "eraName"),
                         slug: text(source, "eraSlug"),
                     },
@@ -119,10 +115,7 @@ impl SearchIndex for Es {
         })
     }
 
-    async fn search_poets(
-        &self,
-        params: &PoetSearchParams,
-    ) -> Result<Page<PoetResult>, StoreError> {
+    async fn search_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetHit>, StoreError> {
         let response = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
@@ -130,11 +123,10 @@ impl SearchIndex for Es {
             .into_iter()
             .map(|hit| {
                 let source = &hit["_source"];
-                PoetResult {
-                    kind: "poet",
+                PoetHit {
                     name: display(source, "nameDisplay", "name"),
                     slug: text(source, "slug"),
-                    era: EraRef {
+                    era: Term {
                         name: text(source, "eraName"),
                         slug: text(source, "eraSlug"),
                     },
@@ -148,10 +140,7 @@ impl SearchIndex for Es {
         })
     }
 
-    async fn list_poets(
-        &self,
-        params: &PoetSearchParams,
-    ) -> Result<Page<PoetListItem>, StoreError> {
+    async fn list_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetListing>, StoreError> {
         let response = self
             .search(&self.poets_alias, &poet_search_body(params))
             .await?;
@@ -159,7 +148,7 @@ impl SearchIndex for Es {
             .into_iter()
             .map(|hit| {
                 let source = &hit["_source"];
-                PoetListItem {
+                PoetListing {
                     name: display(source, "nameDisplay", "name"),
                     slug: text(source, "slug"),
                     poems_count: source["poemsCount"].as_i64().unwrap_or(0),
@@ -189,14 +178,14 @@ mod tests {
         (fake, es)
     }
 
-    async fn poems_found(response: Value) -> Page<PoemResult> {
+    async fn poems_found(response: Value) -> Page<PoemHit> {
         let (_fake, es) = answering(response).await;
         es.search_poems(&PoemSearchParams::default())
             .await
             .expect("a page of poems")
     }
 
-    async fn poets_found(response: Value) -> Page<PoetResult> {
+    async fn poets_found(response: Value) -> Page<PoetHit> {
         let (_fake, es) = answering(response).await;
         es.search_poets(&PoetSearchParams::default())
             .await
