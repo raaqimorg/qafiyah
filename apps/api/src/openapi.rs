@@ -58,6 +58,14 @@ pub enum ListErrors {
     TooManyRequests(ProblemDetail),
     #[response(status = 500, description = "Internal server error")]
     Internal(ProblemDetail),
+    #[response(
+        status = 503,
+        description = "Temporarily unavailable: the database or search index did not answer in time",
+        headers(
+            ("retry-after" = String, description = "Seconds to wait before retrying"),
+        )
+    )]
+    Unavailable(ProblemDetail),
 }
 
 #[derive(utoipa::IntoResponses)]
@@ -77,6 +85,14 @@ pub enum FilteredListErrors {
     TooManyRequests(ProblemDetail),
     #[response(status = 500, description = "Internal server error")]
     Internal(ProblemDetail),
+    #[response(
+        status = 503,
+        description = "Temporarily unavailable: the database or search index did not answer in time",
+        headers(
+            ("retry-after" = String, description = "Seconds to wait before retrying"),
+        )
+    )]
+    Unavailable(ProblemDetail),
 }
 
 #[derive(utoipa::IntoResponses)]
@@ -98,6 +114,14 @@ pub enum LookupErrors {
     TooManyRequests(ProblemDetail),
     #[response(status = 500, description = "Internal server error")]
     Internal(ProblemDetail),
+    #[response(
+        status = 503,
+        description = "Temporarily unavailable: the database or search index did not answer in time",
+        headers(
+            ("retry-after" = String, description = "Seconds to wait before retrying"),
+        )
+    )]
+    Unavailable(ProblemDetail),
 }
 
 pub fn finish(doc: &mut Document) {

@@ -107,7 +107,7 @@ describe('the api proxy', () => {
     expect((withNginx.headers as Headers).get('cf-connecting-ip')).toBe('2001:db8::7');
   });
 
-  it('copies only the three safe response headers', async () => {
+  it('copies only the safe response headers', async () => {
     fetchMock.mockResolvedValue(
       new Response('{}', {
         status: 200,
@@ -165,12 +165,20 @@ describe('the api proxy', () => {
     expect(await response.text()).toBe('');
   });
 
-  it('passes a 429 and a 5xx status through', async () => {
-    fetchMock.mockResolvedValue(new Response('x', { status: 429 }));
+  it('passes a 429 and a 5xx status through with when to retry', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('x', { status: 429, headers: { 'retry-after': '30' } })
+    );
     const { proxyRequest } = await import('./proxy-handler');
-    expect((await proxyRequest(call('search'))).status).toBe(429);
-    fetchMock.mockResolvedValue(new Response('x', { status: 503 }));
-    expect((await proxyRequest(call('search'))).status).toBe(503);
+    const limited = await proxyRequest(call('search'));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBe('30');
+    fetchMock.mockResolvedValue(
+      new Response('x', { status: 503, headers: { 'retry-after': '2' } })
+    );
+    const unavailable = await proxyRequest(call('search'));
+    expect(unavailable.status).toBe(503);
+    expect(unavailable.headers.get('retry-after')).toBe('2');
   });
 });
 

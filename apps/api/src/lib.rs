@@ -30,12 +30,17 @@ mod http_tests;
 
 use std::future::Future;
 use std::net::SocketAddr;
+use std::time::Duration;
 
-use axum::Router;
+use axum::error_handling::HandleErrorLayer;
 use axum::extract::OriginalUri;
 use axum::http::{Method, Uri};
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
+use axum::{BoxError, Router};
+use tower::ServiceBuilder;
+use tower::timeout::TimeoutLayer;
+use tower::timeout::error::Elapsed;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -81,6 +86,14 @@ pub fn document() -> utoipa::openapi::OpenApi {
     contract().1
 }
 
+async fn deadline_passed(error: BoxError) -> AppError {
+    if error.is::<Elapsed>() {
+        AppError::Unavailable("the request passed its deadline".to_string())
+    } else {
+        RouteProblem::internal("Internal server error").into()
+    }
+}
+
 pub fn app(state: AppState) -> Router {
     let contract = contract().0;
 
@@ -108,6 +121,13 @@ pub fn app(state: AppState) -> Router {
         .fallback(|method: Method, uri: Uri| async move {
             AppError::from(RouteProblem::no_route(&method, uri.path()))
         })
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(deadline_passed))
+                .layer(TimeoutLayer::new(Duration::from_secs(
+                    constants::REQUEST_DEADLINE_SECONDS,
+                ))),
+        )
         .layer(from_fn(error::layer))
         .layer(from_fn(log::layer))
         .layer(from_fn(cors::layer))

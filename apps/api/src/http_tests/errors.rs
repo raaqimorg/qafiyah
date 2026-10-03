@@ -5,10 +5,11 @@ use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send};
 
 #[tokio::test]
-async fn a_database_failure_is_a_generic_problem_that_hides_its_cause() {
+async fn a_database_that_cannot_be_reached_is_a_temporary_problem_that_hides_its_cause() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let sent = send(app_with(&es), request("GET", "/v1/poems/count")).await;
-    assert_eq!(sent.status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(sent.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(sent.header("retry-after"), Some("2"));
     assert_eq!(
         sent.header("content-type"),
         Some("application/problem+json")
@@ -16,8 +17,8 @@ async fn a_database_failure_is_a_generic_problem_that_hides_its_cause() {
     assert_eq!(sent.header("cache-control"), Some("no-store"));
     assert!(sent.header("etag").is_none());
     let body = sent.json();
-    assert_eq!(body["code"], "INTERNAL_SERVER_ERROR");
-    assert_eq!(body["detail"], "Internal server error");
+    assert_eq!(body["code"], "SERVICE_UNAVAILABLE");
+    assert_eq!(body["detail"], "Temporarily unavailable, try again shortly");
     assert_eq!(body["instance"], "/v1/poems/count");
     assert!(
         !sent.body.contains("127.0.0.1"),

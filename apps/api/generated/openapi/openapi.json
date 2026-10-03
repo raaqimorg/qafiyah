@@ -81,6 +81,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -181,6 +199,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -241,6 +277,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -348,6 +402,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -408,6 +480,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -515,6 +605,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -575,6 +683,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -675,6 +801,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -874,6 +1018,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -934,6 +1096,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1092,6 +1272,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -1175,6 +1373,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1286,6 +1502,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1405,6 +1639,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -1488,6 +1740,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1606,6 +1876,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -1666,6 +1954,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1766,6 +2072,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2027,6 +2351,24 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -2087,6 +2429,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2187,6 +2547,24 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {

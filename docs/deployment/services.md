@@ -16,7 +16,7 @@ There is no performance tracing; the per-request log line (with `duration_ms`, a
 
 Postgres allows 100 connections, 3 of them reserved for superusers. Every client caps its own:
 
-- The API holds at most 20 connections to the corpus and 5 to `qafiyah_accounts` (`PG_POOL_MAX_CONNECTIONS`, `PG_ACCOUNTS_POOL_MAX_CONNECTIONS`). The pool opens them on demand and reuses them, runs `SELECT 1` before handing one out and replaces it if that fails, and makes a request wait at most 2 s for a free one before answering 500. Each connection sets `statement_timeout = 5s` (and `lock_timeout = 2s` for accounts) when it opens.
+- The API holds at most 20 connections to the corpus and 5 to `qafiyah_accounts` (`PG_POOL_MAX_CONNECTIONS`, `PG_ACCOUNTS_POOL_MAX_CONNECTIONS`). The pool opens them on demand and reuses them, runs `SELECT 1` before handing one out and replaces it if that fails, and makes a request wait at most 2 s for a free one before answering 503 with `Retry-After: 2`. A whole request gets 6 s (`REQUEST_DEADLINE_SECONDS`) before the same 503. Each connection sets `statement_timeout = 5s` (and `lock_timeout = 2s` for accounts) when it opens.
 - The search indexer holds 1 while it reindexes, and `pg_dump` (backups, dump scripts) 1 each while it runs.
 
 The worst case is about 30, so no external pooler is needed while one API process is the only long-lived client. When a client process exits, its sockets close and Postgres ends its sessions at once. For what a client leaves behind, the `db` command in `docker-compose.yml` sets:
