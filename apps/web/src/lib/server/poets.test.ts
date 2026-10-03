@@ -9,7 +9,7 @@ vi.mock('./client', () => ({
 import { failure, ok } from '@/test/api-results';
 
 import { apiServer } from './client';
-import { getPoet, getPoetSlugsPage, getPoetsPage, movedPoetPath } from './poets';
+import { getPoet, getPoetFacets, getPoetSlugsPage, getPoetsPage, movedPoetPath } from './poets';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
@@ -91,16 +91,59 @@ describe('getPoet', () => {
   });
 });
 
+describe('getPoetFacets', () => {
+  const FACETS = {
+    meters: [{ name: 'الطويل', slug: 'altawil', poemsCount: 2 }],
+    rhymes: [],
+    themes: [],
+  };
+
+  it('sends the poet and each selected list as query params', async () => {
+    get.mockResolvedValue(ok({ data: FACETS }));
+    const result = await getPoetFacets('poet-x' as PoetSlug, {
+      meter: ['altawil'],
+      rhyme: ['meem', 'lam'],
+      theme: [],
+    });
+    expect(result).toEqual(FACETS);
+    expect(get).toHaveBeenCalledWith('/poems/facets', {
+      params: {
+        query: { poet: 'poet-x', meter: ['altawil'], rhyme: ['meem', 'lam'], theme: [] },
+      },
+    });
+  });
+
+  it('returns null on a 404', async () => {
+    get.mockResolvedValue(failure(404));
+    expect(
+      await getPoetFacets('missing' as PoetSlug, { meter: [], rhyme: [], theme: [] })
+    ).toBeNull();
+  });
+
+  it('rethrows on a 500', async () => {
+    get.mockResolvedValue(failure(500));
+    await expect(
+      getPoetFacets('boom' as PoetSlug, { meter: [], rhyme: [], theme: [] })
+    ).rejects.toThrow();
+  });
+});
+
 describe('movedPoetPath', () => {
   it('is null when the poet answered under the slug that was asked for', () => {
-    expect(movedPoetPath('yoFB', { slug: 'yoFB' }, 1)).toBeNull();
+    expect(movedPoetPath('yoFB', { slug: 'yoFB' }, { page: 1 })).toBeNull();
   });
 
   it('is the canonical path when the API followed an alias to another slug', () => {
-    expect(movedPoetPath('abCD', { slug: 'yoFB' }, 1)).toBe('/poets/yoFB');
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 1 })).toBe('/poets/yoFB');
   });
 
   it('keeps the page number the old URL asked for', () => {
-    expect(movedPoetPath('abCD', { slug: 'yoFB' }, 3)).toBe('/poets/yoFB?page=3');
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 3 })).toBe('/poets/yoFB?page=3');
+  });
+
+  it('keeps the poem filters the old URL asked for', () => {
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 1, meter: ['altawil'] })).toBe(
+      '/poets/yoFB?meter=altawil'
+    );
   });
 });

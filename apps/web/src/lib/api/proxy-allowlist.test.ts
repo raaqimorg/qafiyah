@@ -3,15 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { normalizeProxyPath, resolveProxyPath } from './proxy-allowlist';
 
 describe('resolveProxyPath', () => {
-  it('allows the two endpoints the browser needs', () => {
+  it('allows the endpoints the browser needs', () => {
     expect(resolveProxyPath('search')).toBe('search');
     expect(resolveProxyPath('poems/random')).toBe('poems/random');
+    expect(resolveProxyPath('poems')).toBe('poems');
+    expect(resolveProxyPath('poems/facets')).toBe('poems/facets');
   });
 
   it('refuses every other corpus endpoint', () => {
-    expect(resolveProxyPath('poems')).toBeUndefined();
     expect(resolveProxyPath('poems/slugs')).toBeUndefined();
+    expect(resolveProxyPath('poems/kdmy')).toBeUndefined();
     expect(resolveProxyPath('poets')).toBeUndefined();
+    expect(resolveProxyPath('poets/slugs')).toBeUndefined();
+    expect(resolveProxyPath('poets/oNbs')).toBeUndefined();
     expect(resolveProxyPath('meters')).toBeUndefined();
   });
 

@@ -11,3 +11,5 @@ export type Poem = Ok<'/poems/{slug}'>['data'];
 export type SearchResponse = Ok<'/search'>;
 export type PoemSearchResult = NonNullable<SearchResponse['poems']>['data'][number];
 export type PoetSearchResult = NonNullable<SearchResponse['poets']>['data'][number];
+export type PoemsPage = Ok<'/poems'>;
+export type PoetFacets = Ok<'/poems/facets'>['data'];

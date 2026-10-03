@@ -15,6 +15,7 @@ Base URL: {BASE}
 - [GET /v1/poems/{slug}]({BASE}/poems): Full poem by slug
 - [GET /v1/poems/slugs]({BASE}/poems/slugs): Poem slugs, paginated (for sitemaps)
 - [GET /v1/poems/count]({BASE}/poems/count): Total number of poems
+- [GET /v1/poems/facets]({BASE}/poems/facets?poet=yoFB): A poet's meters, rhymes, and themes with poem counts, for filtering their poems. Query params: poet (required), meter, rhyme, theme (slug filters repeatable)
 - [GET /v1/poems/random]({BASE}/poems/random): Random poem as text/plain (append ?option=lines for verse content)
 - [GET /v1/poets]({BASE}/poets): List poets. Query params: page, era
 - [GET /v1/poets/{slug}]({BASE}/poets): Poet by slug

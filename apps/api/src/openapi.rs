@@ -234,7 +234,7 @@ mod tests {
     fn declares_every_contract_path() {
         let doc = document();
         let paths: Vec<&str> = doc.paths.paths.keys().map(String::as_str).collect();
-        assert_eq!(paths.len(), 20, "expected 20 paths, got {paths:?}");
+        assert_eq!(paths.len(), 21, "expected 21 paths, got {paths:?}");
         for expected in [
             "/collections",
             "/collections/{slug}",
@@ -246,6 +246,7 @@ mod tests {
             "/poem-types/{slug}",
             "/poems",
             "/poems/count",
+            "/poems/facets",
             "/poems/slugs",
             "/poems/{slug}",
             "/poets",
@@ -294,7 +295,7 @@ mod tests {
                 assert_eq!(schema["default"], serde_json::json!([]), "{path} {name}");
             }
         }
-        assert_eq!(facets, 13, "expected thirteen facet params, found {facets}");
+        assert_eq!(facets, 16, "expected sixteen facet params, found {facets}");
     }
 
     #[test]

@@ -6,6 +6,11 @@ export type SelectOption = {
   readonly poemsCount?: number;
 };
 
+type TermRow = { readonly name: string; readonly slug: string; readonly poemsCount: number };
+
+export const toSelectOptions = (rows: readonly TermRow[]): readonly SelectOption[] =>
+  rows.map((row) => ({ value: row.slug, label: row.name, poemsCount: row.poemsCount }));
+
 export type SearchFilterOptions = {
   readonly eras: readonly SelectOption[];
   readonly meters: readonly SelectOption[];

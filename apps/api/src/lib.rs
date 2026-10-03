@@ -60,6 +60,7 @@ fn build_contract() -> (Router<AppState>, utoipa::openapi::OpenApi) {
         .routes(routes!(routes::poems::list))
         .routes(routes!(routes::poems::list_slugs))
         .routes(routes!(routes::poems::count))
+        .routes(routes!(routes::poems::facet_counts))
         .routes(routes!(routes::poems::detail))
         .routes(routes!(routes::poets::list))
         .routes(routes!(routes::poets::list_slugs))

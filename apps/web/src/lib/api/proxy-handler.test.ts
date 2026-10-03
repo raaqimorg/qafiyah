@@ -24,7 +24,7 @@ describe('the api proxy', () => {
 
   it('refuses a path that is not on the allowlist', async () => {
     const { proxyRequest } = await import('./proxy-handler');
-    const response = await proxyRequest(call('poems'));
+    const response = await proxyRequest(call('poems/slugs'));
     expect(response.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
   });

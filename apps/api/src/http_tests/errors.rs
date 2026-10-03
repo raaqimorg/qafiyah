@@ -50,6 +50,12 @@ async fn a_malformed_slug_is_refused_before_any_backend_is_asked() {
         "/v1/eras/-x",
         "/v1/poem-types/HURR",
         "/v1/poets/%D8%AD%D8%A8%D9%8A%D8%A8",
+        "/v1/poems/facets",
+        "/v1/poems/facets?poet=abc",
+        "/v1/poems/facets?poet=yoFB&poet=abCD",
+        "/v1/poems/facets?poet[]=yoFB",
+        "/v1/poems/facets?poet=yoFB&meter=ALTAWIL",
+        "/v1/poems/facets?poet=yoFB&rhyme[x]=meem",
     ] {
         let sent = send(app_with(&es), request("GET", path)).await;
         assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");

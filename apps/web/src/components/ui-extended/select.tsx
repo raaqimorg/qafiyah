@@ -25,6 +25,9 @@ type Props = {
   readonly clearValue?: string;
   readonly allOptionLabel?: string;
   readonly showCounts?: boolean;
+  readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
+  readonly labelledBy?: string;
+  readonly onEscape?: () => void;
 };
 
 export function Select({
@@ -40,12 +43,16 @@ export function Select({
   clearValue,
   allOptionLabel,
   showCounts = false,
+  onOpenChange,
+  labelledBy,
+  onEscape,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const comboboxRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
+  const defaultLabel = multiple ? 'اختيار متعدد' : 'اختيار';
 
   const selectedValues = useMemo(() => (typeof value === 'string' ? [value] : value), [value]);
 
@@ -73,10 +80,18 @@ export function Select({
     [isAllSelected, selectedValues]
   );
 
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setIsOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange]
+  );
+
   const toggleOpen = (e?: React.SyntheticEvent) => {
     e?.stopPropagation();
     if (!disabled) {
-      setIsOpen((prev) => !prev);
+      setOpen(!isOpen);
     }
   };
 
@@ -92,10 +107,10 @@ export function Select({
         }
       } else {
         onChange(option.value);
-        setIsOpen(false);
+        setOpen(false);
       }
     },
-    [multiple, onChange, selectedValues]
+    [multiple, onChange, selectedValues, setOpen]
   );
 
   const canClear = multiple ? selectedValues.length > 0 : value !== (clearValue ?? '');
@@ -118,12 +133,14 @@ export function Select({
   };
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e: MouseEvent) => {
       if (
         containerRef.current &&
         !(e.target instanceof Node && containerRef.current.contains(e.target))
       ) {
-        setIsOpen(false);
+        setOpen(false);
       }
     };
 
@@ -131,7 +148,7 @@ export function Select({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isOpen, setOpen]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
@@ -161,10 +178,11 @@ export function Select({
         break;
       case 'Escape':
         e.preventDefault();
-        setIsOpen(false);
+        onEscape?.();
+        setOpen(false);
         break;
       case 'Tab':
-        setIsOpen(false);
+        setOpen(false);
         break;
     }
   };
@@ -185,7 +203,8 @@ export function Select({
         onClick={toggleOpen}
         onKeyDown={handleKeyDown}
         tabIndex={disabled ? -1 : 0}
-        aria-label={multiple ? 'اختيار متعدد' : 'اختيار'}
+        aria-labelledby={labelledBy}
+        aria-label={labelledBy === undefined ? defaultLabel : undefined}
         aria-activedescendant={isOpen ? `option-${highlightedIndex}` : undefined}
       >
         <div className="flex w-full min-w-0 items-center justify-between">

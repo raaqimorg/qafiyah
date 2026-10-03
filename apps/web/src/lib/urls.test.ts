@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { serializePoetSearch } from './poet-search-params';
 import {
   dbDumpsUrl,
   githubUrl,
@@ -52,10 +53,28 @@ describe('poetsUrl', () => {
 describe('poetUrl', () => {
   it('builds the poet URL and omits page 1', () => {
     expect(poetUrl('mutanabbi')).toBe('/poets/mutanabbi');
-    expect(poetUrl('mutanabbi', 1)).toBe('/poets/mutanabbi');
+    expect(poetUrl('mutanabbi', { page: 1 })).toBe('/poets/mutanabbi');
   });
   it('appends ?page=N beyond the first page', () => {
-    expect(poetUrl('mutanabbi', 4)).toBe('/poets/mutanabbi?page=4');
+    expect(poetUrl('mutanabbi', { page: 4 })).toBe('/poets/mutanabbi?page=4');
+  });
+  it('repeats each poem filter per value, in meter, rhyme, theme, page order', () => {
+    expect(
+      poetUrl('mutanabbi', { theme: ['alnasib'], meter: ['altawil', 'alkamil'], page: 2 })
+    ).toBe('/poets/mutanabbi?meter=altawil&meter=alkamil&theme=alnasib&page=2');
+    expect(poetUrl('mutanabbi', { meter: [], rhyme: [], theme: [] })).toBe('/poets/mutanabbi');
+  });
+  it('writes the same query the poet page list writes to the address bar', () => {
+    const states = [
+      { meter: [], rhyme: [], theme: [], page: 1 },
+      { meter: [], rhyme: [], theme: [], page: 3 },
+      { meter: ['altawil'], rhyme: [], theme: [], page: 1 },
+      { meter: ['altawil', 'alkamil'], rhyme: ['alef-maqsura'], theme: ['alnasib'], page: 2 },
+      { meter: [], rhyme: ['meem', 'noon'], theme: ['alhikma'], page: 5 },
+    ];
+    for (const state of states) {
+      expect(poetUrl('mutanabbi', state)).toBe(`/poets/mutanabbi${serializePoetSearch(state)}`);
+    }
   });
 });
 

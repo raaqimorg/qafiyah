@@ -38,7 +38,7 @@ export const proxyProbes: readonly Probe[] = [
     surfaces: ALL,
   },
   {
-    url: `${WEB}/api/v1/poems`,
+    url: `${WEB}/api/v1/poems/slugs`,
     note: 'blocked proxy path is 404',
     checks: [isNoStore, isStatus(404)],
     surfaces: ALL,

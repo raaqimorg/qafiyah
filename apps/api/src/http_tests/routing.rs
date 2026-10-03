@@ -97,6 +97,7 @@ async fn every_contract_path_is_routed() {
         "/v1/poems",
         "/v1/poems/slugs",
         "/v1/poems/count",
+        "/v1/poems/facets?poet=yoFB",
         "/v1/poems/TnKK",
         "/v1/poets",
         "/v1/poets/slugs",

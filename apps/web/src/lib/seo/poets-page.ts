@@ -3,6 +3,7 @@ import { SITE_URL } from '@/lib/constants/config';
 import { SITE_NAME_AR, type SocialImage } from '@/lib/constants/site-meta';
 import { POEMS_NOUN_FORMS, POETS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { derivePagination, type PaginationView } from '@/lib/pagination';
+import { NO_POET_FILTERS, type PoetFilterSelection } from '@/lib/poet-filters';
 import {
   type BreadcrumbItem,
   buildBreadcrumbList,
@@ -142,7 +143,6 @@ export type PoetLayoutView = {
   readonly worksJsonLd: ReturnType<typeof buildWorksJsonLd>;
   readonly crumbItems: readonly BreadcrumbItem[];
   readonly crumbsJsonLd: BreadcrumbListDoc;
-  readonly items: readonly ListCardItem[];
 };
 
 function buildBioView(text: string): BioView {
@@ -178,10 +178,11 @@ export function buildPoetLayout(input: {
   readonly poet: Poet;
   readonly poems: readonly PoemRow[];
   readonly pagination: { readonly page: number; readonly totalPages: number };
+  readonly filters?: PoetFilterSelection | undefined;
 }): PoetLayoutView {
-  const { poet, poems, pagination } = input;
+  const { poet, poems, pagination, filters = NO_POET_FILTERS } = input;
   const slug = poet.slug;
-  const pag = derivePagination(pagination, (p) => poetUrl(slug, p));
+  const pag = derivePagination(pagination, (p) => poetUrl(slug, { page: p, ...filters }));
 
   const poemsLabel = formatArabicCount({ count: poet.poemsCount, nounForms: POEMS_NOUN_FORMS });
 
@@ -227,12 +228,6 @@ export function buildPoetLayout(input: {
   ];
   const crumbsJsonLd = buildBreadcrumbList(crumbItems);
 
-  const items: readonly ListCardItem[] = poems.map((poem) => ({
-    title: poem.title,
-    subtitle: poem.meter.name,
-    href: poemUrl(poem.slug),
-  }));
-
   return {
     title,
     description,
@@ -246,6 +241,15 @@ export function buildPoetLayout(input: {
     worksJsonLd,
     crumbItems,
     crumbsJsonLd,
-    items,
   };
+}
+
+export function poetPoemItems(
+  poems: readonly Pick<PoemRow, 'title' | 'slug' | 'meter'>[]
+): readonly ListCardItem[] {
+  return poems.map((poem) => ({
+    title: poem.title,
+    subtitle: poem.meter.name,
+    href: poemUrl(poem.slug),
+  }));
 }

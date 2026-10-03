@@ -73,6 +73,18 @@ describe('buildPoetLayout', () => {
     expect(layout.bio).toBeUndefined();
   });
 
+  it('keeps the poem filters in the pagination links but not in the canonical crumb', () => {
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems: [],
+      pagination: { page: 2, totalPages: 3 },
+      filters: { meter: ['altawil'], rhyme: [], theme: ['alnasib'] },
+    });
+    expect(layout.pag.nextPageUrl).toBe('/poets/CCMr?meter=altawil&theme=alnasib&page=3');
+    expect(layout.pag.prevPageUrl).toBe('/poets/CCMr?meter=altawil&theme=alnasib');
+    expect(layout.crumbItems.at(-1)?.path).toBe('/poets/CCMr');
+  });
+
   it('puts a nickname that adds something at the end of the subtitle', () => {
     const poet = { ...basePoet, name: 'المتنبي', nickname: 'أبو الطيب' };
     const layout = buildPoetLayout({ poet, poems: [], pagination: { page: 1, totalPages: 1 } });

@@ -172,6 +172,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/poems/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The meters, rhymes, and themes of one poet's poems, each with a poem count, for building filters over `GET /poems?poet=`. Narrow with the same `meter`, `rhyme`, and `theme` params as `GET /poems`: each list is counted under the other two filters but not its own, so it keeps every value that can still be added, and a selected value stays listed even at a count of zero. Values with no matching poem are left out. Lists are ordered by poem count descending, then by name. */
+        get: operations["poems.facets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/poems/slugs": {
         parameters: {
             query?: never;
@@ -427,6 +444,13 @@ export interface components {
                 ][];
             };
         };
+        ItemEnvelope_PoemFacets: {
+            data: {
+                meters: components["schemas"]["PoemCountStats"][];
+                rhymes: components["schemas"]["PoemCountStats"][];
+                themes: components["schemas"]["PoemCountStats"][];
+            };
+        };
         ItemEnvelope_PoetStats: {
             data: {
                 bio?: string;
@@ -609,6 +633,11 @@ export interface components {
                 string,
                 string
             ][];
+        };
+        PoemFacets: {
+            meters: components["schemas"]["PoemCountStats"][];
+            rhymes: components["schemas"]["PoemCountStats"][];
+            themes: components["schemas"]["PoemCountStats"][];
         };
         /** @enum {string} */
         PoemKind: "poem";
@@ -1312,6 +1341,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_Total"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: string;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: string;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "poems.facets": {
+        parameters: {
+            query: {
+                /**
+                 * @description The poet whose poems are counted. A single `slug` from GET /poets.
+                 * @example yoFB
+                 */
+                poet: string;
+                /**
+                 * @description Narrow the rhyme and theme counts to poems of these meters. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.
+                 * @example [
+                 *       "altawil"
+                 *     ]
+                 */
+                meter?: components["schemas"]["TransliteratedSlug"][];
+                /**
+                 * @description Narrow the meter and theme counts to poems of these rhymes. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.
+                 * @example [
+                 *       "meem"
+                 *     ]
+                 */
+                rhyme?: components["schemas"]["TransliteratedSlug"][];
+                /**
+                 * @description Narrow the meter and rhyme counts to poems of these themes. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.
+                 * @example [
+                 *       "alnasib"
+                 *     ]
+                 */
+                theme?: components["schemas"]["TransliteratedSlug"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The poet's meters, rhymes, and themes with poem counts under the given filters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemEnvelope_PoemFacets"];
+                };
+            };
+            /** @description Input validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Too many requests */

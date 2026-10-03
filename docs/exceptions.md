@@ -100,9 +100,9 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### The search filters use a hand-built multi-select combobox
 
-- **What:** `Select` is a 283-line homemade ARIA combobox.
-- **Where:** `apps/web/src/components/ui-extended/select.tsx`, `apps/web/src/components/search/filters.tsx`
-- **Why it's unusual:** All five filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control. Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
+- **What:** `Select` is a 295-line homemade ARIA combobox.
+- **Where:** `apps/web/src/components/ui-extended/select.tsx`, `apps/web/src/components/search/filters.tsx`, `apps/web/src/components/poet-poem-filters.tsx`
+- **Why it's unusual:** The home page's six filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control (the poet page passes `labelledBy` instead). Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
 - **Normal approach:** a maintained primitive (shadcn Popover with cmdk, Headless UI `Listbox multiple`, or React Aria), or a checkbox group in a `<fieldset>` with a `<legend>`.
 - **Status:** Needs review
 
@@ -676,7 +676,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 ### Two API clients, and no key ever reaches the browser
 
-- **What:** `apiServer` calls the internal API URL with `INTERNAL_API_KEY` for SSR; `apiBrowser` is keyless and calls `/api/v1` on the page's own origin, a proxy that forwards only the two paths in the allowlist (`search`, `poems/random`) and attaches the internal key server-side, along with the visitor's address from the `X-Real-IP` nginx sets, which the API rate-limits.
+- **What:** `apiServer` calls the internal API URL with `INTERNAL_API_KEY` for SSR; `apiBrowser` is keyless and calls `/api/v1` on the page's own origin, a proxy that forwards only the paths in the allowlist (`search`, `poems/random`, and the `poems` and `poems/facets` lists the poet page refetches in place) and attaches the internal key server-side, along with the visitor's address from the `X-Real-IP` nginx sets, which the API rate-limits.
 - **Where:** `lib/server/client.ts`, `lib/api/browser-client.ts`, `pages/api/v1/[...path].ts`, `lib/api/proxy-handler.ts`, `lib/api/proxy-allowlist.ts`
 - **Why:** the allowlist is the security boundary: without it the route would be an unauthenticated tunnel to the whole corpus. Don't use one client from the other's context, and don't widen the allowlist without reading the API rate-limiting entries above.
 - **Normal approach:** the browser calls the public API directly.
@@ -801,6 +801,14 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Why:** `Intl.NumberFormat('ar-SA')` groups with U+066C, and Amiri draws it as a small raised mark that reads like an apostrophe between digits. Amiri has no alternate glyph for it that CSS could select, and swapping the character in code would put a Latin comma into the text that copy/paste and screen readers see. Amiri is OFL 1.1 with no Reserved Font Name, so the patched files keep the name. Replacing or re-downloading the fonts drops the patch; reapply it with fontTools: for each file, `f = TTFont(path)`, set `table.cmap[0x066C] = table.cmap[0x2C]` in every `f['cmap'].tables` entry that has U+066C, then `f.save(path)`.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
+
+### The poet page's poem list updates in place
+
+- **What:** the server-rendered list on a poet page is taken over by the `PoetPoems` island, which refetches the poems and facets through the `/api/v1` proxy when the filters or page change, keeps them in the URL with nuqs (`history: 'push'`), falls back to a full page load of the same URL when a fetch fails, and sends a PostHog `$pageview` itself on each change and on back or forward.
+- **Where:** `components/poet-poems.tsx`, `components/poet-poem-filters.tsx`, `components/use-list-navigation.ts`, `lib/list-query-client.ts`, `lib/poet-search-params.ts`, `lib/api/proxy-allowlist.ts`, `pages/poets/[slug].astro`
+- **Why:** picking a meter, rhyme, or theme keeps the reader's scroll position and focus, which a full page load would reset. It needs the proxy to forward `poems` and `poems/facets`, so the whole poem list is reachable from the browser at the visitor rate limit, as `search` already is. Pageviews are sent by hand because PostHog's `defaults: '2026-05-30'` turns on `capture_pageview: 'history_change'`, which compares only the path, so a query-only change is not captured; the object form `{ path: true, search: true }` (posthog-js, 2026-08-24) would capture it, but site-wide, so the home search's URL updates would also count as pageviews.
+- **Normal approach:** links and a form that load the filtered page from the server, as every other list page does.
+- **Date:** 2026-10-01
 
 ## Search indexer (`apps/search-indexer`)
 

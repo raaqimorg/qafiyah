@@ -103,5 +103,5 @@ async fn the_openapi_document_is_served_as_json() {
     let sent = send(app_with(&es), request("GET", "/v1/openapi.json")).await;
     assert_eq!(sent.status, StatusCode::OK);
     assert_eq!(sent.header("content-type"), Some("application/json"));
-    assert_eq!(sent.json()["paths"].as_object().expect("paths").len(), 20);
+    assert_eq!(sent.json()["paths"].as_object().expect("paths").len(), 21);
 }

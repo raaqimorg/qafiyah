@@ -9,7 +9,9 @@ use crate::constants::{
     API_V1_PREFIX, MAX_FILTER_SLUGS, NO_STORE_CACHE_CONTROL, POEMS_PER_PAGE, READ_CACHE_CONTROL,
     SITEMAP_POEMS_PER_SHARD,
 };
-use crate::domain::poems::{self, Facets, PoemDetail, PoemListItem, RandomPoemOption, Total};
+use crate::domain::poems::{
+    self, Facets, PoemDetail, PoemFacets, PoemListItem, RandomPoemOption, Total,
+};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::SafePath;
@@ -129,6 +131,44 @@ pub(crate) async fn count(
     Ok(Json(ItemEnvelope {
         data: Total { total },
     }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/poems/facets",
+    tag = "poems",
+    operation_id = "poems.facets",
+    description = "The meters, rhymes, and themes of one poet's poems, each with a poem count, for building filters over `GET /poems?poet=`. Narrow with the same `meter`, `rhyme`, and `theme` params as `GET /poems`: each list is counted under the other two filters but not its own, so it keeps every value that can still be added, and a selected value stays listed even at a count of zero. Values with no matching poem are left out. Lists are ordered by poem count descending, then by name.",
+    params(
+        ("poet" = String, Query, description = "The poet whose poems are counted. A single `slug` from GET /poets.", pattern = "^[a-zA-Z]{4}$", example = "yoFB"),
+        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the rhyme and theme counts to poems of these meters. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.", example = json!(["altawil"])),
+        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and theme counts to poems of these rhymes. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
+        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and rhyme counts to poems of these themes. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.", example = json!(["alnasib"])),
+    ),
+    responses(
+        (status = 200, description = "The poet's meters, rhymes, and themes with poem counts under the given filters.", body = ItemEnvelope<PoemFacets>),
+        LookupErrors,
+    ),
+)]
+pub(crate) async fn facet_counts(
+    State(state): State<AppState>,
+    Extension(log): Extension<LogHandle>,
+    RawQuery(raw): RawQuery,
+) -> Result<Json<ItemEnvelope<PoemFacets>>, AppError> {
+    let query = Query::parse(raw.as_deref());
+    let poet = query
+        .scalar_slug("poet", slug::four_letters)?
+        .ok_or(AppError::BadRequest)?;
+    log.set("poet_id", poet.clone());
+    let facets = Facets {
+        poet: vec![poet],
+        meter: query.facet("meter", slug::transliterated, MAX_FILTER_SLUGS)?,
+        rhyme: query.facet("rhyme", slug::transliterated, MAX_FILTER_SLUGS)?,
+        theme: query.facet("theme", slug::transliterated, MAX_FILTER_SLUGS)?,
+        ..Facets::default()
+    };
+    let data = poems::facets(&state.pg, &facets).await?;
+    Ok(Json(ItemEnvelope { data }))
 }
 
 #[utoipa::path(

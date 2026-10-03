@@ -250,6 +250,104 @@ async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() 
     assert_eq!(named.status, StatusCode::OK);
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "a malformed facet list is a failed test"
+)]
+fn facet_total(list: &Value) -> i64 {
+    list.as_array()
+        .expect("a facet list")
+        .iter()
+        .map(|entry| entry["poemsCount"].as_i64().expect("poemsCount"))
+        .sum()
+}
+
+#[tokio::test]
+async fn a_poets_facets_partition_its_poems_and_narrow_under_each_other() {
+    let Some(h) = h().await else { return };
+    let poet = h.get("/v1/poets").await.json()["data"][0]["slug"]
+        .as_str()
+        .expect("slug")
+        .to_string();
+    let poems_count = h.get(&format!("/v1/poets/{poet}")).await.json()["data"]["poemsCount"]
+        .as_i64()
+        .expect("poemsCount");
+
+    let sent = h.get(&format!("/v1/poems/facets?poet={poet}")).await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+    let facets = sent.json()["data"].clone();
+    for kind in ["meters", "rhymes", "themes"] {
+        assert_eq!(facet_total(&facets[kind]), poems_count, "{kind}");
+        let counts: Vec<i64> = facets[kind]
+            .as_array()
+            .expect(kind)
+            .iter()
+            .map(|entry| entry["poemsCount"].as_i64().expect("poemsCount"))
+            .collect();
+        assert!(counts.iter().all(|count| *count > 0), "{kind}: {counts:?}");
+        let mut sorted = counts.clone();
+        sorted.sort_unstable_by(|a, b| b.cmp(a));
+        assert_eq!(counts, sorted, "{kind} ordered by poem count descending");
+    }
+
+    let meter = facets["meters"][0]["slug"]
+        .as_str()
+        .expect("meter")
+        .to_string();
+    let narrowed = h
+        .get(&format!("/v1/poems/facets?poet={poet}&meter={meter}"))
+        .await
+        .json()["data"]
+        .clone();
+    let matching = total_items(
+        &h.get(&format!("/v1/poems?poet={poet}&meter={meter}"))
+            .await
+            .json(),
+    );
+    assert_eq!(
+        narrowed["meters"], facets["meters"],
+        "a facet ignores its own selection"
+    );
+    assert_eq!(
+        facet_total(&narrowed["rhymes"]),
+        i64::try_from(matching).expect("fits i64")
+    );
+    assert_eq!(
+        facet_total(&narrowed["themes"]),
+        i64::try_from(matching).expect("fits i64")
+    );
+
+    let unused: Option<String> = sqlx::query_scalar(
+        "SELECT m.slug FROM public.meters m WHERE NOT EXISTS \
+         (SELECT 1 FROM public.poems p JOIN public.poets pt ON pt.id = p.poet_id \
+          WHERE pt.slug = $1 AND p.meter_id = m.id AND p.recension_of_id IS NULL) \
+         ORDER BY m.slug LIMIT 1",
+    )
+    .bind(&poet)
+    .fetch_optional(&h.pg)
+    .await
+    .expect("unused meter query");
+    if let Some(unused) = unused {
+        let kept = h
+            .get(&format!("/v1/poems/facets?poet={poet}&meter={unused}"))
+            .await
+            .json()["data"]["meters"]
+            .clone();
+        let listed = kept
+            .as_array()
+            .expect("meters")
+            .iter()
+            .find(|entry| entry["slug"] == unused.as_str())
+            .expect("a selected meter stays listed");
+        assert_eq!(listed["poemsCount"], 0);
+    }
+
+    assert_eq!(
+        h.get("/v1/poems/facets?poet=zzzz").await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
 #[tokio::test]
 async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
     let Some(h) = h().await else { return };
@@ -517,6 +615,10 @@ async fn a_hidden_poet_and_their_poems_are_not_found_or_listed() {
     );
     let listed = h.get(&format!("/v1/poems?poet={poet}")).await.json();
     assert_eq!(total_items(&listed), 0);
+    assert_eq!(
+        h.get(&format!("/v1/poems/facets?poet={poet}")).await.status,
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[tokio::test]

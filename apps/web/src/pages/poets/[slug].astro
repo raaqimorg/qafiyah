@@ -1,35 +1,72 @@
 ---
-import type { PoetSlug } from '@/lib/api/brands';
+import { ResultAsync } from 'neverthrow';
+import type { MeterSlug, PoetSlug, RhymeSlug, ThemeSlug } from '@/lib/api/brands';
 import ListPageBody from '@/components/list-page-body.astro';
+import { PoetPoems } from '@/components/poet-poems';
 import Layout from '@/layouts/layout.astro';
 import { TYPE } from '@/lib/constants/design-tokens';
 import { buildPoetLayout } from '@/lib/seo/poets-page';
 import { parsePageQuery } from '@/lib/pagination';
-import { CACHE_HTML } from '@/lib/server/cache';
+import {
+  everyPoetFilterListed,
+  hasPoetFilters,
+  type PoetFilterSelection,
+} from '@/lib/poet-filters';
+import { loadPoetSearchParams } from '@/lib/poet-search-params';
+import { reportError } from '@/lib/observability/report-error';
+import { CACHE_HTML, CACHE_NONE } from '@/lib/server/cache';
 import { listPoems } from '@/lib/server/poems';
-import { getPoet, movedPoetPath } from '@/lib/server/poets';
+import { getPoet, getPoetFacets, movedPoetPath } from '@/lib/server/poets';
 import { poetUrl } from '@/lib/urls';
 import { CDN_URL } from '@qafiyah/config';
 
 const page = parsePageQuery(Astro.url.searchParams.get('page'));
+const { meter, rhyme, theme } = loadPoetSearchParams(Astro.url.searchParams);
+const filters: PoetFilterSelection = { meter, rhyme, theme };
 const { slug: slugParam } = Astro.params;
 const poetSlug = slugParam as PoetSlug | undefined;
-const [poet, list] =
+const [poet, list, facetsResult] =
   page === null || !poetSlug
-    ? [null, null]
-    : await Promise.all([getPoet(poetSlug), listPoems({ poetSlugs: [poetSlug] }, page)]);
+    ? [null, null, null]
+    : await Promise.all([
+        getPoet(poetSlug),
+        listPoems(
+          {
+            poetSlugs: [poetSlug],
+            meterSlugs: filters.meter as readonly MeterSlug[],
+            rhymeSlugs: filters.rhyme as readonly RhymeSlug[],
+            themeSlugs: filters.theme as readonly ThemeSlug[],
+          },
+          page
+        ),
+        ResultAsync.fromPromise(getPoetFacets(poetSlug, filters), (error) => error),
+      ]);
 if (!poet) return Astro.rewrite('/404');
-const moved = movedPoetPath(slugParam as string, poet, page ?? 1);
+const moved = movedPoetPath(slugParam as string, poet, { page: page ?? 1, ...filters });
 if (moved) {
   const redirect = Astro.redirect(moved, 301);
   redirect.headers.set('Cache-Control', CACHE_HTML);
   return redirect;
 }
-if (!list) return Astro.rewrite('/404');
-Astro.response.headers.set('Cache-Control', CACHE_HTML);
+if (!list || !facetsResult) return Astro.rewrite('/404');
+const facets = facetsResult.match(
+  (value) => value,
+  (error) => {
+    reportError('poet facets failed', error, {
+      feature: 'poet-poem-filters',
+      tags: { surface: 'server' },
+    });
+    return undefined;
+  }
+);
+if (facets === null || (facets !== undefined && !everyPoetFilterListed(filters, facets))) {
+  return Astro.rewrite('/404');
+}
+Astro.response.headers.set('Cache-Control', facets === undefined ? CACHE_NONE : CACHE_HTML);
 const { poems, pagination } = list;
 const slug = poet.slug;
 const pageNumber = pagination.page;
+const isFiltered = hasPoetFilters(filters);
 
 const BIO_CLASS = `${TYPE.body} text-text-muted leading-[1.8]`;
 const BIO_TOGGLE_ID = 'poet-bio-toggle';
@@ -50,14 +87,14 @@ const {
   worksJsonLd,
   crumbItems,
   crumbsJsonLd,
-  items,
-} = buildPoetLayout({ poet, poems, pagination });
+} = buildPoetLayout({ poet, poems, pagination, filters });
 ---
 
 <Layout
   title={title}
   description={description}
-  canonical={poetUrl(slug, pageNumber)}
+  canonical={poetUrl(slug, { page: pageNumber, ...filters })}
+  robotsIndex={!isFiltered}
   prevUrl={pag.hasPrevPage ? pag.prevPageUrl : undefined}
   nextUrl={pag.hasNextPage ? pag.nextPageUrl : undefined}
   ogType="profile"
@@ -69,13 +106,7 @@ const {
   preconnect={avatarUrl ? [CDN_URL] : []}
   jsonLd={[personJsonLd, worksJsonLd, crumbsJsonLd]}
 >
-  <ListPageBody
-    heading={heading}
-    crumbItems={crumbItems}
-    items={items}
-    emptyText="لا توجد قصائد لهذا الشاعر."
-    pagination={pag}
-  >
+  <ListPageBody heading={heading} crumbItems={crumbItems}>
     <div slot="header" class="flex w-full items-center gap-4 xs:gap-5">
       {
         avatarUrl && (
@@ -116,5 +147,12 @@ const {
         )
       }
     </div>
+    <PoetPoems
+      client:load
+      poetSlug={slug}
+      serverSearch={Astro.url.search}
+      poems={{ data: poems, pagination }}
+      facets={facets}
+    />
   </ListPageBody>
 </Layout>

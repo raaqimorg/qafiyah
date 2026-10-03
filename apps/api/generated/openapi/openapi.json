@@ -945,6 +945,157 @@
         }
       }
     },
+    "/poems/facets": {
+      "get": {
+        "tags": [
+          "poems"
+        ],
+        "description": "The meters, rhymes, and themes of one poet's poems, each with a poem count, for building filters over `GET /poems?poet=`. Narrow with the same `meter`, `rhyme`, and `theme` params as `GET /poems`: each list is counted under the other two filters but not its own, so it keeps every value that can still be added, and a selected value stays listed even at a count of zero. Values with no matching poem are left out. Lists are ordered by poem count descending, then by name.",
+        "operationId": "poems.facets",
+        "parameters": [
+          {
+            "name": "poet",
+            "in": "query",
+            "description": "The poet whose poems are counted. A single `slug` from GET /poets.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z]{4}$"
+            },
+            "example": "yoFB"
+          },
+          {
+            "name": "meter",
+            "in": "query",
+            "description": "Narrow the rhyme and theme counts to poems of these meters. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TransliteratedSlug"
+              },
+              "default": [],
+              "maxItems": 100
+            },
+            "example": [
+              "altawil"
+            ]
+          },
+          {
+            "name": "rhyme",
+            "in": "query",
+            "description": "Narrow the meter and theme counts to poems of these rhymes. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TransliteratedSlug"
+              },
+              "default": [],
+              "maxItems": 100
+            },
+            "example": [
+              "meem"
+            ]
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "description": "Narrow the meter and rhyme counts to poems of these themes. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TransliteratedSlug"
+              },
+              "default": [],
+              "maxItems": 100
+            },
+            "example": [
+              "alnasib"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The poet's meters, rhymes, and themes with poem counts under the given filters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope_PoemFacets"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Input validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/poems/slugs": {
       "get": {
         "tags": [
@@ -2279,6 +2430,42 @@
           }
         }
       },
+      "ItemEnvelope_PoemFacets": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "meters",
+              "rhymes",
+              "themes"
+            ],
+            "properties": {
+              "meters": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PoemCountStats"
+                }
+              },
+              "rhymes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PoemCountStats"
+                }
+              },
+              "themes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PoemCountStats"
+                }
+              }
+            }
+          }
+        }
+      },
       "ItemEnvelope_PoetStats": {
         "type": "object",
         "required": [
@@ -2828,6 +3015,34 @@
               ],
               "maxItems": 2,
               "minItems": 2
+            }
+          }
+        }
+      },
+      "PoemFacets": {
+        "type": "object",
+        "required": [
+          "meters",
+          "rhymes",
+          "themes"
+        ],
+        "properties": {
+          "meters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoemCountStats"
+            }
+          },
+          "rhymes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoemCountStats"
+            }
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoemCountStats"
             }
           }
         }

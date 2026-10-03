@@ -56,8 +56,21 @@ export function poetsUrl(opts?: {
   return query ? `/poets?${query}` : '/poets';
 }
 
-export function poetUrl(slug: string, page?: number): string {
-  return withPage(`/poets/${slug}`, page);
+export type PoetUrlOptions = {
+  readonly page?: number | undefined;
+  readonly meter?: readonly string[] | undefined;
+  readonly rhyme?: readonly string[] | undefined;
+  readonly theme?: readonly string[] | undefined;
+};
+
+export function poetUrl(slug: string, opts?: PoetUrlOptions): string {
+  const params = new URLSearchParams();
+  for (const key of ['meter', 'rhyme', 'theme'] as const) {
+    for (const value of opts?.[key] ?? []) params.append(key, value);
+  }
+  if (opts?.page !== undefined && opts.page > 1) params.set('page', String(opts.page));
+  const query = params.toString();
+  return query === '' ? `/poets/${slug}` : `/poets/${slug}?${query}`;
 }
 
 export function poetAvatarUrl(slug: string): string {

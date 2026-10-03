@@ -1,23 +1,18 @@
 ---
 import Breadcrumbs from '@/components/breadcrumbs.astro';
-import Pagination from '@/components/pagination.astro';
-import { ListCard } from '@/components/ui-extended/list-card';
+import { CARD_LIST_CLASS, CardList } from '@/components/card-list';
+import { Pagination } from '@/components/pagination';
 import { ERROR_TEXTS } from '@/lib/constants/copy';
 import { SUPPORT_EMAIL } from '@/lib/constants/config';
 import { TYPE } from '@/lib/constants/design-tokens';
+import type { CardListItem } from '@/components/card-list';
 import type { BreadcrumbItem } from '@/lib/seo/json-ld/breadcrumb-list';
 import type { PaginationView } from '@/lib/pagination';
 
-type ListCardItem = {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly href: string;
-};
-
 interface Props {
   heading: string;
-  items: readonly ListCardItem[];
-  emptyText: string;
+  items?: readonly CardListItem[] | undefined;
+  emptyText?: string | undefined;
   emptyVariant?: 'muted' | 'error' | undefined;
   crumbItems?: readonly BreadcrumbItem[] | undefined;
   pagination?: PaginationView | undefined;
@@ -27,14 +22,13 @@ interface Props {
 const {
   heading,
   items,
-  emptyText,
+  emptyText = '',
   emptyVariant = 'muted',
   crumbItems,
   pagination,
   contentGap = 'gap-6 xs:gap-8 sm:gap-14',
 } = Astro.props;
 
-const showPagination = pagination !== undefined && pagination.totalPages > 1;
 const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
 ---
 
@@ -49,13 +43,9 @@ const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
       )
     }
     <slot />
-    <div class="w-full columns-1 gap-x-12 sm:columns-2">
-      {
-        items.length > 0 ? (
-          items.map((item) => (
-            <ListCard title={item.title} subtitle={item.subtitle} href={item.href} />
-          ))
-        ) : emptyVariant === 'error' ? (
+    {
+      items !== undefined && items.length === 0 && emptyVariant === 'error' ? (
+        <div class={CARD_LIST_CLASS}>
           <div class="col-span-full flex flex-col items-center gap-3 rounded-lg border border-danger bg-surface-raised px-4 py-8 text-center">
             <p class="text-danger">{emptyText}</p>
             <p class="text-sm text-danger">
@@ -75,11 +65,11 @@ const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
               {ERROR_TEXTS.retry}
             </a>
           </div>
-        ) : (
-          <p class="text-center text-text-subtle">{emptyText}</p>
-        )
-      }
-    </div>
-    {showPagination && pagination && <Pagination {...pagination} />}
+        </div>
+      ) : (
+        items !== undefined && <CardList items={items} emptyText={emptyText} />
+      )
+    }
+    {pagination && <Pagination {...pagination} />}
   </div>
 </section>

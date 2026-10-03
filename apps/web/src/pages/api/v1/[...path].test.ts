@@ -45,7 +45,10 @@ describe('GET /api/v1/[...path]', () => {
     const mock = fakeFetch({});
     const { GET } = await load();
     const response = await GET(
-      fakeContext({ url: 'https://qafiyah.com/api/v1/poems', params: { path: 'poems' } })
+      fakeContext({
+        url: 'https://qafiyah.com/api/v1/poems/slugs',
+        params: { path: 'poems/slugs' },
+      })
     );
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toBe('no-store');

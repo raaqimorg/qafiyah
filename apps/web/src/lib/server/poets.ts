@@ -1,4 +1,4 @@
-import { poetUrl } from '@/lib/urls';
+import { poetUrl, type PoetUrlOptions } from '@/lib/urls';
 
 import { isNotFoundStatus } from './api-error';
 import { apiServer } from './client';
@@ -6,6 +6,7 @@ import { apiFailure, getOrNull, safeCall } from './unwrap';
 
 import type { Ok } from './types';
 import type { EraSlug, PoetSlug } from '@/lib/api/brands';
+import type { PoetFilterSelection } from '@/lib/poet-filters';
 
 type PoetsList = Ok<'/poets'>;
 export type Poet = Ok<'/poets/{slug}'>['data'];
@@ -51,10 +52,29 @@ export async function getPoetSlugsPage(
 export const getPoet = (slug: PoetSlug): Promise<Poet | null> =>
   getOrNull(() => apiServer.GET('/poets/{slug}', { params: { path: { slug } } }));
 
+export type PoetFacets = Ok<'/poems/facets'>['data'];
+
+export const getPoetFacets = (
+  slug: PoetSlug,
+  selection: PoetFilterSelection
+): Promise<PoetFacets | null> =>
+  getOrNull(() =>
+    apiServer.GET('/poems/facets', {
+      params: {
+        query: {
+          poet: slug,
+          meter: [...selection.meter],
+          rhyme: [...selection.rhyme],
+          theme: [...selection.theme],
+        },
+      },
+    })
+  );
+
 export function movedPoetPath(
   requested: string,
   poet: Pick<Poet, 'slug'>,
-  page: number
+  opts: PoetUrlOptions
 ): string | null {
-  return poet.slug === requested ? null : poetUrl(poet.slug, page);
+  return poet.slug === requested ? null : poetUrl(poet.slug, opts);
 }
