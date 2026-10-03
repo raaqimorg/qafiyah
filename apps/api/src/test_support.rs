@@ -10,11 +10,8 @@ use serde_json::Value;
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
-use crate::accounts::cache::KeyCache;
-use crate::accounts::usage::UsageRecorder;
 use crate::auth::Keys;
 use crate::es::client::Es;
-use crate::rate_limit::Limiter;
 use crate::state::AppState;
 
 const UNREACHABLE_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
@@ -79,16 +76,13 @@ impl FakeEs {
 }
 
 pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
-    AppState {
-        pg: lazy_pool(),
-        accounts: lazy_pool(),
-        es: Arc::new(Es::with_timeout(&es.url, Duration::from_secs(2)).expect("a fake endpoint")),
-        keys: Arc::new(keys),
-        limiter: Arc::new(Limiter::default()),
-        key_cache: Arc::new(KeyCache::default()),
-        usage: Arc::new(UsageRecorder::default()),
+    AppState::new(
+        lazy_pool(),
+        lazy_pool(),
+        Es::with_timeout(&es.url, Duration::from_secs(2)).expect("a fake endpoint"),
+        keys,
         anon_requests,
-    }
+    )
 }
 
 pub fn state(es: &FakeEs) -> AppState {

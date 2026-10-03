@@ -8,9 +8,9 @@ use crate::constants::{
     SEARCH_POETS_MAX_PAGE, SEARCH_POETS_PER_PAGE,
 };
 use crate::domain::search::{self, PoemResult, PoetResult};
+use crate::domain::search::{PoemSearchParams, PoetSearchParams};
 use crate::envelope::{ListEnvelope, build_pagination};
 use crate::error::AppError;
-use crate::es::query::{PoemSearchParams, PoetSearchParams};
 use crate::log::LogHandle;
 use crate::openapi::{
     ExactFlag, FilteredListErrors, FourLetterSlug, SearchTypeParam, TransliteratedSlug,
@@ -95,9 +95,9 @@ pub(crate) async fn search(
         if !want_poems {
             return Ok(None);
         }
-        search::search_poems(
-            &state.es,
-            &PoemSearchParams {
+        state
+            .search
+            .search_poems(&PoemSearchParams {
                 q: q.clone(),
                 page: poems_page,
                 poet_slugs: poet_slugs.clone(),
@@ -108,28 +108,26 @@ pub(crate) async fn search(
                 poem_type_slugs,
                 collection_slugs,
                 exact,
-            },
-        )
-        .await
-        .map(Some)
+            })
+            .await
+            .map(Some)
     };
     let poets = async {
         if !want_poets {
             return Ok(None);
         }
-        search::search_poets(
-            &state.es,
-            &PoetSearchParams {
+        state
+            .search
+            .search_poets(&PoetSearchParams {
                 q: q.clone(),
                 page: poets_page,
                 era_slugs: era_slugs.clone(),
                 highlight: false,
                 exact,
                 ..PoetSearchParams::default()
-            },
-        )
-        .await
-        .map(Some)
+            })
+            .await
+            .map(Some)
     };
     let (poems, poets) = tokio::try_join!(poems, poets)?;
 

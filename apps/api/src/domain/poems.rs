@@ -1,26 +1,14 @@
 use std::cmp::Reverse;
-use std::collections::HashMap;
 
-use diesel::dsl::{count_star, exists};
-use diesel::pg::Pg;
-use diesel::prelude::*;
-use diesel::sql_types::{Bool, Integer, Json, Nullable};
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use futures_util::future::try_join_all;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use utoipa::openapi::Schema;
 
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
-use crate::db::corpus::{
-    collection_stats, collections, era_stats, eras, meter_stats, meters, poem_aliases,
-    poem_relations, poem_types, poem_verses, poems, poet_stats, poets, rhyme_stats, rhymes,
-    theme_stats, themes, verses,
-};
-use crate::db::{PgPool, Uncached, int};
 use crate::domain::taxonomy::PoemCountStats;
 use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
-use crate::error::{AppError, Resource, RouteProblem};
+use crate::error::{AppError, Resource, RouteProblem, StoreError};
 use crate::js;
 
 fn verse_list() -> utoipa::openapi::schema::Array {
@@ -120,94 +108,99 @@ pub struct Facets {
     pub collection: Vec<String>,
 }
 
-type PoemListRow = (String, String, String, String, bool, bool, String, String);
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Filter {
+    Poet,
+    Era,
+    Meter,
+    Theme,
+    Rhyme,
+    Collection,
+}
 
-fn list_item(row: PoemListRow) -> PoemListItem {
-    let (title, slug, poet_name, poet_slug, has_avatar, is_anonymous, meter_name, meter_slug) = row;
-    PoemListItem {
-        title,
-        slug,
-        poet: PoetRef {
-            name: poet_name,
-            slug: poet_slug,
-            has_avatar,
-            is_anonymous,
-        },
-        meter: MeterRef {
-            name: meter_name,
-            slug: meter_slug,
-        },
-        era: None,
+impl Filter {
+    pub const ALL: [Filter; 6] = [
+        Filter::Poet,
+        Filter::Era,
+        Filter::Meter,
+        Filter::Theme,
+        Filter::Rhyme,
+        Filter::Collection,
+    ];
+}
+
+impl Facets {
+    pub fn values(&self, filter: Filter) -> &Vec<String> {
+        match filter {
+            Filter::Poet => &self.poet,
+            Filter::Era => &self.era,
+            Filter::Meter => &self.meter,
+            Filter::Theme => &self.theme,
+            Filter::Rhyme => &self.rhyme,
+            Filter::Collection => &self.collection,
+        }
     }
 }
 
-type RelatedRow = (
-    String,
-    String,
-    String,
-    String,
-    bool,
-    bool,
-    String,
-    String,
-    String,
-    String,
-);
-
-fn related_item(row: RelatedRow) -> PoemListItem {
-    let (
-        title,
-        slug,
-        poet_name,
-        poet_slug,
-        has_avatar,
-        is_anonymous,
-        meter_name,
-        meter_slug,
-        era_name,
-        era_slug,
-    ) = row;
-    PoemListItem {
-        title,
-        slug,
-        poet: PoetRef {
-            name: poet_name,
-            slug: poet_slug,
-            has_avatar,
-            is_anonymous,
-        },
-        meter: MeterRef {
-            name: meter_name,
-            slug: meter_slug,
-        },
-        era: Some(EraRef {
-            name: era_name,
-            slug: era_slug,
-        }),
-    }
+#[derive(Serialize, ToSchema)]
+pub struct PoemFacets {
+    pub meters: Vec<PoemCountStats>,
+    pub rhymes: Vec<PoemCountStats>,
+    pub themes: Vec<PoemCountStats>,
 }
 
-type DetailRow = (
-    i32,
-    i32,
-    Option<i32>,
-    String,
-    i32,
-    String,
-    String,
-    bool,
-    bool,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-);
+pub struct FacetCounts {
+    pub meters: Vec<PoemCountStats>,
+    pub rhymes: Vec<PoemCountStats>,
+    pub themes: Vec<PoemCountStats>,
+}
+
+pub struct Recension {
+    pub id: i32,
+    pub title: String,
+    pub slug: String,
+    pub verse_count: i32,
+}
+
+pub struct PoemRecord {
+    pub title: String,
+    pub verse_count: i32,
+    pub recension_of_id: Option<i32>,
+    pub poet: PoetRef,
+    pub era: EraRef,
+    pub meter: MeterRef,
+    pub theme: ThemeRef,
+    pub rhyme: RhymeRef,
+    pub poem_type: PoemTypeRef,
+    pub lines: Vec<String>,
+    pub prev: Option<PoemNavRef>,
+    pub next: Option<PoemNavRef>,
+    pub family: Vec<Recension>,
+    pub related: Vec<PoemListItem>,
+}
+
+#[derive(Deserialize)]
+pub struct RandomPoem {
+    pub poet_name: String,
+    pub content: String,
+    pub slug: String,
+}
+
+#[async_trait]
+pub trait PoemRepository: Send + Sync {
+    async fn count(&self) -> Result<i32, StoreError>;
+    async fn list_slugs(&self, page: u32, page_size: u32) -> Result<Vec<String>, StoreError>;
+    async fn list(
+        &self,
+        facets: &Facets,
+        page: u32,
+        page_size: u32,
+    ) -> Result<(Vec<PoemListItem>, i32), StoreError>;
+    async fn facet_counts(&self, facets: &Facets) -> Result<Option<FacetCounts>, StoreError>;
+    async fn find(&self, slug: &str) -> Result<Option<PoemRecord>, StoreError>;
+    async fn alias_target(&self, slug: &str) -> Result<Option<String>, StoreError>;
+    async fn random(&self) -> Result<Option<RandomPoem>, StoreError>;
+}
 
 pub struct ParsedContent {
     pub verses: Vec<[String; 2]>,
@@ -236,669 +229,78 @@ pub fn parse_poem_content(content: &str) -> ParsedContent {
     }
 }
 
-fn total_of<T: Into<i64>>(counts: Vec<Option<T>>) -> Result<i32, AppError> {
-    let total = counts
-        .into_iter()
-        .flatten()
-        .map(Into::into)
-        .try_fold(0_i64, i64::checked_add)
-        .ok_or_else(|| AppError::Database("poem total overflowed".to_string()))?;
-    int(total)
-}
-
-pub async fn count(pg: &PgPool) -> Result<i32, AppError> {
-    let mut conn = pg.get().await?;
-    total_of(
-        meter_stats::table
-            .select(meter_stats::poems_count)
-            .load::<Option<i64>>(&mut conn)
-            .await?,
-    )
-}
-
-pub async fn list_slugs(pg: &PgPool, page: u32, page_size: u32) -> Result<Vec<String>, AppError> {
-    let mut conn = pg.get().await?;
-    Ok(poems::table
-        .filter(poems::recension_of_id.is_null())
-        .filter(poems::is_hidden.eq(false))
-        .order(poems::slug.asc())
-        .select(poems::slug)
-        .limit(i64::from(page_size))
-        .offset(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
-        .load::<String>(&mut conn)
-        .await?)
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Filter {
-    Poet,
-    Era,
-    Meter,
-    Theme,
-    Rhyme,
-    Collection,
-}
-
-impl Filter {
-    const ALL: [Filter; 6] = [
-        Filter::Poet,
-        Filter::Era,
-        Filter::Meter,
-        Filter::Theme,
-        Filter::Rhyme,
-        Filter::Collection,
-    ];
-}
-
-impl Facets {
-    fn values(&self, filter: Filter) -> &Vec<String> {
-        match filter {
-            Filter::Poet => &self.poet,
-            Filter::Era => &self.era,
-            Filter::Meter => &self.meter,
-            Filter::Theme => &self.theme,
-            Filter::Rhyme => &self.rhyme,
-            Filter::Collection => &self.collection,
-        }
-    }
-}
-
-struct FilterIds {
-    filter: Filter,
-    ids: Vec<i32>,
-}
-
-async fn ids_for(
-    mut conn: &AsyncPgConnection,
-    filter: Filter,
-    slugs: &[String],
-) -> QueryResult<FilterIds> {
-    let ids = match filter {
-        Filter::Poet => {
-            poets::table
-                .filter(poets::slug.eq_any(slugs))
-                .select(poets::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-        Filter::Era => {
-            eras::table
-                .filter(eras::slug.eq_any(slugs))
-                .select(eras::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-        Filter::Meter => {
-            meters::table
-                .filter(meters::slug.eq_any(slugs))
-                .select(meters::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-        Filter::Theme => {
-            themes::table
-                .filter(themes::slug.eq_any(slugs))
-                .select(themes::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-        Filter::Rhyme => {
-            rhymes::table
-                .filter(rhymes::slug.eq_any(slugs))
-                .select(rhymes::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-        Filter::Collection => {
-            collections::table
-                .filter(collections::slug.eq_any(slugs))
-                .select(collections::id)
-                .load::<i32>(&mut conn)
-                .await?
-        }
-    };
-    Ok(FilterIds { filter, ids })
-}
-
-async fn resolve_ids(conn: &AsyncPgConnection, facets: &Facets) -> QueryResult<Vec<FilterIds>> {
-    try_join_all(
-        Filter::ALL
-            .into_iter()
-            .filter(|filter| !facets.values(*filter).is_empty())
-            .map(|filter| ids_for(conn, filter, facets.values(filter))),
-    )
-    .await
-}
-
-type Condition = Box<dyn BoxableExpression<poems::table, Pg, SqlType = Bool>>;
-
-fn shown() -> Condition {
-    Box::new(
-        poems::recension_of_id
-            .is_null()
-            .and(poems::is_hidden.eq(false)),
-    )
-}
-
-fn matching(filter: &FilterIds) -> Condition {
-    match (filter.filter, filter.ids.as_slice()) {
-        (Filter::Poet, [id]) => Box::new(poems::poet_id.eq(*id)),
-        (Filter::Poet, ids) => Box::new(poems::poet_id.eq_any(ids.to_vec())),
-        (Filter::Era, [id]) => Box::new(poems::era_id.eq(*id)),
-        (Filter::Era, ids) => Box::new(poems::era_id.eq_any(ids.to_vec())),
-        (Filter::Meter, [id]) => Box::new(poems::meter_id.eq(*id)),
-        (Filter::Meter, ids) => Box::new(poems::meter_id.eq_any(ids.to_vec())),
-        (Filter::Theme, [id]) => Box::new(poems::theme_id.eq(*id)),
-        (Filter::Theme, ids) => Box::new(poems::theme_id.eq_any(ids.to_vec())),
-        (Filter::Rhyme, [id]) => Box::new(poems::rhyme_id.eq(*id)),
-        (Filter::Rhyme, ids) => Box::new(poems::rhyme_id.eq_any(ids.to_vec())),
-        (Filter::Collection, [id]) => Box::new(poems::collection_id.assume_not_null().eq(*id)),
-        (Filter::Collection, ids) => {
-            Box::new(poems::collection_id.assume_not_null().eq_any(ids.to_vec()))
-        }
-    }
-}
-
-fn page_ids(
-    filters: &[FilterIds],
-    page: u32,
-    page_size: u32,
-) -> poems::BoxedQuery<'static, Pg, Integer> {
-    let mut query = poems::table.select(poems::id).filter(shown()).into_boxed();
-    for filter in filters {
-        query = query.filter(matching(filter));
-    }
-    query
-        .order(poems::id.asc())
-        .limit(i64::from(page_size))
-        .offset(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
-}
-
-async fn page_rows(
-    mut conn: &AsyncPgConnection,
-    filters: &[FilterIds],
-    page: u32,
-    page_size: u32,
-) -> Result<Vec<PoemListRow>, AppError> {
-    let rows = poems::table
-        .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
-        .inner_join(meters::table.on(meters::id.eq(poems::meter_id)))
-        .filter(poems::id.eq_any(page_ids(filters, page, page_size)))
-        .order(poems::id.asc())
-        .select((
-            poems::title,
-            poems::slug,
-            poets::name,
-            poets::slug,
-            poets::has_avatar,
-            poets::is_anonymous,
-            meters::name,
-            meters::slug,
-        ));
-    Ok(Uncached(rows).load::<PoemListRow>(&mut conn).await?)
-}
-
-async fn stats_total(mut conn: &AsyncPgConnection, filter: &FilterIds) -> Result<i32, AppError> {
-    let ids = &filter.ids;
-    match filter.filter {
-        Filter::Poet => total_of(
-            poet_stats::table
-                .filter(poet_stats::id.eq_any(ids))
-                .select(poet_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-        Filter::Era => total_of(
-            era_stats::table
-                .filter(era_stats::id.eq_any(ids))
-                .select(era_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-        Filter::Meter => total_of(
-            meter_stats::table
-                .filter(meter_stats::id.eq_any(ids))
-                .select(meter_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-        Filter::Theme => total_of(
-            theme_stats::table
-                .filter(theme_stats::id.eq_any(ids))
-                .select(theme_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-        Filter::Rhyme => total_of(
-            rhyme_stats::table
-                .filter(rhyme_stats::id.eq_any(ids))
-                .select(rhyme_stats::poems_count)
-                .load::<Option<i32>>(&mut conn)
-                .await?,
-        ),
-        Filter::Collection => total_of(
-            collection_stats::table
-                .filter(collection_stats::id.eq_any(ids))
-                .select(collection_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-    }
-}
-
-async fn total(mut conn: &AsyncPgConnection, filters: &[FilterIds]) -> Result<i32, AppError> {
-    match filters {
-        [] => total_of(
-            meter_stats::table
-                .select(meter_stats::poems_count)
-                .load::<Option<i64>>(&mut conn)
-                .await?,
-        ),
-        [only] => stats_total(conn, only).await,
-        several => {
-            let mut query = poems::table
-                .select(count_star())
-                .filter(shown())
-                .into_boxed();
-            for filter in several {
-                query = query.filter(matching(filter));
-            }
-            int(Uncached(query).get_result::<i64>(&mut conn).await?)
-        }
-    }
-}
-
-pub async fn list(
-    pg: &PgPool,
-    facets: &Facets,
-    page: u32,
-    page_size: u32,
-) -> Result<(Vec<PoemListItem>, i32), AppError> {
-    let pooled = pg.get().await?;
-    let conn: &AsyncPgConnection = &pooled;
-    let filters = resolve_ids(conn, facets).await?;
-    if filters.iter().any(|filter| filter.ids.is_empty()) {
-        return Ok((Vec::new(), 0));
-    }
-    let (rows, total) = tokio::try_join!(
-        page_rows(conn, &filters, page, page_size),
-        total(conn, &filters)
-    )?;
-    Ok((rows.into_iter().map(list_item).collect(), total))
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct PoemFacets {
-    pub meters: Vec<PoemCountStats>,
-    pub rhymes: Vec<PoemCountStats>,
-    pub themes: Vec<PoemCountStats>,
-}
-
-async fn grouped_counts(
-    mut conn: &AsyncPgConnection,
-    counted: Filter,
-    filters: &[FilterIds],
-) -> QueryResult<Vec<(i32, i64)>> {
-    let others = filters.iter().filter(|filter| filter.filter != counted);
-    match counted {
-        Filter::Meter => {
-            let mut query = poems::table
-                .group_by(poems::meter_id)
-                .select((poems::meter_id, count_star()))
-                .filter(shown())
-                .into_boxed();
-            for filter in others {
-                query = query.filter(matching(filter));
-            }
-            Uncached(query).load(&mut conn).await
-        }
-        Filter::Rhyme => {
-            let mut query = poems::table
-                .group_by(poems::rhyme_id)
-                .select((poems::rhyme_id, count_star()))
-                .filter(shown())
-                .into_boxed();
-            for filter in others {
-                query = query.filter(matching(filter));
-            }
-            Uncached(query).load(&mut conn).await
-        }
-        Filter::Theme => {
-            let mut query = poems::table
-                .group_by(poems::theme_id)
-                .select((poems::theme_id, count_star()))
-                .filter(shown())
-                .into_boxed();
-            for filter in others {
-                query = query.filter(matching(filter));
-            }
-            Uncached(query).load(&mut conn).await
-        }
-        Filter::Poet | Filter::Era | Filter::Collection => Ok(Vec::new()),
-    }
-}
-
-async fn named_terms(
-    mut conn: &AsyncPgConnection,
-    counted: Filter,
-) -> QueryResult<Vec<(i32, String, String)>> {
-    match counted {
-        Filter::Meter => {
-            meters::table
-                .order(meters::name.asc())
-                .select((meters::id, meters::name, meters::slug))
-                .load(&mut conn)
-                .await
-        }
-        Filter::Rhyme => {
-            rhymes::table
-                .order(rhymes::name.asc())
-                .select((rhymes::id, rhymes::name, rhymes::slug))
-                .load(&mut conn)
-                .await
-        }
-        Filter::Theme => {
-            themes::table
-                .order(themes::name.asc())
-                .select((themes::id, themes::name, themes::slug))
-                .load(&mut conn)
-                .await
-        }
-        Filter::Poet | Filter::Era | Filter::Collection => Ok(Vec::new()),
-    }
-}
-
-async fn count_facet(
-    conn: &AsyncPgConnection,
-    counted: Filter,
-    filters: &[FilterIds],
-    selected: &[String],
-) -> Result<Vec<PoemCountStats>, AppError> {
-    let (counts, terms) = tokio::try_join!(
-        grouped_counts(conn, counted, filters),
-        named_terms(conn, counted)
-    )?;
-    let count_of: HashMap<i32, i64> = counts.into_iter().collect();
-    let mut stats = terms
-        .into_iter()
-        .filter_map(|(id, name, slug)| {
-            let poems_count = count_of.get(&id).copied().unwrap_or(0);
-            (poems_count > 0 || selected.contains(&slug)).then(|| {
-                Ok(PoemCountStats {
-                    name,
-                    slug,
-                    poems_count: int(poems_count)?,
-                })
-            })
-        })
-        .collect::<Result<Vec<_>, AppError>>()?;
-    stats.sort_by_key(|stat| Reverse(stat.poems_count));
-    Ok(stats)
-}
-
-async fn poet_is_shown(mut conn: &AsyncPgConnection, slugs: &[String]) -> QueryResult<bool> {
-    diesel::select(exists(
-        poets::table
-            .filter(poets::slug.eq_any(slugs))
-            .filter(poets::is_hidden.eq(false)),
-    ))
-    .get_result::<bool>(&mut conn)
-    .await
-}
-
-pub async fn facets(pg: &PgPool, facets: &Facets) -> Result<PoemFacets, AppError> {
-    let pooled = pg.get().await?;
-    let conn: &AsyncPgConnection = &pooled;
-    let (is_shown, filters) =
-        tokio::try_join!(poet_is_shown(conn, &facets.poet), resolve_ids(conn, facets))?;
-    if !is_shown {
-        return Err(AppError::NotFound(Resource::Poet));
-    }
-    let (meters, rhymes, themes) = tokio::try_join!(
-        count_facet(conn, Filter::Meter, &filters, &facets.meter),
-        count_facet(conn, Filter::Rhyme, &filters, &facets.rhyme),
-        count_facet(conn, Filter::Theme, &filters, &facets.theme),
-    )?;
-    Ok(PoemFacets {
-        meters,
-        rhymes,
-        themes,
-    })
-}
-
-fn neighbour(
-    poet_id: i32,
-    id: i32,
-    before: bool,
-) -> poems::BoxedQuery<'static, Pg, (Integer, diesel::sql_types::Text, diesel::sql_types::Text)> {
-    let query = poems::table
-        .select((poems::id, poems::title, poems::slug))
-        .filter(poems::poet_id.eq(poet_id))
-        .filter(shown())
-        .into_boxed();
-    if before {
-        query
-            .filter(poems::id.lt(id))
-            .order(poems::id.desc())
-            .limit(1)
-    } else {
-        query
-            .filter(poems::id.gt(id))
-            .order(poems::id.asc())
-            .limit(1)
-    }
-}
-
-async fn neighbours(
-    mut conn: &AsyncPgConnection,
-    poet_id: i32,
-    id: i32,
-) -> QueryResult<(Option<PoemNavRef>, Option<PoemNavRef>)> {
-    let rows = neighbour(poet_id, id, true)
-        .union_all(neighbour(poet_id, id, false))
-        .load::<(i32, String, String)>(&mut conn)
-        .await?;
-    let pick = |before: bool| {
-        rows.iter()
-            .find(|(other, _, _)| (*other < id) == before)
-            .map(|(_, title, slug)| PoemNavRef {
-                title: title.clone(),
-                slug: slug.clone(),
-            })
-    };
-    Ok((pick(true), pick(false)))
-}
-
-async fn verses_of(mut conn: &AsyncPgConnection, id: i32) -> QueryResult<Vec<String>> {
-    poem_verses::table
-        .inner_join(verses::table)
-        .filter(poem_verses::poem_id.eq(id))
-        .order(poem_verses::position.asc())
-        .select(verses::content)
-        .load(&mut conn)
-        .await
-}
-
-async fn recensions_of(
-    mut conn: &AsyncPgConnection,
-    id: i32,
-    root: i32,
-) -> QueryResult<Vec<(i32, String, String, i32)>> {
-    poems::table
-        .filter(poems::id.ne(id))
-        .filter(poems::id.eq(root).or(poems::recension_of_id.eq(root)))
-        .order((poems::recension_of_id.is_not_null().asc(), poems::id.asc()))
-        .select((poems::id, poems::title, poems::slug, poems::verse_count))
-        .load(&mut conn)
-        .await
-}
-
-async fn related_of(mut conn: &AsyncPgConnection, id: i32) -> QueryResult<Vec<PoemListItem>> {
-    Ok(poem_relations::table
-        .inner_join(poems::table.on(poems::id.eq(poem_relations::related_id)))
-        .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
-        .inner_join(eras::table.on(eras::id.eq(poets::era_id)))
-        .inner_join(meters::table.on(meters::id.eq(poems::meter_id)))
-        .filter(poem_relations::poem_id.eq(id))
-        .order(poem_relations::rank.asc())
-        .select((
-            poems::title,
-            poems::slug,
-            poets::name,
-            poets::slug,
-            poets::has_avatar,
-            poets::is_anonymous,
-            meters::name,
-            meters::slug,
-            eras::name,
-            eras::slug,
-        ))
-        .load::<RelatedRow>(&mut conn)
-        .await?
-        .into_iter()
-        .map(related_item)
-        .collect())
-}
-
-pub async fn get(pg: &PgPool, slug: &str) -> Result<PoemDetail, AppError> {
-    let pooled = pg.get().await?;
-    let conn: &AsyncPgConnection = &pooled;
-    let mut main = conn;
-    let row = poems::table
-        .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
-        .inner_join(eras::table.on(eras::id.eq(poets::era_id)))
-        .inner_join(meters::table.on(meters::id.eq(poems::meter_id)))
-        .inner_join(themes::table.on(themes::id.eq(poems::theme_id)))
-        .inner_join(rhymes::table.on(rhymes::id.eq(poems::rhyme_id)))
-        .inner_join(poem_types::table.on(poem_types::id.eq(poems::poem_type_id)))
-        .filter(poems::slug.eq(slug))
-        .filter(poems::is_hidden.eq(false))
-        .select((
-            poems::id,
-            poems::poet_id,
-            poems::recension_of_id,
-            poems::title,
-            poems::verse_count,
-            poets::name,
-            poets::slug,
-            poets::has_avatar,
-            poets::is_anonymous,
-            meters::name,
-            meters::slug,
-            themes::name,
-            themes::slug,
-            eras::name,
-            eras::slug,
-            rhymes::name,
-            rhymes::slug,
-            poem_types::name,
-            poem_types::slug,
-        ))
-        .first::<DetailRow>(&mut main)
-        .await
-        .optional()?
-        .ok_or(AppError::NotFound(Resource::Poem))?;
-    let (
-        id,
-        poet_id,
-        primary,
-        title,
-        verse_count,
-        poet_name,
-        poet_slug,
-        poet_has_avatar,
-        poet_is_anonymous,
-        meter_name,
-        meter_slug,
-        theme_name,
-        theme_slug,
-        era_name,
-        era_slug,
-        rhyme_name,
-        rhyme_slug,
-        poem_type_name,
-        poem_type_slug,
-    ) = row;
-
-    let (lines, (prev, next), family, related_poems) = tokio::try_join!(
-        verses_of(conn, id),
-        neighbours(conn, poet_id, id),
-        recensions_of(conn, id, primary.unwrap_or(id)),
-        related_of(conn, id),
-    )?;
-    let recension_of = primary.and_then(|primary| {
-        family
+fn detail(slug: &str, record: PoemRecord) -> Result<PoemDetail, AppError> {
+    let recension_of = record.recension_of_id.and_then(|primary| {
+        record
+            .family
             .iter()
-            .find(|(other, _, _, _)| *other == primary)
-            .map(|(_, title, slug, _)| PoemNavRef {
-                title: title.clone(),
-                slug: slug.clone(),
+            .find(|relative| relative.id == primary)
+            .map(|relative| PoemNavRef {
+                title: relative.title.clone(),
+                slug: relative.slug.clone(),
             })
     });
-    let recensions = family
+    let recensions = record
+        .family
         .into_iter()
-        .map(|(_, title, slug, verse_count)| PoemRecensionRef {
-            title,
-            slug,
-            verse_count,
+        .map(|relative| PoemRecensionRef {
+            title: relative.title,
+            slug: relative.slug,
+            verse_count: relative.verse_count,
         })
         .collect();
-    if lines.is_empty() {
+    if record.lines.is_empty() {
         return Err(AppError::PoemParse);
     }
-    let parsed = parse_poem_content(&lines.join("*"));
+    let parsed = parse_poem_content(&record.lines.join("*"));
 
     Ok(PoemDetail {
-        title,
+        title: record.title,
         slug: slug.to_string(),
         verses: parsed.verses,
-        verse_count,
+        verse_count: record.verse_count,
         sample: parsed.sample,
         keywords: parsed.keywords,
-        poet: PoetRef {
-            name: poet_name,
-            slug: poet_slug,
-            has_avatar: poet_has_avatar,
-            is_anonymous: poet_is_anonymous,
-        },
-        era: EraRef {
-            name: era_name,
-            slug: era_slug,
-        },
-        meter: MeterRef {
-            name: meter_name,
-            slug: meter_slug,
-        },
-        theme: ThemeRef {
-            name: theme_name,
-            slug: theme_slug,
-        },
-        rhyme: RhymeRef {
-            name: rhyme_name,
-            slug: rhyme_slug,
-        },
-        poem_type: PoemTypeRef {
-            name: poem_type_name,
-            slug: poem_type_slug,
-        },
-        prev,
-        next,
+        poet: record.poet,
+        era: record.era,
+        meter: record.meter,
+        theme: record.theme,
+        rhyme: record.rhyme,
+        poem_type: record.poem_type,
+        prev: record.prev,
+        next: record.next,
         recension_of,
         recensions,
-        related_poems,
+        related_poems: record.related,
     })
 }
 
-pub async fn alias_target(pg: &PgPool, slug: &str) -> Result<Option<String>, AppError> {
-    let mut conn = pg.get().await?;
-    Ok(poem_aliases::table
-        .inner_join(poems::table)
-        .filter(poem_aliases::slug.eq(slug))
-        .filter(poems::is_hidden.eq(false))
-        .select(poems::slug)
-        .first::<String>(&mut conn)
-        .await
-        .optional()?)
+pub async fn get(poems: &dyn PoemRepository, slug: &str) -> Result<Option<PoemDetail>, AppError> {
+    match poems.find(slug).await? {
+        Some(record) => detail(slug, record).map(Some),
+        None => Ok(None),
+    }
+}
+
+fn shown_terms(terms: Vec<PoemCountStats>, selected: &[String]) -> Vec<PoemCountStats> {
+    let mut shown: Vec<PoemCountStats> = terms
+        .into_iter()
+        .filter(|term| term.poems_count > 0 || selected.contains(&term.slug))
+        .collect();
+    shown.sort_by_key(|term| Reverse(term.poems_count));
+    shown
+}
+
+pub async fn facets(poems: &dyn PoemRepository, facets: &Facets) -> Result<PoemFacets, AppError> {
+    let counts = poems
+        .facet_counts(facets)
+        .await?
+        .ok_or(AppError::NotFound(Resource::Poet))?;
+    Ok(PoemFacets {
+        meters: shown_terms(counts.meters, &facets.meter),
+        rhymes: shown_terms(counts.rhymes, &facets.rhyme),
+        themes: shown_terms(counts.themes, &facets.theme),
+    })
 }
 
 pub enum RandomPoemOption {
@@ -917,13 +319,6 @@ impl RandomPoemOption {
             .into()),
         }
     }
-}
-
-#[derive(Deserialize)]
-struct RandomPoem {
-    poet_name: String,
-    content: String,
-    slug: String,
 }
 
 fn random_poem_failed() -> AppError {
@@ -970,27 +365,21 @@ fn build_excerpt(poem: &RandomPoem, roll: f64) -> Result<String, AppError> {
     Ok(excerpt)
 }
 
-#[diesel::declare_sql_function]
-extern "SQL" {
-    fn random_poem_json() -> Nullable<Json>;
+async fn fetch_random_poem(poems: &dyn PoemRepository) -> Result<RandomPoem, AppError> {
+    poems.random().await?.ok_or_else(random_poem_failed)
 }
 
-async fn fetch_random_poem(pg: &PgPool) -> Result<RandomPoem, AppError> {
-    let mut conn = pg.get().await?;
-    let payload = diesel::select(random_poem_json())
-        .get_result::<Option<serde_json::Value>>(&mut conn)
-        .await?
-        .ok_or_else(random_poem_failed)?;
-    serde_json::from_value(payload).map_err(|error| AppError::Database(error.to_string()))
-}
-
-pub async fn random(pg: &PgPool, option: &RandomPoemOption, roll: f64) -> Result<String, AppError> {
+pub async fn random(
+    poems: &dyn PoemRepository,
+    option: &RandomPoemOption,
+    roll: f64,
+) -> Result<String, AppError> {
     match option {
-        RandomPoemOption::Slug => Ok(fetch_random_poem(pg).await?.slug),
+        RandomPoemOption::Slug => Ok(fetch_random_poem(poems).await?.slug),
         RandomPoemOption::Lines => {
             let mut last_err = None;
             for _ in 0..RANDOM_POEM_MAX_ATTEMPTS {
-                let poem = fetch_random_poem(pg).await?;
+                let poem = fetch_random_poem(poems).await?;
                 match build_excerpt(&poem, roll) {
                     Ok(excerpt) => return Ok(excerpt),
                     Err(err) => last_err = Some(err),
@@ -1004,13 +393,6 @@ pub async fn random(pg: &PgPool, option: &RandomPoemOption, roll: f64) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn ids(filter: Filter, ids: &[i32]) -> FilterIds {
-        FilterIds {
-            filter,
-            ids: ids.to_vec(),
-        }
-    }
 
     #[test]
     fn pairs_hemistichs_and_leaves_an_odd_one_half_empty() {
@@ -1154,93 +536,5 @@ mod tests {
             slug: "TnKK".into(),
         };
         assert!(build_excerpt(&over, 0.0).is_err());
-    }
-
-    fn page_sql(filters: &[FilterIds], page: u32) -> String {
-        diesel::debug_query::<Pg, _>(&page_ids(filters, page, 30)).to_string()
-    }
-
-    #[test]
-    fn one_id_is_matched_as_a_scalar_so_the_planner_walks_the_filter_index() {
-        let sql = page_sql(&[ids(Filter::Meter, &[5])], 1);
-        assert!(sql.contains(r#""poems"."meter_id" = $2"#), "{sql}");
-        assert!(!sql.contains("ANY"), "{sql}");
-    }
-
-    #[test]
-    fn several_ids_are_matched_as_a_set() {
-        let sql = page_sql(&[ids(Filter::Meter, &[5, 9])], 1);
-        assert!(sql.contains(r#""poems"."meter_id" = ANY($2)"#), "{sql}");
-    }
-
-    #[test]
-    fn every_filter_narrows_the_one_page_query() {
-        let filters: Vec<FilterIds> = Filter::ALL
-            .into_iter()
-            .map(|filter| ids(filter, &[1, 2]))
-            .collect();
-        let sql = page_sql(&filters, 1);
-        for column in [
-            "poet_id",
-            "era_id",
-            "meter_id",
-            "theme_id",
-            "rhyme_id",
-            "collection_id",
-        ] {
-            assert!(
-                sql.contains(&format!(r#""poems"."{column}" = ANY("#)),
-                "{column}: {sql}"
-            );
-        }
-    }
-
-    #[test]
-    fn every_page_hides_recensions_and_hidden_poems_even_without_a_filter() {
-        let sql = page_sql(&[], 1);
-        assert!(
-            sql.contains(r#""poems"."recension_of_id" IS NULL"#),
-            "{sql}"
-        );
-        assert!(sql.contains(r#""poems"."is_hidden" = $1"#), "{sql}");
-        assert!(sql.contains("binds: [false,"), "{sql}");
-    }
-
-    #[test]
-    fn a_page_is_picked_in_id_order_and_offset_by_whole_pages() {
-        let sql = page_sql(&[], 3);
-        assert!(
-            sql.contains(r#"ORDER BY "poems"."id" ASC LIMIT $2 OFFSET $3"#),
-            "{sql}"
-        );
-        assert!(sql.ends_with("binds: [false, 30, 60]"), "{sql}");
-    }
-
-    #[test]
-    fn the_previous_poem_is_the_poets_nearest_shown_primary_before_it() {
-        let sql = diesel::debug_query::<Pg, _>(&neighbour(7, 100, true)).to_string();
-        assert!(sql.contains(r#""poems"."poet_id" = $1"#), "{sql}");
-        assert!(
-            sql.contains(r#""poems"."recension_of_id" IS NULL"#),
-            "{sql}"
-        );
-        assert!(sql.contains(r#""poems"."id" < $3"#), "{sql}");
-        assert!(sql.contains(r#"ORDER BY "poems"."id" DESC LIMIT"#), "{sql}");
-    }
-
-    #[test]
-    fn the_previous_and_next_poems_are_read_in_one_union_of_two_bounded_lookups() {
-        let union = neighbour(7, 100, true).union_all(neighbour(7, 100, false));
-        let sql = diesel::debug_query::<Pg, _>(&union).to_string();
-        assert!(sql.starts_with("(SELECT"), "{sql}");
-        assert!(sql.contains(") UNION ALL (SELECT"), "{sql}");
-        assert_eq!(sql.matches("LIMIT").count(), 2, "{sql}");
-    }
-
-    #[test]
-    fn the_next_poem_is_the_poets_nearest_shown_primary_after_it() {
-        let sql = diesel::debug_query::<Pg, _>(&neighbour(7, 100, false)).to_string();
-        assert!(sql.contains(r#""poems"."id" > $3"#), "{sql}");
-        assert!(sql.contains(r#"ORDER BY "poems"."id" ASC LIMIT"#), "{sql}");
     }
 }

@@ -5,6 +5,7 @@ use serde_json::json;
 
 use qafiyah_api::accounts::{keys, sessions, users};
 use qafiyah_api::db::accounts_schema::usage_hourly;
+use qafiyah_api::db::usage::PgUsage;
 
 use crate::{FULL, INTERNAL, harness, unique_email};
 
@@ -69,7 +70,7 @@ async fn a_user_is_upserted_by_email_and_its_identity_relinked() {
 async fn sessions_are_created_resolved_and_deleted_through_the_internal_api() {
     let Some(h) = harness().await else { return };
     h.isolated("session", |h, email| async move {
-        let profile = users::upsert(&h.accounts, &identity(&email))
+        let profile = users::upsert(h.state.users.as_ref(), &identity(&email))
             .await
             .expect("a user");
         let created = h
@@ -122,11 +123,11 @@ async fn sessions_are_created_resolved_and_deleted_through_the_internal_api() {
             .status,
             StatusCode::UNAUTHORIZED
         );
-        let second = sessions::create(&h.accounts, profile.id)
+        let second = sessions::create(h.state.sessions.as_ref(), profile.id)
             .await
             .expect("a session");
         assert!(
-            sessions::resolve(&h.accounts, &second)
+            sessions::resolve(h.state.sessions.as_ref(), &second)
                 .await
                 .expect("query")
                 .is_some()
@@ -143,7 +144,7 @@ async fn sessions_are_created_resolved_and_deleted_through_the_internal_api() {
             StatusCode::NO_CONTENT
         );
         assert!(
-            sessions::resolve(&h.accounts, &second)
+            sessions::resolve(h.state.sessions.as_ref(), &second)
                 .await
                 .expect("query")
                 .is_none()
@@ -156,7 +157,7 @@ async fn sessions_are_created_resolved_and_deleted_through_the_internal_api() {
 async fn keys_are_capped_per_user_listed_with_their_plan_and_revocable_once() {
     let Some(h) = harness().await else { return };
     h.isolated("keys", |h, email| async move {
-        let profile = users::upsert(&h.accounts, &identity(&email))
+        let profile = users::upsert(h.state.users.as_ref(), &identity(&email))
             .await
             .expect("a user");
         let first = h
@@ -208,7 +209,7 @@ async fn keys_are_capped_per_user_listed_with_their_plan_and_revocable_once() {
         assert_eq!(view["requests"], 500);
         assert_eq!(view["burst"], 10);
         assert_eq!(view["keys"].as_array().expect("keys").len(), 2);
-        let caller = keys::lookup(&h.accounts, &raw)
+        let caller = keys::lookup(h.state.api_keys.as_ref(), &raw)
             .await
             .expect("lookup")
             .expect("a live key");
@@ -253,10 +254,10 @@ async fn keys_are_capped_per_user_listed_with_their_plan_and_revocable_once() {
 async fn a_real_key_is_limited_by_its_plan_and_its_usage_is_flushed() {
     let Some(h) = harness().await else { return };
     h.isolated("usage", |h, email| async move {
-        let profile = users::upsert(&h.accounts, &identity(&email))
+        let profile = users::upsert(h.state.users.as_ref(), &identity(&email))
             .await
             .expect("a user");
-        let raw = keys::create_for(&h.accounts, profile.id, Some("limits"))
+        let raw = keys::create_for(h.state.api_keys.as_ref(), profile.id, Some("limits"))
             .await
             .expect("a key")
             .value;
@@ -265,12 +266,27 @@ async fn a_real_key_is_limited_by_its_plan_and_its_usage_is_flushed() {
         assert_eq!(sent.header("x-ratelimit-limit"), Some("500"));
         assert_eq!(sent.header("x-ratelimit-remaining"), Some("499"));
         let recorder = qafiyah_api::accounts::usage::UsageRecorder::default();
-        let key_id = keys::list_for(&h.accounts, profile.id).await.expect("keys")[0].id;
+        let key_id = keys::list_for(h.state.api_keys.as_ref(), profile.id)
+            .await
+            .expect("keys")[0]
+            .id;
         recorder.record(key_id, 500_000);
-        assert_eq!(recorder.flush(&h.accounts).await.expect("flush"), 1);
+        assert_eq!(
+            recorder
+                .flush(&PgUsage::new(h.accounts.clone()))
+                .await
+                .expect("flush"),
+            1
+        );
         recorder.record(key_id, 500_000);
         recorder.record(key_id, 500_000);
-        assert_eq!(recorder.flush(&h.accounts).await.expect("flush"), 1);
+        assert_eq!(
+            recorder
+                .flush(&PgUsage::new(h.accounts.clone()))
+                .await
+                .expect("flush"),
+            1
+        );
         let mut conn = h.accounts.get().await.expect("an accounts connection");
         let used: i32 = usage_hourly::table
             .filter(usage_hourly::api_key_id.eq(key_id))
@@ -299,26 +315,28 @@ async fn the_same_provider_identity_with_a_new_email_keeps_its_account_and_keys(
         avatar_url: None,
     };
 
-    let original = users::upsert(&h.accounts, &identity).await.expect("a user");
-    let created = keys::create_for(&h.accounts, original.id, Some("kept"))
+    let original = users::upsert(h.state.users.as_ref(), &identity)
+        .await
+        .expect("a user");
+    let created = keys::create_for(h.state.api_keys.as_ref(), original.id, Some("kept"))
         .await
         .expect("a key");
 
     identity.email = second.clone();
-    let relinked = users::upsert(&h.accounts, &identity)
+    let relinked = users::upsert(h.state.users.as_ref(), &identity)
         .await
         .expect("relinked");
     assert_eq!(relinked.id, original.id, "the identity keeps its account");
     assert_eq!(relinked.email, second, "the email follows the identity");
 
-    let listed = keys::list_for(&h.accounts, original.id)
+    let listed = keys::list_for(h.state.api_keys.as_ref(), original.id)
         .await
         .expect("keys");
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].prefix, created.prefix, "the key stays attached");
 
     users::upsert(
-        &h.accounts,
+        h.state.users.as_ref(),
         &users::Identity {
             provider: "github".into(),
             provider_uid: "gh-other".into(),
@@ -333,7 +351,7 @@ async fn the_same_provider_identity_with_a_new_email_keeps_its_account_and_keys(
     identity.email = third.clone();
     assert!(
         matches!(
-            users::upsert(&h.accounts, &identity).await,
+            users::upsert(h.state.users.as_ref(), &identity).await,
             Err(users::UpsertError::EmailTaken)
         ),
         "an email owned by another account is refused"

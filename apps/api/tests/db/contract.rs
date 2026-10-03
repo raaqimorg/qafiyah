@@ -1,6 +1,10 @@
 use std::collections::HashSet;
 
 use axum::http::StatusCode;
+use qafiyah_api::db::poems::PgPoems;
+use qafiyah_api::db::taxonomy::PgTaxonomy;
+use qafiyah_api::domain::poems::PoemRepository;
+use qafiyah_api::domain::taxonomy::TaxonomyRepository;
 use serde_json::Value;
 
 use crate::{Harness, harness};
@@ -785,17 +789,14 @@ async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
         rhyme: vec!["meem".into(), "lam".into()],
         ..Default::default()
     };
+    let poems = PgPoems::new(pool.clone());
     for _ in 0..6 {
-        qafiyah_api::domain::poems::list(&pool, &facets, 1, 30)
-            .await
-            .expect("a list");
+        poems.list(&facets, 1, 30).await.expect("a list");
     }
-    qafiyah_api::domain::taxonomy::list_counted(
-        &pool,
-        qafiyah_api::domain::taxonomy::Counted::Meters,
-    )
-    .await
-    .expect("the meters");
+    PgTaxonomy::new(pool.clone())
+        .list_counted(qafiyah_api::domain::taxonomy::Counted::Meters)
+        .await
+        .expect("the meters");
     let mut conn = pool.get().await.expect("the one connection");
     let kept: Vec<String> = diesel_async::RunQueryDsl::load::<Statement>(
         diesel::sql_query("SELECT statement FROM pg_prepared_statements WHERE name <> ''"),

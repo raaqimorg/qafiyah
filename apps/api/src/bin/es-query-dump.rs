@@ -8,9 +8,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use qafiyah_api::constants::{POEMS_PER_PAGE, POETS_LIST_MAX_RESULT_WINDOW};
-use qafiyah_api::es::query::{
-    PoemSearchParams, PoetSearchParams, PoetSort, poem_search_body, poet_search_body,
-};
+use qafiyah_api::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
+use qafiyah_api::es::query::{poem_search_body, poet_search_body};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

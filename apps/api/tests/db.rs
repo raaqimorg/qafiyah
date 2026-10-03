@@ -11,7 +11,6 @@ mod db {
     pub(crate) mod search;
 }
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -29,13 +28,10 @@ use serde_json::{Value, json};
 use tokio::sync::OnceCell;
 use tower::ServiceExt;
 
-use qafiyah_api::accounts::cache::KeyCache;
-use qafiyah_api::accounts::usage::UsageRecorder;
 use qafiyah_api::auth::Keys;
 use qafiyah_api::db::accounts_schema::users;
 use qafiyah_api::db::lower;
 use qafiyah_api::es::client::Es;
-use qafiyah_api::rate_limit::Limiter;
 use qafiyah_api::state::AppState;
 
 pub const INTERNAL: &str = "internal-test-key";
@@ -46,6 +42,7 @@ pub struct Harness {
     pub app: Router,
     pub pg: qafiyah_api::db::PgPool,
     pub accounts: qafiyah_api::db::PgPool,
+    pub state: AppState,
 }
 
 pub struct Sent {
@@ -95,20 +92,18 @@ pub async fn harness() -> Option<Harness> {
         qafiyah_api::db::accounts_setup(),
     )
     .expect("the accounts database");
-    let state = AppState {
-        pg: pg.clone(),
-        accounts: accounts.clone(),
-        es: Arc::new(Es::new(&es_url).expect("an Elasticsearch endpoint")),
-        keys: Arc::new(Keys::new(Some(INTERNAL.into()), Some(FULL.into()))),
-        limiter: Arc::new(Limiter::default()),
-        key_cache: Arc::new(KeyCache::default()),
-        usage: Arc::new(UsageRecorder::default()),
-        anon_requests: 1_000_000,
-    };
+    let state = AppState::new(
+        pg.clone(),
+        accounts.clone(),
+        Es::new(&es_url).expect("an Elasticsearch endpoint"),
+        Keys::new(Some(INTERNAL.into()), Some(FULL.into())),
+        1_000_000,
+    );
     Some(Harness {
-        app: qafiyah_api::app(state),
+        app: qafiyah_api::app(state.clone()),
         pg,
         accounts,
+        state,
     })
 }
 

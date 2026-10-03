@@ -298,7 +298,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
     let caller = match key {
         Some(key) if visitor.is_none() && crate::accounts::keys::is_well_formed(key) => state
             .key_cache
-            .resolve(&state.accounts, key, now)
+            .resolve(state.api_keys.as_ref(), key, now)
             .await
             .unwrap_or(None),
         _ => None,

@@ -201,17 +201,20 @@ impl From<RouteProblem> for AppError {
     }
 }
 
-impl From<diesel::result::Error> for AppError {
-    fn from(error: diesel::result::Error) -> Self {
-        AppError::Database(error.to_string())
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+    #[error("database error: {0}")]
+    Database(String),
+    #[error("search error: {0}")]
+    Search(String),
 }
 
-impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for AppError {
-    fn from(
-        error: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>,
-    ) -> Self {
-        AppError::Database(error.to_string())
+impl From<StoreError> for AppError {
+    fn from(error: StoreError) -> Self {
+        match error {
+            StoreError::Database(cause) => AppError::Database(cause),
+            StoreError::Search(cause) => AppError::Search(cause),
+        }
     }
 }
 

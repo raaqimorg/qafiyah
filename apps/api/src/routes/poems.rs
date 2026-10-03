@@ -63,7 +63,7 @@ pub(crate) async fn list(
     let query = Query::parse(raw.as_deref());
     let page = query.unbounded_page()?;
     let facets = facets(&query)?;
-    let (data, total) = poems::list(&state.pg, &facets, page, POEMS_PER_PAGE).await?;
+    let (data, total) = state.poems.list(&facets, page, POEMS_PER_PAGE).await?;
     let envelope = ListEnvelope {
         data,
         pagination: build_pagination(page, POEMS_PER_PAGE, total.cast_unsigned()),
@@ -96,8 +96,8 @@ pub(crate) async fn list_slugs(
 ) -> Result<Json<ListEnvelope<String>>, AppError> {
     let page = Query::parse(raw.as_deref()).unbounded_page()?;
     let (data, total) = tokio::try_join!(
-        poems::list_slugs(&state.pg, page, SITEMAP_POEMS_PER_SHARD),
-        poems::count(&state.pg)
+        state.poems.list_slugs(page, SITEMAP_POEMS_PER_SHARD),
+        state.poems.count()
     )?;
     log.set(
         "result_count",
@@ -126,7 +126,7 @@ pub(crate) async fn count(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
 ) -> Result<Json<ItemEnvelope<Total>>, AppError> {
-    let total = poems::count(&state.pg).await?;
+    let total = state.poems.count().await?;
     log.set("result_count", total);
     Ok(Json(ItemEnvelope {
         data: Total { total },
@@ -167,7 +167,7 @@ pub(crate) async fn facet_counts(
         theme: query.facet("theme", slug::transliterated, MAX_FILTER_SLUGS)?,
         ..Facets::default()
     };
-    let data = poems::facets(&state.pg, &facets).await?;
+    let data = poems::facets(state.poems.as_ref(), &facets).await?;
     Ok(Json(ItemEnvelope { data }))
 }
 
@@ -192,20 +192,16 @@ pub(crate) async fn detail(
     SafePath(raw): SafePath<String>,
 ) -> Result<Response, AppError> {
     let slug = slug::four_letters(&raw)?;
-    let poem = match poems::get(&state.pg, slug).await {
-        Ok(poem) => poem,
-        Err(AppError::NotFound(Resource::Poem)) => {
-            let Some(survivor) = poems::alias_target(&state.pg, slug).await? else {
-                return Err(AppError::NotFound(Resource::Poem));
-            };
-            log.set("poem_id", slug);
-            log.set("alias_of", survivor.clone());
-            return Ok(permanent_redirect(
-                &format!("{API_V1_PREFIX}/poems/{survivor}"),
-                READ_CACHE_CONTROL,
-            ));
-        }
-        Err(error) => return Err(error),
+    let Some(poem) = poems::get(state.poems.as_ref(), slug).await? else {
+        let Some(survivor) = state.poems.alias_target(slug).await? else {
+            return Err(AppError::NotFound(Resource::Poem));
+        };
+        log.set("poem_id", slug);
+        log.set("alias_of", survivor.clone());
+        return Ok(permanent_redirect(
+            &format!("{API_V1_PREFIX}/poems/{survivor}"),
+            READ_CACHE_CONTROL,
+        ));
     };
     log.set("poem_id", slug);
     log.set("poet_id", poem.poet.slug.clone());
@@ -221,7 +217,7 @@ async fn random(
 ) -> Result<Response, AppError> {
     let option = RandomPoemOption::parse(Query::parse(raw.as_deref()).first("option").as_deref())?;
     let roll: f64 = rand::rng().random();
-    let body = poems::random(&state.pg, &option, roll).await?;
+    let body = poems::random(state.poems.as_ref(), &option, roll).await?;
     Ok((
         [
             (

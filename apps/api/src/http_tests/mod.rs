@@ -1,5 +1,6 @@
 mod account;
 mod cache;
+mod catalog;
 mod cors;
 mod errors;
 mod go;

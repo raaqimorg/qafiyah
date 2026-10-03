@@ -1,6 +1,7 @@
 use serde_json::{Map, Value, json};
 
-use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
+use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE};
+use crate::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
 
 const RECALL_FLOOR: &str = "2<75%";
 
@@ -157,20 +158,6 @@ fn body(
         map.insert("highlight".into(), hl);
     }
     Value::Object(map)
-}
-
-#[derive(Default)]
-pub struct PoemSearchParams {
-    pub q: String,
-    pub page: u32,
-    pub poet_slugs: Vec<String>,
-    pub era_slugs: Vec<String>,
-    pub meter_slugs: Vec<String>,
-    pub theme_slugs: Vec<String>,
-    pub rhyme_slugs: Vec<String>,
-    pub poem_type_slugs: Vec<String>,
-    pub collection_slugs: Vec<String>,
-    pub exact: bool,
 }
 
 pub fn poem_search_body(params: &PoemSearchParams) -> Value {
@@ -362,38 +349,6 @@ fn scored(query: Value, functions: Vec<Value>) -> Value {
         "score_mode": "multiply",
         "boost_mode": "multiply",
     } })
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum PoetSort {
-    Id,
-    PoemsCount,
-}
-
-pub struct PoetSearchParams {
-    pub q: String,
-    pub page: u32,
-    pub era_slugs: Vec<String>,
-    pub page_size: u32,
-    pub sort: PoetSort,
-    pub highlight: bool,
-    pub exact: bool,
-    pub window: u32,
-}
-
-impl Default for PoetSearchParams {
-    fn default() -> Self {
-        Self {
-            q: String::new(),
-            page: 1,
-            era_slugs: Vec::new(),
-            page_size: SEARCH_POETS_PER_PAGE,
-            sort: PoetSort::Id,
-            highlight: true,
-            exact: false,
-            window: ES_MAX_RESULT_WINDOW,
-        }
-    }
 }
 
 pub fn poet_search_body(params: &PoetSearchParams) -> Value {

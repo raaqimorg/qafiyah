@@ -87,7 +87,7 @@ async fn serve(config: Config) {
     };
 
     let es = match Es::new(&config.elasticsearch_url) {
-        Ok(es) => Arc::new(es),
+        Ok(es) => es,
         Err(e) => {
             eprintln!("{}", stage_event("boot_es", Some(("error", e.into()))));
             std::process::exit(1);
@@ -109,22 +109,14 @@ async fn serve(config: Config) {
         stage_event("ready", Some(("port", config.port.into())))
     );
 
-    let limiter = Arc::new(qafiyah_api::rate_limit::Limiter::default());
-    qafiyah_api::rate_limit::sweeper(limiter.clone());
+    let state = AppState::new(pg, accounts.clone(), es, config.keys, config.anon_requests);
+    qafiyah_api::rate_limit::sweeper(state.limiter.clone());
+    qafiyah_api::accounts::usage::flusher(
+        state.usage.clone(),
+        Arc::new(qafiyah_api::db::usage::PgUsage::new(accounts)),
+    );
 
-    let usage = Arc::new(qafiyah_api::accounts::usage::UsageRecorder::default());
-    qafiyah_api::accounts::usage::flusher(usage.clone(), accounts.clone());
-
-    let app = qafiyah_api::app(AppState {
-        pg,
-        accounts,
-        es,
-        keys: Arc::new(config.keys),
-        limiter,
-        key_cache: Arc::new(qafiyah_api::accounts::cache::KeyCache::default()),
-        usage,
-        anon_requests: config.anon_requests,
-    });
+    let app = qafiyah_api::app(state);
     match qafiyah_api::serve(listener, app, qafiyah_api::shutdown_signal()).await {
         Ok(()) => println!("{}", stage_event("stopped", None)),
         Err(e) => {
