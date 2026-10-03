@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use reqwest::Method;
 use serde_json::{Value, json};
 
-use qafiyah_api::domain::search::{PoemSearchParams, SearchIndex};
+use qafiyah_api::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort, SearchIndex};
 use qafiyah_api::es::client::Es;
 use qafiyah_api::es::query::poem_search_body;
 
@@ -696,4 +696,406 @@ async fn an_era_with_no_query_lists_only_the_poets_of_that_era() {
     let eras = browsed_eras(&h, "poets").await;
     assert!(!eras.is_empty(), "no poets came back");
     assert!(eras.iter().all(|era| era == "jahili"), "{eras:?}");
+}
+
+fn shaped(mut doc: Value, changes: Value) -> Value {
+    if let (Some(target), Some(extra)) = (doc.as_object_mut(), changes.as_object()) {
+        target.extend(extra.clone());
+    }
+    doc
+}
+
+fn reading_of(primary: i32, doc: Value) -> Value {
+    shaped(doc, json!({ "primaryId": primary, "isPrimary": false }))
+}
+
+fn ranked(q: &str) -> PoemSearchParams {
+    PoemSearchParams {
+        q: q.into(),
+        ..PoemSearchParams::default()
+    }
+}
+
+fn exactly(q: &str) -> PoemSearchParams {
+    PoemSearchParams {
+        q: q.into(),
+        exact: true,
+        ..PoemSearchParams::default()
+    }
+}
+
+#[expect(clippy::expect_used, reason = "a failed search is a failed test")]
+async fn found(es: &Es, params: PoemSearchParams) -> (Vec<String>, u32) {
+    let page = es.search_poems(&params).await.expect("a search");
+    (
+        page.hits.into_iter().map(|hit| hit.slug).collect(),
+        page.total,
+    )
+}
+
+fn browsing_docs() -> Vec<Value> {
+    vec![
+        shaped(
+            poem(1, "Jah1", "عنوان أول", "بيت أول*شطر ثان*بيت ثالث*شطر رابع"),
+            json!({ "eraSlug": "jahili" }),
+        ),
+        poem(2, "Mod2", "عنوان ثان", "سطر أول*سطر ثان*سطر ثالث"),
+        shaped(
+            poem(3, "Abb3", "عنوان ثالث", "قول أول*قول ثان"),
+            json!({ "eraSlug": "abbasi" }),
+        ),
+        poem(4, "Mod4", "عنوان رابع", "كلام أول*كلام ثان*كلام ثالث"),
+        reading_of(4, poem(5, "Alt5", "عنوان رابع", "كلام أول*كلام ثان*كلام ثالث")),
+    ]
+}
+
+#[tokio::test]
+async fn browsing_without_a_query_lists_classical_era_poems_first_then_the_newest() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poems(&browsing_docs(), |es, index| async move {
+            let es = searching(es, index);
+            let (slugs, _) = found(&es, ranked("")).await;
+            assert_eq!(slugs, ["Abb3", "Jah1", "Mod4", "Mod2"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn browsing_lists_and_counts_primary_readings_only() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poems(&browsing_docs(), |es, index| async move {
+            let es = searching(es, index);
+            let (slugs, total) = found(&es, ranked("")).await;
+            assert!(!slugs.contains(&"Alt5".to_string()), "{slugs:?}");
+            assert_eq!(total, 4);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn browsing_one_era_lists_its_poems_newest_first_with_their_opening_verse() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poems(&browsing_docs(), |es, index| async move {
+            let es = searching(es, index);
+            let page = es
+                .search_poems(&PoemSearchParams {
+                    era_slugs: vec!["hadith".into()],
+                    ..PoemSearchParams::default()
+                })
+                .await
+                .expect("a search");
+            let shown: Vec<(&str, &str)> = page
+                .hits
+                .iter()
+                .map(|hit| (hit.slug.as_str(), hit.snippet.as_str()))
+                .collect();
+            assert_eq!(
+                shown,
+                [("Mod4", "كلام أول*كلام ثان"), ("Mod2", "سطر أول*سطر ثان")]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_query_of_two_words_needs_both_and_one_of_four_words_needs_three() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Both", "قصيدة", "مر السحاب على النخيل*وسكن الليل"),
+        poem(2, "Half", "قصيدة", "مر السحاب على الجبل*وسكن الليل"),
+        poem(3, "Thre", "قصيدة", "السحاب فوق النخيل وفوق الجبال*بلا ضوء"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            let (two, _) = found(&es, ranked("السحاب النخيل")).await;
+            assert!(!two.contains(&"Half".to_string()), "{two:?}");
+            assert!(two.contains(&"Both".to_string()), "{two:?}");
+            let (four, _) = found(&es, ranked("السحاب النخيل الجبال القمر")).await;
+            assert!(four.contains(&"Thre".to_string()), "{four:?}");
+            assert!(!four.contains(&"Both".to_string()), "{four:?}");
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_classical_era_poem_outranks_the_same_words_in_a_modern_one() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Mdrn", "الليل", "طال الليل*على الساهر"),
+        shaped(
+            poem(2, "Clsc", "الليل", "طال الليل*على الساهر"),
+            json!({ "eraSlug": "jahili" }),
+        ),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(found(&es, ranked("الليل")).await.0, ["Clsc", "Mdrn"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn poems_that_score_the_same_are_listed_oldest_first() {
+    let Some(admin) = admin() else { return };
+    let docs = [7, 3, 5].map(|id| poem(id, &format!("Tie{id}"), "الليل", "طال الليل*على الساهر"));
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(
+                found(&es, ranked("الليل")).await.0,
+                ["Tie3", "Tie5", "Tie7"]
+            );
+            assert_eq!(
+                found(&es, exactly("طال الليل")).await.0,
+                ["Tie3", "Tie5", "Tie7"]
+            );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn an_alternate_reading_ranks_below_a_primary_poem_with_the_same_words() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(5, "Prim", "قصيدة", "طال الليل*على الساهر"),
+        poem(2, "Othr", "قصيدة", "شطر آخر*لا علاقة له"),
+        reading_of(2, poem(3, "Read", "قصيدة", "طال الليل*على الساهر")),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(found(&es, ranked("طال الليل")).await.0, ["Prim", "Read"]);
+            assert_eq!(found(&es, exactly("طال الليل")).await.0, ["Prim", "Read"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_poem_found_in_both_of_its_readings_is_shown_and_counted_once() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Once", "قصيدة", "طال الليل*على الساهر"),
+        reading_of(1, poem(2, "Twce", "قصيدة", "طال الليل*على الساهر")),
+        poem(3, "Thrd", "قصيدة", "طال الليل*يا صاحبي"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            for params in [ranked("طال الليل"), exactly("طال الليل")] {
+                let (mut slugs, total) = found(&es, params).await;
+                slugs.sort();
+                assert_eq!(slugs, ["Once", "Thrd"]);
+                assert_eq!(total, 2);
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn an_exact_search_finds_the_words_together_in_the_typed_order_in_a_title_or_a_verse() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Vrse", "قصيدة", "طال الليل علينا*وانقضى"),
+        poem(2, "Ttle", "طال الليل", "شطر أول*شطر ثان"),
+        poem(3, "Aprt", "قصيدة", "طال بنا الليل*وانقضى"),
+        poem(4, "Rvrs", "قصيدة", "الليل طال*وانقضى"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            let (mut slugs, _) = found(&es, exactly("طال الليل")).await;
+            slugs.sort();
+            assert_eq!(slugs, ["Ttle", "Vrse"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_word_typed_with_a_standalone_hamza_ranks_the_poems_that_spell_it_so_first() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Fold", "قصيدة", "شربت ما النهر*وانتهى السمر"),
+        poem(2, "Hmza", "قصيدة", "شربت ماء النهر*وانتهى السمر"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            let (slugs, _) = found(&es, ranked("ماء")).await;
+            assert_eq!(slugs.first().map(String::as_str), Some("Hmza"), "{slugs:?}");
+            let (slugs, _) = found(
+                &es,
+                PoemSearchParams {
+                    era_slugs: vec!["hadith".into()],
+                    ..ranked("ماء")
+                },
+            )
+            .await;
+            assert_eq!(slugs.first().map(String::as_str), Some("Hmza"), "{slugs:?}");
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn every_facet_narrows_a_search_to_poems_carrying_its_value() {
+    let Some(admin) = admin() else { return };
+    let variants: [(&str, &str); 7] = [
+        ("poetSlug", "Oth1"),
+        ("eraSlug", "abbasi"),
+        ("meterSlug", "alkamil"),
+        ("themeSlug", "alghazal"),
+        ("rhymeSlug", "lam"),
+        ("poemTypeSlug", "hurr"),
+        ("collectionSlug", "almuallaqat"),
+    ];
+    let mut docs = vec![poem(1, "Base", "قصيدة", "كلمة واحدة*شطر ثان")];
+    for (offset, (field, value)) in (2..).zip(variants) {
+        docs.push(shaped(
+            poem(
+                offset,
+                &format!("Fac{offset}"),
+                "قصيدة",
+                "كلمة واحدة*شطر ثان",
+            ),
+            json!({ field: value }),
+        ));
+    }
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            for (offset, (field, value)) in (2..).zip(variants) {
+                let values = vec![value.to_string()];
+                let mut params = ranked("كلمة");
+                match field {
+                    "poetSlug" => params.poet_slugs = values,
+                    "eraSlug" => params.era_slugs = values,
+                    "meterSlug" => params.meter_slugs = values,
+                    "themeSlug" => params.theme_slugs = values,
+                    "rhymeSlug" => params.rhyme_slugs = values,
+                    "poemTypeSlug" => params.poem_type_slugs = values,
+                    _ => params.collection_slugs = values,
+                }
+                assert_eq!(
+                    found(&es, params).await.0,
+                    [format!("Fac{offset}")],
+                    "{field}"
+                );
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_word_in_a_title_outranks_the_same_word_in_a_verse() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poem(1, "Vrse", "قصيدة", "طال الليل*على الساهر"),
+        poem(2, "Ttle", "الليل", "شطر أول*شطر ثان"),
+    ];
+    admin
+        .with_poems(&docs, |es, index| async move {
+            let es = searching(es, index);
+            assert_eq!(found(&es, ranked("الليل")).await.0, ["Ttle", "Vrse"]);
+        })
+        .await;
+}
+
+fn poet(id: i32, slug: &str, name: &str, name_sort: &str, nickname: &str, poems: i32) -> Value {
+    json!({
+        "id": id, "slug": slug, "name": name, "nickname": nickname, "nameDisplay": name,
+        "nameSort": name_sort, "poemsCount": poems, "eraSlug": "abbasi", "eraName": "عباسي",
+    })
+}
+
+fn searching_poets(es: Es, index: String) -> Es {
+    let mut es = es;
+    es.poets_alias = index;
+    es
+}
+
+fn poets() -> Vec<Value> {
+    vec![
+        poet(1, "Bakr", "بكر", "بكر", "", 5),
+        poet(2, "Ahm2", "أحمد", "احمد", "", 5),
+        poet(3, "Zayd", "زيد", "زيد", "", 9),
+        poet(4, "Ahm4", "أحمد", "احمد", "", 5),
+        poet(5, "Ahm5", "أحمد", "احمد", "", 8),
+        poet(6, "Mtnb", "المتنبي", "المتنبي", "أبو الطيب", 300),
+    ]
+}
+
+#[tokio::test]
+async fn the_poets_list_puts_more_poems_first_then_orders_by_name_then_by_id() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poets(&poets(), |es, index| async move {
+            let es = searching_poets(es, index);
+            let page = es
+                .list_poets(&PoetSearchParams {
+                    sort: PoetSort::PoemsCount,
+                    ..PoetSearchParams::default()
+                })
+                .await
+                .expect("a list");
+            let slugs: Vec<&str> = page.hits.iter().map(|poet| poet.slug.as_str()).collect();
+            assert_eq!(slugs, ["Mtnb", "Zayd", "Ahm5", "Ahm2", "Ahm4", "Bakr"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn poets_matching_an_exact_name_equally_are_ordered_like_the_poets_list() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poets(&poets(), |es, index| async move {
+            let es = searching_poets(es, index);
+            let page = es
+                .search_poets(&PoetSearchParams {
+                    q: "أحمد".into(),
+                    exact: true,
+                    ..PoetSearchParams::default()
+                })
+                .await
+                .expect("a search");
+            let slugs: Vec<&str> = page.hits.iter().map(|poet| poet.slug.as_str()).collect();
+            assert_eq!(slugs, ["Ahm5", "Ahm2", "Ahm4"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_poet_is_found_by_nickname_and_every_word_must_reach_the_same_poet() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poets(&poets(), |es, index| async move {
+            let es = searching_poets(es, index);
+            let by_nickname = es
+                .search_poets(&PoetSearchParams {
+                    q: "أبو الطيب".into(),
+                    ..PoetSearchParams::default()
+                })
+                .await
+                .expect("a search");
+            assert_eq!(
+                by_nickname.hits.first().map(|poet| poet.slug.as_str()),
+                Some("Mtnb")
+            );
+            let split = es
+                .search_poets(&PoetSearchParams {
+                    q: "زيد بكر".into(),
+                    ..PoetSearchParams::default()
+                })
+                .await
+                .expect("a search");
+            assert!(
+                split.hits.is_empty(),
+                "{:?}",
+                split.hits.iter().map(|poet| &poet.slug).collect::<Vec<_>>()
+            );
+        })
+        .await;
 }
