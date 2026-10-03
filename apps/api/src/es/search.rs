@@ -175,88 +175,137 @@ impl SearchIndex for Es {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use axum::http::StatusCode;
+    use serde_json::json;
+
     use super::*;
+    use crate::test_support::FakeEs;
 
-    #[test]
-    fn prefers_the_display_field_even_when_it_is_empty() {
-        let source = serde_json::json!({ "titleDisplay": "", "title": "plain" });
-        assert_eq!(display(&source, "titleDisplay", "title"), "");
-        let missing = serde_json::json!({ "title": "plain" });
-        assert_eq!(display(&missing, "titleDisplay", "title"), "plain");
+    async fn answering(response: Value) -> (FakeEs, Es) {
+        let fake = FakeEs::serving(StatusCode::OK, response).await;
+        let es = Es::with_timeout(&fake.url, Duration::from_secs(2)).expect("a fake endpoint");
+        (fake, es)
     }
 
-    #[test]
-    fn reads_the_total_in_either_shape() {
-        assert_eq!(total_hits(&serde_json::json!({"hits":{"total":7}})), 7);
-        assert_eq!(
-            total_hits(&serde_json::json!({"hits":{"total":{"value":9}}})),
-            9
-        );
-        assert_eq!(total_hits(&serde_json::json!({"hits":{}})), 0);
+    async fn poems_found(response: Value) -> Page<PoemResult> {
+        let (_fake, es) = answering(response).await;
+        es.search_poems(&PoemSearchParams::default())
+            .await
+            .expect("a page of poems")
     }
 
-    #[test]
-    fn counts_poems_from_the_cardinality_aggregation_capped_at_the_result_window() {
-        let grouped = serde_json::json!({
-            "hits": { "total": { "value": 12 } },
-            "aggregations": { "poems": { "value": 9 } },
-        });
-        assert_eq!(poem_total(&grouped), 9);
-        let many = serde_json::json!({
-            "hits": { "total": { "value": 10000 } },
-            "aggregations": { "poems": { "value": 51234 } },
-        });
-        assert_eq!(poem_total(&many), ES_MAX_RESULT_WINDOW);
-        let browse = serde_json::json!({ "hits": { "total": { "value": 7 } } });
-        assert_eq!(poem_total(&browse), 7);
+    async fn poets_found(response: Value) -> Page<PoetResult> {
+        let (_fake, es) = answering(response).await;
+        es.search_poets(&PoetSearchParams::default())
+            .await
+            .expect("a page of poets")
     }
 
     fn poem_hit(source: Value, highlight: Option<&str>, score: f64) -> Value {
-        let mut hit = serde_json::json!({ "_source": source, "_score": score });
+        let mut hit = json!({ "_source": source, "_score": score });
         if let Some(highlight) = highlight {
-            hit["highlight"] = serde_json::json!({ "content": [highlight] });
+            hit["highlight"] = json!({ "content": [highlight] });
         }
         hit
     }
 
-    #[test]
-    fn a_poem_hit_maps_display_fields_snippets_and_scores() {
-        let response = serde_json::json!({ "hits": { "total": { "value": 1 }, "hits": [poem_hit(
-            serde_json::json!({ "slug": "TnKK", "title": "plain", "titleDisplay": "vocalized", "content": "a*b*c*d",
-                                "poetNameDisplay": "P", "poetSlug": "yoFB", "meterName": "m",
-                                "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi" }),
-            Some("a*b <mark>x</mark>*c*d"), 3.5) ] } });
-        let hits = hits(&response);
-        let hit = hits[0];
+    #[tokio::test]
+    async fn a_poem_hit_shows_its_vocalized_title_its_highlighted_verse_and_its_score() {
+        let found = poems_found(json!({ "hits": { "total": { "value": 1 }, "hits": [poem_hit(
+            json!({ "slug": "TnKK", "title": "plain", "titleDisplay": "vocalized", "content": "a*b*c*d",
+                    "poetNameDisplay": "P", "poetSlug": "yoFB", "meterName": "m",
+                    "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi" }),
+            Some("a*b <mark>x</mark>*c*d"), 3.5) ] } }))
+        .await;
+        let hit = &found.hits[0];
         assert_eq!(
-            display(&hit["_source"], "titleDisplay", "title"),
-            "vocalized"
+            (hit.title.as_str(), hit.slug.as_str()),
+            ("vocalized", "TnKK")
         );
-        assert_eq!(text(&hit["_source"], "poetNameDisplay"), "P");
         assert_eq!(
-            poem_snippet(highlighted_content(hit), &text(&hit["_source"], "content")),
-            "a*b <mark>x</mark>"
+            (hit.poet.name.as_str(), hit.poet.slug.as_str()),
+            ("P", "yoFB")
         );
-        assert_eq!(score(hit).to_bits(), 3.5_f64.to_bits());
-        assert_eq!(total_hits(&response), 1);
+        assert_eq!(
+            (hit.meter.slug.as_str(), hit.era.slug.as_str()),
+            ("altawil", "abbasi")
+        );
+        assert_eq!(hit.snippet, "a*b <mark>x</mark>");
+        assert_eq!(hit.relevance.to_bits(), 3.5_f64.to_bits());
+        assert_eq!(found.total, 1);
     }
 
-    #[test]
-    fn a_hit_with_missing_fields_maps_to_empty_strings_and_zero() {
-        let response = serde_json::json!({ "hits": { "hits": [ { "_source": {} } ] } });
-        let hit = hits(&response)[0];
-        assert_eq!(text(&hit["_source"], "slug"), "");
-        assert_eq!(score(hit).to_bits(), 0.0_f64.to_bits());
-        assert!(highlighted_content(hit).is_none());
-        assert_eq!(hit["_source"]["poemsCount"].as_i64().unwrap_or(0), 0);
-        assert_eq!(total_hits(&response), 0);
-        assert!(hits(&serde_json::json!({})).is_empty());
+    #[tokio::test]
+    async fn an_empty_vocalized_title_stays_empty_and_a_missing_one_falls_back_to_the_plain_title()
+    {
+        let found = poems_found(json!({ "hits": { "total": { "value": 2 }, "hits": [
+            poem_hit(json!({ "titleDisplay": "", "title": "plain" }), None, 1.0),
+            poem_hit(json!({ "title": "plain" }), None, 1.0),
+        ] } }))
+        .await;
+        assert_eq!(found.hits[0].title, "");
+        assert_eq!(found.hits[1].title, "plain");
     }
 
-    #[test]
-    fn an_empty_highlight_falls_back_to_the_opening_verse() {
-        let hit = poem_hit(serde_json::json!({ "content": "x*y*z" }), Some(""), 1.0);
-        assert!(highlighted_content(&hit).is_none());
-        assert_eq!(poem_snippet(highlighted_content(&hit), "x*y*z"), "x*y");
+    #[tokio::test]
+    async fn the_poem_total_counts_poems_not_readings_and_stops_at_the_result_window() {
+        let grouped = poems_found(json!({
+            "hits": { "total": { "value": 12 }, "hits": [] },
+            "aggregations": { "poems": { "value": 9 } },
+        }))
+        .await;
+        assert_eq!(grouped.total, 9);
+        let many = poems_found(json!({
+            "hits": { "total": { "value": 10000 }, "hits": [] },
+            "aggregations": { "poems": { "value": 51234 } },
+        }))
+        .await;
+        assert_eq!(many.total, ES_MAX_RESULT_WINDOW);
+        let browse = poems_found(json!({ "hits": { "total": { "value": 7 }, "hits": [] } })).await;
+        assert_eq!(browse.total, 7);
+    }
+
+    #[tokio::test]
+    async fn the_poet_total_is_read_whether_elasticsearch_sends_a_number_or_an_object() {
+        assert_eq!(
+            poets_found(json!({ "hits": { "total": 7, "hits": [] } }))
+                .await
+                .total,
+            7
+        );
+        assert_eq!(
+            poets_found(json!({ "hits": { "total": { "value": 9 }, "hits": [] } }))
+                .await
+                .total,
+            9
+        );
+        assert_eq!(poets_found(json!({ "hits": {} })).await.total, 0);
+    }
+
+    #[tokio::test]
+    async fn a_hit_missing_its_fields_is_shown_with_empty_text_and_zero_counts() {
+        let found = poems_found(json!({ "hits": { "hits": [ { "_source": {} } ] } })).await;
+        let hit = &found.hits[0];
+        assert_eq!((hit.slug.as_str(), hit.snippet.as_str()), ("", ""));
+        assert_eq!(hit.relevance.to_bits(), 0.0_f64.to_bits());
+        assert_eq!(found.total, 0);
+        let (_fake, es) = answering(json!({ "hits": { "hits": [ { "_source": {} } ] } })).await;
+        let listed = es
+            .list_poets(&PoetSearchParams::default())
+            .await
+            .expect("a page of poets");
+        assert_eq!(listed.hits[0].poems_count, 0);
+        assert!(poems_found(json!({})).await.hits.is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_empty_highlight_shows_the_opening_verse() {
+        let found = poems_found(json!({ "hits": { "hits": [
+            poem_hit(json!({ "content": "x*y*z" }), Some(""), 1.0)
+        ] } }))
+        .await;
+        assert_eq!(found.hits[0].snippet, "x*y");
     }
 }

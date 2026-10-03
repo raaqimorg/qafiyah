@@ -142,6 +142,17 @@ fn bound(sql: &str, binds: &[&str]) -> BoxedSqlQuery<'static, Pg, SqlQuery> {
 }
 
 impl Harness {
+    pub async fn texts(&self, sql: &str, binds: &[&str]) -> Vec<String> {
+        let mut conn = self.pg.get().await.expect("a corpus connection");
+        bound(sql, binds)
+            .load::<TextRow>(&mut conn)
+            .await
+            .expect(sql)
+            .into_iter()
+            .map(|row| row.value)
+            .collect()
+    }
+
     pub async fn text(&self, sql: &str, binds: &[&str]) -> Option<String> {
         let mut conn = self.pg.get().await.expect("a corpus connection");
         bound(sql, binds)
