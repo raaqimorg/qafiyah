@@ -71,6 +71,22 @@ pub(crate) struct PoetDoc {
     pub era_name: String,
 }
 
+#[derive(Serialize)]
+#[serde(untagged)]
+pub(crate) enum Document {
+    Poem(PoemDoc),
+    Poet(PoetDoc),
+}
+
+impl Document {
+    pub(crate) fn slug(&self) -> &str {
+        match self {
+            Document::Poem(poem) => &poem.slug,
+            Document::Poet(poet) => &poet.slug,
+        }
+    }
+}
+
 pub(crate) fn to_poem_doc(src: PoemSource) -> PoemDoc {
     PoemDoc {
         id: src.id,

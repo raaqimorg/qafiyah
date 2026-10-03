@@ -7,7 +7,7 @@ use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use crate::accounts::keys::{Caller, KeyError, KeyRecord, KeyRepository, PlanView, RawKey};
 use crate::db::accounts_schema::{api_keys, plans, usage_hourly, users};
 use crate::db::{PgPool, date_trunc};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub struct PgKeys {
     pool: PgPool,

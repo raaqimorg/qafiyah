@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 #[derive(Debug)]
 pub struct Identity {

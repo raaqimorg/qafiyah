@@ -6,7 +6,7 @@ use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use crate::accounts::users::{Identity, Profile, UpsertError, UserRepository};
 use crate::db::accounts_schema::{identities, users};
 use crate::db::{PgPool, coalesce, lower};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub struct PgUsers {
     pool: PgPool,

@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
+use crate::domain::StoreError;
 use crate::domain::search::{
     Page, PoemHit, PoemSearchParams, PoetHit, PoetListing, PoetSearchParams, SearchIndex,
     poem_snippet,
 };
 use crate::domain::{PoetBrief, Term};
-use crate::error::StoreError;
 use crate::es::client::Es;
 use crate::es::query::{poem_search_body, poet_search_body};
 

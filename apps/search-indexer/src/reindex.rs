@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use qafiyah_elasticsearch::{Schema, folding_rules};
 use serde_json::Value;
 
-use crate::docs::{PoemSource, PoetSource, to_poem_doc, to_poet_doc};
+use crate::docs::{Document, PoemSource, PoetSource, to_poem_doc, to_poet_doc};
 use crate::error::IndexerError;
 
 const PROGRESS_EVERY: usize = 10_000;
@@ -23,7 +23,7 @@ pub(crate) trait IndexStore: Send + Sync {
     async fn put_refresh_interval(&self, index: &str, value: &str) -> Result<(), IndexerError>;
     async fn refresh(&self, index: &str) -> Result<(), IndexerError>;
     async fn force_merge(&self, index: &str) -> Result<(), IndexerError>;
-    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError>;
+    async fn bulk(&self, index: &str, docs: &[Document]) -> Result<(), IndexerError>;
     async fn swap_alias(
         &self,
         alias: &str,
@@ -139,20 +139,14 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
     let mut cursor: i32 = 0;
     let mut total = 0usize;
     loop {
-        let batch: Vec<(String, String)> = if is_poems {
+        let batch: Vec<Document> = if is_poems {
             let rows = corpus.poems_after(cursor, limit).await?;
             let Some(last) = rows.last() else {
                 break;
             };
             cursor = last.id;
             rows.into_iter()
-                .map(to_poem_doc)
-                .map(|d| {
-                    (
-                        d.slug.clone(),
-                        serde_json::to_string(&d).unwrap_or_default(),
-                    )
-                })
+                .map(|row| Document::Poem(to_poem_doc(row)))
                 .collect()
         } else {
             let rows = corpus.poets_after(cursor, limit).await?;
@@ -161,13 +155,7 @@ async fn populate(ctx: &Ctx<'_>, target: &str, is_poems: bool) -> Result<usize, 
             };
             cursor = last.id;
             rows.into_iter()
-                .map(|r| to_poet_doc(r, rules))
-                .map(|d| {
-                    (
-                        d.slug.clone(),
-                        serde_json::to_string(&d).unwrap_or_default(),
-                    )
-                })
+                .map(|row| Document::Poet(to_poet_doc(row, rules)))
                 .collect()
         };
         let before = total;
@@ -492,14 +480,14 @@ mod tests {
             }
             Ok(())
         }
-        async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError> {
+        async fn bulk(&self, index: &str, docs: &[Document]) -> Result<(), IndexerError> {
             if self.rejects_writes {
                 return Err(IndexerError::Elasticsearch("bulk errors: rejected".into()));
             }
             if let Some(stored) = self.indices.lock().expect("indices").get_mut(index) {
                 stored
                     .slugs
-                    .extend(docs.iter().map(|(slug, _)| slug.clone()));
+                    .extend(docs.iter().map(|doc| doc.slug().to_string()));
             }
             Ok(())
         }

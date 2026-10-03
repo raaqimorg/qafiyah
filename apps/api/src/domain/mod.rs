@@ -14,3 +14,11 @@ pub struct PoetBrief {
     pub has_avatar: bool,
     pub is_anonymous: bool,
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+    #[error("database error: {0}")]
+    Database(String),
+    #[error("search error: {0}")]
+    Search(String),
+}

@@ -8,8 +8,8 @@ use crate::db::corpus::{
     collection_stats, era_stats, meter_stats, poem_type_stats, rhyme_stats, theme_stats,
 };
 use crate::db::{PgPool, int, present};
+use crate::domain::StoreError;
 use crate::domain::taxonomy::{Counted, PoemCounted, TaxonomyRepository, TermCount, TermStats};
-use crate::error::StoreError;
 
 pub struct PgTaxonomy {
     pool: PgPool,

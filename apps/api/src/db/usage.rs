@@ -9,7 +9,7 @@ use crate::accounts::usage::UsageRepository;
 use crate::constants::{SECONDS_PER_HOUR, USAGE_FLUSH_BATCH_ROWS};
 use crate::db::PgPool;
 use crate::db::accounts_schema::{api_keys, usage_hourly};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub struct PgUsage {
     pool: PgPool,
@@ -29,17 +29,22 @@ impl UsageRepository for PgUsage {
             let rows = chunk
                 .iter()
                 .map(|&(key_id, hour, count)| {
-                    (
+                    let at = hour
+                        .checked_mul(SECONDS_PER_HOUR)
+                        .and_then(|seconds| DateTime::from_timestamp(seconds, 0))
+                        .ok_or_else(|| {
+                            StoreError::Database(format!("usage hour {hour} is out of range"))
+                        })?;
+                    let requests = i32::try_from(count).map_err(|_| {
+                        StoreError::Database(format!("usage count {count} is out of range"))
+                    })?;
+                    Ok((
                         usage_hourly::api_key_id.eq(key_id),
-                        usage_hourly::hour.eq(DateTime::from_timestamp(
-                            hour.saturating_mul(SECONDS_PER_HOUR),
-                            0,
-                        )
-                        .unwrap_or_default()),
-                        usage_hourly::requests.eq(count.cast_signed()),
-                    )
+                        usage_hourly::hour.eq(at),
+                        usage_hourly::requests.eq(requests),
+                    ))
                 })
-                .collect::<Vec<_>>();
+                .collect::<Result<Vec<_>, StoreError>>()?;
             #[expect(
                 clippy::arithmetic_side_effects,
                 reason = "this addition builds SQL that Postgres evaluates"

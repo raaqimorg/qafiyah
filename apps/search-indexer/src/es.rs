@@ -6,6 +6,7 @@ use reqwest::{Method, StatusCode};
 use serde::Serialize;
 use serde_json::{Value, json};
 
+use crate::docs::Document;
 use crate::error::IndexerError;
 use crate::reindex::IndexStore;
 
@@ -134,8 +135,8 @@ impl IndexStore for Es {
         Ok(())
     }
 
-    async fn bulk(&self, index: &str, docs: &[(String, String)]) -> Result<(), IndexerError> {
-        let body = ndjson_body(index, docs);
+    async fn bulk(&self, index: &str, docs: &[Document]) -> Result<(), IndexerError> {
+        let body = ndjson_body(index, docs)?;
         let res = self
             .request(Method::POST, "/_bulk")
             .header("Content-Type", "application/x-ndjson")
@@ -224,15 +225,17 @@ impl IndexStore for Es {
     }
 }
 
-pub(crate) fn ndjson_body(index: &str, docs: &[(String, String)]) -> String {
+pub(crate) fn ndjson_body(index: &str, docs: &[Document]) -> Result<String, IndexerError> {
     let mut body = String::new();
-    for (id, doc_json) in docs {
-        body.push_str(&json!({ "index": { "_index": index, "_id": id } }).to_string());
+    for doc in docs {
+        let source = serde_json::to_string(doc)
+            .map_err(|e| IndexerError::Elasticsearch(format!("bulk {}: {e}", doc.slug())))?;
+        body.push_str(&json!({ "index": { "_index": index, "_id": doc.slug() } }).to_string());
         body.push('\n');
-        body.push_str(doc_json);
+        body.push_str(&source);
         body.push('\n');
     }
-    body
+    Ok(body)
 }
 
 pub(crate) fn first_bulk_error(value: &Value) -> Option<&str> {
@@ -273,18 +276,41 @@ mod tests {
 
     #[test]
     fn the_bulk_body_is_one_action_line_and_one_document_line_per_doc() {
-        let body = ndjson_body(
-            "poems_v1",
-            &[
-                ("TnKK".into(), "{\"a\":1}".into()),
-                ("abcd".into(), "{}".into()),
-            ],
+        let poet = |id: i32, slug: &str| {
+            Document::Poet(crate::docs::to_poet_doc(
+                crate::docs::PoetSource {
+                    id,
+                    slug: slug.into(),
+                    name: "Poet".into(),
+                    nickname: String::new(),
+                    era_name: "Era".into(),
+                    era_slug: "era".into(),
+                    poems_count: 1,
+                },
+                &[],
+            ))
+        };
+        let body = ndjson_body("poets_v1", &[poet(1, "TnKK"), poet(2, "abcd")]).expect("a body");
+        let lines: Vec<Value> = body
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("a JSON line"))
+            .collect();
+        assert_eq!(lines.len(), 4);
+        assert_eq!(
+            lines[0],
+            json!({ "index": { "_index": "poets_v1", "_id": "TnKK" } })
         );
         assert_eq!(
-            body,
-            "{\"index\":{\"_id\":\"TnKK\",\"_index\":\"poems_v1\"}}\n{\"a\":1}\n{\"index\":{\"_id\":\"abcd\",\"_index\":\"poems_v1\"}}\n{}\n"
+            (lines[1]["slug"].as_str(), lines[1]["id"].as_i64()),
+            (Some("TnKK"), Some(1))
         );
-        assert_eq!(ndjson_body("poems_v1", &[]), "");
+        assert_eq!(
+            lines[2],
+            json!({ "index": { "_index": "poets_v1", "_id": "abcd" } })
+        );
+        assert_eq!(lines[3]["slug"], "abcd");
+        assert!(body.ends_with('\n'));
+        assert_eq!(ndjson_body("poets_v1", &[]).expect("an empty body"), "");
     }
 
     #[test]

@@ -8,7 +8,7 @@ use crate::accounts::users::Profile;
 use crate::db::accounts_schema::{sessions, users};
 use crate::db::users::ProfileRow;
 use crate::db::{PgPool, date_add};
-use crate::error::StoreError;
+use crate::domain::StoreError;
 
 pub struct PgSessions {
     pool: PgPool,

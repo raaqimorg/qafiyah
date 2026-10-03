@@ -3,9 +3,9 @@ use std::cmp::Reverse;
 use async_trait::async_trait;
 
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
+use crate::domain::StoreError;
 use crate::domain::taxonomy::TermCount;
 use crate::domain::{PoetBrief, Term};
-use crate::error::StoreError;
 use crate::js;
 
 pub struct PoemSummary {

@@ -7,6 +7,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
 use crate::constants::{NO_STORE_CACHE_CONTROL, PROD_SITE_URL};
+use crate::domain::StoreError;
 use crate::domain::poems::PoemError;
 use crate::log::stage_event;
 use crate::sentry;
@@ -200,14 +201,6 @@ impl From<RouteProblem> for AppError {
     fn from(problem: RouteProblem) -> Self {
         AppError::Route(problem)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum StoreError {
-    #[error("database error: {0}")]
-    Database(String),
-    #[error("search error: {0}")]
-    Search(String),
 }
 
 impl From<StoreError> for AppError {
