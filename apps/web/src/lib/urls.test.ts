@@ -7,6 +7,7 @@ import {
   poemUrl,
   poetAvatarUrl,
   poetsUrl,
+  isCanonical,
   poetUrl,
   retryUrl,
   taxonomyIndexUrl,
@@ -58,18 +59,23 @@ describe('poetUrl', () => {
   it('appends ?page=N beyond the first page', () => {
     expect(poetUrl('mutanabbi', { page: 4 })).toBe('/poets/mutanabbi?page=4');
   });
-  it('repeats each poem filter per value, in meter, rhyme, theme, page order', () => {
+  it('repeats each poem filter per value, sorted, in meter, rhyme, theme, page order', () => {
     expect(
       poetUrl('mutanabbi', { theme: ['alnasib'], meter: ['altawil', 'alkamil'], page: 2 })
-    ).toBe('/poets/mutanabbi?meter=altawil&meter=alkamil&theme=alnasib&page=2');
+    ).toBe('/poets/mutanabbi?meter=alkamil&meter=altawil&theme=alnasib&page=2');
     expect(poetUrl('mutanabbi', { meter: [], rhyme: [], theme: [] })).toBe('/poets/mutanabbi');
+  });
+  it('gives every selection one URL, whatever the order or repeats of its values', () => {
+    expect(poetUrl('mutanabbi', { meter: ['altawil', 'alkamil', 'altawil'] })).toBe(
+      poetUrl('mutanabbi', { meter: ['alkamil', 'altawil'] })
+    );
   });
   it('writes the same query the poet page list writes to the address bar', () => {
     const states = [
       { meter: [], rhyme: [], theme: [], page: 1 },
       { meter: [], rhyme: [], theme: [], page: 3 },
       { meter: ['altawil'], rhyme: [], theme: [], page: 1 },
-      { meter: ['altawil', 'alkamil'], rhyme: ['alef-maqsura'], theme: ['alnasib'], page: 2 },
+      { meter: ['alkamil', 'altawil'], rhyme: ['alef-maqsura'], theme: ['alnasib'], page: 2 },
       { meter: [], rhyme: ['meem', 'noon'], theme: ['alhikma'], page: 5 },
     ];
     for (const state of states) {
@@ -89,6 +95,27 @@ describe('poemUrl', () => {
     expect(url.startsWith('/poems/TnKK#h=')).toBe(true);
     const encoded = url.slice('/poems/TnKK#h='.length);
     expect(encoded.split(',').map((part) => decodeURIComponent(part))).toEqual(['يا ليت', 'هذا']);
+  });
+});
+
+describe('isCanonical', () => {
+  it('accepts the canonical URL exactly', () => {
+    expect(
+      isCanonical(new URL('https://qafiyah.com/meters/altawil?page=2'), '/meters/altawil?page=2')
+    ).toBe(true);
+    expect(isCanonical(new URL('https://qafiyah.com/meters/altawil'), '/meters/altawil')).toBe(
+      true
+    );
+  });
+  it('refuses an extra parameter, a padded number, or another parameter order', () => {
+    const canonical = '/poets/oNbs?meter=altawil&page=2';
+    for (const href of [
+      'https://qafiyah.com/poets/oNbs?meter=altawil&page=2&utm_source=x',
+      'https://qafiyah.com/poets/oNbs?meter=altawil&page=02',
+      'https://qafiyah.com/poets/oNbs?page=2&meter=altawil',
+    ]) {
+      expect(isCanonical(new URL(href), canonical)).toBe(false);
+    }
   });
 });
 

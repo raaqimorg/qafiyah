@@ -92,4 +92,13 @@ describe('GET /poets/[slug]', () => {
     expect(html).toContain('مسح الكل');
     expect(html).toContain('noindex');
   });
+
+  it('redirects reordered filters and an unknown parameter to the canonical URL without calling the API', async () => {
+    const response = await render(
+      'https://qafiyah.com/poets/oNbs?meter=alwafir&meter=altawil&meter=alwafir&utm_source=x'
+    );
+    expect(response.status).toBe(301);
+    expect(response.headers.get('location')).toBe('/poets/oNbs?meter=altawil&meter=alwafir');
+    expect(get).not.toHaveBeenCalled();
+  });
 });

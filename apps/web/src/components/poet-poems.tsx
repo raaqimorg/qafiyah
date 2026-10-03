@@ -15,7 +15,7 @@ import { TYPE } from '@/lib/constants/design-tokens';
 import { POEMS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { createListQueryClient } from '@/lib/list-query-client';
 import { derivePagination } from '@/lib/pagination';
-import { hasPoetFilters, type PoetFilterSelection } from '@/lib/poet-filters';
+import { canonicalPoetFilters, hasPoetFilters, type PoetFilterSelection } from '@/lib/poet-filters';
 import {
   canonicalPoetSearch,
   loadPoetSearchParams,
@@ -96,7 +96,14 @@ function PoetPoemsList({ poetSlug, facets: serverFacets }: Props) {
   const state = toListState(params);
   const pageUrl = poetUrl(poetSlug, { page: state.page, ...state.filters });
 
-  const show = async (next: PoetSearchValues): Promise<boolean> => {
+  const show = async (requested: PoetSearchValues): Promise<boolean> => {
+    const filters = canonicalPoetFilters(requested);
+    const next = {
+      ...requested,
+      meter: [...filters.meter],
+      rhyme: [...filters.rhyme],
+      theme: [...filters.theme],
+    };
     if (serializePoetSearch(next) === serializePoetSearch(params)) return false;
     await setParams(next);
     capturePageview();

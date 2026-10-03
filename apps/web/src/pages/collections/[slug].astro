@@ -4,9 +4,14 @@ import Layout from '@/layouts/layout.astro';
 import { parsePageQuery } from '@/lib/pagination';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { buildTaxonomyTermView, loadTaxonomyTerm } from '@/lib/seo/taxonomy-pages';
+import { isCanonical, taxonomyUrl } from '@/lib/urls';
 
 const page = parsePageQuery(Astro.url.searchParams.get('page'));
 const { slug } = Astro.params;
+const canonical = page === null || !slug ? null : taxonomyUrl('collections', slug, page);
+if (canonical !== null && !isCanonical(Astro.url, canonical)) {
+  return Astro.redirect(canonical, 301);
+}
 const load = page === null || !slug ? null : await loadTaxonomyTerm('collections', slug, page);
 if (!load) return Astro.rewrite('/404');
 Astro.response.headers.set('Cache-Control', CACHE_HTML);

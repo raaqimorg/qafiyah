@@ -1,4 +1,5 @@
 import { API_URL } from '@/lib/constants/config';
+import { canonicalPoetFilters } from '@/lib/poet-filters';
 import { API_V1_PREFIX, CDN_URL } from '@qafiyah/config';
 
 export type TaxonomySection = 'meters' | 'rhymes' | 'themes' | 'collections';
@@ -25,6 +26,10 @@ export function avatarsUrl(): string {
 
 export function raaqimUrl(): string {
   return `${API_URL}${API_V1_PREFIX}/go/raaqim`;
+}
+
+export function isCanonical(url: URL, canonical: string): boolean {
+  return `${url.pathname}${url.search}` === canonical;
 }
 
 export function retryUrl(originPathname: string, url: URL): string {
@@ -65,8 +70,13 @@ export type PoetUrlOptions = {
 
 export function poetUrl(slug: string, opts?: PoetUrlOptions): string {
   const params = new URLSearchParams();
+  const filters = canonicalPoetFilters({
+    meter: opts?.meter ?? [],
+    rhyme: opts?.rhyme ?? [],
+    theme: opts?.theme ?? [],
+  });
   for (const key of ['meter', 'rhyme', 'theme'] as const) {
-    for (const value of opts?.[key] ?? []) params.append(key, value);
+    for (const value of filters[key]) params.append(key, value);
   }
   if (opts?.page !== undefined && opts.page > 1) params.set('page', String(opts.page));
   const query = params.toString();

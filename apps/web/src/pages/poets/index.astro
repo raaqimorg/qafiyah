@@ -12,7 +12,7 @@ import { CACHE_HTML } from '@/lib/server/cache';
 import { getPoetsPage } from '@/lib/server/poets';
 import { allEras } from '@/lib/server/taxonomies';
 import { parsePageQuery } from '@/lib/pagination';
-import { poetsUrl } from '@/lib/urls';
+import { isCanonical, poetsUrl } from '@/lib/urls';
 
 const page = parsePageQuery(Astro.url.searchParams.get('page'));
 if (page === null) return Astro.rewrite('/404');
@@ -22,6 +22,8 @@ const rawQuery = sanitizeArabicInput(Astro.url.searchParams.get('q') ?? '')
   .trim()
   .slice(0, MAX_QUERY_LENGTH);
 const queryFilter = rawQuery || undefined;
+const canonical = poetsUrl({ page, era: rawEra || undefined, q: queryFilter });
+if (!isCanonical(Astro.url, canonical)) return Astro.redirect(canonical, 301);
 
 const [eras, data] = await Promise.all([
   allEras(),

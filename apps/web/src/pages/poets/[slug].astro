@@ -17,7 +17,7 @@ import { reportError } from '@/lib/observability/report-error';
 import { CACHE_HTML, CACHE_NONE } from '@/lib/server/cache';
 import { listPoems } from '@/lib/server/poems';
 import { getPoet, getPoetFacets, movedPoetPath } from '@/lib/server/poets';
-import { poetUrl } from '@/lib/urls';
+import { isCanonical, poetUrl } from '@/lib/urls';
 import { CDN_URL } from '@qafiyah/config';
 
 const page = parsePageQuery(Astro.url.searchParams.get('page'));
@@ -25,6 +25,10 @@ const { meter, rhyme, theme } = loadPoetSearchParams(Astro.url.searchParams);
 const filters: PoetFilterSelection = { meter, rhyme, theme };
 const { slug: slugParam } = Astro.params;
 const poetSlug = slugParam as PoetSlug | undefined;
+const canonical = page === null || !poetSlug ? null : poetUrl(poetSlug, { page, ...filters });
+if (canonical !== null && !isCanonical(Astro.url, canonical)) {
+  return Astro.redirect(canonical, 301);
+}
 const [poet, list, facetsResult] =
   page === null || !poetSlug
     ? [null, null, null]

@@ -20,6 +20,18 @@ export const POET_FACET_LIST = {
   theme: 'themes',
 } as const satisfies Record<PoetFilterKey, keyof PoetFacetLists>;
 
+function sortedUnique(slugs: readonly string[]): readonly string[] {
+  return [...new Set(slugs)].sort((a, b) => (a < b ? -1 : 1));
+}
+
+export function canonicalPoetFilters(selection: PoetFilterSelection): PoetFilterSelection {
+  return {
+    meter: sortedUnique(selection.meter),
+    rhyme: sortedUnique(selection.rhyme),
+    theme: sortedUnique(selection.theme),
+  };
+}
+
 export function hasPoetFilters(selection: PoetFilterSelection): boolean {
   return POET_FILTER_KEYS.some((key) => selection[key].length > 0);
 }

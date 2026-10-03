@@ -29,7 +29,7 @@ const {
   contentGap = 'gap-6 xs:gap-8 sm:gap-14',
 } = Astro.props;
 
-const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
+const retryHref = Astro.url.pathname;
 ---
 
 <section class="relative my-14 flex w-full flex-col items-center justify-center xs:my-20 lg:my-28">
