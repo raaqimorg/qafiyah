@@ -403,7 +403,12 @@ fn clauses_except(filters: &[FilterIds], except: Option<Filter>) -> Clauses<'_> 
         }
         bound.push(ids);
         stats.push(filter.stats_table());
-        conditions.push(format!("{} = ANY(${})", filter.column(), bound.len()));
+        let (column, n) = (filter.column(), bound.len());
+        conditions.push(if ids.len() == 1 {
+            format!("{column} = (${n})[1]")
+        } else {
+            format!("{column} = ANY(${n})")
+        });
     }
 
     let counted_by = match stats.as_slice() {
@@ -852,20 +857,27 @@ mod tests {
         let both = clauses(&filters);
         assert_eq!(
             both.where_clause(),
-            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ANY($1) AND p.rhyme_id = ANY($2)"
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.era_id = ($1)[1] AND p.rhyme_id = ($2)[1]"
         );
         assert_eq!(both.bound.len(), 2);
     }
 
     #[test]
-    fn a_filter_matches_its_resolved_ids_whether_one_or_many() {
-        for resolved in [&[5][..], &[5, 9][..]] {
-            let filters = [ids(Filter::Meter, resolved)];
-            assert_eq!(
-                clauses(&filters).where_clause(),
-                "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = ANY($1)"
-            );
-        }
+    fn one_id_is_matched_as_a_scalar_so_the_planner_walks_the_filter_index() {
+        let filters = [ids(Filter::Meter, &[5])];
+        assert_eq!(
+            clauses(&filters).where_clause(),
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = ($1)[1]"
+        );
+    }
+
+    #[test]
+    fn several_ids_are_matched_as_a_set() {
+        let filters = [ids(Filter::Meter, &[5, 9])];
+        assert_eq!(
+            clauses(&filters).where_clause(),
+            "WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND p.meter_id = ANY($1)"
+        );
     }
 
     #[test]
@@ -1146,7 +1158,7 @@ mod tests {
             meters.sql,
             "SELECT t.name, t.slug, COUNT(p.id)::int AS poems_count FROM public.meters t \
              LEFT JOIN public.poems p ON p.meter_id = t.id AND p.recension_of_id IS NULL \
-             AND NOT p.is_hidden AND p.poet_id = ANY($1) AND p.rhyme_id = ANY($2) \
+             AND NOT p.is_hidden AND p.poet_id = ($1)[1] AND p.rhyme_id = ANY($2) \
              GROUP BY t.id, t.name, t.slug \
              HAVING COUNT(p.id) > 0 OR t.slug = ANY($3) \
              ORDER BY poems_count DESC, t.name"
