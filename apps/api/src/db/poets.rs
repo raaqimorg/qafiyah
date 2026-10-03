@@ -4,8 +4,8 @@ use diesel_async::RunQueryDsl;
 
 use crate::db::corpus::{eras, poet_aliases, poet_stats, poets};
 use crate::db::{PgPool, int};
-use crate::domain::EraRef;
-use crate::domain::poets::{PoetRepository, PoetSlugEntry, PoetStats};
+use crate::domain::Term;
+use crate::domain::poets::{PoetProfile, PoetRepository, PoetSlug};
 use crate::error::StoreError;
 
 pub struct PgPoets {
@@ -31,7 +31,7 @@ type PoetStatsRow = (
 
 #[async_trait]
 impl PoetRepository for PgPoets {
-    async fn get(&self, slug: &str) -> Result<Option<PoetStats>, StoreError> {
+    async fn get(&self, slug: &str) -> Result<Option<PoetProfile>, StoreError> {
         let mut conn = self.pool.get().await?;
         let row = poets::table
             .inner_join(eras::table)
@@ -55,12 +55,12 @@ impl PoetRepository for PgPoets {
         else {
             return Ok(None);
         };
-        Ok(Some(PoetStats {
+        Ok(Some(PoetProfile {
             name,
             slug,
             nickname,
             bio,
-            era: EraRef {
+            era: Term {
                 name: era_name,
                 slug: era_slug,
             },
@@ -92,11 +92,7 @@ impl PoetRepository for PgPoets {
         int(total)
     }
 
-    async fn list_slugs(
-        &self,
-        page: u32,
-        page_size: u32,
-    ) -> Result<Vec<PoetSlugEntry>, StoreError> {
+    async fn list_slugs(&self, page: u32, page_size: u32) -> Result<Vec<PoetSlug>, StoreError> {
         let mut conn = self.pool.get().await?;
         Ok(poets::table
             .inner_join(poet_stats::table.on(poet_stats::id.eq(poets::id)))
@@ -108,7 +104,7 @@ impl PoetRepository for PgPoets {
             .load::<(String, bool)>(&mut conn)
             .await?
             .into_iter()
-            .map(|(slug, has_avatar)| PoetSlugEntry { slug, has_avatar })
+            .map(|(slug, has_avatar)| PoetSlug { slug, has_avatar })
             .collect())
     }
 }

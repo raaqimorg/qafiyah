@@ -6,10 +6,10 @@ use axum::http::StatusCode;
 
 use crate::constants::RANDOM_POEM_MAX_ATTEMPTS;
 use crate::domain::poems::{
-    FacetCounts, Facets, PoemListItem, PoemRecord, PoemRepository, RandomPoem,
+    FacetCounts, Facets, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
 };
-use crate::domain::poets::{PoetRepository, PoetSlugEntry, PoetStats};
-use crate::domain::{EraRef, MeterRef, PoemTypeRef, PoetRef, RhymeRef, ThemeRef};
+use crate::domain::poets::{PoetProfile, PoetRepository, PoetSlug};
+use crate::domain::{PoetBrief, Term};
 use crate::error::StoreError;
 use crate::http_tests::empty_hits;
 use crate::state::AppState;
@@ -35,29 +35,29 @@ fn record(lines: Vec<String>) -> PoemRecord {
         title: "Title".into(),
         verse_count: 1,
         recension_of_id: None,
-        poet: PoetRef {
+        poet: PoetBrief {
             name: name.clone(),
             slug: slug.clone(),
             has_avatar: false,
             is_anonymous: false,
         },
-        era: EraRef {
+        era: Term {
             name: name.clone(),
             slug: slug.clone(),
         },
-        meter: MeterRef {
+        meter: Term {
             name: name.clone(),
             slug: slug.clone(),
         },
-        theme: ThemeRef {
+        theme: Term {
             name: name.clone(),
             slug: slug.clone(),
         },
-        rhyme: RhymeRef {
+        rhyme: Term {
             name: name.clone(),
             slug: slug.clone(),
         },
-        poem_type: PoemTypeRef { name, slug },
+        poem_type: Term { name, slug },
         lines,
         prev: None,
         next: None,
@@ -79,7 +79,7 @@ impl PoemRepository for Poems {
         _: &Facets,
         _: u32,
         _: u32,
-    ) -> Result<(Vec<PoemListItem>, i32), StoreError> {
+    ) -> Result<(Vec<PoemSummary>, i32), StoreError> {
         Ok((Vec::new(), 0))
     }
     async fn facet_counts(&self, _: &Facets) -> Result<Option<FacetCounts>, StoreError> {
@@ -111,7 +111,7 @@ struct Poets {
 
 #[async_trait]
 impl PoetRepository for Poets {
-    async fn get(&self, _: &str) -> Result<Option<PoetStats>, StoreError> {
+    async fn get(&self, _: &str) -> Result<Option<PoetProfile>, StoreError> {
         Ok(None)
     }
     async fn alias_target(&self, _: &str) -> Result<Option<String>, StoreError> {
@@ -120,7 +120,7 @@ impl PoetRepository for Poets {
     async fn count_with_poems(&self) -> Result<i32, StoreError> {
         Ok(0)
     }
-    async fn list_slugs(&self, _: u32, _: u32) -> Result<Vec<PoetSlugEntry>, StoreError> {
+    async fn list_slugs(&self, _: u32, _: u32) -> Result<Vec<PoetSlug>, StoreError> {
         Ok(Vec::new())
     }
 }

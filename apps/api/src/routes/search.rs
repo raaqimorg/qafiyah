@@ -7,8 +7,8 @@ use crate::constants::{
     MAX_FILTER_SLUGS, MAX_QUERY_LENGTH, SEARCH_POEMS_MAX_PAGE, SEARCH_POEMS_PER_PAGE,
     SEARCH_POETS_MAX_PAGE, SEARCH_POETS_PER_PAGE,
 };
-use crate::domain::search::{self, PoemResult, PoetResult};
-use crate::domain::search::{PoemSearchParams, PoetSearchParams};
+use crate::contract::search::{PoemResult, PoetResult};
+use crate::domain::search::{self, PoemSearchParams, PoetSearchParams};
 use crate::envelope::{ListEnvelope, build_pagination};
 use crate::error::AppError;
 use crate::log::LogHandle;
@@ -147,11 +147,11 @@ pub(crate) async fn search(
     Ok(Json(SearchResponse {
         q,
         poems: poems.map(|page| ListEnvelope {
-            data: page.hits,
+            data: page.hits.into_iter().map(PoemResult::from).collect(),
             pagination: build_pagination(poems_page, poem_params.page_size, page.total),
         }),
         poets: poets.map(|page| ListEnvelope {
-            data: page.hits,
+            data: page.hits.into_iter().map(PoetResult::from).collect(),
             pagination: build_pagination(poets_page, poet_params.page_size, page.total),
         }),
     }))

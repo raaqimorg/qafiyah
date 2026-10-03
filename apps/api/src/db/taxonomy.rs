@@ -8,9 +8,7 @@ use crate::db::corpus::{
     collection_stats, era_stats, meter_stats, poem_type_stats, rhyme_stats, theme_stats,
 };
 use crate::db::{PgPool, int, present};
-use crate::domain::taxonomy::{
-    Counted, CountedStats, PoemCountStats, PoemCounted, TaxonomyRepository,
-};
+use crate::domain::taxonomy::{Counted, PoemCounted, TaxonomyRepository, TermCount, TermStats};
 use crate::error::StoreError;
 
 pub struct PgTaxonomy {
@@ -28,8 +26,8 @@ type PoemCountRow = (Option<String>, Option<String>, Option<i64>);
 
 fn counted<C: TryInto<i32>>(
     (name, slug, poems, poets): CountedRow<C>,
-) -> Result<CountedStats, StoreError> {
-    Ok(CountedStats {
+) -> Result<TermStats, StoreError> {
+    Ok(TermStats {
         name: present(name)?,
         slug: present(slug)?,
         poems_count: int(present(poems)?)?,
@@ -37,8 +35,8 @@ fn counted<C: TryInto<i32>>(
     })
 }
 
-fn poem_counted((name, slug, poems): PoemCountRow) -> Result<PoemCountStats, StoreError> {
-    Ok(PoemCountStats {
+fn poem_counted((name, slug, poems): PoemCountRow) -> Result<TermCount, StoreError> {
+    Ok(TermCount {
         name: present(name)?,
         slug: present(slug)?,
         poems_count: int(present(poems)?)?,
@@ -47,7 +45,7 @@ fn poem_counted((name, slug, poems): PoemCountRow) -> Result<PoemCountStats, Sto
 
 #[async_trait]
 impl TaxonomyRepository for PgTaxonomy {
-    async fn list_counted(&self, kind: Counted) -> Result<Vec<CountedStats>, StoreError> {
+    async fn list_counted(&self, kind: Counted) -> Result<Vec<TermStats>, StoreError> {
         let mut conn = self.pool.get().await?;
         match kind {
             Counted::Meters => meter_stats::table
@@ -112,7 +110,7 @@ impl TaxonomyRepository for PgTaxonomy {
         &self,
         kind: Counted,
         slug: &str,
-    ) -> Result<Option<CountedStats>, StoreError> {
+    ) -> Result<Option<TermStats>, StoreError> {
         let mut conn = self.pool.get().await?;
         let row = match kind {
             Counted::Meters => meter_stats::table
@@ -167,10 +165,7 @@ impl TaxonomyRepository for PgTaxonomy {
         row.transpose()
     }
 
-    async fn list_by_poem_count(
-        &self,
-        kind: PoemCounted,
-    ) -> Result<Vec<PoemCountStats>, StoreError> {
+    async fn list_by_poem_count(&self, kind: PoemCounted) -> Result<Vec<TermCount>, StoreError> {
         let mut conn = self.pool.get().await?;
         let rows = match kind {
             PoemCounted::Themes => {
@@ -206,7 +201,7 @@ impl TaxonomyRepository for PgTaxonomy {
         &self,
         kind: PoemCounted,
         slug: &str,
-    ) -> Result<Option<PoemCountStats>, StoreError> {
+    ) -> Result<Option<TermCount>, StoreError> {
         let mut conn = self.pool.get().await?;
         let row = match kind {
             PoemCounted::Themes => theme_stats::table

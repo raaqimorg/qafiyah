@@ -1,61 +1,31 @@
 use async_trait::async_trait;
-use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
-use utoipa::ToSchema;
 
 use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
-use crate::domain::{EraRef, MeterRef, PoetRef};
+use crate::domain::{PoetBrief, Term};
 use crate::error::StoreError;
 use crate::js;
 
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum PoemKind {
-    Poem,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum PoetKind {
-    Poet,
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct PoemResult {
-    #[serde(rename = "type")]
-    #[schema(value_type = PoemKind)]
-    pub kind: &'static str,
+pub struct PoemHit {
     pub title: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "TnKK")]
     pub slug: String,
     pub snippet: String,
-    pub poet: PoetRef,
-    pub meter: MeterRef,
-    pub era: EraRef,
-    #[serde(serialize_with = "js::serialize_number")]
+    pub poet: PoetBrief,
+    pub meter: Term,
+    pub era: Term,
     pub relevance: f64,
 }
 
-#[derive(Serialize, ToSchema)]
-pub struct PoetResult {
-    #[serde(rename = "type")]
-    #[schema(value_type = PoetKind)]
-    pub kind: &'static str,
+pub struct PoetHit {
     pub name: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "yoFB")]
     pub slug: String,
-    pub era: EraRef,
-    #[serde(serialize_with = "js::serialize_number")]
+    pub era: Term,
     pub relevance: f64,
 }
 
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PoetListItem {
+pub struct PoetListing {
     pub name: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "yoFB")]
     pub slug: String,
-    #[schema(example = 42)]
     pub poems_count: i64,
 }
 
@@ -128,12 +98,9 @@ impl Default for PoetSearchParams {
 
 #[async_trait]
 pub trait SearchIndex: Send + Sync {
-    async fn search_poems(&self, params: &PoemSearchParams)
-    -> Result<Page<PoemResult>, StoreError>;
-    async fn search_poets(&self, params: &PoetSearchParams)
-    -> Result<Page<PoetResult>, StoreError>;
-    async fn list_poets(&self, params: &PoetSearchParams)
-    -> Result<Page<PoetListItem>, StoreError>;
+    async fn search_poems(&self, params: &PoemSearchParams) -> Result<Page<PoemHit>, StoreError>;
+    async fn search_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetHit>, StoreError>;
+    async fn list_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetListing>, StoreError>;
 }
 
 const MARK_OPEN: &str = "<mark>";

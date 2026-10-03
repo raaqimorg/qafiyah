@@ -9,9 +9,8 @@ use crate::constants::{
     API_V1_PREFIX, MAX_FILTER_SLUGS, NO_STORE_CACHE_CONTROL, POEMS_PER_PAGE, READ_CACHE_CONTROL,
     SITEMAP_POEMS_PER_SHARD,
 };
-use crate::domain::poems::{
-    self, Facets, PoemDetail, PoemFacets, PoemListItem, RandomPoemOption, Total,
-};
+use crate::contract::poems::{PoemDetail, PoemFacets, PoemListItem, Total};
+use crate::domain::poems::{self, Facets, RandomPoemOption};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource, RouteProblem};
 use crate::extract::SafePath;
@@ -63,9 +62,9 @@ pub(crate) async fn list(
     let query = Query::parse(raw.as_deref());
     let page = query.unbounded_page()?;
     let facets = facets(&query)?;
-    let (data, total) = state.poems.list(&facets, page, POEMS_PER_PAGE).await?;
+    let (poems, total) = state.poems.list(&facets, page, POEMS_PER_PAGE).await?;
     let envelope = ListEnvelope {
-        data,
+        data: poems.into_iter().map(PoemListItem::from).collect(),
         pagination: build_pagination(page, POEMS_PER_PAGE, total.cast_unsigned()),
     };
     log.set("result_count", total);
@@ -167,8 +166,10 @@ pub(crate) async fn facet_counts(
         theme: query.facet("theme", slug::transliterated, MAX_FILTER_SLUGS)?,
         ..Facets::default()
     };
-    let data = poems::facets(state.poems.as_ref(), &facets).await?;
-    Ok(Json(ItemEnvelope { data }))
+    let counts = poems::facets(state.poems.as_ref(), &facets).await?;
+    Ok(Json(ItemEnvelope {
+        data: PoemFacets::from(counts),
+    }))
 }
 
 #[utoipa::path(
@@ -208,7 +209,10 @@ pub(crate) async fn detail(
     log.set("era", poem.era.slug.clone());
     log.set("meter", poem.meter.slug.clone());
     log.set("theme", poem.theme.slug.clone());
-    Ok(Json(ItemEnvelope { data: poem }).into_response())
+    Ok(Json(ItemEnvelope {
+        data: PoemDetail::from(poem),
+    })
+    .into_response())
 }
 
 fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {

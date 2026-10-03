@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use chrono::{DateTime, SecondsFormat, Utc};
+use chrono::{DateTime, Utc};
 use rand::RngExt;
-use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::constants::{
@@ -85,17 +84,6 @@ pub struct KeyRecord {
     pub requests_this_hour: i64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct KeySummary {
-    pub id: i64,
-    pub prefix: String,
-    pub label: Option<String>,
-    pub created_at: String,
-    pub last_used_at: Option<String>,
-    pub requests_this_hour: i64,
-}
-
-#[derive(Debug, Serialize)]
 pub struct PlanView {
     pub plan: String,
     pub requests: i32,
@@ -118,35 +106,8 @@ pub trait KeyRepository: Send + Sync {
     async fn revoke(&self, user_id: i64, key_id: i64) -> Result<bool, StoreError>;
 }
 
-fn instant(at: DateTime<Utc>) -> String {
-    at.to_rfc3339_opts(SecondsFormat::Secs, true)
-}
-
-fn summary(record: KeyRecord) -> KeySummary {
-    KeySummary {
-        id: record.id,
-        prefix: record.prefix,
-        label: record.label,
-        created_at: instant(record.created_at),
-        last_used_at: record.last_used_at.map(instant),
-        requests_this_hour: record.requests_this_hour,
-    }
-}
-
 pub async fn lookup(keys: &dyn KeyRepository, raw: &str) -> Result<Option<Caller>, StoreError> {
     keys.caller(&hash(raw)).await
-}
-
-pub async fn list_for(
-    keys: &dyn KeyRepository,
-    user_id: i64,
-) -> Result<Vec<KeySummary>, StoreError> {
-    Ok(keys
-        .active_for(user_id)
-        .await?
-        .into_iter()
-        .map(summary)
-        .collect())
 }
 
 pub async fn create_for(

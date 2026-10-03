@@ -4,6 +4,7 @@ pub mod cache;
 pub mod client_ip;
 pub mod config;
 pub mod constants;
+pub mod contract;
 pub mod cors;
 pub mod db;
 pub mod domain;

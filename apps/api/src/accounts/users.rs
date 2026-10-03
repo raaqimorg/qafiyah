@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
 use crate::error::StoreError;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Identity {
     pub provider: String,
     pub provider_uid: String,
@@ -12,7 +11,7 @@ pub struct Identity {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Profile {
     pub id: i64,
     pub email: String,
