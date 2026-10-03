@@ -14,8 +14,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use crate::constants::{PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS};
 use crate::error::AppError;
 
-#[path = "../generated/diesel/corpus.gen.rs"]
-pub mod corpus;
+pub use qafiyah_corpus::schema as corpus;
 
 #[path = "../generated/diesel/accounts.gen.rs"]
 pub mod accounts_schema;

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["apps/search-indexer", "apps/api", "crates/elasticsearch"]
+members = ["apps/search-indexer", "apps/api", "crates/elasticsearch", "crates/corpus"]
 
 [workspace.package]
 version = "0.0.0"

@@ -5,7 +5,7 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 ## Shape
 
 - `main.rs`: reads the environment, then `bootstrap`: provisions the read-only Elasticsearch user the API connects as, skips the rebuild when both aliases already hold documents (unless forced), otherwise runs `reindex` for poems and then poets, then exits 0.
-- `pg.rs`: the two `SELECT`s and the batched streaming reads. Poem content arrives as hemistichs joined by `*`.
+- `pg.rs`: the batched streaming reads through Diesel, over the schema in `crates/corpus`. A poem page is two queries, its rows and then their verses, and each poem's content is its hemistichs joined by `*`.
 - `docs.rs`: row to document mapping (`to_poem_doc`, `to_poet_doc`).
 - `arabic.rs`: tashkeel stripping and the sort folding derived from the schema's char filter. `arabic-text.vectors.json` is the fixture the `matches_the_shared_vectors` test pins this crate's output to.
 - `es.rs`: the Elasticsearch calls (create index, bulk, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap, `next_index_name` for the `_v<N>` counter).

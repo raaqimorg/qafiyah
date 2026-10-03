@@ -11,6 +11,7 @@ workspace = true
 axum = "0.8"
 base64 = "0.23"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+qafiyah-corpus = { path = "../../crates/corpus" }
 qafiyah-elasticsearch = { path = "../../crates/elasticsearch" }
 serde = { version = "1", features = ["derive"] }
 form_urlencoded = "1"

@@ -1,199 +1,322 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
-use tokio_postgres::{Client, NoTls};
+use diesel::dsl::not;
+use diesel::pg::Pg;
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
+use qafiyah_corpus::schema::{
+    collections, eras, meters, poem_types, poem_verses, poems, poet_stats, poets, rhymes, themes,
+    verses,
+};
 
 use crate::docs::{PoemSource, PoetSource};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const QUERY_TIMEOUT: Duration = Duration::from_secs(60);
+const VERSE_SEPARATOR: &str = "*";
 
-const POEM_SELECT: &str = "
-  SELECT
-    p.id AS id, p.slug AS slug, p.title AS title,
-    COALESCE((
-      SELECT string_agg(v.content, '*' ORDER BY pv.position)
-      FROM public.poem_verses pv
-      JOIN  public.verses     v ON v.id = pv.verse_id
-      WHERE pv.poem_id = p.id
-    ), '') AS content,
-    pt.name AS poet_name, pt.slug AS poet_slug, pt.has_avatar AS poet_has_avatar,
-    pt.is_anonymous AS poet_is_anonymous,
-    e.name AS era_name, e.slug AS era_slug,
-    m.name AS meter_name, m.slug AS meter_slug,
-    t.slug AS theme_slug,
-    r.slug AS rhyme_slug,
-    ty.slug AS poem_type_slug,
-    COALESCE(c.slug, '') AS collection_slug,
-    COALESCE(p.recension_of_id, p.id) AS primary_id, p.recension_of_id IS NULL AS is_primary
-  FROM public.poems p
-  JOIN public.poets pt ON p.poet_id = pt.id
-  JOIN public.eras e ON pt.era_id = e.id
-  JOIN public.meters m ON p.meter_id = m.id
-  JOIN public.themes t ON p.theme_id = t.id
-  JOIN public.rhymes r ON p.rhyme_id = r.id
-  JOIN public.poem_types ty ON p.poem_type_id = ty.id
-  LEFT JOIN public.collections c ON p.collection_id = c.id
-  WHERE p.id > $1 AND NOT p.is_hidden ORDER BY p.id ASC LIMIT $2
-";
+#[derive(Queryable, Selectable)]
+#[diesel(table_name = poems, check_for_backend(Pg))]
+struct PoemRow {
+    id: i32,
+    slug: String,
+    title: String,
+    #[diesel(select_expression = poets::name)]
+    poet_name: String,
+    #[diesel(select_expression = poets::slug)]
+    poet_slug: String,
+    #[diesel(select_expression = poets::has_avatar)]
+    poet_has_avatar: bool,
+    #[diesel(select_expression = poets::is_anonymous)]
+    poet_is_anonymous: bool,
+    #[diesel(select_expression = eras::name)]
+    era_name: String,
+    #[diesel(select_expression = eras::slug)]
+    era_slug: String,
+    #[diesel(select_expression = meters::name)]
+    meter_name: String,
+    #[diesel(select_expression = meters::slug)]
+    meter_slug: String,
+    #[diesel(select_expression = themes::slug)]
+    theme_slug: String,
+    #[diesel(select_expression = rhymes::slug)]
+    rhyme_slug: String,
+    #[diesel(select_expression = poem_types::slug)]
+    poem_type_slug: String,
+    #[diesel(select_expression = collections::slug.nullable())]
+    collection_slug: Option<String>,
+    recension_of_id: Option<i32>,
+}
 
-const POET_SELECT: &str = "
-  SELECT pt.id AS id, pt.slug AS slug, pt.name AS name, COALESCE(pt.nickname, '') AS nickname,
-         e.name AS era_name, e.slug AS era_slug,
-         COALESCE(ps.poems_count, 0)::int AS poems_count
-  FROM public.poets pt
-  JOIN public.eras e ON pt.era_id = e.id
-  LEFT JOIN public.poet_stats ps ON ps.slug = pt.slug
-  WHERE pt.id > $1 AND NOT pt.is_hidden ORDER BY pt.id ASC LIMIT $2
-";
+#[derive(Queryable, Selectable)]
+#[diesel(table_name = poets, check_for_backend(Pg))]
+struct PoetRow {
+    id: i32,
+    slug: String,
+    name: String,
+    nickname: Option<String>,
+    #[diesel(select_expression = eras::name)]
+    era_name: String,
+    #[diesel(select_expression = eras::slug)]
+    era_slug: String,
+    #[diesel(select_expression = poet_stats::poems_count.nullable())]
+    poems_count: Option<i64>,
+}
 
-const POEM_COUNT: &str = "SELECT count(*) FROM public.poems WHERE NOT is_hidden";
-const POET_COUNT: &str = "SELECT count(*) FROM public.poets WHERE NOT is_hidden";
-
-#[expect(
-    clippy::print_stderr,
-    reason = "a dropped postgres connection reports its failure to stderr"
-)]
-pub(crate) async fn connect(url: &str) -> Result<Client, String> {
-    let mut config = url
-        .parse::<tokio_postgres::Config>()
-        .map_err(|e| format!("postgres connect: {e}"))?;
-    config.connect_timeout(CONNECT_TIMEOUT);
-    let (client, connection) = config
-        .connect(NoTls)
+pub(crate) async fn connect(url: &str) -> Result<AsyncPgConnection, String> {
+    tokio::time::timeout(CONNECT_TIMEOUT, AsyncPgConnection::establish(url))
         .await
-        .map_err(|e| format!("postgres connect: {e}"))?;
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("{}", crate::log::line("pg_connection", &e.to_string()));
-        }
-    });
-    Ok(client)
+        .map_err(|_| "postgres connect: timed out".to_string())?
+        .map_err(|e| format!("postgres connect: {e}"))
 }
 
-async fn query_poem_batch(
-    client: &Client,
-    after_id: i32,
-    limit: i64,
-) -> Result<Vec<tokio_postgres::Row>, String> {
-    tokio::time::timeout(
-        QUERY_TIMEOUT,
-        client.query(POEM_SELECT, &[&after_id, &limit]),
-    )
-    .await
-    .map_err(|_| "streamPoemBatch: query timed out".to_string())?
-    .map_err(|e| format!("streamPoemBatch: {e}"))
+async fn within<T>(stage: &str, query: impl Future<Output = QueryResult<T>>) -> Result<T, String> {
+    tokio::time::timeout(QUERY_TIMEOUT, query)
+        .await
+        .map_err(|_| format!("{stage}: query timed out"))?
+        .map_err(|e| format!("{stage}: {e}"))
 }
 
-async fn query_poet_batch(
-    client: &Client,
-    after_id: i32,
-    limit: i64,
-) -> Result<Vec<tokio_postgres::Row>, String> {
-    tokio::time::timeout(
-        QUERY_TIMEOUT,
-        client.query(POET_SELECT, &[&after_id, &limit]),
-    )
-    .await
-    .map_err(|_| "streamPoetBatch: query timed out".to_string())?
-    .map_err(|e| format!("streamPoetBatch: {e}"))
+fn poem_sources(rows: Vec<PoemRow>, verses: Vec<(i32, String)>) -> Vec<PoemSource> {
+    let mut contents: HashMap<i32, Vec<String>> = HashMap::new();
+    for (poem_id, content) in verses {
+        contents.entry(poem_id).or_default().push(content);
+    }
+    rows.into_iter()
+        .map(|row| PoemSource {
+            content: contents
+                .remove(&row.id)
+                .map(|lines| lines.join(VERSE_SEPARATOR))
+                .unwrap_or_default(),
+            primary_id: row.recension_of_id.unwrap_or(row.id),
+            is_primary: row.recension_of_id.is_none(),
+            id: row.id,
+            slug: row.slug,
+            title: row.title,
+            poet_name: row.poet_name,
+            poet_slug: row.poet_slug,
+            poet_has_avatar: row.poet_has_avatar,
+            poet_is_anonymous: row.poet_is_anonymous,
+            era_name: row.era_name,
+            era_slug: row.era_slug,
+            meter_name: row.meter_name,
+            meter_slug: row.meter_slug,
+            theme_slug: row.theme_slug,
+            rhyme_slug: row.rhyme_slug,
+            poem_type_slug: row.poem_type_slug,
+            collection_slug: row.collection_slug.unwrap_or_default(),
+        })
+        .collect()
 }
 
 pub(crate) async fn stream_poem_batch(
-    client: &Client,
+    mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
 ) -> Result<Vec<PoemSource>, String> {
-    let rows = query_poem_batch(client, after_id, limit).await?;
-    Ok(rows
-        .iter()
-        .map(|r| PoemSource {
-            id: r.get("id"),
-            slug: r.get("slug"),
-            title: r.get("title"),
-            content: r.get("content"),
-            poet_name: r.get("poet_name"),
-            poet_slug: r.get("poet_slug"),
-            poet_has_avatar: r.get("poet_has_avatar"),
-            poet_is_anonymous: r.get("poet_is_anonymous"),
-            era_name: r.get("era_name"),
-            era_slug: r.get("era_slug"),
-            meter_name: r.get("meter_name"),
-            meter_slug: r.get("meter_slug"),
-            theme_slug: r.get("theme_slug"),
-            rhyme_slug: r.get("rhyme_slug"),
-            poem_type_slug: r.get("poem_type_slug"),
-            collection_slug: r.get("collection_slug"),
-            primary_id: r.get("primary_id"),
-            is_primary: r.get("is_primary"),
-        })
-        .collect())
+    let rows: Vec<PoemRow> = within(
+        "streamPoemBatch",
+        poems::table
+            .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
+            .inner_join(eras::table.on(eras::id.eq(poets::era_id)))
+            .inner_join(meters::table.on(meters::id.eq(poems::meter_id)))
+            .inner_join(themes::table.on(themes::id.eq(poems::theme_id)))
+            .inner_join(rhymes::table.on(rhymes::id.eq(poems::rhyme_id)))
+            .inner_join(poem_types::table.on(poem_types::id.eq(poems::poem_type_id)))
+            .left_join(collections::table.on(poems::collection_id.eq(collections::id.nullable())))
+            .filter(poems::id.gt(after_id))
+            .filter(not(poems::is_hidden))
+            .order(poems::id.asc())
+            .limit(limit)
+            .select(PoemRow::as_select())
+            .load(&mut conn),
+    )
+    .await?;
+    let ids: Vec<i32> = rows.iter().map(|row| row.id).collect();
+    let verses: Vec<(i32, String)> = within(
+        "streamPoemBatch",
+        poem_verses::table
+            .inner_join(verses::table)
+            .filter(poem_verses::poem_id.eq_any(ids))
+            .order((poem_verses::poem_id.asc(), poem_verses::position.asc()))
+            .select((poem_verses::poem_id, verses::content))
+            .load(&mut conn),
+    )
+    .await?;
+    Ok(poem_sources(rows, verses))
 }
 
-pub(crate) async fn count_rows(client: &Client, is_poems: bool) -> Result<i64, String> {
-    let sql = if is_poems { POEM_COUNT } else { POET_COUNT };
-    let row = tokio::time::timeout(QUERY_TIMEOUT, client.query_one(sql, &[]))
+pub(crate) async fn count_rows(
+    mut conn: &AsyncPgConnection,
+    is_poems: bool,
+) -> Result<i64, String> {
+    if is_poems {
+        within(
+            "countRows",
+            poems::table
+                .filter(not(poems::is_hidden))
+                .count()
+                .get_result(&mut conn),
+        )
         .await
-        .map_err(|_| "countRows: query timed out".to_string())?
-        .map_err(|e| format!("countRows: {e}"))?;
-    Ok(row.get(0))
+    } else {
+        within(
+            "countRows",
+            poets::table
+                .filter(not(poets::is_hidden))
+                .count()
+                .get_result(&mut conn),
+        )
+        .await
+    }
 }
 
 pub(crate) async fn stream_poet_batch(
-    client: &Client,
+    mut conn: &AsyncPgConnection,
     after_id: i32,
     limit: i64,
 ) -> Result<Vec<PoetSource>, String> {
-    let rows = query_poet_batch(client, after_id, limit).await?;
-    Ok(rows
-        .iter()
-        .map(|r| PoetSource {
-            id: r.get("id"),
-            slug: r.get("slug"),
-            name: r.get("name"),
-            nickname: r.get("nickname"),
-            era_name: r.get("era_name"),
-            era_slug: r.get("era_slug"),
-            poems_count: r.get("poems_count"),
+    let rows: Vec<PoetRow> = within(
+        "streamPoetBatch",
+        poets::table
+            .inner_join(eras::table.on(eras::id.eq(poets::era_id)))
+            .left_join(poet_stats::table.on(poet_stats::slug.eq(poets::slug.nullable())))
+            .filter(poets::id.gt(after_id))
+            .filter(not(poets::is_hidden))
+            .order(poets::id.asc())
+            .limit(limit)
+            .select(PoetRow::as_select())
+            .load(&mut conn),
+    )
+    .await?;
+    rows.into_iter()
+        .map(|row| {
+            Ok(PoetSource {
+                poems_count: i32::try_from(row.poems_count.unwrap_or(0)).map_err(|_| {
+                    format!("streamPoetBatch: poet {} poems_count out of range", row.id)
+                })?,
+                id: row.id,
+                slug: row.slug,
+                name: row.name,
+                nickname: row.nickname.unwrap_or_default(),
+                era_name: row.era_name,
+                era_slug: row.era_slug,
+            })
         })
-        .collect())
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn row(id: i32, recension_of_id: Option<i32>) -> PoemRow {
+        PoemRow {
+            id,
+            slug: format!("poem-{id}"),
+            title: String::new(),
+            poet_name: String::new(),
+            poet_slug: String::new(),
+            poet_has_avatar: false,
+            poet_is_anonymous: false,
+            era_name: String::new(),
+            era_slug: String::new(),
+            meter_name: String::new(),
+            meter_slug: String::new(),
+            theme_slug: String::new(),
+            rhyme_slug: String::new(),
+            poem_type_slug: String::new(),
+            collection_slug: None,
+            recension_of_id,
+        }
+    }
+
     #[test]
-    fn a_poem_with_no_verses_selects_an_empty_content_string_rather_than_null() {
-        assert!(
-            POEM_SELECT.contains("COALESCE((") && POEM_SELECT.contains("), '') AS content"),
-            "{POEM_SELECT}"
+    fn a_poem_with_no_verses_gets_an_empty_content_string() {
+        let sources = poem_sources(vec![row(1, None)], vec![(2, "other".into())]);
+        assert_eq!(sources[0].content, "");
+    }
+
+    #[test]
+    fn verses_join_in_the_order_they_are_read_and_keep_empty_ones() {
+        let verses = vec![(1, "a".into()), (1, String::new()), (1, "b".into())];
+        assert_eq!(poem_sources(vec![row(1, None)], verses)[0].content, "a**b");
+    }
+
+    #[test]
+    fn a_recension_carries_the_id_of_its_primary() {
+        let sources = poem_sources(vec![row(1, None), row(2, Some(1))], Vec::new());
+        assert_eq!((sources[0].primary_id, sources[0].is_primary), (1, true));
+        assert_eq!((sources[1].primary_id, sources[1].is_primary), (1, false));
+    }
+
+    #[test]
+    fn a_poem_outside_any_collection_gets_an_empty_collection_slug() {
+        assert_eq!(
+            poem_sources(vec![row(1, None)], Vec::new())[0].collection_slug,
+            ""
         );
-        assert!(POEM_SELECT.contains("string_agg(v.content, '*' ORDER BY pv.position)"));
     }
 
-    #[test]
-    fn every_shown_reading_is_selected_with_the_id_of_its_primary() {
-        assert!(
-            !POEM_SELECT.contains("recension_of_id IS NULL AND"),
-            "{POEM_SELECT}"
-        );
-        assert!(POEM_SELECT.contains("COALESCE(p.recension_of_id, p.id) AS primary_id"));
-        assert!(POEM_SELECT.contains("p.recension_of_id IS NULL AS is_primary"));
-        assert!(POEM_SELECT.contains("NOT p.is_hidden"));
+    #[expect(clippy::print_stderr, reason = "the skip notice goes to stderr")]
+    async fn database() -> Option<AsyncPgConnection> {
+        let Ok(url) = std::env::var("QAFIYAH_TEST_DATABASE_URL") else {
+            eprintln!("skipping: QAFIYAH_TEST_DATABASE_URL is not set");
+            return None;
+        };
+        Some(connect(&url).await.expect("the corpus database"))
     }
 
-    #[test]
-    fn the_progress_totals_count_the_same_rows_the_selects_read() {
-        assert!(POEM_COUNT.contains("FROM public.poems") && POEM_COUNT.contains("NOT is_hidden"));
-        assert!(POET_COUNT.contains("FROM public.poets") && POET_COUNT.contains("NOT is_hidden"));
+    #[tokio::test]
+    async fn streamed_poets_add_up_to_the_poet_count_in_id_order() {
+        let Some(conn) = database().await else { return };
+        let mut cursor = 0;
+        let mut streamed = 0_i64;
+        loop {
+            let batch = stream_poet_batch(&conn, cursor, 1000)
+                .await
+                .expect("a batch");
+            let Some(last) = batch.last() else { break };
+            assert!(batch.iter().all(|poet| poet.id > cursor));
+            assert!(batch.windows(2).all(|pair| pair[0].id < pair[1].id));
+            cursor = last.id;
+            streamed += i64::try_from(batch.len()).expect("a small batch");
+        }
+        assert_eq!(streamed, count_rows(&conn, false).await.expect("a count"));
     }
 
-    #[test]
-    fn both_selects_page_by_id_with_a_bound_cursor_and_limit() {
-        for select in [POEM_SELECT, POET_SELECT] {
-            assert!(select.contains("WHERE p.id > $1") || select.contains("WHERE pt.id > $1"));
-            assert!(select.contains("ORDER BY"));
-            assert!(select.trim_end().ends_with("LIMIT $2"), "{select}");
+    #[tokio::test]
+    async fn a_hidden_poem_is_skipped_and_a_recension_streams_with_its_primary() {
+        let Some(mut conn) = database().await else {
+            return;
+        };
+        let hidden: Option<i32> = poems::table
+            .filter(poems::is_hidden)
+            .select(poems::id)
+            .first(&mut conn)
+            .await
+            .optional()
+            .expect("a hidden poem lookup");
+        if let Some(hidden) = hidden {
+            let batch = stream_poem_batch(&conn, hidden - 1, 1)
+                .await
+                .expect("a batch");
+            assert!(batch.iter().all(|poem| poem.id != hidden));
+        }
+        let recension: Option<(i32, Option<i32>)> = poems::table
+            .filter(poems::recension_of_id.is_not_null())
+            .filter(not(poems::is_hidden))
+            .select((poems::id, poems::recension_of_id))
+            .first(&mut conn)
+            .await
+            .optional()
+            .expect("a recension lookup");
+        if let Some((id, Some(primary))) = recension {
+            let batch = stream_poem_batch(&conn, id - 1, 1).await.expect("a batch");
+            assert_eq!(batch[0].id, id);
+            assert_eq!((batch[0].primary_id, batch[0].is_primary), (primary, false));
+            assert!(!batch[0].content.is_empty());
         }
     }
 }
