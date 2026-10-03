@@ -7,7 +7,7 @@ Cross-language engineering conventions (not TypeScript- or Rust-specific, see `d
 - Pure core, mutations at edges. Inject deps as args; no globals/singletons. Compute derived, don't store it.
 - Abstract only at 3x repeat, hard to test, invalid states possible, or painful immutable updates. Delete dead code.
 - Validate at entry, trust types downstream, fail loudly at boundaries. Deps flow inward.
-- One primary export per file (4+ → split). Co-locate until shared 2+, then `types/`|`utils/`.
+- One concern per file, co-located until 2+ places share it. TypeScript and Rust draw the file boundary differently, see their conventions.
 - Design interfaces for the caller; hide internals. Push (events/callbacks) > pull.
 
 ## Naming
