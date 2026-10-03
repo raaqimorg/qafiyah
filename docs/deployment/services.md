@@ -12,6 +12,29 @@ There is no performance tracing; the per-request log line (with `duration_ms`, a
 
 **Checking a deploy.** `bun run api:conformance` (or `api:conformance prod`) replays every documented operation against a running API and validates each response body against the committed OpenAPI schema. This is the post-deploy verification step in `.claude/skills/deploy/SKILL.md`.
 
+## Postgres connections
+
+Postgres allows 100 connections, 3 of them reserved for superusers. Every client caps its own:
+
+- The API holds at most 20 connections to the corpus and 5 to `qafiyah_accounts` (`PG_POOL_MAX_CONNECTIONS`, `PG_ACCOUNTS_POOL_MAX_CONNECTIONS`). The pool opens them on demand and reuses them, runs `SELECT 1` before handing one out and replaces it if that fails, and makes a request wait at most 2 s for a free one before answering 500. Each connection sets `statement_timeout = 5s` (and `lock_timeout = 2s` for accounts) when it opens.
+- The search indexer holds 1 while it reindexes, and `pg_dump` (backups, dump scripts) 1 each while it runs.
+
+The worst case is about 30, so no external pooler is needed while one API process is the only long-lived client. When a client process exits, its sockets close and Postgres ends its sessions at once. For what a client leaves behind, the `db` command in `docker-compose.yml` sets:
+
+- `idle_in_transaction_session_timeout=30s`: a transaction left open between statements (a forgotten one in TablePlus, say) is ended after 30 s instead of holding its locks. The app's transactions last milliseconds, and `pg_dump` and restores turn it off for their own sessions.
+- `tcp_keepalives_idle=60`, `tcp_keepalives_interval=10`, `tcp_keepalives_count=3`: a client that vanished without closing its socket is noticed within 90 s, not the kernel's 2 hours.
+- `client_connection_check_interval=10s`: a running query whose client disconnected is cancelled within 10 s.
+
+`idle_session_timeout` stays off, because it would close the API's pooled connections in quiet periods. To see who holds connections, run against production:
+
+```sql
+SELECT usename, state, count(*)
+FROM pg_stat_activity
+WHERE backend_type = 'client backend'
+GROUP BY usename, state
+ORDER BY count(*) DESC;
+```
+
 ## Web (`apps/web`)
 
 Astro SSR: every route renders on demand by calling the internal `api` container over the contract (`INTERNAL_API_URL=http://api-backend:8787`, via `openapi-fetch` bound to the generated schema types); bundled nginx caches the rendered HTML and serves built static assets. `PUBLIC_API_URL` is unset, so browser islands fall back to the production API. The build runs `astro build` only (no `DATABASE_URL` at build time). The serve image is **fully non-root**: nginx and the Bun SSR origin both run as `nginx` under `tini`. nginx listens on `8080` and the container has no host port; only `edge-gateway` binds `127.0.0.1:80` and proxies to `web-edge:8080`. The entrypoint runs both processes and exits if either dies, so `restart: unless-stopped` recovers a crash. Build alone with `docker compose build web`.
