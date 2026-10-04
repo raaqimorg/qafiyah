@@ -23,8 +23,6 @@ updates:
           - minor
           - patch
     ignore:
-      - dependency-name: "prettier-plugin-astro"
-        versions: [">=1.0.0"]
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
 
