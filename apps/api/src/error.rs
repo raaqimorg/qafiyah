@@ -6,7 +6,10 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
-use crate::constants::{NO_STORE_CACHE_CONTROL, PROD_SITE_URL, UNAVAILABLE_RETRY_AFTER_SECONDS};
+use crate::constants::{
+    NO_STORE_CACHE_CONTROL, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER, RATE_LIMIT_REMAINING_HEADER,
+    RATE_LIMIT_RESET_HEADER, UNAVAILABLE_RETRY_AFTER_SECONDS,
+};
 use crate::domain::StoreError;
 use crate::domain::poems::PoemError;
 use crate::log::stage_event;
@@ -339,7 +342,17 @@ pub async fn layer(request: Request, next: Next) -> Response {
     if let Some(error) = &problem.error {
         sentry::capture(error, problem.code, &method, &instance);
     }
-    render(&problem, &instance)
+    let mut rendered = render(&problem, &instance);
+    for name in [
+        RATE_LIMIT_LIMIT_HEADER,
+        RATE_LIMIT_REMAINING_HEADER,
+        RATE_LIMIT_RESET_HEADER,
+    ] {
+        if let Some(value) = response.headers().get(name) {
+            rendered.headers_mut().insert(name, value.clone());
+        }
+    }
+    rendered
 }
 
 #[cfg(test)]
