@@ -98,4 +98,29 @@ mod tests {
             "Invalid query string: missing field `poet`"
         );
     }
+
+    #[test]
+    fn decoding_never_panics_on_arbitrary_query_strings() {
+        use crate::params::{NoParams, SlugsParams};
+        use crate::routes::poems::{FacetsParams, PoemsParams, RandomParams};
+        use crate::routes::poets::PoetsParams;
+        use crate::routes::search::SearchParams;
+
+        let mut rng = crate::test_support::Rng::new(11);
+        let alphabet = [
+            "a", "=", "&", "[", "]", "%", "0", "9", "+", "q", "page", "types", "era", "ع", "😀",
+            "\u{0}",
+        ];
+        for _ in 0..3_000 {
+            let len = rng.below(24);
+            let raw: String = (0..len).map(|_| rng.pick(&alphabet)).collect();
+            let _result = parse_query::<PoemsParams>(&raw);
+            let _result = parse_query::<FacetsParams>(&raw);
+            let _result = parse_query::<RandomParams>(&raw);
+            let _result = parse_query::<PoetsParams>(&raw);
+            let _result = parse_query::<SearchParams>(&raw);
+            let _result = parse_query::<SlugsParams>(&raw);
+            let _result = parse_query::<NoParams>(&raw);
+        }
+    }
 }

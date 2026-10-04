@@ -1,15 +1,14 @@
 use serde::Serialize;
 use utoipa::openapi::header::{Header, HeaderBuilder};
-use utoipa::openapi::path::ParameterIn;
 use utoipa::openapi::schema::{ObjectBuilder, Type};
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityRequirement, SecurityScheme};
 use utoipa::openapi::{
-    Components, ContactBuilder, OpenApi as Document, RefOr, ResponseBuilder, Schema, ServerBuilder,
+    Components, ContactBuilder, OpenApi as Document, RefOr, ResponseBuilder, ServerBuilder,
 };
 use utoipa::{Modify, OpenApi, ToSchema};
 
 use crate::constants::{
-    API_KEY_HEADER, API_V1_PREFIX, MAX_FILTER_SLUGS, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
+    API_KEY_HEADER, API_V1_PREFIX, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
     RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER, SITE_NAME_EN,
 };
 use crate::params::{
@@ -108,7 +107,6 @@ pub fn finish(doc: &mut Document) {
             .build(),
     );
     doc.servers = Some(vec![ServerBuilder::new().url(API_V1_PREFIX).build()]);
-    cap_facet_arrays(doc);
     ProblemContentType.modify(doc);
     declare_api_key(doc);
     declare_response_headers(doc);
@@ -184,47 +182,6 @@ fn declare_response_headers(doc: &mut Document) {
                     .entry(name.to_string())
                     .or_insert_with(|| header(Type::Integer, description));
             }
-        }
-    }
-}
-
-const FACET_ITEM_SCHEMAS: [&str; 2] = ["FourLetterSlug", "TransliteratedSlug"];
-
-fn is_facet_array(array: &utoipa::openapi::schema::Array) -> bool {
-    let Ok(items) = serde_json::to_value(&array.items) else {
-        return false;
-    };
-    let Some(reference) = items.get("$ref").and_then(serde_json::Value::as_str) else {
-        return false;
-    };
-    FACET_ITEM_SCHEMAS
-        .iter()
-        .any(|name| reference == format!("#/components/schemas/{name}"))
-}
-
-fn cap_facet_arrays(doc: &mut Document) {
-    for item in doc.paths.paths.values_mut() {
-        let Some(operation) = item.get.as_mut() else {
-            continue;
-        };
-        let Some(parameters) = operation.parameters.as_mut() else {
-            continue;
-        };
-        for parameter in parameters {
-            let RefOr::T(parameter) = parameter else {
-                continue;
-            };
-            if parameter.parameter_in != ParameterIn::Query {
-                continue;
-            }
-            let Some(RefOr::T(Schema::Array(array))) = parameter.schema.as_mut() else {
-                continue;
-            };
-            if !is_facet_array(array) {
-                continue;
-            }
-            array.max_items = Some(MAX_FILTER_SLUGS);
-            array.default = Some(serde_json::json!([]));
         }
     }
 }
