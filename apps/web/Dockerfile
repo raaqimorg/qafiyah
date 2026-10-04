@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3.14-alpine AS base
+FROM oven/bun:1.4.2-alpine AS base
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -35,7 +35,7 @@ COPY apps/inspector/package.json apps/inspector/package.json
 RUN bun install --frozen-lockfile --production --ignore-scripts --linker hoisted --filter @qafiyah/web
 COPY packages ./packages
 
-FROM oven/bun:1.3.14-alpine AS serve
+FROM oven/bun:1.4.2-alpine AS serve
 RUN apk add --no-cache nginx tini && apk upgrade --no-cache libssl3 libcrypto3
 WORKDIR /app
 COPY --from=build     /app/apps/web/dist  ./apps/web/dist
