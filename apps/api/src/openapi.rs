@@ -387,7 +387,7 @@ mod tests {
                 }
                 let name = parameter["name"].as_str().expect("a name");
                 if name == "types" {
-                    assert_eq!(schema["maxItems"], 2, "{path} types");
+                    assert!(schema["maxItems"].is_null(), "{path} types");
                     assert!(schema["default"].is_null(), "{path} types");
                     continue;
                 }

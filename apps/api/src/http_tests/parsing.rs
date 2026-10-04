@@ -25,21 +25,26 @@ async fn page_zero_and_overflow_are_refused_before_any_backend_call() {
 #[tokio::test]
 async fn search_refuses_a_poem_only_facet_when_poets_are_requested() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    for path in [
-        "/v1/search?types[]=poets&meterSlugs[]=altawil",
-        "/v1/search?rhymeSlugs[]=meem",
-        "/v1/search?types[]=poems&types[]=poets&themeSlugs[]=alnasib",
-        "/v1/search?types[]=poets&poemTypeSlugs[]=hurr",
+    for (path, name) in [
+        ("/v1/search?types=poets&meterSlugs=altawil", "meterSlugs"),
+        ("/v1/search?rhymeSlugs=meem", "rhymeSlugs"),
+        (
+            "/v1/search?types=poems&types=poets&themeSlugs=alnasib",
+            "themeSlugs",
+        ),
+        ("/v1/search?types=poets&poemTypeSlugs=hurr", "poemTypeSlugs"),
     ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
         assert_eq!(
-            send(app_with(&es), request("GET", path)).await.status,
-            StatusCode::BAD_REQUEST,
+            sent.json()["detail"],
+            format!("Invalid query parameter `{name}`: filters poems only, send `types=poems`"),
             "{path}"
         );
     }
     let ok = send(
         app_with(&es),
-        request("GET", "/v1/search?types[]=poems&meterSlugs[]=altawil"),
+        request("GET", "/v1/search?types=poems&meterSlugs=altawil"),
     )
     .await;
     assert_eq!(ok.status, StatusCode::OK);
@@ -50,7 +55,7 @@ async fn a_verse_form_filter_reaches_elasticsearch_as_a_terms_filter() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let sent = send(
         app_with(&es),
-        request("GET", "/v1/search?types[]=poems&poemTypeSlugs[]=hurr"),
+        request("GET", "/v1/search?types=poems&poemTypeSlugs=hurr"),
     )
     .await;
     assert_eq!(sent.status, StatusCode::OK);
@@ -69,7 +74,7 @@ async fn a_whitespace_only_query_is_empty_on_search_and_the_poets_list_alike() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let search = send(
         app_with(&es),
-        request("GET", "/v1/search?q=%20%20&types[]=poems"),
+        request("GET", "/v1/search?q=%20%20&types=poems"),
     )
     .await;
     assert_eq!(search.status, StatusCode::OK);
@@ -89,17 +94,55 @@ async fn a_whitespace_only_query_is_empty_on_search_and_the_poets_list_alike() {
 }
 
 #[tokio::test]
-async fn unknown_parameters_and_injection_shaped_values_are_ignored() {
+async fn unknown_parameters_and_bracket_forms_are_refused_by_name() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    let sent = send(
+    for (path, name) in [
+        ("/v1/search?foo=bar&types=poems", "foo"),
+        ("/v1/search?types[]=poems", "types[]"),
+        ("/v1/search?eraSlugs[0]=jahili", "eraSlugs[0]"),
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
+        let detail = sent.json()["detail"]
+            .as_str()
+            .expect("a detail")
+            .to_string();
+        let expected = format!(
+            "Invalid query parameter `{name}`: unknown field `{name}`, expected one of `q`, `types`"
+        );
+        assert!(detail.starts_with(&expected), "{path}: {detail}");
+    }
+    assert!(es.requests().await.is_empty());
+}
+
+#[tokio::test]
+async fn injection_shaped_text_and_broken_escapes_are_searched_as_text() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in [
+        "/v1/search?q=%27%20OR%201%3D1%20--&types=poems",
+        "/v1/search?q=%ZZ&types=poems",
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
+    }
+    let echoed = send(
         app_with(&es),
-        request(
-            "GET",
-            "/v1/search?foo=bar&injection=%27%20OR%201%3D1%20--&types[]=poems",
-        ),
+        request("GET", "/v1/search?q=%ZZ&types=poems"),
     )
     .await;
-    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(echoed.json()["q"], "%ZZ");
+}
+
+#[tokio::test]
+async fn the_poets_section_ignores_poet_slugs_and_repeated_types_are_harmless() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in [
+        "/v1/search?types=poets&poetSlugs=PAKT",
+        "/v1/search?types=poems&types=poems&types=poems",
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
+    }
 }
 
 #[tokio::test]

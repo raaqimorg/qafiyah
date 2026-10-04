@@ -4414,8 +4414,7 @@
               "type": "array",
               "items": {
                 "$ref": "#/components/schemas/SearchTypeParam"
-              },
-              "maxItems": 2
+              }
             },
             "example": [
               "poems"

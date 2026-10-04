@@ -1,22 +1,19 @@
 use axum::Json;
-use axum::extract::{Extension, RawQuery, State};
-use serde::Serialize;
+use axum::extract::{Extension, State};
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::constants::{
-    MAX_FILTER_SLUGS, MAX_QUERY_LENGTH, SEARCH_POEMS_MAX_PAGE, SEARCH_POEMS_PER_PAGE,
-    SEARCH_POETS_MAX_PAGE, SEARCH_POETS_PER_PAGE,
+    SEARCH_POEMS_MAX_PAGE, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_MAX_PAGE, SEARCH_POETS_PER_PAGE,
 };
 use crate::contract::search::{PoemResult, PoetResult};
 use crate::domain::search::{self, PoemSearchParams, PoetSearchParams};
 use crate::envelope::{ListEnvelope, build_pagination};
-use crate::error::AppError;
+use crate::error::{AppError, RouteProblem};
+use crate::extract::SafeQuery;
 use crate::log::LogHandle;
 use crate::openapi::FilteredListErrors;
-use crate::params::{ExactFlag, FourLetterSlug, SearchTypeParam, TransliteratedSlug};
-use crate::query::Query;
-
-use crate::slug;
+use crate::params::{ExactFlag, Page, PoetSlugs, SearchText, SearchTypeParam, TermSlugs};
 use crate::state::AppState;
 
 #[derive(Serialize, ToSchema)]
@@ -33,26 +30,62 @@ pub(crate) struct SearchResponse {
     poets: Option<ListEnvelope<PoetResult>>,
 }
 
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub(crate) struct SearchParams {
+    /// Search query in Arabic, up to 100 characters. It is normalized (Unicode NFKC, whitespace collapsed and trimmed) and echoed back as `q`. A query of three words or more puts poems holding the words as a phrase above every other result, the oldest classical era first. When empty, the sections are browsed (see above).
+    #[param(inline, example = "أمن أم أوفى")]
+    q: Option<SearchText>,
+    /// Sections to include: `poems`, `poets`, or both, which is the default. Repeat it to send both. Send `types=poems` alone to use any poem-only filter.
+    #[param(example = json!(["poems"]))]
+    types: Option<Vec<SearchTypeParam>>,
+    /// Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+    #[param(inline, example = "1")]
+    poems_page: Option<Page<{ SEARCH_POEMS_MAX_PAGE }>>,
+    /// Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+    #[param(inline, example = "1")]
+    poets_page: Option<Page<{ SEARCH_POETS_MAX_PAGE }>>,
+    /// Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
+    #[serde(default)]
+    #[param(inline, example = json!(["PAKT"]))]
+    poet_slugs: PoetSlugs,
+    /// Narrow both sections to these eras. Repeatable. Values are `slug` from GET /eras.
+    #[serde(default)]
+    #[param(inline, example = json!(["jahili"]))]
+    era_slugs: TermSlugs,
+    /// Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /meters.
+    #[serde(default)]
+    #[param(inline, example = json!(["altawil"]))]
+    meter_slugs: TermSlugs,
+    /// Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /rhymes.
+    #[serde(default)]
+    #[param(inline, example = json!(["meem"]))]
+    rhyme_slugs: TermSlugs,
+    /// Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /themes.
+    #[serde(default)]
+    #[param(inline, example = json!(["alhikma"]))]
+    theme_slugs: TermSlugs,
+    /// Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /poem-types.
+    #[serde(default)]
+    #[param(inline, example = json!(["amudi"]))]
+    poem_type_slugs: TermSlugs,
+    /// Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /collections.
+    #[serde(default)]
+    #[param(inline, example = json!(["almuallaqat"]))]
+    collection_slugs: TermSlugs,
+    /// When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies, except that a standalone hamza in a poem phrase must match as typed). Applies to both result sets.
+    #[param(example = "false")]
+    exact: Option<ExactFlag>,
+}
+
 #[utoipa::path(
     get,
     path = "/search",
     tag = "search",
     operation_id = "search.search",
     description = "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. Unknown query params are ignored.",
-    params(
-        ("q" = Option<String>, Query, description = "Search query in Arabic, up to 100 characters. It is normalized (Unicode NFKC, whitespace collapsed and trimmed) and echoed back as `q`. A query of three words or more puts poems holding the words as a phrase above every other result, the oldest classical era first. When empty, the sections are browsed (see above).", max_length = 100, example = "أمن أم أوفى"),
-        ("types" = Option<Vec<SearchTypeParam>>, Query, description = "Sections to include: `poems`, `poets`, or both, which is the default. Repeat it to send both. Send `types=poems` alone to use any poem-only filter.", max_items = 2, example = json!(["poems"])),
-        ("poemsPage" = Option<String>, Query, description = "Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poetsPage" = Option<String>, Query, description = "Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poetSlugs" = Option<Vec<FourLetterSlug>>, Query, description = "Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.", example = json!(["PAKT"])),
-        ("eraSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow both sections to these eras. Repeatable. Values are `slug` from GET /eras.", example = json!(["jahili"])),
-        ("meterSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /meters.", example = json!(["altawil"])),
-        ("rhymeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
-        ("themeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
-        ("poemTypeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /poem-types.", example = json!(["amudi"])),
-        ("collectionSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /collections.", example = json!(["almuallaqat"])),
-        ("exact" = Option<ExactFlag>, Query, description = "When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies, except that a standalone hamza in a poem phrase must match as typed). Applies to both result sets.", example = "false"),
-    ),
+    params(SearchParams),
     responses(
         (status = 200, description = "The normalized query and the requested sections, each with its own results and pagination.", body = SearchResponse),
         FilteredListErrors,
@@ -61,60 +94,55 @@ pub(crate) struct SearchResponse {
 pub(crate) async fn search(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
-    RawQuery(raw): RawQuery,
+    SafeQuery(params): SafeQuery<SearchParams>,
 ) -> Result<Json<SearchResponse>, AppError> {
-    let query = Query::parse(raw.as_deref());
-    let q = query
-        .text("q", MAX_QUERY_LENGTH)?
-        .map(|raw| search::normalize_query(&raw))
+    let q = params
+        .q
+        .map(|text| search::normalize_query(text.as_str()))
         .unwrap_or_default();
-    let types = query.types()?;
-    let poems_page = query.named_page("poemsPage", SEARCH_POEMS_MAX_PAGE)?;
-    let poets_page = query.named_page("poetsPage", SEARCH_POETS_MAX_PAGE)?;
-    let exact = query.boolean("exact")?;
+    let (want_poems, want_poets) = params.types.as_deref().map_or((true, true), |types| {
+        (
+            types.contains(&SearchTypeParam::Poems),
+            types.contains(&SearchTypeParam::Poets),
+        )
+    });
+    let poems_page = params.poems_page.map_or(1, Page::get);
+    let poets_page = params.poets_page.map_or(1, Page::get);
+    let exact = params.exact == Some(ExactFlag::True);
 
-    let facet = |name: &str, validate: fn(&str) -> Result<&str, AppError>| {
-        query.facet(name, validate, MAX_FILTER_SLUGS)
-    };
-    let poet_slugs = facet("poetSlugs", slug::four_letters)?;
-    let era_slugs = facet("eraSlugs", slug::transliterated)?;
-    let meter_slugs = facet("meterSlugs", slug::transliterated)?;
-    let rhyme_slugs = facet("rhymeSlugs", slug::transliterated)?;
-    let theme_slugs = facet("themeSlugs", slug::transliterated)?;
-    let poem_type_slugs = facet("poemTypeSlugs", slug::transliterated)?;
-    let collection_slugs = facet("collectionSlugs", slug::transliterated)?;
-
-    let want_poems = types.iter().any(|t| t == "poems");
-    let want_poets = types.iter().any(|t| t == "poets");
     let poem_only = [
-        &meter_slugs,
-        &rhyme_slugs,
-        &theme_slugs,
-        &poem_type_slugs,
-        &collection_slugs,
+        ("meterSlugs", params.meter_slugs.is_empty()),
+        ("rhymeSlugs", params.rhyme_slugs.is_empty()),
+        ("themeSlugs", params.theme_slugs.is_empty()),
+        ("poemTypeSlugs", params.poem_type_slugs.is_empty()),
+        ("collectionSlugs", params.collection_slugs.is_empty()),
     ];
-    if want_poets && poem_only.iter().any(|values| !values.is_empty()) {
-        return Err(AppError::BadRequest);
+    if want_poets && let Some((name, _)) = poem_only.iter().find(|(_, empty)| !empty) {
+        return Err(RouteProblem::bad_request(&format!(
+            "Invalid query parameter `{name}`: filters poems only, send `types=poems`"
+        ))
+        .into());
     }
 
+    let era_slugs = params.era_slugs.into_strings();
     let poem_params = PoemSearchParams {
         q: q.clone(),
         page: poems_page,
         page_size: SEARCH_POEMS_PER_PAGE,
-        poet_slugs: poet_slugs.clone(),
+        poet_slugs: params.poet_slugs.into_strings(),
         era_slugs: era_slugs.clone(),
-        meter_slugs,
-        theme_slugs,
-        rhyme_slugs,
-        poem_type_slugs,
-        collection_slugs,
+        meter_slugs: params.meter_slugs.into_strings(),
+        theme_slugs: params.theme_slugs.into_strings(),
+        rhyme_slugs: params.rhyme_slugs.into_strings(),
+        poem_type_slugs: params.poem_type_slugs.into_strings(),
+        collection_slugs: params.collection_slugs.into_strings(),
         exact,
     };
     let poet_params = PoetSearchParams {
         q: q.clone(),
         page: poets_page,
         page_size: SEARCH_POETS_PER_PAGE,
-        era_slugs: era_slugs.clone(),
+        era_slugs,
         exact,
         ..PoetSearchParams::default()
     };

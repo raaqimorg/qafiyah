@@ -53,7 +53,6 @@ async fn the_share_link_refuses_anything_but_a_poem_path() {
         "path=/poets/TnKK",
         "path=//evil.test/poems/TnKK",
         "path=https://evil.test/poems/TnKK",
-        "path[]=/poems/TnKK",
         "path=/poems/a/b",
     ] {
         let sent = send(
@@ -72,18 +71,38 @@ async fn the_share_link_refuses_anything_but_a_poem_path() {
 }
 
 #[tokio::test]
-async fn the_share_link_drops_a_query_or_fragment_and_keeps_the_first_path() {
+async fn the_share_link_drops_a_query_or_fragment_from_the_path() {
     let es = es().await;
     let sent = send(
         app_with(&es),
-        request(
-            "GET",
-            "/v1/go/x-share?path=/poems/TnKK%3Fx%3D1%23top&path=/poets/zzzz",
-        ),
+        request("GET", "/v1/go/x-share?path=/poems/TnKK%3Fx%3D1%23top"),
     )
     .await;
     assert_eq!(sent.status, StatusCode::FOUND);
     assert_eq!(sent.header("location"), Some(INTENT));
+}
+
+#[tokio::test]
+async fn the_share_link_refuses_a_second_path_and_unknown_parameters_by_name() {
+    let es = es().await;
+    for (query, detail) in [
+        (
+            "path=/poems/TnKK&path=/poets/zzzz",
+            "Invalid query parameter `path`: unsupported value",
+        ),
+        (
+            "path[]=/poems/TnKK",
+            "Invalid query parameter `path[]`: unknown field `path[]`, expected `path`",
+        ),
+    ] {
+        let sent = send(
+            app_with(&es),
+            request("GET", &format!("/v1/go/x-share?{query}")),
+        )
+        .await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{query}");
+        assert_eq!(sent.json()["detail"], detail, "{query}");
+    }
 }
 
 #[tokio::test]
