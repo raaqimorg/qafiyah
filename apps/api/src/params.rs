@@ -1,8 +1,8 @@
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::json;
+use utoipa::ToSchema;
 use utoipa::openapi::schema::{ArrayBuilder, ObjectBuilder, Schema, Type};
 use utoipa::openapi::{Ref, RefOr};
-use utoipa::{IntoParams, ToSchema};
 
 use crate::constants::{MAX_FILTER_SLUGS, MAX_QUERY_LENGTH, MAX_TERM_SLUG_LENGTH};
 
@@ -238,7 +238,7 @@ pub enum ExactFlag {
 #[serde(deny_unknown_fields)]
 pub struct NoParams {}
 
-#[derive(Debug, Deserialize, IntoParams)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub struct SlugsParams {
