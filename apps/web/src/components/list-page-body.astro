@@ -35,41 +35,37 @@ const retryHref = Astro.url.pathname;
 <section class="relative my-14 flex w-full flex-col items-center justify-center xs:my-20 lg:my-28">
   <div class:list={['flex w-full flex-col items-start justify-start', contentGap]}>
     {crumbItems && <Breadcrumbs items={crumbItems} />}
-    {
-      Astro.slots.has('header') ? (
-        <slot name="header" />
-      ) : (
-        <h1 class={`${TYPE.title} text-text`}>{heading}</h1>
-      )
-    }
+    {Astro.slots.has('header') ? (
+      <slot name="header" />
+    ) : (
+      <h1 class={`${TYPE.title} text-text`}>{heading}</h1>
+    )}
     <slot />
-    {
-      items !== undefined && items.length === 0 && emptyVariant === 'error' ? (
-        <div class={CARD_LIST_CLASS}>
-          <div class="col-span-full flex flex-col items-center gap-3 rounded-lg border border-danger bg-surface-raised px-4 py-8 text-center">
-            <p class="text-danger">{emptyText}</p>
-            <p class="text-sm text-danger">
-              {ERROR_TEXTS.supportPrefix}{' '}
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                dir="ltr"
-                class="rounded-sm text-danger underline underline-offset-2 focus-ring"
-              >
-                {SUPPORT_EMAIL}
-              </a>
-            </p>
+    {items !== undefined && items.length === 0 && emptyVariant === 'error' ? (
+      <div class={CARD_LIST_CLASS}>
+        <div class="col-span-full flex flex-col items-center gap-3 rounded-lg border border-danger bg-surface-raised px-4 py-8 text-center">
+          <p class="text-danger">{emptyText}</p>
+          <p class="text-sm text-danger">
+            {ERROR_TEXTS.supportPrefix}{' '}
             <a
-              href={retryHref}
-              class="mt-1 rounded-md border border-danger px-4 py-1.5 text-sm text-danger focus-ring transition-colors hover:bg-surface-hover"
+              href={`mailto:${SUPPORT_EMAIL}`}
+              dir="ltr"
+              class="rounded-sm text-danger underline underline-offset-2 focus-ring"
             >
-              {ERROR_TEXTS.retry}
+              {SUPPORT_EMAIL}
             </a>
-          </div>
+          </p>
+          <a
+            href={retryHref}
+            class="mt-1 rounded-md border border-danger px-4 py-1.5 text-sm text-danger focus-ring transition-colors hover:bg-surface-hover"
+          >
+            {ERROR_TEXTS.retry}
+          </a>
         </div>
-      ) : (
-        items !== undefined && <CardList items={items} emptyText={emptyText} />
-      )
-    }
+      </div>
+    ) : (
+      items !== undefined && <CardList items={items} emptyText={emptyText} />
+    )}
     {pagination && <Pagination {...pagination} />}
   </div>
 </section>

@@ -14,20 +14,18 @@ interface Props {
 const { recensions } = Astro.props;
 ---
 
-{
-  recensions.length > 0 && (
-    <div class="flex w-full flex-col gap-6 xl:gap-8">
-      <h3 class={`${TYPE.heading} text-text`}>روايات أخرى للقصيدة</h3>
-      <div class="w-full columns-1 gap-x-10 sm:columns-2">
-        {recensions.map((item) => (
-          <ListCard
-            title={item.title}
-            subtitle={formatArabicCount({ count: item.verseCount, nounForms: VERSES_NOUN_FORMS })}
-            href={poemUrl(item.slug)}
-            headingTag="h4"
-          />
-        ))}
-      </div>
+{recensions.length > 0 && (
+  <div class="flex w-full flex-col gap-6 xl:gap-8">
+    <h3 class={`${TYPE.heading} text-text`}>روايات أخرى للقصيدة</h3>
+    <div class="w-full columns-1 gap-x-10 sm:columns-2">
+      {recensions.map((item) => (
+        <ListCard
+          title={item.title}
+          subtitle={formatArabicCount({ count: item.verseCount, nounForms: VERSES_NOUN_FORMS })}
+          href={poemUrl(item.slug)}
+          headingTag="h4"
+        />
+      ))}
     </div>
-  )
-}
+  </div>
+)}

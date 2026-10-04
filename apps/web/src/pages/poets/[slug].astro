@@ -112,22 +112,20 @@ const {
 >
   <ListPageBody heading={heading} crumbItems={crumbItems}>
     <div slot="header" class="flex w-full items-center gap-4 xs:gap-5">
-      {
-        avatarUrl && (
-          <div class="relative size-24 shrink-0">
-            <div class="absolute inset-0 animate-pulse rounded-lg bg-surface-sunken" />
-            <img
-              src={avatarUrl}
-              alt={heading}
-              width="96"
-              height="96"
-              decoding="async"
-              fetchpriority="high"
-              class="absolute inset-0 size-24 rounded-lg object-cover object-top"
-            />
-          </div>
-        )
-      }
+      {avatarUrl && (
+        <div class="relative size-24 shrink-0">
+          <div class="absolute inset-0 animate-pulse rounded-lg bg-surface-sunken" />
+          <img
+            src={avatarUrl}
+            alt={heading}
+            width="96"
+            height="96"
+            decoding="async"
+            fetchpriority="high"
+            class="absolute inset-0 size-24 rounded-lg object-cover object-top"
+          />
+        </div>
+      )}
       <div class="flex min-w-0 flex-col gap-2">
         <h1 class={`${TYPE.title} text-text`}>{heading}</h1>
         <p class={`${TYPE.caption} text-text-subtle`}>{subtitle}</p>
@@ -135,21 +133,19 @@ const {
     </div>
     <div class="flex w-full max-w-3xl flex-col gap-3">
       {bio?.kind === 'full' && <p class={BIO_CLASS}>{bio.text}</p>}
-      {
-        bio?.kind === 'truncated' && (
-          <p class={BIO_CLASS}>
-            <input id={BIO_TOGGLE_ID} type="checkbox" class="peer sr-only" />
-            <span class={ELLIPSIS_CLASS}>{bio.head}</span>
-            <span class="hidden peer-checked:inline">{bio.rest}</span>{' '}
-            <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} peer-checked:hidden`}>
-              عرض المزيد
-            </label>
-            <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} hidden peer-checked:inline`}>
-              طي
-            </label>
-          </p>
-        )
-      }
+      {bio?.kind === 'truncated' && (
+        <p class={BIO_CLASS}>
+          <input id={BIO_TOGGLE_ID} type="checkbox" class="peer sr-only" />
+          <span class={ELLIPSIS_CLASS}>{bio.head}</span>
+          <span class="hidden peer-checked:inline">{bio.rest}</span>{' '}
+          <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} peer-checked:hidden`}>
+            عرض المزيد
+          </label>
+          <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} hidden peer-checked:inline`}>
+            طي
+          </label>
+        </p>
+      )}
     </div>
     <PoetPoems
       client:load

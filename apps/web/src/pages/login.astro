@@ -45,34 +45,28 @@ const PROVIDER_CLASS = cn(
       <p class="text-base text-text-muted">سجل دخول باستعمال إحدى الطرق التالية</p>
     </header>
 
-    {
-      failed && (
-        <p
-          role="alert"
-          class="rounded-lg border border-danger px-4 py-3 text-center text-sm text-danger"
-        >
-          تعذّر تسجيل الدخول. حاول مرة أخرى.
-        </p>
-      )
-    }
+    {failed && (
+      <p
+        role="alert"
+        class="rounded-lg border border-danger px-4 py-3 text-center text-sm text-danger"
+      >
+        تعذّر تسجيل الدخول. حاول مرة أخرى.
+      </p>
+    )}
 
     <div class="flex flex-col gap-3">
-      {
-        providerConfigured('google') && (
-          <a class={PROVIDER_CLASS} href="/auth/google" rel="nofollow">
-            <BrandIcon name="google" size={18} />
-            المتابعة باستعمال قوقل
-          </a>
-        )
-      }
-      {
-        providerConfigured('github') && (
-          <a class={PROVIDER_CLASS} href="/auth/github" rel="nofollow">
-            <BrandIcon name="github" size={18} />
-            المتابعة باستعمال قتهب
-          </a>
-        )
-      }
+      {providerConfigured('google') && (
+        <a class={PROVIDER_CLASS} href="/auth/google" rel="nofollow">
+          <BrandIcon name="google" size={18} />
+          المتابعة باستعمال قوقل
+        </a>
+      )}
+      {providerConfigured('github') && (
+        <a class={PROVIDER_CLASS} href="/auth/github" rel="nofollow">
+          <BrandIcon name="github" size={18} />
+          المتابعة باستعمال قتهب
+        </a>
+      )}
     </div>
 
     <a

@@ -15,20 +15,18 @@ const { relatedPoems } = Astro.props;
 <div class="flex w-full flex-col gap-6 xl:gap-8">
   <h3 class={`${TYPE.heading} text-text`}>قد يعجبك أيضا</h3>
   <div class="w-full columns-1 gap-x-10 sm:columns-2">
-    {
-      relatedPoems && relatedPoems.length > 0 ? (
-        relatedPoems.map((item) => (
-          <ListCard
-            title={item.title}
-            subtitle={item.poet.name}
-            era={item.era?.name}
-            href={poemUrl(item.slug)}
-            headingTag="h4"
-          />
-        ))
-      ) : (
-        <div class="py-8 text-center text-text-subtle">لا توجد قصائد مشابهة حاليًا.</div>
-      )
-    }
+    {relatedPoems && relatedPoems.length > 0 ? (
+      relatedPoems.map((item) => (
+        <ListCard
+          title={item.title}
+          subtitle={item.poet.name}
+          era={item.era?.name}
+          href={poemUrl(item.slug)}
+          headingTag="h4"
+        />
+      ))
+    ) : (
+      <div class="py-8 text-center text-text-subtle">لا توجد قصائد مشابهة حاليًا.</div>
+    )}
   </div>
 </div>

@@ -10,48 +10,46 @@ interface Props {
 const { prevHref, prevTitle, nextHref, nextTitle, hidden } = Astro.props;
 ---
 
-{
-  !hidden && (
-    <nav
-      class="flex w-full flex-row-reverse items-center justify-between gap-4"
-      aria-label="تصفح قصائد الشاعر"
-    >
-      {nextHref ? (
-        <a
-          href={nextHref}
-          rel="next"
-          class="flex w-40 min-w-0 flex-col items-end rounded-md border border-border px-3 py-2 text-text-muted focus-ring transition-colors hover:bg-surface-hover"
-        >
-          <span class="text-sm text-text-subtle">القصيدة التالية</span>
-          <span class="block w-full truncate">{nextTitle}</span>
-        </a>
-      ) : (
-        <span
-          class="flex w-40 min-w-0 cursor-not-allowed flex-col items-end rounded-md border border-border px-3 py-2 text-text-subtle opacity-40"
-          aria-disabled="true"
-        >
-          <span class="text-sm">القصيدة التالية</span>
-          <span>لا توجد قصيدة تالية</span>
-        </span>
-      )}
-      {prevHref ? (
-        <a
-          href={prevHref}
-          rel="prev"
-          class="flex w-40 min-w-0 flex-col items-start rounded-md border border-border px-3 py-2 text-text-muted focus-ring transition-colors hover:bg-surface-hover"
-        >
-          <span class="text-sm text-text-subtle">القصيدة السابقة</span>
-          <span class="block w-full truncate">{prevTitle}</span>
-        </a>
-      ) : (
-        <span
-          class="flex w-40 min-w-0 cursor-not-allowed flex-col items-start rounded-md border border-border px-3 py-2 text-text-subtle opacity-40"
-          aria-disabled="true"
-        >
-          <span class="text-sm">القصيدة السابقة</span>
-          <span>لا توجد قصيدة سابقة</span>
-        </span>
-      )}
-    </nav>
-  )
-}
+{!hidden && (
+  <nav
+    class="flex w-full flex-row-reverse items-center justify-between gap-4"
+    aria-label="تصفح قصائد الشاعر"
+  >
+    {nextHref ? (
+      <a
+        href={nextHref}
+        rel="next"
+        class="flex w-40 min-w-0 flex-col items-end rounded-md border border-border px-3 py-2 text-text-muted focus-ring transition-colors hover:bg-surface-hover"
+      >
+        <span class="text-sm text-text-subtle">القصيدة التالية</span>
+        <span class="block w-full truncate">{nextTitle}</span>
+      </a>
+    ) : (
+      <span
+        class="flex w-40 min-w-0 cursor-not-allowed flex-col items-end rounded-md border border-border px-3 py-2 text-text-subtle opacity-40"
+        aria-disabled="true"
+      >
+        <span class="text-sm">القصيدة التالية</span>
+        <span>لا توجد قصيدة تالية</span>
+      </span>
+    )}
+    {prevHref ? (
+      <a
+        href={prevHref}
+        rel="prev"
+        class="flex w-40 min-w-0 flex-col items-start rounded-md border border-border px-3 py-2 text-text-muted focus-ring transition-colors hover:bg-surface-hover"
+      >
+        <span class="text-sm text-text-subtle">القصيدة السابقة</span>
+        <span class="block w-full truncate">{prevTitle}</span>
+      </a>
+    ) : (
+      <span
+        class="flex w-40 min-w-0 cursor-not-allowed flex-col items-start rounded-md border border-border px-3 py-2 text-text-subtle opacity-40"
+        aria-disabled="true"
+      >
+        <span class="text-sm">القصيدة السابقة</span>
+        <span>لا توجد قصيدة سابقة</span>
+      </span>
+    )}
+  </nav>
+)}
