@@ -132,10 +132,10 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### Smoke and contract tests run on a bespoke HTTP test framework
 
-- **What:** `scripts/smoke/` (about 2,600 lines) is its own test runner, with a probe DSL, suites, surfaces, verdicts, a concurrency pool, retries, latency budgets, and a reporter. `scripts/api/conformance.ts` hand-rolls OpenAPI response validation with ajv.
-- **Where:** `scripts/smoke/`, `scripts/api/conformance.ts`
+- **What:** `scripts/smoke/` (about 2,600 lines) is its own test runner, with a probe DSL, suites, surfaces, verdicts, a concurrency pool, retries, latency budgets, and a reporter.
+- **Where:** `scripts/smoke/`
 - **Why it's unusual:** it gives up filtering, watch mode, standard reporters, and `test.each`, and the reinvented pieces drift. The "p95" over five samples is the maximum, `target.ts` can `process.exit` at import time, and `surfaces.ts` takes the first non-`--worktree` argument as the target, so by code reading `bun run smoke:dev --suite search` fails as an unknown target.
-- **Normal approach:** `bun test` with `describe.each`/`test.each` over the probe tables (or Hurl for black-box HTTP), and Schemathesis for OpenAPI conformance.
+- **Normal approach:** `bun test` with `describe.each`/`test.each` over the probe tables (or Hurl for black-box HTTP). OpenAPI conformance already uses the standard tool, Schemathesis (`scripts/api/conformance.ts`).
 - **Status:** Needs review
 
 ### Shared constants are hand-copied into Rust and infra files and synced by regex

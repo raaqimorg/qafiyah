@@ -17,6 +17,27 @@ const manifest = (await Bun.file(
   `${ROOT}/data/db/0000_default/manifest.json`
 ).json()) as SampleManifest;
 
+type Parameter = { readonly name: string; readonly example?: unknown };
+type Spec = {
+  readonly paths: Record<string, { readonly get: { readonly parameters?: readonly Parameter[] } }>;
+};
+
+const spec = (await Bun.file(`${ROOT}/apps/api/generated/openapi/openapi.json`).json()) as Spec;
+const llms = await Bun.file(`${ROOT}/well-known/llms.api.md`).text();
+
+function specExamples(wanted: (path: string, name: string) => boolean): readonly string[] {
+  return Object.entries(spec.paths).flatMap(([path, item]) =>
+    (item.get.parameters ?? [])
+      .filter((param) => wanted(path, param.name))
+      .flatMap((param) => [param.example].flat())
+      .filter((example): example is string => typeof example === 'string')
+  );
+}
+
+function llmsSlugs(pattern: RegExp): readonly string[] {
+  return [...llms.matchAll(pattern)].flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
+}
+
 const REAL_SLUG_LITERALS = [
   /POEM_DETAIL\(\s*['"`]([A-Za-z]{4})['"`]\s*\)/g,
   /\/(?:poems|poets)\/([A-Za-z]{4})(?![A-Za-z0-9])/g,
@@ -58,5 +79,28 @@ describe('smoke probes', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the API docs', () => {
+  test('use as examples only poems and poets the committed sample holds', () => {
+    const samplePoems = new Set(manifest.poets.flatMap((poet) => poet.poems));
+    const samplePoets = new Set(manifest.poets.map((poet) => poet.slug));
+    const poems = [
+      ...specExamples((path, name) => path === '/poems/{slug}' && name === 'slug'),
+      ...llmsSlugs(/\/poems\/([A-Za-z]{4})(?![A-Za-z0-9])/g),
+    ];
+    const poets = [
+      ...specExamples(
+        (path, name) =>
+          (path === '/poets/{slug}' && name === 'slug') || name === 'poet' || name === 'poetSlugs'
+      ),
+      ...llmsSlugs(/\/poets\/([A-Za-z]{4})(?![A-Za-z0-9])/g),
+      ...llmsSlugs(/[?&]poet=([A-Za-z]{4})(?![A-Za-z0-9])/g),
+    ];
+    expect(poems.length).toBeGreaterThan(0);
+    expect(poets.length).toBeGreaterThan(0);
+    expect(poems.filter((slug) => !samplePoems.has(slug))).toEqual([]);
+    expect(poets.filter((slug) => !samplePoets.has(slug))).toEqual([]);
   });
 });
