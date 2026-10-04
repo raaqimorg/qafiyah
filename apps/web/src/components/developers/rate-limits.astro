@@ -16,6 +16,8 @@ const LIMITS = [
   { plan: 'anonymous', tier: 'بلا مفتاح', requests: 60 },
   { plan: 'free', tier: 'مفتاح مجاني', requests: 500 },
 ] as const;
+const FREE_BURST_PER_SECOND = 10;
+const FREE_CEILING_PER_ADDRESS = 1500;
 ---
 
 <ul class="flex flex-col">
@@ -37,6 +39,12 @@ const LIMITS = [
     </li>
   ))}
 </ul>
+<p class={textClass}>
+  ولا يتجاوز المفتاح المجاني {FREE_BURST_PER_SECOND}{' '}
+  {countedNoun(FREE_BURST_PER_SECOND, REQUESTS_NOUN_FORMS)} في الثانية، ولا{' '}
+  {FREE_CEILING_PER_ADDRESS} {countedNoun(FREE_CEILING_PER_ADDRESS, REQUESTS_NOUN_FORMS)} في الساعة
+  من العنوان الواحد.
+</p>
 <p class={textClass}>
   تحمل الاستجابات الخاضعة لحدود الاستخدام ترويسة <code dir="ltr">x-ratelimit-remaining</code> لتعرف
   ما تبقّى لك. وإن احتجت حدودًا أعلى فراسلنا على{' '}

@@ -1,9 +1,17 @@
 use serde::Serialize;
+use utoipa::openapi::header::{Header, HeaderBuilder};
 use utoipa::openapi::path::ParameterIn;
-use utoipa::openapi::{ContactBuilder, OpenApi as Document, RefOr, Schema, ServerBuilder};
+use utoipa::openapi::schema::{ObjectBuilder, Type};
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityRequirement, SecurityScheme};
+use utoipa::openapi::{
+    Components, ContactBuilder, OpenApi as Document, RefOr, ResponseBuilder, Schema, ServerBuilder,
+};
 use utoipa::{Modify, OpenApi, ToSchema};
 
-use crate::constants::{API_V1_PREFIX, MAX_FILTER_SLUGS, PROD_SITE_URL, SITE_NAME_EN};
+use crate::constants::{
+    API_KEY_HEADER, API_V1_PREFIX, MAX_FILTER_SLUGS, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
+    RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER, SITE_NAME_EN,
+};
 
 #[derive(Serialize, ToSchema)]
 #[schema(value_type = String, pattern = "^[a-zA-Z]{4}$")]
@@ -22,6 +30,13 @@ pub enum SearchTypeParam {
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+pub enum RandomPoemOptionParam {
+    Slug,
+    Lines,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum ExactFlag {
     True,
     False,
@@ -29,16 +44,22 @@ pub enum ExactFlag {
 
 #[derive(Serialize, ToSchema)]
 pub struct ProblemDetail {
+    /// A URI identifying the kind of error. It is an identifier and does not resolve to a page.
     #[schema(format = "uri", example = "https://qafiyah.com/errors/not-found")]
     pub r#type: String,
+    /// A short summary of the kind of error.
     #[schema(example = "Resource not found")]
     pub title: String,
+    /// The HTTP status code.
     #[schema(example = 404)]
     pub status: i32,
+    /// A stable machine-readable code, such as `NOT_FOUND`, `BAD_REQUEST`, `TOO_MANY_REQUESTS`, or `SERVICE_UNAVAILABLE`.
     #[schema(example = "NOT_FOUND")]
     pub code: String,
+    /// The path of the request that failed.
     #[schema(example = "/v1/meters/zzzz")]
     pub instance: String,
+    /// What went wrong with this request, in English.
     #[schema(example = "Meter not found")]
     pub detail: String,
 }
@@ -49,10 +70,10 @@ pub enum ListErrors {
         status = 429,
         description = "Too many requests",
         headers(
-            ("x-ratelimit-limit" = String, description = "Requests allowed per hour"),
-            ("x-ratelimit-remaining" = String, description = "Requests left in the current hour"),
-            ("x-ratelimit-reset" = String, description = "Unix seconds at which the window resets"),
-            ("retry-after" = String, description = "Seconds until the window resets"),
+            ("x-ratelimit-limit" = i64, description = "Requests allowed per hour"),
+            ("x-ratelimit-remaining" = i64, description = "Requests left in the current hour"),
+            ("x-ratelimit-reset" = i64, description = "Unix seconds at which the window resets"),
+            ("retry-after" = i64, description = "Seconds until the window resets"),
         )
     )]
     TooManyRequests(ProblemDetail),
@@ -62,7 +83,7 @@ pub enum ListErrors {
         status = 503,
         description = "Temporarily unavailable: the database or search index did not answer in time",
         headers(
-            ("retry-after" = String, description = "Seconds to wait before retrying"),
+            ("retry-after" = i64, description = "Seconds to wait before retrying"),
         )
     )]
     Unavailable(ProblemDetail),
@@ -76,10 +97,10 @@ pub enum FilteredListErrors {
         status = 429,
         description = "Too many requests",
         headers(
-            ("x-ratelimit-limit" = String, description = "Requests allowed per hour"),
-            ("x-ratelimit-remaining" = String, description = "Requests left in the current hour"),
-            ("x-ratelimit-reset" = String, description = "Unix seconds at which the window resets"),
-            ("retry-after" = String, description = "Seconds until the window resets"),
+            ("x-ratelimit-limit" = i64, description = "Requests allowed per hour"),
+            ("x-ratelimit-remaining" = i64, description = "Requests left in the current hour"),
+            ("x-ratelimit-reset" = i64, description = "Unix seconds at which the window resets"),
+            ("retry-after" = i64, description = "Seconds until the window resets"),
         )
     )]
     TooManyRequests(ProblemDetail),
@@ -89,7 +110,7 @@ pub enum FilteredListErrors {
         status = 503,
         description = "Temporarily unavailable: the database or search index did not answer in time",
         headers(
-            ("retry-after" = String, description = "Seconds to wait before retrying"),
+            ("retry-after" = i64, description = "Seconds to wait before retrying"),
         )
     )]
     Unavailable(ProblemDetail),
@@ -105,10 +126,10 @@ pub enum LookupErrors {
         status = 429,
         description = "Too many requests",
         headers(
-            ("x-ratelimit-limit" = String, description = "Requests allowed per hour"),
-            ("x-ratelimit-remaining" = String, description = "Requests left in the current hour"),
-            ("x-ratelimit-reset" = String, description = "Unix seconds at which the window resets"),
-            ("retry-after" = String, description = "Seconds until the window resets"),
+            ("x-ratelimit-limit" = i64, description = "Requests allowed per hour"),
+            ("x-ratelimit-remaining" = i64, description = "Requests left in the current hour"),
+            ("x-ratelimit-reset" = i64, description = "Unix seconds at which the window resets"),
+            ("retry-after" = i64, description = "Seconds until the window resets"),
         )
     )]
     TooManyRequests(ProblemDetail),
@@ -118,7 +139,7 @@ pub enum LookupErrors {
         status = 503,
         description = "Temporarily unavailable: the database or search index did not answer in time",
         headers(
-            ("retry-after" = String, description = "Seconds to wait before retrying"),
+            ("retry-after" = i64, description = "Seconds to wait before retrying"),
         )
     )]
     Unavailable(ProblemDetail),
@@ -134,6 +155,82 @@ pub fn finish(doc: &mut Document) {
     doc.servers = Some(vec![ServerBuilder::new().url(API_V1_PREFIX).build()]);
     cap_facet_arrays(doc);
     ProblemContentType.modify(doc);
+    declare_api_key(doc);
+    declare_response_headers(doc);
+}
+
+const RATE_LIMIT_HEADERS: [(&str, &str); 3] = [
+    (RATE_LIMIT_LIMIT_HEADER, "Requests allowed per hour"),
+    (
+        RATE_LIMIT_REMAINING_HEADER,
+        "Requests left in the current hour",
+    ),
+    (
+        RATE_LIMIT_RESET_HEADER,
+        "Unix seconds at which the window resets",
+    ),
+];
+
+fn header(schema_type: Type, description: &str) -> RefOr<Header> {
+    RefOr::T(
+        HeaderBuilder::new()
+            .schema(Some(ObjectBuilder::new().schema_type(schema_type)))
+            .description(Some(description))
+            .build(),
+    )
+}
+
+fn declare_api_key(doc: &mut Document) {
+    doc.components.get_or_insert_with(Components::new).add_security_scheme(
+        "apiKey",
+        SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+            API_KEY_HEADER,
+            "Optional. A free key from https://qafiyah.com/developers raises the rate limit. A key the API does not recognize counts as no key.",
+        ))),
+    );
+    doc.security = Some(vec![
+        SecurityRequirement::default(),
+        SecurityRequirement::new("apiKey", Vec::<String>::new()),
+    ]);
+}
+
+fn declare_response_headers(doc: &mut Document) {
+    for item in doc.paths.paths.values_mut() {
+        let Some(operation) = item.get.as_mut() else {
+            continue;
+        };
+        let responses = &mut operation.responses.responses;
+        if let Some(RefOr::T(ok)) = responses.get_mut("200")
+            && ok.content.contains_key("application/json")
+        {
+            ok.headers.insert(
+                "ETag".to_string(),
+                header(
+                    Type::String,
+                    "Send back in If-None-Match to get 304 while the data is unchanged",
+                ),
+            );
+            responses.insert(
+                "304".to_string(),
+                RefOr::T(
+                    ResponseBuilder::new()
+                        .description("Not modified: the If-None-Match ETag still matches, so the body is empty.")
+                        .build(),
+                ),
+            );
+        }
+        for response in responses.values_mut() {
+            let RefOr::T(response) = response else {
+                continue;
+            };
+            for (name, description) in RATE_LIMIT_HEADERS {
+                response
+                    .headers
+                    .entry(name.to_string())
+                    .or_insert_with(|| header(Type::Integer, description));
+            }
+        }
+    }
 }
 
 const FACET_ITEM_SCHEMAS: [&str; 2] = ["FourLetterSlug", "TransliteratedSlug"];
@@ -216,19 +313,23 @@ impl Modify for ProblemContentType {
     info(
         title = "Qafiyah API",
         version = "1.0.0",
-        description = "Public, read-only REST API for the Qafiyah Arabic classical-poetry catalog.
-
-Browse poems and poets and filter them by the taxonomies they belong to: eras, meters, rhymes, themes, and collections. Full-text search spans both poems and poets.
+        description = "Public, read-only REST API for Qafiyah, an open catalog of Arabic poetry from the pre-Islamic era to the present: poems with their full verse text, poets, and the eras, meters, rhymes, themes, verse forms, and collections that classify them, with full-text search over poems and poets.
 
 Conventions:
-- All endpoints are GET and require no authentication.
-- Resources are addressed by stable `slug` identifiers returned in list responses.
-- List endpoints are paginated via a 1-based `page` query param and return a `pagination` block.
-- Multi-select filters are repeatable array params, e.g. `?era=abbasi&era=andalusi`.
-- Errors follow RFC 9457 problem details and are served as `application/problem+json`.
-- Requests are rate limited. Rate-limited responses carry `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.",
-        license(name = "MIT"),
+- Every endpoint is GET. Responses are JSON, except `GET /poems/random`, which answers in plain text.
+- No key is needed. Without one, a caller gets 60 requests an hour per address (an IPv6 /64 counts as one address, and its /48 shares ten times that). A free key from https://qafiyah.com/developers, sent in the `x-api-key` header, gives 500 an hour and 10 a second, and at most 1,500 an hour from any one address. A key the API does not recognize counts as no key, so check `x-ratelimit-limit` after adding one.
+- Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.
+- Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.
+- `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.
+- To select several values of one filter, repeat it: `GET /poems?era=abbasi&era=andalusi`, `GET /search?types=poems&eraSlugs=abbasi&eraSlugs=andalusi`. `GET /poets` takes a single `era`.
+- Unknown query parameters are ignored, so a misspelled filter returns unfiltered results rather than an error.
+- JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.
+- Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.
+
+The data is dedicated to the public domain under CC0 1.0. The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
+        license(name = "CC0 1.0 (data)", identifier = "CC0-1.0"),
     ),
+    paths(crate::routes::poems::random),
     tags(
         (name = "poems", description = "Browse, filter, and retrieve poems and their full verse text."),
         (name = "poets", description = "Browse and retrieve poets, searchable by name and filterable by era."),
@@ -246,6 +347,7 @@ Conventions:
         TransliteratedSlug,
         SearchTypeParam,
         ExactFlag,
+        RandomPoemOptionParam,
     )),
 )]
 pub struct ApiDoc;
@@ -258,7 +360,7 @@ mod tests {
     fn declares_every_contract_path() {
         let doc = document();
         let paths: Vec<&str> = doc.paths.paths.keys().map(String::as_str).collect();
-        assert_eq!(paths.len(), 21, "expected 21 paths, got {paths:?}");
+        assert_eq!(paths.len(), 22, "expected 22 paths, got {paths:?}");
         for expected in [
             "/collections",
             "/collections/{slug}",
@@ -271,6 +373,7 @@ mod tests {
             "/poems",
             "/poems/count",
             "/poems/facets",
+            "/poems/random",
             "/poems/slugs",
             "/poems/{slug}",
             "/poets",

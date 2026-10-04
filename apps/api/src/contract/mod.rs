@@ -11,44 +11,66 @@ use crate::domain::{PoetBrief, Term};
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PoetRef {
+    /// The poet's name in Arabic.
+    #[schema(example = "زهير بن أبي سلمى")]
     pub name: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "yoFB")]
+    /// The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+    #[schema(pattern = "^[a-zA-Z]{4}$", example = "PAKT")]
     pub slug: String,
+    /// Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+    #[schema(example = true)]
     pub has_avatar: bool,
+    /// Whether the poet stands for an unknown author, such as غير معروف or مجهول (عباسي), rather than a named person.
+    #[schema(example = false)]
     pub is_anonymous: bool,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct MeterRef {
+    /// The meter's name in Arabic.
+    #[schema(example = "الطويل")]
     pub name: String,
+    /// The meter's slug, for `GET /meters/{slug}`.
     #[schema(pattern = "^[a-z][a-z-]*$", example = "altawil")]
     pub slug: String,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct EraRef {
+    /// The era's name in Arabic.
+    #[schema(example = "جاهلي")]
     pub name: String,
-    #[schema(pattern = "^[a-z][a-z-]*$", example = "abbasi")]
+    /// The era's slug, for `GET /eras/{slug}`.
+    #[schema(pattern = "^[a-z][a-z-]*$", example = "jahili")]
     pub slug: String,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct ThemeRef {
+    /// The theme's name in Arabic.
+    #[schema(example = "الحكمة")]
     pub name: String,
-    #[schema(pattern = "^[a-z][a-z-]*$", example = "alnasib")]
+    /// The theme's slug, for `GET /themes/{slug}`.
+    #[schema(pattern = "^[a-z][a-z-]*$", example = "alhikma")]
     pub slug: String,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct RhymeRef {
+    /// The rhyme letter's name in Arabic.
+    #[schema(example = "ميم")]
     pub name: String,
+    /// The rhyme's slug, for `GET /rhymes/{slug}`.
     #[schema(pattern = "^[a-z][a-z-]*$", example = "meem")]
     pub slug: String,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct PoemTypeRef {
+    /// The verse form's name in Arabic.
+    #[schema(example = "عمودي")]
     pub name: String,
+    /// The verse form's slug, for `GET /poem-types/{slug}`.
     #[schema(pattern = "^[a-z][a-z-]*$", example = "amudi")]
     pub slug: String,
 }

@@ -15,6 +15,8 @@ const DESCRIPTION =
   'واجهة قافية البرمجية: وصول مفتوح إلى القصائد والشعراء والبحور والقوافي والأغراض والدواوين والبحث، مع مفتاح مجاني لحدود استخدام أعلى.';
 
 const API_DOCS_URL = `${API_URL}${API_V1_PREFIX}/docs`;
+const OPENAPI_URL = `${API_URL}${API_V1_PREFIX}/openapi.json`;
+const LLMS_URL = `${API_URL}/llms.txt`;
 
 const PARAGRAPH = `${TYPE.body} text-text-muted leading-[1.8]`;
 
@@ -35,6 +37,12 @@ Astro.response.headers.set('Cache-Control', CACHE_HTML);
         </a>
         <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
           التوثيق الكامل
+        </a>
+        <a href={OPENAPI_URL} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
+          مواصفات OpenAPI
+        </a>
+        <a href={LLMS_URL} target="_blank" rel="noopener noreferrer" class={INLINE_LINK} dir="ltr">
+          llms.txt
         </a>
       </div>
     </header>

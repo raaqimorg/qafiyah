@@ -175,7 +175,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **What:** `/poems/random` uses raw `fetch`, a neverthrow `Result`, and a second backoff loop. `RandomPoemButton` then intercepts its `<a href="/poems/random">` to repeat the same lookup in the browser through the `/api/v1` proxy.
 - **Where:** `apps/web/src/lib/api/random-poem.ts`, `apps/web/src/pages/poems/random.ts`, `apps/web/src/components/random-poem-button.tsx`, `apps/web/src/lib/api/proxy-allowlist.ts`
 - **Why it's unusual:** it is a third API client with a second retry policy, and unlike `safeCall` it retries every error, 429 included. neverthrow, which `docs/code-conventions.md` prescribes, is used only here, so the web app now has four failure conventions. `poems/random` is in the proxy allowlist only for the button, and the button needs a `pageshow` handler to undo its own loading state after back navigation.
-- **Normal approach:** add `/poems/random` to the OpenAPI contract and call it through `apiServer` with the existing retry, and render a plain `<a href="/poems/random">`.
+- **Normal approach:** `/poems/random` is in the OpenAPI document (`poems.random`), so call it through `apiServer` with the existing retry, and render a plain `<a href="/poems/random">`.
 - **Status:** Needs review
 
 ### The home search submits on blur and moves focus itself
@@ -516,7 +516,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ## API (`apps/api`)
 
-The API is not just a thin DB connector, and the crate carries no doc comments: these entries are its module-level intent. Read them before assuming something is incidental.
+The API is not just a thin DB connector, and the crate carries no doc comments beyond the field descriptions of its public response types: these entries are its module-level intent. Read them before assuming something is incidental.
 
 ### Client address comes from proxy headers only behind the web nginx
 

@@ -4,24 +4,35 @@ use utoipa::ToSchema;
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Pagination {
+    /// The page returned, 1-based.
     #[schema(example = 1)]
     pub page: u32,
-    #[schema(example = 20)]
+    /// Items per page for this endpoint.
+    #[schema(example = 30)]
     pub page_size: u32,
-    #[schema(example = 5)]
+    /// Number of pages, at least 1.
+    #[schema(example = 4)]
     pub total_pages: u32,
-    #[schema(example = 93)]
+    /// Number of items across all pages. In a search section it stops at 10,000.
+    #[schema(example = 104)]
     pub total_items: u32,
 }
 
 #[derive(Serialize, ToSchema)]
+#[schema(
+    description = "A page of items under `data`, with its place in the whole list under `pagination`."
+)]
 pub struct ListEnvelope<T> {
+    /// The items of this page.
     pub data: Vec<T>,
+    /// Where this page sits in the list.
     pub pagination: Pagination,
 }
 
 #[derive(Serialize, ToSchema)]
+#[schema(description = "The requested item under `data`.")]
 pub struct ItemEnvelope<T> {
+    /// The requested item.
     pub data: T,
 }
 
