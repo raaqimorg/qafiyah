@@ -15,7 +15,7 @@ RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
     cargo build --release --locked --package qafiyah-api \
     && cp target/release/qafiyah-api /qafiyah-api
 
-FROM alpine:3.21 AS runtime
+FROM alpine:3.24 AS runtime
 ENV PORT=8787
 RUN apk add --no-cache tini wget && adduser -D -u 1000 api
 COPY --from=build /qafiyah-api /usr/local/bin/qafiyah-api

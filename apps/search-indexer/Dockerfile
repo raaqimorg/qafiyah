@@ -14,7 +14,7 @@ RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
     cargo build --release --locked --package qafiyah-search-indexer \
     && cp target/release/qafiyah-search-indexer /qafiyah-search-indexer
 
-FROM alpine:3.21 AS runtime
+FROM alpine:3.24 AS runtime
 RUN apk add --no-cache tini && adduser -D -u 1000 indexer
 COPY --from=build /qafiyah-search-indexer /usr/local/bin/qafiyah-search-indexer
 USER indexer
