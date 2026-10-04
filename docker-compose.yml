@@ -175,7 +175,7 @@ services:
       - "127.0.0.1:80:8080"
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
     container_name: qafiyah-es
     restart: unless-stopped
     stop_grace_period: 60s
