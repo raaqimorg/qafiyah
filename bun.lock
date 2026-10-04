@@ -7,7 +7,6 @@
       "devDependencies": {
         "@elastic/elasticsearch": "^9.5.1",
         "@types/bun": "^1.4.2",
-        "ajv": "^8.20.0",
         "dependency-cruiser": "18.5.0",
         "husky": "^9.1.7",
         "knip": "^6.39.0",

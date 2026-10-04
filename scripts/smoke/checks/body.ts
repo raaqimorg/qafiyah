@@ -38,6 +38,24 @@ export const expectPoemHits: Check = {
   },
 };
 
+function listOf(value: unknown): readonly unknown[] | null {
+  if (typeof value !== 'object' || value === null || !('data' in value)) return null;
+  return Array.isArray(value.data) ? value.data : null;
+}
+
+export const expectSomeResults: Check = {
+  name: 'some results',
+  run: (body) => {
+    const parsed = parseJsonObject(body);
+    if (parsed.isErr()) return body.trim() === '' ? err('body is empty') : ok(undefined);
+    const lists = [parsed.value, parsed.value['poems'], parsed.value['poets']]
+      .map((value) => listOf(value))
+      .filter((list) => list !== null);
+    if (lists.length === 0 || lists.some((list) => list.length > 0)) return ok(undefined);
+    return err('every list in the response is empty');
+  },
+};
+
 function eraSlugOf(item: unknown): unknown {
   if (typeof item !== 'object' || item === null || !('era' in item)) return undefined;
   const era = item.era;

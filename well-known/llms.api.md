@@ -40,7 +40,7 @@ Base URL: {BASE}
 
 ## Search
 
-- [GET /v1/search]({BASE}/search?q=%D8%A3%D9%85%D9%86%20%D8%A3%D9%85%20%D8%A3%D9%88%D9%81%D9%89&types=poems): Full-text search in Arabic over poems (title and verses) and poets (name and nickname), as two sections paged on their own, 20 a page. Params: `q` (up to 100 characters), `types` (`poems`, `poets`, or both, the default), `poemsPage`, `poetsPage`, `exact=true` for the literal phrase only, and the repeatable filters `poetSlugs`, `eraSlugs`, `meterSlugs`, `rhymeSlugs`, `themeSlugs`, `poemTypeSlugs`, `collectionSlugs`. Every filter except `eraSlugs` applies to poems only, and all but `poetSlugs` need `types=poems`. Without `q` the sections are browsed instead. Each section's `totalItems` stops at 10,000.
+- [GET /v1/search]({BASE}/search?q=%D8%A3%D9%85%D9%86%20%D8%A3%D9%85%20%D8%A3%D9%88%D9%81%D9%89&types=poems): Full-text search in Arabic over poems (title and verses) and poets (name and nickname), as two sections paged on their own, 20 a page. Params: `q` (up to 100 characters), `types` (`poems`, `poets`, or both, the default), `poemsPage`, `poetsPage`, `exact=true` for the literal phrase only, and the repeatable filters `poetSlugs`, `eraSlugs`, `meterSlugs`, `rhymeSlugs`, `themeSlugs`, `poemTypeSlugs`, `collectionSlugs`. `eraSlugs` narrows both sections and `poetSlugs` only the poems section. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`. Without `q` the sections are browsed instead. Each section's `totalItems` stops at 10,000.
 
 ## Classification
 

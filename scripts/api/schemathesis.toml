@@ -1,0 +1,10 @@
+# Read by scripts/api/conformance.ts, see scripts/AGENTS.md ("api/").
+
+[phases.examples]
+fill-missing = true
+
+[phases.examples.extra-data-sources]
+responses = false
+
+[checks.positive_data_acceptance]
+expected-statuses = ["2xx"]

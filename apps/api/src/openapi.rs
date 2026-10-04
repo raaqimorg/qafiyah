@@ -321,7 +321,7 @@ Conventions:
 - Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.
 - Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.
 - `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.
-- To select several values of one filter, repeat it: `GET /poems?era=abbasi&era=andalusi`, `GET /search?types=poems&eraSlugs=abbasi&eraSlugs=andalusi`. `GET /poets` takes a single `era`.
+- To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.
 - Unknown query parameters are ignored, so a misspelled filter returns unfiltered results rather than an error.
 - JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.
 - Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.

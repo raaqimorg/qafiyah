@@ -103,6 +103,8 @@ bun run ci                # the full gate (GitHub Actions runs it scoped to the 
 
 Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
 
+`smoke:dev` ends with `bun run api:conformance`, which sends every documented API example to the dev API through Schemathesis in Docker.
+
 The smoke runs leave your dev environment as they found it. `smoke:dev` starts its own `bun run dev`
 and stops it afterwards, unless the dev web and API already answer, in which case it reuses them and
 leaves them running. The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode
