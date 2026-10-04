@@ -15,11 +15,10 @@ pub mod extract;
 pub mod js;
 pub mod log;
 pub mod openapi;
-pub mod query;
+pub mod params;
 pub mod rate_limit;
 pub mod routes;
 pub mod sentry;
-pub mod slug;
 pub mod state;
 
 #[cfg(test)]

@@ -1515,7 +1515,9 @@ dependencies = [
  "reqwest",
  "sentry",
  "serde",
+ "serde_html_form",
  "serde_json",
+ "serde_path_to_error",
  "sha2",
  "subtle",
  "thiserror",
@@ -2035,6 +2037,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
+]
+
+[[package]]
+name = "serde_html_form"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f0346d7a342ab90f405cfc08f25d15075f944f42fcabbc5eac923829fa6d228"
+dependencies = [
+ "form_urlencoded",
+ "indexmap",
+ "itoa",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]

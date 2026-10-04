@@ -42,29 +42,71 @@ async fn a_search_failure_is_a_generic_problem_that_hides_its_cause() {
 }
 
 #[tokio::test]
-async fn a_malformed_slug_is_refused_before_any_backend_is_asked() {
+async fn malformed_input_is_refused_by_name_before_any_backend_is_asked() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    for path in [
-        "/v1/poems/abc",
-        "/v1/poems/ab1d",
-        "/v1/meters/ALTAWIL",
-        "/v1/eras/-x",
-        "/v1/poem-types/HURR",
-        "/v1/poets/%D8%AD%D8%A8%D9%8A%D8%A8",
-        "/v1/poems/facets",
-        "/v1/poems/facets?poet=abc",
-        "/v1/poems/facets?poet=yoFB&poet=abCD",
-        "/v1/poems/facets?poet[]=yoFB",
-        "/v1/poems/facets?poet=yoFB&meter=ALTAWIL",
-        "/v1/poems/facets?poet=yoFB&rhyme[x]=meem",
+    let four = "must be four letters, a to z or A to Z";
+    let term = "must be a lowercase slug of letters and hyphens, at most 64 characters";
+    let facets = "expected one of `poet`, `meter`, `rhyme`, `theme`";
+    for (path, detail) in [
+        (
+            "/v1/poems/abc",
+            format!("Invalid path parameter `slug`: {four}"),
+        ),
+        (
+            "/v1/poems/ab1d",
+            format!("Invalid path parameter `slug`: {four}"),
+        ),
+        (
+            "/v1/meters/ALTAWIL",
+            format!("Invalid path parameter `slug`: {term}"),
+        ),
+        (
+            "/v1/eras/-x",
+            format!("Invalid path parameter `slug`: {term}"),
+        ),
+        (
+            "/v1/poem-types/HURR",
+            format!("Invalid path parameter `slug`: {term}"),
+        ),
+        (
+            "/v1/poets/%D8%AD%D8%A8%D9%8A%D8%A8",
+            format!("Invalid path parameter `slug`: {four}"),
+        ),
+        (
+            "/v1/poems/facets",
+            "Invalid query string: missing field `poet`".to_string(),
+        ),
+        (
+            "/v1/poems/facets?poet=abc",
+            format!("Invalid query parameter `poet`: {four}"),
+        ),
+        (
+            "/v1/poems/facets?poet=yoFB&poet=abCD",
+            "Invalid query parameter `poet`: unsupported value".to_string(),
+        ),
+        (
+            "/v1/poems/facets?poet=yoFB&meter=ALTAWIL",
+            format!("Invalid query parameter `meter[0]`: {term}"),
+        ),
+        (
+            "/v1/poems/facets?poet[]=yoFB",
+            format!("Invalid query parameter `poet[]`: unknown field `poet[]`, {facets}"),
+        ),
+        (
+            "/v1/poems/facets?poet=yoFB&rhyme[x]=meem",
+            format!("Invalid query parameter `rhyme[x]`: unknown field `rhyme[x]`, {facets}"),
+        ),
     ] {
         let sent = send(app_with(&es), request("GET", path)).await;
         assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
         let body = sent.json();
-        assert_eq!(body["code"], "BAD_REQUEST");
-        assert_eq!(body["title"], "Bad request");
-        assert_eq!(body["detail"], "Input validation failed");
-        assert_eq!(body["type"], "https://qafiyah.com/errors/bad-request");
+        assert_eq!(body["code"], "BAD_REQUEST", "{path}");
+        assert_eq!(body["title"], "Bad request", "{path}");
+        assert_eq!(body["detail"], detail, "{path}");
+        assert_eq!(
+            body["type"], "https://qafiyah.com/errors/bad-request",
+            "{path}"
+        );
     }
     assert!(es.requests().await.is_empty());
 }

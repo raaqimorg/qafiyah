@@ -1,14 +1,14 @@
 use axum::Router;
-use axum::extract::RawQuery;
 use axum::response::Response;
 use axum::routing::get;
+use serde::Deserialize;
 
 use crate::constants::{
     GITHUB_AVATARS_URL, GITHUB_DB_DUMPS_URL, GITHUB_URL, NO_STORE_CACHE_CONTROL, PROD_SITE_URL,
     RAAQIM_URL, TELEGRAM_URL, X_INTENT_TWEET_URL, X_PROFILE_URL,
 };
 use crate::error::{AppError, RouteProblem};
-use crate::query::Query;
+use crate::extract::SafeQuery;
 use crate::routes::redirect;
 use crate::state::AppState;
 
@@ -51,10 +51,14 @@ fn share_url(path: Option<&str>) -> Option<String> {
     ))
 }
 
-async fn x_share(RawQuery(raw): RawQuery) -> Result<Response, AppError> {
-    let query = Query::parse(raw.as_deref());
-    let path = query.first("path");
-    share_url(path.as_deref())
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShareParams {
+    path: Option<String>,
+}
+
+async fn x_share(SafeQuery(params): SafeQuery<ShareParams>) -> Result<Response, AppError> {
+    share_url(params.path.as_deref())
         .map(|url| redirect(&url, Some(NO_STORE_CACHE_CONTROL)))
         .ok_or_else(|| {
             RouteProblem::bad_request(
