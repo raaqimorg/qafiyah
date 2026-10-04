@@ -2,10 +2,7 @@ type QueryRule = (query: URLSearchParams) => boolean;
 
 const anyQuery: QueryRule = () => true;
 
-const isPoetKey = (key: string): boolean => key === 'poet' || key.startsWith('poet[');
-
-const namesOnePoet: QueryRule = (query) =>
-  [...query.keys()].filter((key) => isPoetKey(key)).length === 1;
+const namesOnePoet: QueryRule = (query) => query.getAll('poet').length === 1;
 
 const PROXIED_PATHS = {
   search: anyQuery,

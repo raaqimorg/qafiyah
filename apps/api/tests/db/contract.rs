@@ -483,7 +483,7 @@ async fn search_returns_both_envelopes_with_the_documented_hit_shape() {
         }
     }
     let exact = h
-        .get("/v1/search?q=%D8%AD%D8%A8&exact=true&types[]=poems")
+        .get("/v1/search?q=%D8%AD%D8%A8&exact=true&types=poems")
         .await
         .json();
     assert!(exact["poets"].is_null());
@@ -493,7 +493,7 @@ async fn search_returns_both_envelopes_with_the_documented_hit_shape() {
         .to_string();
     let filtered = h
         .get(&format!(
-            "/v1/search?q=%D8%AD%D8%A8&types[]=poems&eraSlugs[]={era}"
+            "/v1/search?q=%D8%AD%D8%A8&types=poems&eraSlugs={era}"
         ))
         .await
         .json();

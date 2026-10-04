@@ -21,10 +21,9 @@ describe('resolveProxyPath', () => {
     expect(resolve('poems/facets', 'poet=imHZ&poet=oNbs')).toBeUndefined();
   });
 
-  it('counts every spelling of poet the api reads', () => {
-    expect(resolve('poems', 'poet%5B0%5D=imHZ')).toBe('poems');
-    expect(resolve('poems', 'poet=imHZ&poet%5B%5D=oNbs')).toBeUndefined();
-    expect(resolve('poems', 'poet%5B0%5D=imHZ&poet%5B1%5D=oNbs')).toBeUndefined();
+  it('counts only the poet spelling the api reads', () => {
+    expect(resolve('poems', 'poet%5B0%5D=imHZ')).toBeUndefined();
+    expect(resolve('poems', 'poet=imHZ&poet%5B%5D=oNbs')).toBe('poems');
   });
 
   it('refuses every other corpus endpoint', () => {

@@ -50,11 +50,7 @@ async fn a_search_asks_both_indices_concurrently_and_returns_two_envelopes() {
 #[tokio::test]
 async fn a_types_filter_skips_the_other_index_entirely() {
     let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
-    let sent = send(
-        app_with(&es),
-        request("GET", "/v1/search?q=x&types[]=poets"),
-    )
-    .await;
+    let sent = send(app_with(&es), request("GET", "/v1/search?q=x&types=poets")).await;
     assert_eq!(sent.status, StatusCode::OK);
     let body = sent.json();
     assert!(body["poems"].is_null());
@@ -97,7 +93,7 @@ fn pdf_query() -> String {
 #[tokio::test]
 async fn a_search_query_reaches_elasticsearch_normalized_and_is_echoed_that_way() {
     let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
-    let path = format!("/v1/search?types[]=poets&q={}", pdf_query());
+    let path = format!("/v1/search?types=poets&q={}", pdf_query());
     let sent = send(app_with(&es), request("GET", &path)).await;
     assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
     assert_eq!(sent.json()["q"], "عنترة بن شداد");

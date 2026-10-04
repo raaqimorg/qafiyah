@@ -65,7 +65,7 @@ fn poet_slugs(list: Option<&Value>) -> Vec<String> {
 
 async fn searched_poets(h: &Harness, q: &str) -> Vec<String> {
     let sent = h
-        .get(&format!("/v1/search?types[]=poets&q={}", encoded(q)))
+        .get(&format!("/v1/search?types=poets&q={}", encoded(q)))
         .await;
     assert_eq!(sent.status, StatusCode::OK, "{q}: {}", sent.body);
     poet_slugs(sent.json().get("poets").and_then(|poets| poets.get("data")))

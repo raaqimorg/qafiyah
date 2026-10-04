@@ -230,7 +230,7 @@ finds both. From three words, exact poems are ordered by the same verbatim era g
 search, oldest classical era first, BM25 within a rank; shorter exact queries are ordered by BM25.
 
 Limits: 20 results per page, page 500 max, `track_total_hits` 10000, `q` at most 100 characters
-(UTF-16 units, so a classical verse copied with its diacritics fits: 99.7% of them do), at most 100
+(characters, so a classical verse copied with its diacritics fits: 99.7% of them do), at most 100
 slugs per facet.
 
 The API normalizes `q` before searching, on `/search` and `/poets` alike: Unicode NFKC (letters

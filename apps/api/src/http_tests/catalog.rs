@@ -222,6 +222,10 @@ async fn a_random_poem_is_its_slug_or_its_lines_and_any_other_option_is_refused(
     );
     let refused = send(app, request("GET", "/v1/poems/random?option=verse")).await;
     assert_eq!(refused.status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        refused.json()["detail"],
+        "Invalid query parameter `option`: unknown variant `verse`, expected `slug` or `lines`"
+    );
 }
 
 #[tokio::test]

@@ -98,8 +98,6 @@ impl RouteProblem {
 pub enum AppError {
     #[error("{0:?} not found")]
     NotFound(Resource),
-    #[error("input validation failed")]
-    BadRequest,
     #[error("unauthorized")]
     Unauthorized,
     #[error("too many active keys")]
@@ -144,12 +142,6 @@ impl AppError {
                 "NOT_FOUND",
                 "Resource not found",
                 resource.not_found_detail(),
-            ),
-            AppError::BadRequest => contract(
-                StatusCode::BAD_REQUEST,
-                "BAD_REQUEST",
-                "Bad request",
-                "Input validation failed",
             ),
             AppError::Unauthorized => contract(
                 StatusCode::UNAUTHORIZED,
@@ -261,7 +253,6 @@ impl IntoResponse for AppError {
                 );
             }
             AppError::NotFound(_)
-            | AppError::BadRequest
             | AppError::Unauthorized
             | AppError::TooManyKeys
             | AppError::EmailTaken

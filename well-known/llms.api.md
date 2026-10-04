@@ -17,7 +17,7 @@ Base URL: {BASE}
 - Responses, errors included, carry `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix time in seconds when the window ends). A 429 or 503 carries `Retry-After` in seconds.
 - Poems and poets have four-letter, case-sensitive slugs (`gnNg`, `PAKT`). Eras, meters, rhymes, themes, verse forms, and collections have lowercase transliterated slugs (`jahili`, `altawil`, `meem`, `alhikma`, `amudi`, `almuallaqat`).
 - A list is `{"data": [...], "pagination": {"page", "pageSize", "totalPages", "totalItems"}}` with 1-based pages, and a single item is `{"data": {...}}`.
-- Repeat a filter to match any of its values (`?meter=altawil&meter=alkamil`). Different filters combine with AND. Unknown query params are ignored.
+- Repeat a filter to match any of its values (`?meter=altawil&meter=alkamil`). Different filters combine with AND. An unknown query param is refused with 400, and every 400 names the parameter at fault.
 - JSON responses carry an `ETag`. Send it back as `If-None-Match` to get a 304.
 - Errors are `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `code`, `instance`, and `detail`.
 - Lists and counts hold primary readings only. A poem known in several readings (recensions) is listed once, and each reading links the others.

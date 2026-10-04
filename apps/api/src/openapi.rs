@@ -1,46 +1,19 @@
 use serde::Serialize;
 use utoipa::openapi::header::{Header, HeaderBuilder};
-use utoipa::openapi::path::ParameterIn;
 use utoipa::openapi::schema::{ObjectBuilder, Type};
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityRequirement, SecurityScheme};
 use utoipa::openapi::{
-    Components, ContactBuilder, OpenApi as Document, RefOr, ResponseBuilder, Schema, ServerBuilder,
+    Components, ContactBuilder, OpenApi as Document, RefOr, ResponseBuilder, ServerBuilder,
 };
 use utoipa::{Modify, OpenApi, ToSchema};
 
 use crate::constants::{
-    API_KEY_HEADER, API_V1_PREFIX, MAX_FILTER_SLUGS, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
+    API_KEY_HEADER, API_V1_PREFIX, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
     RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER, SITE_NAME_EN,
 };
-
-#[derive(Serialize, ToSchema)]
-#[schema(value_type = String, pattern = "^[a-zA-Z]{4}$")]
-pub struct FourLetterSlug(String);
-
-#[derive(Serialize, ToSchema)]
-#[schema(value_type = String, pattern = "^[a-z][a-z-]*$")]
-pub struct TransliteratedSlug(String);
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum SearchTypeParam {
-    Poems,
-    Poets,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum RandomPoemOptionParam {
-    Slug,
-    Lines,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum ExactFlag {
-    True,
-    False,
-}
+use crate::params::{
+    ExactFlag, FourLetterSlug, RandomPoemOptionParam, SearchTypeParam, TransliteratedSlug,
+};
 
 #[derive(Serialize, ToSchema)]
 pub struct ProblemDetail {
@@ -67,31 +40,9 @@ pub struct ProblemDetail {
 #[derive(utoipa::IntoResponses)]
 pub enum ListErrors {
     #[response(
-        status = 429,
-        description = "Too many requests",
-        headers(
-            ("x-ratelimit-limit" = i64, description = "Requests allowed per hour"),
-            ("x-ratelimit-remaining" = i64, description = "Requests left in the current hour"),
-            ("x-ratelimit-reset" = i64, description = "Unix seconds at which the window resets"),
-            ("retry-after" = i64, description = "Seconds until the window resets"),
-        )
+        status = 400,
+        description = "A query or path parameter is invalid or unknown; `detail` names it"
     )]
-    TooManyRequests(ProblemDetail),
-    #[response(status = 500, description = "Internal server error")]
-    Internal(ProblemDetail),
-    #[response(
-        status = 503,
-        description = "Temporarily unavailable: the database or search index did not answer in time",
-        headers(
-            ("retry-after" = i64, description = "Seconds to wait before retrying"),
-        )
-    )]
-    Unavailable(ProblemDetail),
-}
-
-#[derive(utoipa::IntoResponses)]
-pub enum FilteredListErrors {
-    #[response(status = 400, description = "Input validation failed")]
     BadRequest(ProblemDetail),
     #[response(
         status = 429,
@@ -118,7 +69,10 @@ pub enum FilteredListErrors {
 
 #[derive(utoipa::IntoResponses)]
 pub enum LookupErrors {
-    #[response(status = 400, description = "Input validation failed")]
+    #[response(
+        status = 400,
+        description = "A query or path parameter is invalid or unknown; `detail` names it"
+    )]
     BadRequest(ProblemDetail),
     #[response(status = 404, description = "Not found")]
     NotFound(ProblemDetail),
@@ -153,7 +107,6 @@ pub fn finish(doc: &mut Document) {
             .build(),
     );
     doc.servers = Some(vec![ServerBuilder::new().url(API_V1_PREFIX).build()]);
-    cap_facet_arrays(doc);
     ProblemContentType.modify(doc);
     declare_api_key(doc);
     declare_response_headers(doc);
@@ -233,47 +186,6 @@ fn declare_response_headers(doc: &mut Document) {
     }
 }
 
-const FACET_ITEM_SCHEMAS: [&str; 2] = ["FourLetterSlug", "TransliteratedSlug"];
-
-fn is_facet_array(array: &utoipa::openapi::schema::Array) -> bool {
-    let Ok(items) = serde_json::to_value(&array.items) else {
-        return false;
-    };
-    let Some(reference) = items.get("$ref").and_then(serde_json::Value::as_str) else {
-        return false;
-    };
-    FACET_ITEM_SCHEMAS
-        .iter()
-        .any(|name| reference == format!("#/components/schemas/{name}"))
-}
-
-fn cap_facet_arrays(doc: &mut Document) {
-    for item in doc.paths.paths.values_mut() {
-        let Some(operation) = item.get.as_mut() else {
-            continue;
-        };
-        let Some(parameters) = operation.parameters.as_mut() else {
-            continue;
-        };
-        for parameter in parameters {
-            let RefOr::T(parameter) = parameter else {
-                continue;
-            };
-            if parameter.parameter_in != ParameterIn::Query {
-                continue;
-            }
-            let Some(RefOr::T(Schema::Array(array))) = parameter.schema.as_mut() else {
-                continue;
-            };
-            if !is_facet_array(array) {
-                continue;
-            }
-            array.max_items = Some(MAX_FILTER_SLUGS);
-            array.default = Some(serde_json::json!([]));
-        }
-    }
-}
-
 pub struct ProblemContentType;
 
 impl Modify for ProblemContentType {
@@ -322,7 +234,7 @@ Conventions:
 - Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.
 - `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.
 - To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.
-- Unknown query parameters are ignored, so a misspelled filter returns unfiltered results rather than an error.
+- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.
 - JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.
 - Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.
 
@@ -413,7 +325,7 @@ mod tests {
                 }
                 let name = parameter["name"].as_str().expect("a name");
                 if name == "types" {
-                    assert_eq!(schema["maxItems"], 2, "{path} types");
+                    assert!(schema["maxItems"].is_null(), "{path} types");
                     assert!(schema["default"].is_null(), "{path} types");
                     continue;
                 }
