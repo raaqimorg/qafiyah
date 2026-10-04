@@ -111,33 +111,27 @@ const chips = [
             dir="rtl"
             class="h-12 w-full rounded-none border-0 border-b border-border bg-transparent pr-3 pl-12 text-right text-base text-text shadow-none transition-colors outline-none placeholder:text-text-subtle focus-visible:border-text md:text-lg"
           />
-          {
-            queryFilter && (
-              <a
-                href={poetsUrl({ era: eraParam })}
-                aria-label="مسح البحث"
-                class="absolute top-1/2 left-1 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-subtle focus-ring transition-colors hover:text-text"
-              >
-                <Icon name="circle-x" class="h-5 w-5" />
-              </a>
-            )
-          }
+          {queryFilter && (
+            <a
+              href={poetsUrl({ era: eraParam })}
+              aria-label="مسح البحث"
+              class="absolute top-1/2 left-1 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-subtle focus-ring transition-colors hover:text-text"
+            >
+              <Icon name="circle-x" class="h-5 w-5" />
+            </a>
+          )}
         </div>
       </div>
-      <div
-        class="-mx-1 flex w-[calc(100%+0.5rem)] scrollbar-none gap-2 overflow-x-auto px-1 py-1 sm:mx-0 sm:w-full sm:flex-wrap sm:overflow-x-visible sm:px-0"
-      >
-        {
-          chips.map((chip) => (
-            <a
-              href={chip.href}
-              aria-current={chip.isActive ? 'page' : undefined}
-              class:list={[chipBase, chip.isActive ? chipActive : chipIdle]}
-            >
-              {chip.label}
-            </a>
-          ))
-        }
+      <div class="-mx-1 flex w-[calc(100%+0.5rem)] scrollbar-none gap-2 overflow-x-auto px-1 py-1 sm:mx-0 sm:w-full sm:flex-wrap sm:overflow-x-visible sm:px-0">
+        {chips.map((chip) => (
+          <a
+            href={chip.href}
+            aria-current={chip.isActive ? 'page' : undefined}
+            class:list={[chipBase, chip.isActive ? chipActive : chipIdle]}
+          >
+            {chip.label}
+          </a>
+        ))}
       </div>
     </form>
   </ListPageBody>

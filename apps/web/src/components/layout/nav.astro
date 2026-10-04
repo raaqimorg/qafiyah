@@ -39,27 +39,23 @@ const isActiveLink = (href: string): boolean => {
           <Icon name="menu" class={RESPONSIVE_ICON_SIZE} strokeWidth={1.5} />
         </button>
       </div>
-      <ul
-        class="hidden text-sm leading-[1.5] sm:flex sm:min-h-8 sm:flex-row sm:gap-3 md:gap-3.5 md:text-base xl:gap-4 xl:text-lg"
-      >
-        {
-          NAV_LINKS.map((link) => (
-            <li>
-              <a
-                href={link.href}
-                target={link.isExternal ? '_blank' : undefined}
-                rel={link.isExternal ? 'noopener noreferrer' : undefined}
-                class:list={[
-                  'optical-center rounded-sm text-text-muted focus-ring duration-200 hover:text-text hover:underline sm:top-[0.43em] md:top-[0.3em] xl:top-[0.2em]',
-                  isActiveLink(link.href) &&
-                    'text-text underline decoration-highlight decoration-2 underline-offset-4',
-                ]}
-              >
-                {link.name}
-              </a>
-            </li>
-          ))
-        }
+      <ul class="hidden text-sm leading-[1.5] sm:flex sm:min-h-8 sm:flex-row sm:gap-3 md:gap-3.5 md:text-base xl:gap-4 xl:text-lg">
+        {NAV_LINKS.map((link) => (
+          <li>
+            <a
+              href={link.href}
+              target={link.isExternal ? '_blank' : undefined}
+              rel={link.isExternal ? 'noopener noreferrer' : undefined}
+              class:list={[
+                'optical-center rounded-sm text-text-muted focus-ring duration-200 hover:text-text hover:underline sm:top-[0.43em] md:top-[0.3em] xl:top-[0.2em]',
+                isActiveLink(link.href) &&
+                  'text-text underline decoration-highlight decoration-2 underline-offset-4',
+              ]}
+            >
+              {link.name}
+            </a>
+          </li>
+        ))}
         <li class="hidden items-center in-data-viewer:flex">
           <AccountControl client:load />
         </li>
@@ -76,26 +72,24 @@ const isActiveLink = (href: string): boolean => {
 >
   <nav class="flex flex-1 flex-col justify-end" aria-label="القائمة الرئيسية (موبايل)">
     <ul class="flex flex-col items-end text-2xl leading-[1.45] xxs:text-3xl">
-      {
-        [...NAV_LINKS].reverse().map((link) => (
-          <li class="w-full border-b border-border text-right">
-            <a
-              tabindex="-1"
-              data-mobile-link
-              href={link.href}
-              target={link.isExternal ? '_blank' : undefined}
-              rel={link.isExternal ? 'noopener noreferrer' : undefined}
-              class:list={[
-                'block rounded-sm py-5 text-text-muted focus-ring hover:text-text',
-                isActiveLink(link.href) &&
-                  'text-text underline decoration-highlight decoration-2 underline-offset-4',
-              ]}
-            >
-              {link.name}
-            </a>
-          </li>
-        ))
-      }
+      {[...NAV_LINKS].reverse().map((link) => (
+        <li class="w-full border-b border-border text-right">
+          <a
+            tabindex="-1"
+            data-mobile-link
+            href={link.href}
+            target={link.isExternal ? '_blank' : undefined}
+            rel={link.isExternal ? 'noopener noreferrer' : undefined}
+            class:list={[
+              'block rounded-sm py-5 text-text-muted focus-ring hover:text-text',
+              isActiveLink(link.href) &&
+                'text-text underline decoration-highlight decoration-2 underline-offset-4',
+            ]}
+          >
+            {link.name}
+          </a>
+        </li>
+      ))}
     </ul>
   </nav>
   <button

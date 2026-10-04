@@ -17,26 +17,27 @@ const LIMITS = [
 ---
 
 <ul class="flex flex-col">
-  {
-    LIMITS.map((limit) => (
-      <li
-        class={cn(textClass, 'flex items-center justify-between gap-4 border-b border-border py-3')}
-      >
-        <span class="flex items-center gap-2 text-text">
-          {limit.tier}
-          {limit.plan === plan && (
-            <span class="rounded-md border border-border px-2 py-0.5 text-sm text-text-muted">
-              خطتك
-            </span>
-          )}
-        </span>
-        <span class="text-text-muted">{limit.requests} طلبًا في الساعة</span>
-      </li>
-    ))
-  }
+  {LIMITS.map((limit) => (
+    <li
+      class={cn(textClass, 'flex items-center justify-between gap-4 border-b border-border py-3')}
+    >
+      <span class="flex items-center gap-2 text-text">
+        {limit.tier}
+        {limit.plan === plan && (
+          <span class="rounded-md border border-border px-2 py-0.5 text-sm text-text-muted">
+            خطتك
+          </span>
+        )}
+      </span>
+      <span class="text-text-muted">{limit.requests} طلبًا في الساعة</span>
+    </li>
+  ))}
 </ul>
 <p class={textClass}>
-  تحمل الاستجابات الخاضعة لحدود الاستخدام ترويسة <code dir="ltr">x-ratelimit-remaining</code> لتعرف ما
-  تبقّى لك. وإن احتجت حدودًا أعلى فراسلنا على{' '}
-  <a href={`mailto:${API_EMAIL}`} class={INLINE_LINK}>البريد</a>.
+  تحمل الاستجابات الخاضعة لحدود الاستخدام ترويسة <code dir="ltr">x-ratelimit-remaining</code> لتعرف
+  ما تبقّى لك. وإن احتجت حدودًا أعلى فراسلنا على{' '}
+  <a href={`mailto:${API_EMAIL}`} class={INLINE_LINK}>
+    البريد
+  </a>
+  .
 </p>

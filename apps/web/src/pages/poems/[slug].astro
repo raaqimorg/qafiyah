@@ -45,16 +45,14 @@ const layout = buildPoemLayout(detail, slug as PoemSlug);
   <div class="w-full">
     <div class="pt-8 xs:pt-10">
       <Breadcrumbs items={layout.crumbItems} />
-      {
-        poem.recensionOf && (
-          <p class="text-text-subtle">
-            هذه رواية أخرى لقصيدة{' '}
-            <a class="underline" href={poemUrl(poem.recensionOf.slug)}>
-              {poem.recensionOf.title}
-            </a>
-          </p>
-        )
-      }
+      {poem.recensionOf && (
+        <p class="text-text-subtle">
+          هذه رواية أخرى لقصيدة{' '}
+          <a class="underline" href={poemUrl(poem.recensionOf.slug)}>
+            {poem.recensionOf.title}
+          </a>
+        </p>
+      )}
     </div>
     <div class="my-14 flex w-full flex-col items-center gap-10 xs:my-20 lg:my-28">
       <div class="flex w-full max-w-5xl flex-col items-center gap-10">

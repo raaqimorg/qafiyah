@@ -10,25 +10,23 @@ const { items } = Astro.props;
 
 <nav aria-label="مسار التصفح" class="w-full text-xs text-text-subtle xs:text-sm">
   <ol class="flex flex-row flex-wrap items-center justify-start gap-1.5" dir="rtl">
-    {
-      items.map((item, i) => (
-        <li class="flex items-center gap-1.5">
-          {i > 0 && (
-            <span aria-hidden="true" class="text-text-subtle">
-              ›
-            </span>
-          )}
-          {i === items.length - 1 ? (
-            <span aria-current="page" class="block max-w-48 truncate text-text-muted sm:max-w-none">
-              {item.name}
-            </span>
-          ) : (
-            <a href={item.path} class="rounded-sm focus-ring hover:text-text-muted hover:underline">
-              {item.name}
-            </a>
-          )}
-        </li>
-      ))
-    }
+    {items.map((item, i) => (
+      <li class="flex items-center gap-1.5">
+        {i > 0 && (
+          <span aria-hidden="true" class="text-text-subtle">
+            ›
+          </span>
+        )}
+        {i === items.length - 1 ? (
+          <span aria-current="page" class="block max-w-48 truncate text-text-muted sm:max-w-none">
+            {item.name}
+          </span>
+        ) : (
+          <a href={item.path} class="rounded-sm focus-ring hover:text-text-muted hover:underline">
+            {item.name}
+          </a>
+        )}
+      </li>
+    ))}
   </ol>
 </nav>

@@ -56,29 +56,25 @@ const TITLE = withBrand('حسابي');
         class="relative inline-flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-sunken text-lg text-text-muted"
       >
         {(viewer.displayName ?? viewer.email).trim().charAt(0).toUpperCase()}
-        {
-          viewer.avatarUrl && (
-            <img
-              src={viewer.avatarUrl}
-              alt=""
-              width={48}
-              height={48}
-              referrerpolicy="no-referrer"
-              onerror="this.remove()"
-              class="absolute inset-0 size-full bg-surface-sunken object-cover"
-            />
-          )
-        }
+        {viewer.avatarUrl && (
+          <img
+            src={viewer.avatarUrl}
+            alt=""
+            width={48}
+            height={48}
+            referrerpolicy="no-referrer"
+            onerror="this.remove()"
+            class="absolute inset-0 size-full bg-surface-sunken object-cover"
+          />
+        )}
       </span>
       <div class="flex min-w-0 flex-1 flex-col">
         <h1 class="truncate text-lg text-text">{viewer.displayName ?? viewer.email}</h1>
-        {
-          viewer.displayName && (
-            <p class="truncate text-right text-base text-text-muted" dir="ltr">
-              {viewer.email}
-            </p>
-          )
-        }
+        {viewer.displayName && (
+          <p class="truncate text-right text-base text-text-muted" dir="ltr">
+            {viewer.email}
+          </p>
+        )}
       </div>
       <form method="POST" action="/auth/logout">
         <button
@@ -90,104 +86,96 @@ const TITLE = withBrand('حسابي');
       </form>
     </header>
 
-    {
-      failed && (
-        <p role="alert" class="rounded-md border border-danger px-4 py-3 text-base text-danger">
-          تعذّر إتمام العملية. حاول مرة أخرى.
-        </p>
-      )
-    }
+    {failed && (
+      <p role="alert" class="rounded-md border border-danger px-4 py-3 text-base text-danger">
+        تعذّر إتمام العملية. حاول مرة أخرى.
+      </p>
+    )}
 
     <section class="flex flex-col gap-6" aria-labelledby="api-keys-title">
       <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between gap-4">
-          <h2 id="api-keys-title" class="text-base text-text">مفاتيح الواجهة البرمجية</h2>
-          {
-            account !== undefined && (
-              <span
-                class="rounded-md border border-border px-2 py-0.5 text-sm text-text-muted"
-                dir="ltr"
-              >
-                {account.plan}
-              </span>
-            )
-          }
+          <h2 id="api-keys-title" class="text-base text-text">
+            مفاتيح الواجهة البرمجية
+          </h2>
+          {account !== undefined && (
+            <span
+              class="rounded-md border border-border px-2 py-0.5 text-sm text-text-muted"
+              dir="ltr"
+            >
+              {account.plan}
+            </span>
+          )}
         </div>
-        {
-          account !== undefined && (
-            <p class="text-sm text-text-muted">
-              {account.used} من {account.requests} طلبًا هذه الساعة
-            </p>
-          )
-        }
+        {account !== undefined && (
+          <p class="text-sm text-text-muted">
+            {account.used} من {account.requests} طلبًا هذه الساعة
+          </p>
+        )}
       </div>
 
-      {
-        created && (
-          <div class="ph-no-capture flex flex-col gap-3 rounded-md border border-highlight p-4">
-            <p class="text-base text-text">انسخ مفتاحك الآن، لن يُعرض مرة أخرى.</p>
-            <div class="flex items-center gap-2">
-              <code
-                id="qaf-new-key"
-                class="min-w-0 flex-1 overflow-x-auto rounded-md bg-surface-sunken px-3 py-2 text-left font-mono text-sm text-text"
-                dir="ltr"
-              >
-                {created}
-              </code>
-              <button
-                id="qaf-copy-key"
-                type="button"
-                class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-              >
-                نسخ
-              </button>
-            </div>
+      {created && (
+        <div class="ph-no-capture flex flex-col gap-3 rounded-md border border-highlight p-4">
+          <p class="text-base text-text">انسخ مفتاحك الآن، لن يُعرض مرة أخرى.</p>
+          <div class="flex items-center gap-2">
+            <code
+              id="qaf-new-key"
+              class="min-w-0 flex-1 overflow-x-auto rounded-md bg-surface-sunken px-3 py-2 text-left font-mono text-sm text-text"
+              dir="ltr"
+            >
+              {created}
+            </code>
+            <button
+              id="qaf-copy-key"
+              type="button"
+              class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
+            >
+              نسخ
+            </button>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {
-        keys.length === 0 ? (
-          <p class="text-base text-text-muted">لا توجد مفاتيح بعد.</p>
-        ) : (
-          <ul class="flex flex-col">
-            {keys.map((key) => (
-              <li class="flex items-center justify-between gap-4 border-b border-border py-3 first:pt-0">
-                <code class="font-mono text-sm text-text" dir="ltr">
-                  {key.prefix}…
-                </code>
-                <form method="POST" action="/account/keys">
-                  <input type="hidden" name="action" value="revoke" />
-                  <input type="hidden" name="key_id" value={key.id} />
-                  <button
-                    type="submit"
-                    class="rounded-sm text-base text-danger focus-ring transition-opacity hover:opacity-80"
-                  >
-                    إلغاء
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )
-      }
+      {keys.length === 0 ? (
+        <p class="text-base text-text-muted">لا توجد مفاتيح بعد.</p>
+      ) : (
+        <ul class="flex flex-col">
+          {keys.map((key) => (
+            <li class="flex items-center justify-between gap-4 border-b border-border py-3 first:pt-0">
+              <code class="font-mono text-sm text-text" dir="ltr">
+                {key.prefix}…
+              </code>
+              <form method="POST" action="/account/keys">
+                <input type="hidden" name="action" value="revoke" />
+                <input type="hidden" name="key_id" value={key.id} />
+                <button
+                  type="submit"
+                  class="rounded-sm text-base text-danger focus-ring transition-opacity hover:opacity-80"
+                >
+                  إلغاء
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div class="flex flex-col items-start gap-3">
-        {
-          keys.length < MAX_ACTIVE_KEYS_PER_USER && (
-            <form method="POST" action="/account/keys">
-              <input type="hidden" name="action" value="create" />
-              <button class={buttonVariants({ variant: 'outline', size: 'sm' })} type="submit">
-                إنشاء مفتاح
-              </button>
-            </form>
-          )
-        }
+        {keys.length < MAX_ACTIVE_KEYS_PER_USER && (
+          <form method="POST" action="/account/keys">
+            <input type="hidden" name="action" value="create" />
+            <button class={buttonVariants({ variant: 'outline', size: 'sm' })} type="submit">
+              إنشاء مفتاح
+            </button>
+          </form>
+        )}
       </div>
     </section>
 
     <section class="flex flex-col gap-4" aria-labelledby="api-usage-title">
-      <h2 id="api-usage-title" class="text-base text-text">طريقة الاستعمال</h2>
+      <h2 id="api-usage-title" class="text-base text-text">
+        طريقة الاستعمال
+      </h2>
       <p class={PARAGRAPH}>
         تُرجع الواجهة JSON لكل ما في قافية: القصائد والشعراء والبحور والقوافي والأغراض والعصور
         والدواوين، والبحث. التفاصيل في{' '}
@@ -200,7 +188,9 @@ const TITLE = withBrand('حسابي');
     </section>
 
     <section class="flex flex-col gap-4" aria-labelledby="api-limits-title">
-      <h2 id="api-limits-title" class="text-base text-text">حدود الاستخدام</h2>
+      <h2 id="api-limits-title" class="text-base text-text">
+        حدود الاستخدام
+      </h2>
       <RateLimits class={PARAGRAPH} plan={account?.plan} />
     </section>
   </div>

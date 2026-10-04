@@ -37,31 +37,29 @@ const htmlClass = isDev ? 'debug-screens' : '';
     <ViewerInit />
     {isDev && <LayoutDebug />}
   </head>
-  {
-    bare ? (
-      <body class="grid min-h-svh place-items-center bg-surface px-4 py-10 font-sans text-text">
-        <main id="main" tabindex="-1" class="w-full focus:outline-none">
-          <slot />
-        </main>
-      </body>
-    ) : (
-      <body class="relative mx-auto grid min-h-svh w-full max-w-5xl grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] [overflow-x:clip] bg-surface px-(--gutter) font-sans text-text">
-        <a
-          href="#main"
-          class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-surface"
-        >
-          تخطَّ إلى المحتوى
-        </a>
-        <Nav />
-        <main
-          id="main"
-          tabindex="-1"
-          class="row-start-2 flex w-full flex-1 items-start justify-start focus:outline-none"
-        >
-          <slot />
-        </main>
-        <Footer client:idle />
-      </body>
-    )
-  }
+  {bare ? (
+    <body class="grid min-h-svh place-items-center bg-surface px-4 py-10 font-sans text-text">
+      <main id="main" tabindex="-1" class="w-full focus:outline-none">
+        <slot />
+      </main>
+    </body>
+  ) : (
+    <body class="relative mx-auto grid min-h-svh w-full max-w-5xl grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] [overflow-x:clip] bg-surface px-(--gutter) font-sans text-text">
+      <a
+        href="#main"
+        class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-surface"
+      >
+        تخطَّ إلى المحتوى
+      </a>
+      <Nav />
+      <main
+        id="main"
+        tabindex="-1"
+        class="row-start-2 flex w-full flex-1 items-start justify-start focus:outline-none"
+      >
+        <slot />
+      </main>
+      <Footer client:idle />
+    </body>
+  )}
 </html>
