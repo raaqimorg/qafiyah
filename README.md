@@ -43,7 +43,7 @@ Qafiyah is an open-source reference for Arabic poetry. Search every verse for an
 curl "https://api.qafiyah.com/v1/poems/random?option=lines"
 ```
 
-**Run it locally.** You need [Bun](https://bun.sh) 1.3.14, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), and [rustup](https://rustup.rs):
+**Run it locally.** You need [Bun](https://bun.sh) 1.4.2, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), and [rustup](https://rustup.rs):
 
 ```bash
 git clone https://github.com/raaqimorg/qafiyah.git
