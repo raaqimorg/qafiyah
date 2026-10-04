@@ -16,9 +16,9 @@ use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::log::LogHandle;
-use crate::openapi::{FilteredListErrors, ListErrors, LookupErrors};
+use crate::openapi::{ListErrors, LookupErrors};
 use crate::params::{
-    AnyPage, FourLetterSlug, PoetSlugs, RandomPoemOptionParam, SlugsParams, TermSlugs,
+    AnyPage, FourLetterSlug, NoParams, PoetSlugs, RandomPoemOptionParam, SlugsParams, TermSlugs,
 };
 use crate::routes::permanent_redirect;
 use crate::state::AppState;
@@ -65,7 +65,7 @@ pub(crate) struct PoemsParams {
     params(PoemsParams),
     responses(
         (status = 200, description = "A page of poems with pagination metadata.", body = ListEnvelope<PoemListItem>),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn list(
@@ -103,7 +103,7 @@ pub(crate) async fn list(
     params(SlugsParams),
     responses(
         (status = 200, description = "A page of poem slugs.", body = ListEnvelope<FourLetterSlug>),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn list_slugs(
@@ -142,6 +142,7 @@ pub(crate) async fn list_slugs(
 pub(crate) async fn count(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
+    _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<Total>>, AppError> {
     let total = state.poems.count().await?;
     log.set("result_count", total);
@@ -222,6 +223,7 @@ pub(crate) async fn detail(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
+    _: SafeQuery<NoParams>,
 ) -> Result<Response, AppError> {
     let slug = FourLetterSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
     let slug = slug.as_str();
@@ -265,7 +267,7 @@ pub(crate) struct RandomParams {
     params(RandomParams),
     responses(
         (status = 200, description = "The slug, or with `option=lines` one verse and the poet's name.", content_type = "text/plain", body = String, example = "gnNg"),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn random(

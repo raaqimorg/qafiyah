@@ -41,31 +41,9 @@ pub struct ProblemDetail {
 #[derive(utoipa::IntoResponses)]
 pub enum ListErrors {
     #[response(
-        status = 429,
-        description = "Too many requests",
-        headers(
-            ("x-ratelimit-limit" = i64, description = "Requests allowed per hour"),
-            ("x-ratelimit-remaining" = i64, description = "Requests left in the current hour"),
-            ("x-ratelimit-reset" = i64, description = "Unix seconds at which the window resets"),
-            ("retry-after" = i64, description = "Seconds until the window resets"),
-        )
+        status = 400,
+        description = "A query or path parameter is invalid or unknown; `detail` names it"
     )]
-    TooManyRequests(ProblemDetail),
-    #[response(status = 500, description = "Internal server error")]
-    Internal(ProblemDetail),
-    #[response(
-        status = 503,
-        description = "Temporarily unavailable: the database or search index did not answer in time",
-        headers(
-            ("retry-after" = i64, description = "Seconds to wait before retrying"),
-        )
-    )]
-    Unavailable(ProblemDetail),
-}
-
-#[derive(utoipa::IntoResponses)]
-pub enum FilteredListErrors {
-    #[response(status = 400, description = "Input validation failed")]
     BadRequest(ProblemDetail),
     #[response(
         status = 429,
@@ -92,7 +70,10 @@ pub enum FilteredListErrors {
 
 #[derive(utoipa::IntoResponses)]
 pub enum LookupErrors {
-    #[response(status = 400, description = "Input validation failed")]
+    #[response(
+        status = 400,
+        description = "A query or path parameter is invalid or unknown; `detail` names it"
+    )]
     BadRequest(ProblemDetail),
     #[response(status = 404, description = "Not found")]
     NotFound(ProblemDetail),

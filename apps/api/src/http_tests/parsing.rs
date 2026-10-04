@@ -193,3 +193,43 @@ async fn empty_pairs_in_a_query_string_are_nothing_but_an_empty_value_is_still_a
         "Invalid query parameter `page`: must be a whole number from 1 to 1666, without a sign or leading zeros"
     );
 }
+
+#[tokio::test]
+async fn an_operation_that_takes_no_parameters_refuses_any() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in [
+        "/v1/eras?page=2",
+        "/v1/meters?x=1",
+        "/v1/rhymes?x=1",
+        "/v1/themes?x=1",
+        "/v1/collections?x=1",
+        "/v1/poem-types?x=1",
+        "/v1/eras/jahili?x=1",
+        "/v1/meters/altawil?x=1",
+        "/v1/rhymes/meem?x=1",
+        "/v1/themes/alhikma?x=1",
+        "/v1/collections/almuallaqat?x=1",
+        "/v1/poem-types/amudi?x=1",
+        "/v1/poems/count?x=1",
+        "/v1/poems/gnNg?x=1",
+        "/v1/poets/PAKT?x=1",
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
+        let name = path
+            .split_once('?')
+            .expect("a query")
+            .1
+            .split('=')
+            .next()
+            .expect("a name");
+        assert_eq!(
+            sent.json()["detail"],
+            format!(
+                "Invalid query parameter `{name}`: unknown field `{name}`, there are no fields"
+            ),
+            "{path}"
+        );
+    }
+    assert!(es.requests().await.is_empty());
+}

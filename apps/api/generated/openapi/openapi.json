@@ -86,6 +86,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -277,7 +307,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -513,6 +543,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -704,7 +764,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -940,6 +1000,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -1131,7 +1221,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -1367,6 +1457,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -1558,7 +1678,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -1910,7 +2030,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -2113,6 +2233,36 @@
                   "type": "integer"
                 },
                 "description": "Unix seconds at which the window resets"
+              }
+            }
+          },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
               }
             }
           },
@@ -2358,7 +2508,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -2579,7 +2729,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -2799,7 +2949,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -3048,7 +3198,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -3321,7 +3471,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -3541,7 +3691,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -3790,7 +3940,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -4026,6 +4176,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -4217,7 +4397,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -4633,7 +4813,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {
@@ -4839,6 +5019,36 @@
               }
             }
           },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "headers": {
@@ -5030,7 +5240,7 @@
             }
           },
           "400": {
-            "description": "Input validation failed",
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
             "headers": {
               "x-ratelimit-limit": {
                 "schema": {

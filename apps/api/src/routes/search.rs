@@ -12,7 +12,7 @@ use crate::envelope::{ListEnvelope, build_pagination};
 use crate::error::{AppError, RouteProblem};
 use crate::extract::SafeQuery;
 use crate::log::LogHandle;
-use crate::openapi::FilteredListErrors;
+use crate::openapi::ListErrors;
 use crate::params::{ExactFlag, Page, PoetSlugs, SearchText, SearchTypeParam, TermSlugs};
 use crate::state::AppState;
 
@@ -88,7 +88,7 @@ pub(crate) struct SearchParams {
     params(SearchParams),
     responses(
         (status = 200, description = "The normalized query and the requested sections, each with its own results and pagination.", body = SearchResponse),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn search(

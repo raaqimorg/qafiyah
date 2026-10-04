@@ -1152,6 +1152,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -1248,7 +1263,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -1368,6 +1383,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -1464,7 +1494,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -1584,6 +1614,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -1680,7 +1725,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -1800,6 +1845,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -1896,7 +1956,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2064,7 +2124,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2168,6 +2228,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
             };
             /** @description Too many requests */
             429: {
@@ -2286,7 +2361,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2398,7 +2473,7 @@ export interface operations {
                     "text/plain": string;
                 };
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2509,7 +2584,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2635,7 +2710,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2771,7 +2846,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -2882,7 +2957,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -3008,7 +3083,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -3128,6 +3203,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -3224,7 +3314,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -3421,7 +3511,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */
@@ -3526,6 +3616,21 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Too many requests */
             429: {
                 headers: {
@@ -3622,7 +3727,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Input validation failed */
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
             400: {
                 headers: {
                     /** @description Requests allowed per hour */

@@ -14,8 +14,10 @@ use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::log::LogHandle;
-use crate::openapi::{FilteredListErrors, LookupErrors};
-use crate::params::{AnyPage, FourLetterSlug, Page, SearchText, SlugsParams, TransliteratedSlug};
+use crate::openapi::{ListErrors, LookupErrors};
+use crate::params::{
+    AnyPage, FourLetterSlug, NoParams, Page, SearchText, SlugsParams, TransliteratedSlug,
+};
 use crate::routes::permanent_redirect;
 use crate::state::AppState;
 
@@ -43,7 +45,7 @@ pub(crate) struct PoetsParams {
     params(PoetsParams),
     responses(
         (status = 200, description = "A page of poets with pagination metadata.", body = ListEnvelope<PoetListItem>),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn list(
@@ -90,7 +92,7 @@ pub(crate) async fn list(
     params(SlugsParams),
     responses(
         (status = 200, description = "A page of poet slugs, each flagged with whether the poet has an avatar.", body = ListEnvelope<PoetSlugEntry>),
-        FilteredListErrors,
+        ListErrors,
     ),
 )]
 pub(crate) async fn list_slugs(
@@ -134,6 +136,7 @@ pub(crate) async fn detail(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
+    _: SafeQuery<NoParams>,
 ) -> Result<Response, AppError> {
     let slug = FourLetterSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
     let slug = slug.as_str();
