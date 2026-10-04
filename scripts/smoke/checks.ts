@@ -31,9 +31,7 @@ export function searchUrl(params: SearchParams): string {
   };
   const list = (key: string, values: readonly string[] | undefined) => {
     if (!values) return;
-    values.forEach((value, index) => {
-      parts.push(`${encodeURIComponent(`${key}[${index}]`)}=${encodeURIComponent(value)}`);
-    });
+    for (const value of values) parts.push(`${key}=${encodeURIComponent(value)}`);
   };
   scalar('q', params.q);
   list('types', params.types);

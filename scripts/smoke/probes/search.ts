@@ -26,7 +26,7 @@ import {
   TATWEEL_AR,
   ZWNJ_AR,
 } from '../checks';
-import { expectJsonObject, expectOnlyEra, expectPoemHits } from '../checks/body';
+import { expectJsonObject, expectOnlyEra, expectPoemHits, expectProblemJson } from '../checks/body';
 import { FIXTURE_POET } from '../fixtures';
 import { SEARCH } from '../target';
 
@@ -140,9 +140,9 @@ export const searchOkProbes: readonly Probe[] = [
     note: 'max-length query boundary',
   },
   {
-    url: searchUrl({ q: QUERY_AR, extra: { foo: 'bar', injection: "' OR 1=1 --" } }),
-    expect: 'ok',
-    note: 'unknown params are stripped, not fatal',
+    url: searchUrl({ q: QUERY_AR, extra: { foo: 'bar' } }),
+    checks: [expectProblemJson('BAD_REQUEST')],
+    note: 'an unknown param is refused by name',
   },
   { url: SEARCH, expect: 'ok', note: 'no params at all → defaults, both sections browse' },
   {
@@ -400,8 +400,8 @@ export const searchRejectProbes: readonly Probe[] = [
   },
   {
     url: searchUrl({ q: QUERY_AR, types: [...SEARCH_TYPE_VALUES, 'poems'] }),
-    expect: 'client-error',
-    note: 'more types than allowed',
+    expect: 'ok',
+    note: 'a repeated type is harmless',
   },
   {
     url: searchUrl({ q: QUERY_AR, eraSlugs: ['JAHILI'] }),
