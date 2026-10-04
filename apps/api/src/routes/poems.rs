@@ -61,7 +61,7 @@ pub(crate) struct PoemsParams {
     path = "/poems",
     tag = "poems",
     operation_id = "poems.list",
-    description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored.",
+    description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error.",
     params(PoemsParams),
     responses(
         (status = 200, description = "A page of poems with pagination metadata.", body = ListEnvelope<PoemListItem>),

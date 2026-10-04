@@ -234,7 +234,7 @@ Conventions:
 - Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.
 - `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.
 - To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.
-- Unknown query parameters are ignored, so a misspelled filter returns unfiltered results rather than an error.
+- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.
 - JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.
 - Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.
 
