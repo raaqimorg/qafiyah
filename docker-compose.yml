@@ -143,7 +143,7 @@ services:
       - "8080"
 
   edge-gateway:
-    image: owasp/modsecurity-crs:4.26.0-nginx-alpine-202605200705
+    image: owasp/modsecurity-crs:4.29.0-nginx-alpine-202609301109
     container_name: qafiyah-edge-gateway
     restart: unless-stopped
     <<: *default-logging
