@@ -1,5 +1,7 @@
 ---
+import { countedNoun } from '@/lib/arabic';
 import { INLINE_LINK } from '@/lib/constants/design-tokens';
+import { REQUESTS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { cn } from '@/lib/utils';
 import { API_EMAIL } from '@qafiyah/config';
 
@@ -29,7 +31,9 @@ const LIMITS = [
           </span>
         )}
       </span>
-      <span class="text-text-muted">{limit.requests} طلبًا في الساعة</span>
+      <span class="text-text-muted">
+        {limit.requests} {countedNoun(limit.requests, REQUESTS_NOUN_FORMS)} في الساعة
+      </span>
     </li>
   ))}
 </ul>

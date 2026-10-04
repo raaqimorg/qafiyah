@@ -2,6 +2,7 @@ import { match } from 'ts-pattern';
 
 export type ArabicNounForms = {
   readonly singular: string;
+  readonly accusative: string;
   readonly dual: string;
   readonly plural: string;
 };
@@ -31,6 +32,14 @@ export function formatArabicNumber(value: number): string {
 
 const ARABIC_PLURAL_RULES = new Intl.PluralRules('ar');
 
+export function countedNoun(count: number, nounForms: ArabicNounForms): string {
+  return match(ARABIC_PLURAL_RULES.select(Math.abs(count)))
+    .with('few', () => nounForms.plural)
+    .with('many', () => nounForms.accusative)
+    .with('zero', 'one', 'two', 'other', () => nounForms.singular)
+    .exhaustive();
+}
+
 export function formatArabicCount({
   count,
   nounForms,
@@ -38,15 +47,18 @@ export function formatArabicCount({
   readonly count: number;
   readonly nounForms: ArabicNounForms;
 }): string {
-  const { singular, dual, plural } = nounForms;
   const absoluteCount = Math.abs(count);
 
   return match(ARABIC_PLURAL_RULES.select(absoluteCount))
-    .with('zero', () => `لا ${singular}`)
-    .with('one', () => singular)
-    .with('two', () => dual)
-    .with('few', () => `${formatArabicNumber(absoluteCount)} ${plural}`)
-    .with('many', 'other', () => `${formatArabicNumber(absoluteCount)} ${singular}`)
+    .with('zero', () => `لا ${nounForms.singular}`)
+    .with('one', () => nounForms.singular)
+    .with('two', () => nounForms.dual)
+    .with(
+      'few',
+      'many',
+      'other',
+      () => `${formatArabicNumber(absoluteCount)} ${countedNoun(absoluteCount, nounForms)}`
+    )
     .exhaustive();
 }
 

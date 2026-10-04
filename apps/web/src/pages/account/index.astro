@@ -3,7 +3,9 @@ import ApiExample from '@/components/developers/api-example.astro';
 import RateLimits from '@/components/developers/rate-limits.astro';
 import { buttonVariants } from '@/components/ui/button';
 import Layout from '@/layouts/layout.astro';
+import { countedNoun } from '@/lib/arabic';
 import { API_URL } from '@/lib/constants/config';
+import { REQUESTS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { accountFetch } from '@/lib/server/account-client';
 import { CACHE_NONE } from '@/lib/server/cache';
 import { clearNewKeyCookie, readNewKeyCookie } from '@/lib/server/new-key-cookie';
@@ -109,7 +111,8 @@ const TITLE = withBrand('حسابي');
         </div>
         {account !== undefined && (
           <p class="text-sm text-text-muted">
-            {account.used} من {account.requests} طلبًا هذه الساعة
+            {account.used} من {account.requests}{' '}
+            {countedNoun(account.requests, REQUESTS_NOUN_FORMS)} هذه الساعة
           </p>
         )}
       </div>

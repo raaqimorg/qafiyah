@@ -4,6 +4,7 @@ import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 
 import {
   type ArabicNounForms,
+  countedNoun,
   formatArabicCount,
   formatArabicNumber,
   NON_ARABIC_BASIC_REGEX,
@@ -108,9 +109,31 @@ describe('stripInputNoise', () => {
 describe('formatArabicCount', () => {
   const carForms: ArabicNounForms = {
     singular: 'سيارة',
+    accusative: 'سيارة',
     dual: 'سيارتان',
     plural: 'سيارات',
   };
+  const poetForms: ArabicNounForms = {
+    singular: 'شاعر',
+    accusative: 'شاعرًا',
+    dual: 'شاعران',
+    plural: 'شعراء',
+  };
+
+  test.each([
+    [1, 'شاعر'],
+    [2, 'شاعران'],
+    [3, '٣ شعراء'],
+    [10, '١٠ شعراء'],
+    [11, '١١ شاعرًا'],
+    [25, '٢٥ شاعرًا'],
+    [99, '٩٩ شاعرًا'],
+    [100, '١٠٠ شاعر'],
+    [111, '١١١ شاعرًا'],
+    [500, '٥٠٠ شاعر'],
+  ])('counts %d of a masculine noun with the right form', (count, expected) => {
+    expect(formatArabicCount({ count, nounForms: poetForms })).toBe(expected);
+  });
 
   test.each([
     [0, 'لا سيارة'],
@@ -146,9 +169,9 @@ describe('formatArabicCount with VERSES_NOUN_FORMS', () => {
     [2, 'بيتان'],
     [3, '٣ أبيات'],
     [10, '١٠ أبيات'],
-    [11, '١١ بيت'],
+    [11, '١١ بيتًا'],
     [100, '١٠٠ بيت'],
-    [1338, '١٬٣٣٨ بيت'],
+    [1338, '١٬٣٣٨ بيتًا'],
   ])('renders %d verses', (count, expected) => {
     expect(formatArabicCount({ count, nounForms: VERSES_NOUN_FORMS })).toBe(expected);
   });
@@ -172,5 +195,23 @@ describe('NON_ARABIC_BASIC_REGEX', () => {
   it('matches only the basic Arabic block plus whitespace', () => {
     expect('حب'.replace(NON_ARABIC_BASIC_REGEX, '')).toBe('حب');
     expect('abc'.replace(NON_ARABIC_BASIC_REGEX, '')).toBe('');
+  });
+});
+
+describe('countedNoun', () => {
+  const requestForms: ArabicNounForms = {
+    singular: 'طلب',
+    accusative: 'طلبًا',
+    dual: 'طلبان',
+    plural: 'طلبات',
+  };
+
+  test.each([
+    [5, 'طلبات'],
+    [60, 'طلبًا'],
+    [500, 'طلب'],
+    [5000, 'طلب'],
+  ])('gives %d the noun written after its digits', (count, expected) => {
+    expect(countedNoun(count, requestForms)).toBe(expected);
   });
 });
