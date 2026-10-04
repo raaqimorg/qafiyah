@@ -15,10 +15,8 @@ use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource, RouteProblem};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
-use crate::openapi::{
-    FilteredListErrors, FourLetterSlug, ListErrors, LookupErrors, RandomPoemOptionParam,
-    TransliteratedSlug,
-};
+use crate::openapi::{FilteredListErrors, ListErrors, LookupErrors};
+use crate::params::{FourLetterSlug, RandomPoemOptionParam, TransliteratedSlug};
 use crate::query::Query;
 use crate::routes::permanent_redirect;
 use crate::slug;

@@ -12,9 +12,8 @@ use crate::domain::search::{self, PoemSearchParams, PoetSearchParams};
 use crate::envelope::{ListEnvelope, build_pagination};
 use crate::error::AppError;
 use crate::log::LogHandle;
-use crate::openapi::{
-    ExactFlag, FilteredListErrors, FourLetterSlug, SearchTypeParam, TransliteratedSlug,
-};
+use crate::openapi::FilteredListErrors;
+use crate::params::{ExactFlag, FourLetterSlug, SearchTypeParam, TransliteratedSlug};
 use crate::query::Query;
 
 use crate::slug;

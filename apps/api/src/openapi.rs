@@ -12,35 +12,9 @@ use crate::constants::{
     API_KEY_HEADER, API_V1_PREFIX, MAX_FILTER_SLUGS, PROD_SITE_URL, RATE_LIMIT_LIMIT_HEADER,
     RATE_LIMIT_REMAINING_HEADER, RATE_LIMIT_RESET_HEADER, SITE_NAME_EN,
 };
-
-#[derive(Serialize, ToSchema)]
-#[schema(value_type = String, pattern = "^[a-zA-Z]{4}$")]
-pub struct FourLetterSlug(String);
-
-#[derive(Serialize, ToSchema)]
-#[schema(value_type = String, pattern = "^[a-z][a-z-]*$")]
-pub struct TransliteratedSlug(String);
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum SearchTypeParam {
-    Poems,
-    Poets,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum RandomPoemOptionParam {
-    Slug,
-    Lines,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum ExactFlag {
-    True,
-    False,
-}
+use crate::params::{
+    ExactFlag, FourLetterSlug, RandomPoemOptionParam, SearchTypeParam, TransliteratedSlug,
+};
 
 #[derive(Serialize, ToSchema)]
 pub struct ProblemDetail {

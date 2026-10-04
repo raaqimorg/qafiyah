@@ -3,6 +3,7 @@ pub const SITEMAP_POEMS_PER_SHARD: u32 = 45000;
 pub const SITEMAP_POETS_PER_SHARD: u32 = 45000;
 pub const MAX_FILTER_SLUGS: usize = 100;
 pub const MAX_QUERY_LENGTH: usize = 100;
+pub const MAX_TERM_SLUG_LENGTH: usize = 64;
 pub const SEARCH_TYPE_VALUES: [&str; 2] = ["poems", "poets"];
 pub const SEARCH_POEMS_PER_PAGE: u32 = 20;
 pub const SEARCH_POETS_PER_PAGE: u32 = 20;
