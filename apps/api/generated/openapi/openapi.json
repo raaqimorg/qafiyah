@@ -3243,6 +3243,7 @@
             "required": false,
             "schema": {
               "type": "string",
+              "maxLength": 64,
               "pattern": "^[a-z][a-z-]*$"
             },
             "example": "jahili"

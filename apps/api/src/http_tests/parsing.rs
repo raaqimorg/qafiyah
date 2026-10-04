@@ -101,3 +101,52 @@ async fn unknown_parameters_and_injection_shaped_values_are_ignored() {
     .await;
     assert_eq!(sent.status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn the_poems_list_refuses_what_it_does_not_read_and_names_it() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let poems = "expected one of `page`, `poet`, `era`, `theme`, `meter`, `rhyme`, `collection`";
+    let page = "must be a whole number from 1 to";
+    for (path, detail) in [
+        (
+            "/v1/poems?Page=2",
+            format!("Invalid query parameter `Page`: unknown field `Page`, {poems}"),
+        ),
+        (
+            "/v1/poems?era=",
+            "Invalid query parameter `era[0]`: must be a lowercase slug of letters and hyphens, at most 64 characters".to_string(),
+        ),
+        (
+            "/v1/poems?page=01",
+            format!("Invalid query parameter `page`: {page} 4294967295, without a sign or leading zeros"),
+        ),
+        (
+            "/v1/poets?page=1667",
+            format!("Invalid query parameter `page`: {page} 1666, without a sign or leading zeros"),
+        ),
+        (
+            "/v1/poems/slugs?pages=2",
+            "Invalid query parameter `pages`: unknown field `pages`, expected `page`".to_string(),
+        ),
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
+        assert_eq!(sent.json()["detail"], detail, "{path}");
+    }
+    assert!(es.requests().await.is_empty());
+}
+
+#[tokio::test]
+async fn empty_pairs_in_a_query_string_are_nothing_but_an_empty_value_is_still_a_value() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in ["/v1/poets?", "/v1/poets?&page=2&"] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
+    }
+    let empty = send(app_with(&es), request("GET", "/v1/poets?page=")).await;
+    assert_eq!(empty.status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        empty.json()["detail"],
+        "Invalid query parameter `page`: must be a whole number from 1 to 1666, without a sign or leading zeros"
+    );
+}

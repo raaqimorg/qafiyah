@@ -5,10 +5,10 @@ use crate::contract::taxonomy::{CountedStats, PoemCountStats};
 use crate::domain::taxonomy::{Counted, PoemCounted};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
-use crate::extract::SafePath;
+use crate::extract::{SafePath, invalid_path_slug};
 use crate::log::LogHandle;
 use crate::openapi::{ListErrors, LookupErrors};
-use crate::slug;
+use crate::params::TransliteratedSlug;
 use crate::state::AppState;
 
 trait Kind: Copy {
@@ -84,7 +84,8 @@ async fn get_counted_kind(
     SafePath(raw): SafePath<String>,
     kind: Counted,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
-    let slug = slug::transliterated(&raw)?;
+    let slug = TransliteratedSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
+    let slug = slug.as_str();
     log.set(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
         data: state
@@ -119,7 +120,8 @@ async fn get_poem_counted_kind(
     SafePath(raw): SafePath<String>,
     kind: PoemCounted,
 ) -> Result<Json<ItemEnvelope<PoemCountStats>>, AppError> {
-    let slug = slug::transliterated(&raw)?;
+    let slug = TransliteratedSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
+    let slug = slug.as_str();
     log.set(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
         data: state

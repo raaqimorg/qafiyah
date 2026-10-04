@@ -1,36 +1,59 @@
-use axum::extract::{Extension, RawQuery, State};
+use axum::extract::{Extension, State};
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use rand::RngExt;
+use serde::Deserialize;
 
 use crate::constants::{
-    API_V1_PREFIX, MAX_FILTER_SLUGS, NO_STORE_CACHE_CONTROL, POEMS_PER_PAGE, READ_CACHE_CONTROL,
+    API_V1_PREFIX, NO_STORE_CACHE_CONTROL, POEMS_PER_PAGE, READ_CACHE_CONTROL,
     SITEMAP_POEMS_PER_SHARD,
 };
 use crate::contract::poems::{PoemDetail, PoemFacets, PoemListItem, Total};
 use crate::domain::poems::{self, Facets, RandomPoemOption};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
-use crate::error::{AppError, Resource, RouteProblem};
-use crate::extract::SafePath;
+use crate::error::{AppError, Resource};
+use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::log::LogHandle;
 use crate::openapi::{FilteredListErrors, ListErrors, LookupErrors};
-use crate::params::{FourLetterSlug, RandomPoemOptionParam, TransliteratedSlug};
-use crate::query::Query;
+use crate::params::{
+    AnyPage, FourLetterSlug, PoetSlugs, RandomPoemOptionParam, SlugsParams, TermSlugs,
+};
 use crate::routes::permanent_redirect;
-use crate::slug;
 use crate::state::AppState;
 
-fn facets(query: &Query) -> Result<Facets, AppError> {
-    Ok(Facets {
-        poet: query.facet("poet", slug::four_letters, MAX_FILTER_SLUGS)?,
-        era: query.facet("era", slug::transliterated, MAX_FILTER_SLUGS)?,
-        theme: query.facet("theme", slug::transliterated, MAX_FILTER_SLUGS)?,
-        meter: query.facet("meter", slug::transliterated, MAX_FILTER_SLUGS)?,
-        rhyme: query.facet("rhyme", slug::transliterated, MAX_FILTER_SLUGS)?,
-        collection: query.facet("collection", slug::transliterated, MAX_FILTER_SLUGS)?,
-    })
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub(crate) struct PoemsParams {
+    /// Page number as a 1-based integer string, 30 poems a page. Minimum 1.
+    #[param(inline, example = "1")]
+    page: Option<AnyPage>,
+    /// Filter by poet. Repeatable. Values are `slug` from GET /poets.
+    #[serde(default)]
+    #[param(inline, example = json!(["PAKT"]))]
+    poet: PoetSlugs,
+    /// Filter by era. Repeatable. Values are `slug` from GET /eras.
+    #[serde(default)]
+    #[param(inline, example = json!(["jahili"]))]
+    era: TermSlugs,
+    /// Filter by theme. Repeatable. Values are `slug` from GET /themes.
+    #[serde(default)]
+    #[param(inline, example = json!(["alhikma"]))]
+    theme: TermSlugs,
+    /// Filter by meter. Repeatable. Values are `slug` from GET /meters.
+    #[serde(default)]
+    #[param(inline, example = json!(["altawil"]))]
+    meter: TermSlugs,
+    /// Filter by rhyme. Repeatable. Values are `slug` from GET /rhymes.
+    #[serde(default)]
+    #[param(inline, example = json!(["meem"]))]
+    rhyme: TermSlugs,
+    /// Filter by collection. Repeatable. Values are `slug` from GET /collections.
+    #[serde(default)]
+    #[param(inline, example = json!(["almuallaqat"]))]
+    collection: TermSlugs,
 }
 
 #[utoipa::path(
@@ -39,15 +62,7 @@ fn facets(query: &Query) -> Result<Facets, AppError> {
     tag = "poems",
     operation_id = "poems.list",
     description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored.",
-    params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 30 poems a page. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poet" = Option<Vec<FourLetterSlug>>, Query, description = "Filter by poet. Repeatable. Values are `slug` from GET /poets.", example = json!(["PAKT"])),
-        ("era" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by era. Repeatable. Values are `slug` from GET /eras.", example = json!(["jahili"])),
-        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by theme. Repeatable. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
-        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by meter. Repeatable. Values are `slug` from GET /meters.", example = json!(["altawil"])),
-        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by rhyme. Repeatable. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
-        ("collection" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by collection. Repeatable. Values are `slug` from GET /collections.", example = json!(["almuallaqat"])),
-    ),
+    params(PoemsParams),
     responses(
         (status = 200, description = "A page of poems with pagination metadata.", body = ListEnvelope<PoemListItem>),
         FilteredListErrors,
@@ -56,11 +71,17 @@ fn facets(query: &Query) -> Result<Facets, AppError> {
 pub(crate) async fn list(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
-    RawQuery(raw): RawQuery,
+    SafeQuery(params): SafeQuery<PoemsParams>,
 ) -> Result<Json<ListEnvelope<PoemListItem>>, AppError> {
-    let query = Query::parse(raw.as_deref());
-    let page = query.unbounded_page()?;
-    let facets = facets(&query)?;
+    let page = params.page.map_or(1, AnyPage::get);
+    let facets = Facets {
+        poet: params.poet.into_strings(),
+        era: params.era.into_strings(),
+        theme: params.theme.into_strings(),
+        meter: params.meter.into_strings(),
+        rhyme: params.rhyme.into_strings(),
+        collection: params.collection.into_strings(),
+    };
     let (poems, total) = state.poems.list(&facets, page, POEMS_PER_PAGE).await?;
     let envelope = ListEnvelope {
         data: poems.into_iter().map(PoemListItem::from).collect(),
@@ -79,9 +100,7 @@ pub(crate) async fn list(
     tag = "poems",
     operation_id = "poems.listSlugs",
     description = "The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling.",
-    params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
-    ),
+    params(SlugsParams),
     responses(
         (status = 200, description = "A page of poem slugs.", body = ListEnvelope<FourLetterSlug>),
         FilteredListErrors,
@@ -90,9 +109,9 @@ pub(crate) async fn list(
 pub(crate) async fn list_slugs(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
-    RawQuery(raw): RawQuery,
+    SafeQuery(params): SafeQuery<SlugsParams>,
 ) -> Result<Json<ListEnvelope<String>>, AppError> {
-    let page = Query::parse(raw.as_deref()).unbounded_page()?;
+    let page = params.page.map_or(1, AnyPage::get);
     let (data, total) = tokio::try_join!(
         state.poems.list_slugs(page, SITEMAP_POEMS_PER_SHARD),
         state.poems.count()
@@ -131,18 +150,34 @@ pub(crate) async fn count(
     }))
 }
 
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub(crate) struct FacetsParams {
+    /// The poet whose poems are counted. A single `slug` from GET /poets.
+    #[param(inline, example = "PAKT")]
+    poet: FourLetterSlug,
+    /// Narrow the rhyme and theme counts to poems of these meters. Repeatable. Values are `slug` from GET /meters.
+    #[serde(default)]
+    #[param(inline, example = json!(["altawil"]))]
+    meter: TermSlugs,
+    /// Narrow the meter and theme counts to poems of these rhymes. Repeatable. Values are `slug` from GET /rhymes.
+    #[serde(default)]
+    #[param(inline, example = json!(["meem"]))]
+    rhyme: TermSlugs,
+    /// Narrow the meter and rhyme counts to poems of these themes. Repeatable. Values are `slug` from GET /themes.
+    #[serde(default)]
+    #[param(inline, example = json!(["alhikma"]))]
+    theme: TermSlugs,
+}
+
 #[utoipa::path(
     get,
     path = "/poems/facets",
     tag = "poems",
     operation_id = "poems.facets",
     description = "The meters, rhymes, and themes of one poet's poems, each with a poem count, for building filters over `GET /poems?poet=`. Narrow with the same `meter`, `rhyme`, and `theme` params as `GET /poems`: each list is counted under the other two filters but not its own, so it keeps every value that can still be added, and a selected value stays listed even at a count of zero. Values with no matching poem are left out. Lists are ordered by poem count descending, then by name.",
-    params(
-        ("poet" = String, Query, description = "The poet whose poems are counted. A single `slug` from GET /poets.", pattern = "^[a-zA-Z]{4}$", example = "PAKT"),
-        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the rhyme and theme counts to poems of these meters. Repeatable. Values are `slug` from GET /meters.", example = json!(["altawil"])),
-        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and theme counts to poems of these rhymes. Repeatable. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
-        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and rhyme counts to poems of these themes. Repeatable. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
-    ),
+    params(FacetsParams),
     responses(
         (status = 200, description = "The poet's meters, rhymes, and themes with poem counts under the given filters.", body = ItemEnvelope<PoemFacets>),
         LookupErrors,
@@ -151,18 +186,15 @@ pub(crate) async fn count(
 pub(crate) async fn facet_counts(
     State(state): State<AppState>,
     Extension(log): Extension<LogHandle>,
-    RawQuery(raw): RawQuery,
+    SafeQuery(params): SafeQuery<FacetsParams>,
 ) -> Result<Json<ItemEnvelope<PoemFacets>>, AppError> {
-    let query = Query::parse(raw.as_deref());
-    let poet = query
-        .scalar_slug("poet", slug::four_letters)?
-        .ok_or(AppError::BadRequest)?;
+    let poet = params.poet.into_inner();
     log.set("poet_id", poet.clone());
     let facets = Facets {
         poet: vec![poet],
-        meter: query.facet("meter", slug::transliterated, MAX_FILTER_SLUGS)?,
-        rhyme: query.facet("rhyme", slug::transliterated, MAX_FILTER_SLUGS)?,
-        theme: query.facet("theme", slug::transliterated, MAX_FILTER_SLUGS)?,
+        meter: params.meter.into_strings(),
+        rhyme: params.rhyme.into_strings(),
+        theme: params.theme.into_strings(),
         ..Facets::default()
     };
     let counts = poems::facets(state.poems.as_ref(), &facets).await?;
@@ -191,7 +223,8 @@ pub(crate) async fn detail(
     Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
 ) -> Result<Response, AppError> {
-    let slug = slug::four_letters(&raw)?;
+    let slug = FourLetterSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
+    let slug = slug.as_str();
     let Some(poem) = poems::get(state.poems.as_ref(), slug).await? else {
         let Some(survivor) = state.poems.alias_target(slug).await? else {
             return Err(AppError::NotFound(Resource::Poem));
@@ -214,15 +247,13 @@ pub(crate) async fn detail(
     .into_response())
 }
 
-fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {
-    match raw {
-        None | Some("slug") => Ok(RandomPoemOption::Slug),
-        Some("lines") => Ok(RandomPoemOption::Lines),
-        Some(_) => Err(RouteProblem::bad_request(
-            "Invalid ?option value (expected 'slug' or 'lines')",
-        )
-        .into()),
-    }
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub(crate) struct RandomParams {
+    /// What the body holds: `slug` (the default) or `lines`.
+    #[param(example = "slug")]
+    option: Option<RandomPoemOptionParam>,
 }
 
 #[utoipa::path(
@@ -231,9 +262,7 @@ fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {
     tag = "poems",
     operation_id = "poems.random",
     description = "A random poem, as plain text that is never cached. By default, or with `option=slug`, the body is the poem's slug, for `GET /poems/{slug}`. With `option=lines` it is one verse of the poem, its two half-lines on two lines, then a blank line and the poet's name, at most 280 characters. A poet is picked at random first and then one of their poems, so every poet is equally likely. A poem is eligible when it is a primary reading by a named poet of the jahili, islami, umawi, or abbasi era, in the amudi form, at least four verses long, and of a known meter.",
-    params(
-        ("option" = Option<RandomPoemOptionParam>, Query, description = "What the body holds: `slug` (the default) or `lines`.", example = "slug"),
-    ),
+    params(RandomParams),
     responses(
         (status = 200, description = "The slug, or with `option=lines` one verse and the poet's name.", content_type = "text/plain", body = String, example = "gnNg"),
         FilteredListErrors,
@@ -241,9 +270,12 @@ fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {
 )]
 pub(crate) async fn random(
     State(state): State<AppState>,
-    RawQuery(raw): RawQuery,
+    SafeQuery(params): SafeQuery<RandomParams>,
 ) -> Result<Response, AppError> {
-    let option = random_option(Query::parse(raw.as_deref()).first("option").as_deref())?;
+    let option = match params.option {
+        None | Some(RandomPoemOptionParam::Slug) => RandomPoemOption::Slug,
+        Some(RandomPoemOptionParam::Lines) => RandomPoemOption::Lines,
+    };
     let roll: f64 = rand::rng().random();
     let body = poems::random(state.poems.as_ref(), &option, roll).await?;
     Ok((
