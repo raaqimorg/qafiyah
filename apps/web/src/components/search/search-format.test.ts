@@ -6,7 +6,7 @@ import { getBadgeCount, getNoResultsText, getSectionResultText } from './search-
 
 describe('getBadgeCount', () => {
   it('formats a count with the given noun forms', () => {
-    const forms = { singular: 'قصيدة', dual: 'قصيدتان', plural: 'قصائد' };
+    const forms = { singular: 'قصيدة', accusative: 'قصيدة', dual: 'قصيدتان', plural: 'قصائد' };
     expect(getBadgeCount(3, forms)).toBe('٣ قصائد');
     expect(getBadgeCount(1, forms)).toBe('قصيدة');
   });
