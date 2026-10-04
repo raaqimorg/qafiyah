@@ -306,3 +306,21 @@ async fn a_refused_request_does_not_touch_the_backend() {
         "the first request asked both indices, the refused one asked nothing"
     );
 }
+
+#[tokio::test]
+async fn a_refused_request_still_reports_the_quota_it_spent() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for path in [
+        "/v1/poems?page=0",
+        "/v1/meters/ALTAWIL",
+        "/v1/search?types=bogus",
+    ] {
+        let sent = send(app(&es, 5), from(path, "203.0.113.9", None)).await;
+        assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
+        assert_eq!(sent.header("x-ratelimit-limit"), Some("5"), "{path}");
+        assert!(sent.header("x-ratelimit-remaining").is_some(), "{path}");
+        assert!(sent.header("x-ratelimit-reset").is_some(), "{path}");
+    }
+    let last = send(app(&es, 5), from("/v1/poems?page=0", "203.0.113.10", None)).await;
+    assert_eq!(last.header("x-ratelimit-remaining"), Some("4"));
+}
