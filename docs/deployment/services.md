@@ -10,7 +10,7 @@ Server errors are reported to Sentry, tagged with the contract code, the method 
 
 There is no performance tracing; the per-request log line (with `duration_ms`, always kept for a slow request) covers that ground.
 
-**Checking a deploy.** `bun run api:conformance` (or `api:conformance prod`) replays every documented operation against a running API and validates each response body against the committed OpenAPI schema. This is the post-deploy verification step in `.claude/skills/deploy/SKILL.md`.
+**Checking a deploy.** `bun run api:conformance` (or `api:conformance prod`) runs Schemathesis, in Docker, over every documented operation against a running API: each operation is sent its documented examples and must answer 2xx, with a status, content type, headers, and body that match the committed OpenAPI document. This is the post-deploy verification step in `.claude/skills/deploy/SKILL.md`.
 
 ## Postgres connections
 

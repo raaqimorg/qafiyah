@@ -145,7 +145,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND, e.g. `?poet=PAKT&meter=altawil&meter=alkamil`. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored. */
+        /** @description A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored. */
         get: operations["poems.list"];
         put?: never;
         post?: never;
@@ -332,7 +332,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values: `?types=poems&eraSlugs=andalusi&meterSlugs=altawil`. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. Unknown query params are ignored. */
+        /** @description Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. Unknown query params are ignored. */
         get: operations["search.search"];
         put?: never;
         post?: never;
@@ -1986,42 +1986,42 @@ export interface operations {
                  */
                 page?: string;
                 /**
-                 * @description Filter by poet. Repeatable, e.g. `?poet=PAKT`. Values are `slug` from GET /poets.
+                 * @description Filter by poet. Repeatable. Values are `slug` from GET /poets.
                  * @example [
                  *       "PAKT"
                  *     ]
                  */
                 poet?: components["schemas"]["FourLetterSlug"][];
                 /**
-                 * @description Filter by era. Repeatable, e.g. `?era=jahili`. Values are `slug` from GET /eras.
+                 * @description Filter by era. Repeatable. Values are `slug` from GET /eras.
                  * @example [
                  *       "jahili"
                  *     ]
                  */
                 era?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by theme. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.
+                 * @description Filter by theme. Repeatable. Values are `slug` from GET /themes.
                  * @example [
                  *       "alhikma"
                  *     ]
                  */
                 theme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by meter. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.
+                 * @description Filter by meter. Repeatable. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meter?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by rhyme. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.
+                 * @description Filter by rhyme. Repeatable. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhyme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by collection. Repeatable, e.g. `?collection=almuallaqat`. Values are `slug` from GET /collections.
+                 * @description Filter by collection. Repeatable. Values are `slug` from GET /collections.
                  * @example [
                  *       "almuallaqat"
                  *     ]
@@ -2229,21 +2229,21 @@ export interface operations {
                  */
                 poet: string;
                 /**
-                 * @description Narrow the rhyme and theme counts to poems of these meters. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.
+                 * @description Narrow the rhyme and theme counts to poems of these meters. Repeatable. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meter?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the meter and theme counts to poems of these rhymes. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.
+                 * @description Narrow the meter and theme counts to poems of these rhymes. Repeatable. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhyme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the meter and rhyme counts to poems of these themes. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.
+                 * @description Narrow the meter and rhyme counts to poems of these themes. Repeatable. Values are `slug` from GET /themes.
                  * @example [
                  *       "alhikma"
                  *     ]
@@ -3314,7 +3314,7 @@ export interface operations {
                  */
                 q?: string;
                 /**
-                 * @description Sections to include: `poems`, `poets`, or both, which is the default. Repeat to send both, e.g. `?types=poems&types=poets`. Send `types=poems` alone to use any poem-only filter.
+                 * @description Sections to include: `poems`, `poets`, or both, which is the default. Repeat it to send both. Send `types=poems` alone to use any poem-only filter.
                  * @example [
                  *       "poems"
                  *     ]
@@ -3331,49 +3331,49 @@ export interface operations {
                  */
                 poetsPage?: string;
                 /**
-                 * @description Narrow the poems section to these poets. The poets section ignores it. Repeatable, e.g. `?poetSlugs=PAKT`. Values are `slug` from GET /poets.
+                 * @description Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
                  * @example [
                  *       "PAKT"
                  *     ]
                  */
                 poetSlugs?: components["schemas"]["FourLetterSlug"][];
                 /**
-                 * @description Narrow both sections to these eras. Repeatable, e.g. `?eraSlugs=jahili`. Values are `slug` from GET /eras.
+                 * @description Narrow both sections to these eras. Repeatable. Values are `slug` from GET /eras.
                  * @example [
                  *       "jahili"
                  *     ]
                  */
                 eraSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&meterSlugs=altawil`. Values are `slug` from GET /meters.
+                 * @description Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meterSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&rhymeSlugs=meem`. Values are `slug` from GET /rhymes.
+                 * @description Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhymeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&themeSlugs=alhikma`. Values are `slug` from GET /themes.
+                 * @description Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /themes.
                  * @example [
                  *       "alhikma"
                  *     ]
                  */
                 themeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&poemTypeSlugs=amudi`. Values are `slug` from GET /poem-types.
+                 * @description Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /poem-types.
                  * @example [
                  *       "amudi"
                  *     ]
                  */
                 poemTypeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&collectionSlugs=almuallaqat`. Values are `slug` from GET /collections.
+                 * @description Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable. Values are `slug` from GET /collections.
                  * @example [
                  *       "almuallaqat"
                  *     ]

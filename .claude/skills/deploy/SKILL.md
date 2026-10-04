@@ -19,7 +19,7 @@ It first confirms the GitHub CI run for `origin/main` passed and refuses otherwi
 **Verify after it finishes:**
 
 ```bash
-bun run api:conformance prod   # replays every documented API operation against the live schema
+bun run api:conformance prod   # sends every documented API example to prod through Schemathesis (needs Docker)
 ```
 
 `docker compose ps` on the host should show all 6 containers healthy/exited-0.
