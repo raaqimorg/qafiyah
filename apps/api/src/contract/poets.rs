@@ -7,26 +7,38 @@ use crate::domain::poets::{PoetProfile, PoetSlug};
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PoetStats {
+    /// The poet's name in Arabic.
+    #[schema(example = "زهير بن أبي سلمى")]
     pub name: String,
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "yoFB")]
+    /// The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+    #[schema(pattern = "^[a-zA-Z]{4}$", example = "PAKT")]
     pub slug: String,
+    /// Another name the poet is known by, such as the kunya أبو الطيب for المتنبي. Left out when there is none.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
     pub nickname: Option<String>,
+    /// A short biography in Arabic. Left out when there is none.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
     pub bio: Option<String>,
+    /// The poet's era.
     pub era: EraRef,
-    #[schema(example = 2967)]
+    /// Number of the poet's poems, primary readings only.
+    #[schema(example = 104)]
     pub poems_count: i32,
+    /// Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+    #[schema(example = true)]
     pub has_avatar: bool,
 }
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PoetSlugEntry {
-    #[schema(pattern = "^[a-zA-Z]{4}$", example = "yoFB")]
+    /// The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+    #[schema(pattern = "^[a-zA-Z]{4}$", example = "PAKT")]
     pub slug: String,
+    /// Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+    #[schema(example = true)]
     pub has_avatar: bool,
 }
 

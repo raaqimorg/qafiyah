@@ -6,22 +6,31 @@ use crate::domain::taxonomy::{TermCount, TermStats};
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CountedStats {
+    /// The term's name in Arabic.
+    #[schema(example = "الطويل")]
     pub name: String,
+    /// The term's slug.
     #[schema(pattern = "^[a-z][a-z-]*$", example = "altawil")]
     pub slug: String,
-    #[schema(example = 44474)]
+    /// Number of poems with this term, primary readings only.
+    #[schema(example = 40697)]
     pub poems_count: i32,
-    #[schema(example = 3637)]
+    /// Number of poets with at least one such poem.
+    #[schema(example = 3697)]
     pub poets_count: i32,
 }
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PoemCountStats {
+    /// The term's name in Arabic.
+    #[schema(example = "الحكمة")]
     pub name: String,
-    #[schema(pattern = "^[a-z][a-z-]*$", example = "alnasib")]
+    /// The term's slug.
+    #[schema(pattern = "^[a-z][a-z-]*$", example = "alhikma")]
     pub slug: String,
-    #[schema(example = 47457)]
+    /// Number of poems with this term, primary readings only.
+    #[schema(example = 22521)]
     pub poems_count: i32,
 }
 

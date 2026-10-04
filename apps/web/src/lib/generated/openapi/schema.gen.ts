@@ -9,7 +9,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All curated poem collections (al-dawawin) with poem counts. */
+        /** @description Every curated collection (al-dawawin) with its poem count. Counts include primary readings only. */
         get: operations["collections.list"];
         put?: never;
         post?: never;
@@ -26,7 +26,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single collection with poem count, by slug. */
+        /** @description A collection by slug, with its poem count. */
         get: operations["collections.get"];
         put?: never;
         post?: never;
@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All literary eras (al-usur al-adabiyya) with poem and poet counts. */
+        /** @description Every literary era (al-usur al-adabiyya) with its poem and poet counts, oldest first, with the unknown era last. Counts include primary readings only. */
         get: operations["eras.list"];
         put?: never;
         post?: never;
@@ -60,7 +60,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single era with poem and poet counts, by slug. */
+        /** @description An era by slug, with its poem and poet counts. */
         get: operations["eras.get"];
         put?: never;
         post?: never;
@@ -77,7 +77,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All prosodic meters (al-buhur) with poem and poet counts. */
+        /** @description Every prosodic meter (al-buhur) with its poem and poet counts, in name order. Counts include primary readings only. */
         get: operations["meters.list"];
         put?: never;
         post?: never;
@@ -94,7 +94,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single meter with poem and poet counts, by slug. */
+        /** @description A meter by slug, with its poem and poet counts. */
         get: operations["meters.get"];
         put?: never;
         post?: never;
@@ -111,7 +111,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All verse forms (anwa' al-qasida) with poem and poet counts, most poems first. */
+        /** @description Every verse form (anwa' al-qasida) with its poem and poet counts, most poems first. Counts include primary readings only. */
         get: operations["poemTypes.list"];
         put?: never;
         post?: never;
@@ -128,7 +128,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single verse form with poem and poet counts, by slug. */
+        /** @description A verse form by slug, with its poem and poet counts. */
         get: operations["poemTypes.get"];
         put?: never;
         post?: never;
@@ -145,7 +145,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Paginated list of poems with optional multi-select facet filters (poet, era, theme, meter, rhyme, collection). Facets combine conjunctively; repeating a single facet ORs its values. */
+        /** @description A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND, e.g. `?poet=PAKT&meter=altawil&meter=alkamil`. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored. */
         get: operations["poems.list"];
         put?: never;
         post?: never;
@@ -162,7 +162,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Total number of poems in the catalog. */
+        /** @description The number of poems in the catalog, counting primary readings only: the same poems `GET /poems` pages through with no filter. */
         get: operations["poems.count"];
         put?: never;
         post?: never;
@@ -189,6 +189,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/poems/random": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A random poem, as plain text that is never cached. By default, or with `option=slug`, the body is the poem's slug, for `GET /poems/{slug}`. With `option=lines` it is one verse of the poem, its two half-lines on two lines, then a blank line and the poet's name, at most 280 characters. A poet is picked at random first and then one of their poems, so every poet is equally likely. A poem is eligible when it is a primary reading by a named poet of the jahili, islami, umawi, or abbasi era, in the amudi form, at least four verses long, and of a known meter. */
+        get: operations["poems.random"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/poems/slugs": {
         parameters: {
             query?: never;
@@ -196,7 +213,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Paginated stream of poem slugs only, intended for sitemap generation and incremental crawling. */
+        /** @description The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling. */
         get: operations["poems.listSlugs"];
         put?: never;
         post?: never;
@@ -213,7 +230,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full poem detail by slug, including verses, prosody metadata, and related poems. */
+        /** @description A poem by slug: its full verse text, its classification, its neighbors in the poet's list, its alternate readings, and up to 10 related poems. An alternate reading has its own slug and names its primary in `recensionOf`. A slug that was merged into another poem answers 301 to the surviving poem. */
         get: operations["poems.get"];
         put?: never;
         post?: never;
@@ -230,7 +247,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Paginated, Elasticsearch-backed list of poets with poem counts, ordered by poem count descending. Narrow by era or by a full-text name query `q`, which orders by relevance instead. */
+        /** @description A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties. */
         get: operations["poets.list"];
         put?: never;
         post?: never;
@@ -247,7 +264,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Paginated stream of the slugs of poets with at least one poem, each with an avatar flag, intended for sitemap generation and incremental crawling. */
+        /** @description The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in slug order, for sitemaps and incremental crawling. */
         get: operations["poets.listSlugs"];
         put?: never;
         post?: never;
@@ -264,7 +281,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single poet with nickname, bio, era, avatar flag, and poem count, by slug. */
+        /** @description A poet by slug, with nickname, biography, era, poem count, and whether an avatar image exists. A slug that was merged into another poet answers 301 to the surviving poet. */
         get: operations["poets.get"];
         put?: never;
         post?: never;
@@ -281,7 +298,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All rhyme letters (al-qawafi) with poem and poet counts. */
+        /** @description Every rhyme letter (al-qawafi) with its poem and poet counts, in a fixed letter order with the alif, hamza, and ta marbuta forms first. Counts include primary readings only. */
         get: operations["rhymes.list"];
         put?: never;
         post?: never;
@@ -298,7 +315,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single rhyme with poem and poet counts, by slug. */
+        /** @description A rhyme letter by slug, with its poem and poet counts. */
         get: operations["rhymes.get"];
         put?: never;
         post?: never;
@@ -315,7 +332,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored. */
+        /** @description Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values: `?types=poems&eraSlugs=andalusi&meterSlugs=altawil`. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. Unknown query params are ignored. */
         get: operations["search.search"];
         put?: never;
         post?: never;
@@ -332,7 +349,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All thematic categories (al-aghrad) with poem counts. */
+        /** @description Every theme (al-aghrad) with its poem count. Counts include primary readings only. */
         get: operations["themes.list"];
         put?: never;
         post?: never;
@@ -349,7 +366,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A single theme with poem count, by slug. */
+        /** @description A theme by slug, with its poem count. */
         get: operations["themes.get"];
         put?: never;
         post?: never;
@@ -364,387 +381,725 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         CountedStats: {
+            /**
+             * @description The term's name in Arabic.
+             * @example الطويل
+             */
             name: string;
             /**
              * Format: int32
-             * @example 44474
+             * @description Number of poems with this term, primary readings only.
+             * @example 40697
              */
             poemsCount: number;
             /**
              * Format: int32
-             * @example 3637
+             * @description Number of poets with at least one such poem.
+             * @example 3697
              */
             poetsCount: number;
-            /** @example altawil */
+            /**
+             * @description The term's slug.
+             * @example altawil
+             */
             slug: string;
         };
         EraRef: {
+            /**
+             * @description The era's name in Arabic.
+             * @example جاهلي
+             */
             name: string;
-            /** @example abbasi */
+            /**
+             * @description The era's slug, for `GET /eras/{slug}`.
+             * @example jahili
+             */
             slug: string;
         };
         /** @enum {string} */
         ExactFlag: "true" | "false";
         FourLetterSlug: string;
+        /** @description The requested item under `data`. */
         ItemEnvelope_CountedStats: {
             data: {
+                /**
+                 * @description The term's name in Arabic.
+                 * @example الطويل
+                 */
                 name: string;
                 /**
                  * Format: int32
-                 * @example 44474
+                 * @description Number of poems with this term, primary readings only.
+                 * @example 40697
                  */
                 poemsCount: number;
                 /**
                  * Format: int32
-                 * @example 3637
+                 * @description Number of poets with at least one such poem.
+                 * @example 3697
                  */
                 poetsCount: number;
-                /** @example altawil */
+                /**
+                 * @description The term's slug.
+                 * @example altawil
+                 */
                 slug: string;
             };
         };
+        /** @description The requested item under `data`. */
         ItemEnvelope_PoemCountStats: {
             data: {
+                /**
+                 * @description The term's name in Arabic.
+                 * @example الحكمة
+                 */
                 name: string;
                 /**
                  * Format: int32
-                 * @example 47457
+                 * @description Number of poems with this term, primary readings only.
+                 * @example 22521
                  */
                 poemsCount: number;
-                /** @example alnasib */
+                /**
+                 * @description The term's slug.
+                 * @example alhikma
+                 */
                 slug: string;
             };
         };
+        /** @description The requested item under `data`. */
         ItemEnvelope_PoemDetail: {
             data: {
+                /** @description The poem's era, which is its poet's. */
                 era: components["schemas"]["EraRef"];
+                /** @description Every word of the text in order, separated by commas. */
                 keywords: string;
+                /** @description The poem's meter. */
                 meter: components["schemas"]["MeterRef"];
+                /** @description The poet's next poem in the order of `GET /poems?poet=`, primary readings only. Left out for the poet's last poem. */
                 next?: components["schemas"]["PoemNavRef"];
+                /** @description The poem's verse form. */
                 poemType: components["schemas"]["PoemTypeRef"];
+                /** @description The poet. */
                 poet: components["schemas"]["PoetRef"];
+                /** @description The poet's previous poem in the order of `GET /poems?poet=`, primary readings only. Left out for the poet's first poem. */
                 prev?: components["schemas"]["PoemNavRef"];
+                /** @description Present when this poem is an alternate reading: the primary reading it belongs to. */
                 recensionOf?: components["schemas"]["PoemNavRef"];
+                /** @description The poem's other readings, the primary first. For a primary these are its alternate readings; for an alternate reading, the primary and its siblings. Empty when the poem has one reading. */
                 recensions: components["schemas"]["PoemRecensionRef"][];
+                /** @description Up to 10 related poems, precomputed. Only primary amudi poems of a known meter, by a named poet of the jahili through mamluki eras, are suggested. */
                 relatedPoems: components["schemas"]["PoemListItem"][];
+                /** @description The poem's rhyme letter. */
                 rhyme: components["schemas"]["RhymeRef"];
+                /** @description The first three half-lines joined by ` * `. */
                 sample: string;
-                /** @example TnKK */
+                /**
+                 * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+                 * @example gnNg
+                 */
                 slug: string;
+                /** @description The poem's theme. */
                 theme: components["schemas"]["ThemeRef"];
+                /**
+                 * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+                 * @example أمن أم أوفى دمنة لم تكلم
+                 */
                 title: string;
                 /**
                  * Format: int32
-                 * @example 10
+                 * @description Number of verses as stored, or lines for free verse. It can differ from the length of `verses`, which pairs the text by half-lines.
+                 * @example 70
                  */
                 verseCount: number;
+                /** @description The text in order as pairs of half-lines (hemistichs), with diacritics as transmitted. A classical verse is one pair. Lines with no half-line break, as in free verse, are paired two at a time, and the last pair ends with an empty string when the parts are odd in number. */
                 verses: [
                     string,
                     string
                 ][];
             };
         };
+        /** @description The requested item under `data`. */
         ItemEnvelope_PoemFacets: {
             data: {
+                /** @description The poet's meters with poem counts under the rhyme and theme filters. */
                 meters: components["schemas"]["PoemCountStats"][];
+                /** @description The poet's rhymes with poem counts under the meter and theme filters. */
                 rhymes: components["schemas"]["PoemCountStats"][];
+                /** @description The poet's themes with poem counts under the meter and rhyme filters. */
                 themes: components["schemas"]["PoemCountStats"][];
             };
         };
+        /** @description The requested item under `data`. */
         ItemEnvelope_PoetStats: {
             data: {
+                /** @description A short biography in Arabic. Left out when there is none. */
                 bio?: string;
+                /** @description The poet's era. */
                 era: components["schemas"]["EraRef"];
+                /**
+                 * @description Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+                 * @example true
+                 */
                 hasAvatar: boolean;
+                /**
+                 * @description The poet's name in Arabic.
+                 * @example زهير بن أبي سلمى
+                 */
                 name: string;
+                /** @description Another name the poet is known by, such as the kunya أبو الطيب for المتنبي. Left out when there is none. */
                 nickname?: string;
                 /**
                  * Format: int32
-                 * @example 2967
+                 * @description Number of the poet's poems, primary readings only.
+                 * @example 104
                  */
                 poemsCount: number;
-                /** @example yoFB */
+                /**
+                 * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+                 * @example PAKT
+                 */
                 slug: string;
             };
         };
+        /** @description The requested item under `data`. */
         ItemEnvelope_Total: {
             data: {
                 /**
                  * Format: int32
-                 * @example 394174
+                 * @description Number of poems, primary readings only.
+                 * @example 342432
                  */
                 total: number;
             };
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_CountedStats: {
+            /** @description The items of this page. */
             data: {
+                /**
+                 * @description The term's name in Arabic.
+                 * @example الطويل
+                 */
                 name: string;
                 /**
                  * Format: int32
-                 * @example 44474
+                 * @description Number of poems with this term, primary readings only.
+                 * @example 40697
                  */
                 poemsCount: number;
                 /**
                  * Format: int32
-                 * @example 3637
+                 * @description Number of poets with at least one such poem.
+                 * @example 3697
                  */
                 poetsCount: number;
-                /** @example altawil */
+                /**
+                 * @description The term's slug.
+                 * @example altawil
+                 */
                 slug: string;
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_FourLetterSlug: {
+            /** @description The items of this page. */
             data: string[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoemCountStats: {
+            /** @description The items of this page. */
             data: {
+                /**
+                 * @description The term's name in Arabic.
+                 * @example الحكمة
+                 */
                 name: string;
                 /**
                  * Format: int32
-                 * @example 47457
+                 * @description Number of poems with this term, primary readings only.
+                 * @example 22521
                  */
                 poemsCount: number;
-                /** @example alnasib */
+                /**
+                 * @description The term's slug.
+                 * @example alhikma
+                 */
                 slug: string;
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoemListItem: {
+            /** @description The items of this page. */
             data: {
+                /** @description The poem's era, which is its poet's. Included in `relatedPoems`, left out in `GET /poems` lists. */
                 era?: components["schemas"]["EraRef"];
+                /** @description The poem's meter. */
                 meter: components["schemas"]["MeterRef"];
+                /** @description The poet. */
                 poet: components["schemas"]["PoetRef"];
-                /** @example TnKK */
+                /**
+                 * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+                 * @example gnNg
+                 */
                 slug: string;
+                /**
+                 * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+                 * @example أمن أم أوفى دمنة لم تكلم
+                 */
                 title: string;
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoemResult: {
+            /** @description The items of this page. */
             data: {
+                /** @description The poem's era, which is its poet's. */
                 era: components["schemas"]["EraRef"];
+                /** @description The poem's meter. */
                 meter: components["schemas"]["MeterRef"];
+                /** @description The poet. */
                 poet: components["schemas"]["PoetRef"];
-                /** Format: double */
+                /**
+                 * Format: double
+                 * @description The raw search score, higher first, comparable only within the poems section of one response. When browsing (no `q`) it only puts the classical eras first: 1.1 for a poem of the jahili through mamluki eras and 1 for any other, or 0 under an era filter.
+                 * @example 119903610
+                 */
                 relevance: number;
-                /** @example TnKK */
+                /**
+                 * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+                 * @example gnNg
+                 */
                 slug: string;
+                /**
+                 * @description The best-matching verse, its two half-lines joined by `*`, with matched words wrapped in `<mark>`. The opening verse when no verse text matched, as on a title match or when browsing.
+                 * @example <mark>أَََمِنْ أُمِّ أَوْفَى</mark> دِمْنَةٌ لمَ ْتَكَلَّمِ*بحُِوْمَانَةِ الدَّرَّاجِ فَالْمُتَثَلَّمِ
+                 */
                 snippet: string;
+                /**
+                 * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+                 * @example أمن أم أوفى دمنة لم تكلم
+                 */
                 title: string;
+                /** @description Always `poem`. */
                 type: components["schemas"]["PoemKind"];
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoetListItem: {
+            /** @description The items of this page. */
             data: {
+                /**
+                 * @description The poet's name in Arabic.
+                 * @example زهير بن أبي سلمى
+                 */
                 name: string;
                 /**
                  * Format: int64
-                 * @example 42
+                 * @description Number of the poet's poems, primary readings only.
+                 * @example 104
                  */
                 poemsCount: number;
-                /** @example yoFB */
+                /**
+                 * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+                 * @example PAKT
+                 */
                 slug: string;
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoetResult: {
+            /** @description The items of this page. */
             data: {
+                /** @description The poet's era. */
                 era: components["schemas"]["EraRef"];
+                /**
+                 * @description The poet's name in Arabic.
+                 * @example زهير بن أبي سلمى
+                 */
                 name: string;
-                /** Format: double */
+                /**
+                 * Format: double
+                 * @description The raw search score, higher first, comparable only within the poets section of one response. 0 when browsing (no `q`).
+                 * @example 341.06555
+                 */
                 relevance: number;
-                /** @example yoFB */
+                /**
+                 * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+                 * @example PAKT
+                 */
                 slug: string;
+                /** @description Always `poet`. */
                 type: components["schemas"]["PoetKind"];
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
         ListEnvelope_PoetSlugEntry: {
+            /** @description The items of this page. */
             data: {
+                /**
+                 * @description Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+                 * @example true
+                 */
                 hasAvatar: boolean;
-                /** @example yoFB */
+                /**
+                 * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+                 * @example PAKT
+                 */
                 slug: string;
             }[];
+            /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
         };
         MeterRef: {
+            /**
+             * @description The meter's name in Arabic.
+             * @example الطويل
+             */
             name: string;
-            /** @example altawil */
+            /**
+             * @description The meter's slug, for `GET /meters/{slug}`.
+             * @example altawil
+             */
             slug: string;
         };
         Pagination: {
             /**
              * Format: int32
+             * @description The page returned, 1-based.
              * @example 1
              */
             page: number;
             /**
              * Format: int32
-             * @example 20
+             * @description Items per page for this endpoint.
+             * @example 30
              */
             pageSize: number;
             /**
              * Format: int32
-             * @example 93
+             * @description Number of items across all pages. In a search section it stops at 10,000.
+             * @example 104
              */
             totalItems: number;
             /**
              * Format: int32
-             * @example 5
+             * @description Number of pages, at least 1.
+             * @example 4
              */
             totalPages: number;
         };
         PoemCountStats: {
+            /**
+             * @description The term's name in Arabic.
+             * @example الحكمة
+             */
             name: string;
             /**
              * Format: int32
-             * @example 47457
+             * @description Number of poems with this term, primary readings only.
+             * @example 22521
              */
             poemsCount: number;
-            /** @example alnasib */
+            /**
+             * @description The term's slug.
+             * @example alhikma
+             */
             slug: string;
         };
         PoemDetail: {
+            /** @description The poem's era, which is its poet's. */
             era: components["schemas"]["EraRef"];
+            /** @description Every word of the text in order, separated by commas. */
             keywords: string;
+            /** @description The poem's meter. */
             meter: components["schemas"]["MeterRef"];
+            /** @description The poet's next poem in the order of `GET /poems?poet=`, primary readings only. Left out for the poet's last poem. */
             next?: components["schemas"]["PoemNavRef"];
+            /** @description The poem's verse form. */
             poemType: components["schemas"]["PoemTypeRef"];
+            /** @description The poet. */
             poet: components["schemas"]["PoetRef"];
+            /** @description The poet's previous poem in the order of `GET /poems?poet=`, primary readings only. Left out for the poet's first poem. */
             prev?: components["schemas"]["PoemNavRef"];
+            /** @description Present when this poem is an alternate reading: the primary reading it belongs to. */
             recensionOf?: components["schemas"]["PoemNavRef"];
+            /** @description The poem's other readings, the primary first. For a primary these are its alternate readings; for an alternate reading, the primary and its siblings. Empty when the poem has one reading. */
             recensions: components["schemas"]["PoemRecensionRef"][];
+            /** @description Up to 10 related poems, precomputed. Only primary amudi poems of a known meter, by a named poet of the jahili through mamluki eras, are suggested. */
             relatedPoems: components["schemas"]["PoemListItem"][];
+            /** @description The poem's rhyme letter. */
             rhyme: components["schemas"]["RhymeRef"];
+            /** @description The first three half-lines joined by ` * `. */
             sample: string;
-            /** @example TnKK */
+            /**
+             * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+             * @example gnNg
+             */
             slug: string;
+            /** @description The poem's theme. */
             theme: components["schemas"]["ThemeRef"];
+            /**
+             * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+             * @example أمن أم أوفى دمنة لم تكلم
+             */
             title: string;
             /**
              * Format: int32
-             * @example 10
+             * @description Number of verses as stored, or lines for free verse. It can differ from the length of `verses`, which pairs the text by half-lines.
+             * @example 70
              */
             verseCount: number;
+            /** @description The text in order as pairs of half-lines (hemistichs), with diacritics as transmitted. A classical verse is one pair. Lines with no half-line break, as in free verse, are paired two at a time, and the last pair ends with an empty string when the parts are odd in number. */
             verses: [
                 string,
                 string
             ][];
         };
         PoemFacets: {
+            /** @description The poet's meters with poem counts under the rhyme and theme filters. */
             meters: components["schemas"]["PoemCountStats"][];
+            /** @description The poet's rhymes with poem counts under the meter and theme filters. */
             rhymes: components["schemas"]["PoemCountStats"][];
+            /** @description The poet's themes with poem counts under the meter and rhyme filters. */
             themes: components["schemas"]["PoemCountStats"][];
         };
         /** @enum {string} */
         PoemKind: "poem";
         PoemListItem: {
+            /** @description The poem's era, which is its poet's. Included in `relatedPoems`, left out in `GET /poems` lists. */
             era?: components["schemas"]["EraRef"];
+            /** @description The poem's meter. */
             meter: components["schemas"]["MeterRef"];
+            /** @description The poet. */
             poet: components["schemas"]["PoetRef"];
-            /** @example TnKK */
+            /**
+             * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+             * @example gnNg
+             */
             slug: string;
+            /**
+             * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+             * @example أمن أم أوفى دمنة لم تكلم
+             */
             title: string;
         };
         PoemNavRef: {
-            /** @example TnKK */
+            /**
+             * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+             * @example wAJE
+             */
             slug: string;
+            /**
+             * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+             * @example صرمت جديد حبالها أسماء
+             */
             title: string;
         };
         PoemRecensionRef: {
-            /** @example TnKK */
+            /**
+             * @description The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.
+             * @example wOvI
+             */
             slug: string;
+            /**
+             * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
+             * @example أمن أم أوفى دمنة لم تكلم
+             */
             title: string;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of verses as stored in this reading, counted like `verseCount` on a poem.
+             * @example 68
+             */
             verseCount: number;
         };
         PoemTypeRef: {
+            /**
+             * @description The verse form's name in Arabic.
+             * @example عمودي
+             */
             name: string;
-            /** @example amudi */
+            /**
+             * @description The verse form's slug, for `GET /poem-types/{slug}`.
+             * @example amudi
+             */
             slug: string;
         };
         /** @enum {string} */
         PoetKind: "poet";
         PoetListItem: {
+            /**
+             * @description The poet's name in Arabic.
+             * @example زهير بن أبي سلمى
+             */
             name: string;
             /**
              * Format: int64
-             * @example 42
+             * @description Number of the poet's poems, primary readings only.
+             * @example 104
              */
             poemsCount: number;
-            /** @example yoFB */
+            /**
+             * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+             * @example PAKT
+             */
             slug: string;
         };
         PoetRef: {
+            /**
+             * @description Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+             * @example true
+             */
             hasAvatar: boolean;
+            /**
+             * @description Whether the poet stands for an unknown author, such as غير معروف or مجهول (عباسي), rather than a named person.
+             * @example false
+             */
             isAnonymous: boolean;
+            /**
+             * @description The poet's name in Arabic.
+             * @example زهير بن أبي سلمى
+             */
             name: string;
-            /** @example yoFB */
+            /**
+             * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+             * @example PAKT
+             */
             slug: string;
         };
         PoetSlugEntry: {
+            /**
+             * @description Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+             * @example true
+             */
             hasAvatar: boolean;
-            /** @example yoFB */
+            /**
+             * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+             * @example PAKT
+             */
             slug: string;
         };
         PoetStats: {
+            /** @description A short biography in Arabic. Left out when there is none. */
             bio?: string;
+            /** @description The poet's era. */
             era: components["schemas"]["EraRef"];
+            /**
+             * @description Whether the poet has an avatar image, served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`.
+             * @example true
+             */
             hasAvatar: boolean;
+            /**
+             * @description The poet's name in Arabic.
+             * @example زهير بن أبي سلمى
+             */
             name: string;
+            /** @description Another name the poet is known by, such as the kunya أبو الطيب for المتنبي. Left out when there is none. */
             nickname?: string;
             /**
              * Format: int32
-             * @example 2967
+             * @description Number of the poet's poems, primary readings only.
+             * @example 104
              */
             poemsCount: number;
-            /** @example yoFB */
+            /**
+             * @description The poet's four-letter, case-sensitive slug, for `GET /poets/{slug}`.
+             * @example PAKT
+             */
             slug: string;
         };
         ProblemDetail: {
-            /** @example NOT_FOUND */
+            /**
+             * @description A stable machine-readable code, such as `NOT_FOUND`, `BAD_REQUEST`, `TOO_MANY_REQUESTS`, or `SERVICE_UNAVAILABLE`.
+             * @example NOT_FOUND
+             */
             code: string;
-            /** @example Meter not found */
+            /**
+             * @description What went wrong with this request, in English.
+             * @example Meter not found
+             */
             detail: string;
-            /** @example /v1/meters/zzzz */
+            /**
+             * @description The path of the request that failed.
+             * @example /v1/meters/zzzz
+             */
             instance: string;
             /**
              * Format: int32
+             * @description The HTTP status code.
              * @example 404
              */
             status: number;
-            /** @example Resource not found */
+            /**
+             * @description A short summary of the kind of error.
+             * @example Resource not found
+             */
             title: string;
             /**
              * Format: uri
+             * @description A URI identifying the kind of error. It is an identifier and does not resolve to a page.
              * @example https://qafiyah.com/errors/not-found
              */
             type: string;
         };
+        /** @enum {string} */
+        RandomPoemOptionParam: "slug" | "lines";
         RhymeRef: {
+            /**
+             * @description The rhyme letter's name in Arabic.
+             * @example ميم
+             */
             name: string;
-            /** @example meem */
+            /**
+             * @description The rhyme's slug, for `GET /rhymes/{slug}`.
+             * @example meem
+             */
             slug: string;
         };
+        /** @description The query as searched and the requested sections: `poems` is present when `types` includes poems, `poets` when it includes poets. */
         SearchResponse: {
             poems?: components["schemas"]["ListEnvelope_PoemResult"] | null;
             poets?: components["schemas"]["ListEnvelope_PoetResult"] | null;
+            /**
+             * @description The query as searched: Unicode NFKC, whitespace collapsed and trimmed. Empty when browsing.
+             * @example أمن أم أوفى
+             */
             q: string;
         };
         /** @enum {string} */
         SearchTypeParam: "poems" | "poets";
         ThemeRef: {
+            /**
+             * @description The theme's name in Arabic.
+             * @example الحكمة
+             */
             name: string;
-            /** @example alnasib */
+            /**
+             * @description The theme's slug, for `GET /themes/{slug}`.
+             * @example alhikma
+             */
             slug: string;
         };
         Total: {
             /**
              * Format: int32
-             * @example 394174
+             * @description Number of poems, primary readings only.
+             * @example 342432
              */
             total: number;
         };
@@ -770,23 +1125,44 @@ export interface operations {
             /** @description All collections. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_PoemCountStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -796,6 +1172,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -806,7 +1188,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -821,7 +1209,7 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
+                 * @description The term's `slug`, from its list.
                  * @example almuallaqat
                  */
                 slug: string;
@@ -833,15 +1221,42 @@ export interface operations {
             /** @description The requested collection. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_PoemCountStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -851,6 +1266,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -861,13 +1282,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -877,6 +1298,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -887,7 +1314,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -908,23 +1341,44 @@ export interface operations {
             /** @description All eras. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -934,6 +1388,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -944,7 +1404,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -959,8 +1425,8 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
-                 * @example abbasi
+                 * @description The term's `slug`, from its list.
+                 * @example jahili
                  */
                 slug: string;
             };
@@ -971,15 +1437,42 @@ export interface operations {
             /** @description The requested era. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -989,6 +1482,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -999,13 +1498,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1015,6 +1514,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1025,7 +1530,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1046,23 +1557,44 @@ export interface operations {
             /** @description All meters. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1072,6 +1604,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1082,7 +1620,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1097,7 +1641,7 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
+                 * @description The term's `slug`, from its list.
                  * @example altawil
                  */
                 slug: string;
@@ -1109,15 +1653,42 @@ export interface operations {
             /** @description The requested meter. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1127,6 +1698,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1137,13 +1714,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1153,6 +1730,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1163,7 +1746,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1184,23 +1773,44 @@ export interface operations {
             /** @description All verse forms. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1210,6 +1820,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1220,7 +1836,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1235,7 +1857,7 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
+                 * @description The term's `slug`, from its list.
                  * @example amudi
                  */
                 slug: string;
@@ -1247,15 +1869,42 @@ export interface operations {
             /** @description The requested verse form. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1265,6 +1914,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1275,13 +1930,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1291,6 +1946,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1301,7 +1962,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1314,47 +1981,47 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1.
+                 * @description Page number as a 1-based integer string, 30 poems a page. Minimum 1.
                  * @example 1
                  */
                 page?: string;
                 /**
-                 * @description Filter by poet slug. Repeatable array param, e.g. ?poet=yoFB. Values are `slug` from GET /poets.
+                 * @description Filter by poet. Repeatable, e.g. `?poet=PAKT`. Values are `slug` from GET /poets.
                  * @example [
-                 *       "yoFB"
+                 *       "PAKT"
                  *     ]
                  */
                 poet?: components["schemas"]["FourLetterSlug"][];
                 /**
-                 * @description Filter by era slug. Repeatable array param, e.g. ?era=abbasi. Values are `slug` from GET /eras.
+                 * @description Filter by era. Repeatable, e.g. `?era=jahili`. Values are `slug` from GET /eras.
                  * @example [
-                 *       "abbasi"
+                 *       "jahili"
                  *     ]
                  */
                 era?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by theme slug. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.
+                 * @description Filter by theme. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.
                  * @example [
-                 *       "alnasib"
+                 *       "alhikma"
                  *     ]
                  */
                 theme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by meter slug. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.
+                 * @description Filter by meter. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meter?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by rhyme slug. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.
+                 * @description Filter by rhyme. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhyme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter by collection slug. Repeatable array param, e.g. ?collection=almuallaqat. Values are `slug` from GET /collections.
+                 * @description Filter by collection. Repeatable, e.g. `?collection=almuallaqat`. Values are `slug` from GET /collections.
                  * @example [
                  *       "almuallaqat"
                  *     ]
@@ -1370,15 +2037,42 @@ export interface operations {
             /** @description A page of poems with pagination metadata. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_PoemListItem"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1389,13 +2083,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1405,6 +2099,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1415,7 +2115,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1436,23 +2142,44 @@ export interface operations {
             /** @description The total poem count. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_Total"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1462,6 +2189,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1472,7 +2205,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1486,27 +2225,27 @@ export interface operations {
             query: {
                 /**
                  * @description The poet whose poems are counted. A single `slug` from GET /poets.
-                 * @example yoFB
+                 * @example PAKT
                  */
                 poet: string;
                 /**
-                 * @description Narrow the rhyme and theme counts to poems of these meters. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.
+                 * @description Narrow the rhyme and theme counts to poems of these meters. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meter?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the meter and theme counts to poems of these rhymes. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.
+                 * @description Narrow the meter and theme counts to poems of these rhymes. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhyme?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Narrow the meter and rhyme counts to poems of these themes. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.
+                 * @description Narrow the meter and rhyme counts to poems of these themes. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.
                  * @example [
-                 *       "alnasib"
+                 *       "alhikma"
                  *     ]
                  */
                 theme?: components["schemas"]["TransliteratedSlug"][];
@@ -1520,15 +2259,42 @@ export interface operations {
             /** @description The poet's meters, rhymes, and themes with poem counts under the given filters. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_PoemFacets"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1538,6 +2304,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1548,13 +2320,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1564,6 +2336,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1574,7 +2352,110 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "poems.random": {
+        parameters: {
+            query?: {
+                /**
+                 * @description What the body holds: `slug` (the default) or `lines`.
+                 * @example slug
+                 */
+                option?: components["schemas"]["RandomPoemOptionParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The slug, or with `option=lines` one verse and the poet's name. */
+            200: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /** @example gnNg */
+                    "text/plain": string;
+                };
+            };
+            /** @description Input validation failed */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1587,7 +2468,7 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1.
+                 * @description Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
                  * @example 1
                  */
                 page?: string;
@@ -1601,15 +2482,42 @@ export interface operations {
             /** @description A page of poem slugs. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_FourLetterSlug"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1620,13 +2528,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1636,6 +2544,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1646,7 +2560,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1661,8 +2581,8 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
-                 * @example TnKK
+                 * @description The poem's `slug`, from a list or search response.
+                 * @example gnNg
                  */
                 slug: string;
             };
@@ -1673,6 +2593,14 @@ export interface operations {
             /** @description The requested poem. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1684,6 +2612,25 @@ export interface operations {
                 headers: {
                     /** @description Path of the surviving poem */
                     Location?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1691,6 +2638,12 @@ export interface operations {
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1700,6 +2653,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1710,13 +2669,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1726,6 +2685,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1736,7 +2701,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1749,18 +2720,18 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1, maximum 1666 (offsets past this exceed the Elasticsearch result window).
+                 * @description Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
                  * @example 1
                  */
                 page?: string;
                 /**
-                 * @description Filter to poets of a single era. Value is a `slug` from GET /eras.
-                 * @example abbasi
+                 * @description Narrow to the poets of one era. A single `slug` from GET /eras: unlike `GET /poems`, this filter takes one value.
+                 * @example jahili
                  */
                 era?: string;
                 /**
-                 * @description Full-text query matched against poet names and nicknames. Every word must match one of them as a stem or a prefix, or be a typo away from a name word: none for a word of up to three letters, one from four, two from seven.
-                 * @example المتنبي
+                 * @description Search poet names and nicknames, up to 100 characters. A poet is listed when every word matches the name or the nickname as a stem, or every word is the start of a word of them (two letters or more), or every word is within a typo of a word of the name. A typo is not allowed in a word of up to three letters; one is allowed from four letters and two from seven, and the first letter must be right.
+                 * @example زهير بن أبي سلمى
                  */
                 q?: string;
             };
@@ -1773,15 +2744,42 @@ export interface operations {
             /** @description A page of poets with pagination metadata. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_PoetListItem"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1792,13 +2790,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1808,6 +2806,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1818,7 +2822,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1831,7 +2841,7 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1.
+                 * @description Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
                  * @example 1
                  */
                 page?: string;
@@ -1845,15 +2855,42 @@ export interface operations {
             /** @description A page of poet slugs, each flagged with whether the poet has an avatar. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_PoetSlugEntry"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1864,13 +2901,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1880,6 +2917,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1890,7 +2933,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1905,8 +2954,8 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
-                 * @example yoFB
+                 * @description The poet's `slug`, from a list or search response.
+                 * @example PAKT
                  */
                 slug: string;
             };
@@ -1917,6 +2966,14 @@ export interface operations {
             /** @description The requested poet. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1928,6 +2985,25 @@ export interface operations {
                 headers: {
                     /** @description Path of the surviving poet */
                     Location?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1935,6 +3011,12 @@ export interface operations {
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1944,6 +3026,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1954,13 +3042,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1970,6 +3058,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1980,7 +3074,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2001,23 +3101,44 @@ export interface operations {
             /** @description All rhymes. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2027,6 +3148,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2037,7 +3164,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2052,7 +3185,7 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
+                 * @description The term's `slug`, from its list.
                  * @example meem
                  */
                 slug: string;
@@ -2064,15 +3197,42 @@ export interface operations {
             /** @description The requested rhyme. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2082,6 +3242,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2092,13 +3258,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2108,6 +3274,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2118,7 +3290,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2131,66 +3309,71 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Search query in Arabic. When empty, the results are browsed rather than matched: poems most recently added first, classical eras first when no era is chosen, and poets most recently added first, all narrowed by the filters.
-                 * @example المتنبي
+                 * @description Search query in Arabic, up to 100 characters. It is normalized (Unicode NFKC, whitespace collapsed and trimmed) and echoed back as `q`. A query of three words or more puts poems holding the words as a phrase above every other result, the oldest classical era first. When empty, the sections are browsed (see above).
+                 * @example أمن أم أوفى
                  */
                 q?: string;
-                /** @description Result types to include. Defaults to all types when omitted. */
+                /**
+                 * @description Sections to include: `poems`, `poets`, or both, which is the default. Repeat to send both, e.g. `?types=poems&types=poets`. Send `types=poems` alone to use any poem-only filter.
+                 * @example [
+                 *       "poems"
+                 *     ]
+                 */
                 types?: components["schemas"]["SearchTypeParam"][];
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).
+                 * @description Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
                  * @example 1
                  */
                 poemsPage?: string;
                 /**
-                 * @description Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).
+                 * @description Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
                  * @example 1
                  */
                 poetsPage?: string;
                 /**
-                 * @description Filter results by poet slug. Repeatable array param, e.g. ?poetSlugs=yoFB. Slugs are the `slug` values from GET /poets.
+                 * @description Narrow the poems section to these poets. The poets section ignores it. Repeatable, e.g. `?poetSlugs=PAKT`. Values are `slug` from GET /poets.
                  * @example [
-                 *       "yoFB"
+                 *       "PAKT"
                  *     ]
                  */
                 poetSlugs?: components["schemas"]["FourLetterSlug"][];
                 /**
-                 * @description Filter results by era slug. Repeatable array param, e.g. ?eraSlugs=abbasi. Slugs are the `slug` values from GET /eras.
+                 * @description Narrow both sections to these eras. Repeatable, e.g. `?eraSlugs=jahili`. Values are `slug` from GET /eras.
                  * @example [
-                 *       "abbasi"
+                 *       "jahili"
                  *     ]
                  */
                 eraSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter poems by meter slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?meterSlugs=altawil. Slugs are the `slug` values from GET /meters.
+                 * @description Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&meterSlugs=altawil`. Values are `slug` from GET /meters.
                  * @example [
                  *       "altawil"
                  *     ]
                  */
                 meterSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter poems by rhyme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?rhymeSlugs=meem. Slugs are the `slug` values from GET /rhymes.
+                 * @description Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&rhymeSlugs=meem`. Values are `slug` from GET /rhymes.
                  * @example [
                  *       "meem"
                  *     ]
                  */
                 rhymeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter poems by theme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?themeSlugs=alnasib. Slugs are the `slug` values from GET /themes.
+                 * @description Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&themeSlugs=alhikma`. Values are `slug` from GET /themes.
                  * @example [
-                 *       "alnasib"
+                 *       "alhikma"
                  *     ]
                  */
                 themeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter poems by verse form slug (amudi, hurr, and the rest). Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?poemTypeSlugs=hurr. Slugs are the `slug` values from GET /poem-types.
+                 * @description Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&poemTypeSlugs=amudi`. Values are `slug` from GET /poem-types.
                  * @example [
-                 *       "hurr"
+                 *       "amudi"
                  *     ]
                  */
                 poemTypeSlugs?: components["schemas"]["TransliteratedSlug"][];
                 /**
-                 * @description Filter poems by collection slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?collectionSlugs=almuallaqat. Slugs are the `slug` values from GET /collections.
+                 * @description Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&collectionSlugs=almuallaqat`. Values are `slug` from GET /collections.
                  * @example [
                  *       "almuallaqat"
                  *     ]
@@ -2208,18 +3391,45 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Echoed query plus the requested poem and poet result sections. */
+            /** @description The normalized query and the requested sections, each with its own results and pagination. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2230,13 +3440,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2246,6 +3456,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2256,7 +3472,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2277,23 +3499,44 @@ export interface operations {
             /** @description All themes. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvelope_PoemCountStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many requests */
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2303,6 +3546,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2313,7 +3562,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2328,8 +3583,8 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description Resource identifier taken from the `slug` field of the matching list endpoint.
-                 * @example alnasib
+                 * @description The term's `slug`, from its list.
+                 * @example alhikma
                  */
                 slug: string;
             };
@@ -2340,15 +3595,42 @@ export interface operations {
             /** @description The requested theme. */
             200: {
                 headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_PoemCountStats"];
                 };
             };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Input validation failed */
             400: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2358,6 +3640,12 @@ export interface operations {
             /** @description Not found */
             404: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2368,13 +3656,13 @@ export interface operations {
             429: {
                 headers: {
                     /** @description Seconds until the window resets */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
                     /** @description Requests allowed per hour */
-                    "x-ratelimit-limit"?: string;
+                    "x-ratelimit-limit"?: number;
                     /** @description Requests left in the current hour */
-                    "x-ratelimit-remaining"?: string;
+                    "x-ratelimit-remaining"?: number;
                     /** @description Unix seconds at which the window resets */
-                    "x-ratelimit-reset"?: string;
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2384,6 +3672,12 @@ export interface operations {
             /** @description Internal server error */
             500: {
                 headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2394,7 +3688,13 @@ export interface operations {
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying */
-                    "retry-after"?: string;
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
                     [name: string]: unknown;
                 };
                 content: {

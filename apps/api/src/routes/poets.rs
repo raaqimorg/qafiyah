@@ -24,11 +24,11 @@ use crate::state::AppState;
     path = "/poets",
     tag = "poets",
     operation_id = "poets.list",
-    description = "Paginated, Elasticsearch-backed list of poets with poem counts, ordered by poem count descending. Narrow by era or by a full-text name query `q`, which orders by relevance instead.",
+    description = "A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties.",
     params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 1666 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("era" = Option<String>, Query, description = "Filter to poets of a single era. Value is a `slug` from GET /eras.", pattern = "^[a-z][a-z-]*$", example = "abbasi"),
-        ("q" = Option<String>, Query, description = "Full-text query matched against poet names and nicknames. Every word must match one of them as a stem or a prefix, or be a typo away from a name word: none for a word of up to three letters, one from four, two from seven.", max_length = 100, example = "المتنبي"),
+        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("era" = Option<String>, Query, description = "Narrow to the poets of one era. A single `slug` from GET /eras: unlike `GET /poems`, this filter takes one value.", pattern = "^[a-z][a-z-]*$", example = "jahili"),
+        ("q" = Option<String>, Query, description = "Search poet names and nicknames, up to 100 characters. A poet is listed when every word matches the name or the nickname as a stem, or every word is the start of a word of them (two letters or more), or every word is within a typo of a word of the name. A typo is not allowed in a word of up to three letters; one is allowed from four letters and two from seven, and the first letter must be right.", max_length = 100, example = "زهير بن أبي سلمى"),
     ),
     responses(
         (status = 200, description = "A page of poets with pagination metadata.", body = ListEnvelope<PoetListItem>),
@@ -76,9 +76,9 @@ pub(crate) async fn list(
     path = "/poets/slugs",
     tag = "poets",
     operation_id = "poets.listSlugs",
-    description = "Paginated stream of the slugs of poets with at least one poem, each with an avatar flag, intended for sitemap generation and incremental crawling.",
+    description = "The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in slug order, for sitemaps and incremental crawling.",
     params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
     ),
     responses(
         (status = 200, description = "A page of poet slugs, each flagged with whether the poet has an avatar.", body = ListEnvelope<PoetSlugEntry>),
@@ -112,9 +112,9 @@ pub(crate) async fn list_slugs(
     path = "/poets/{slug}",
     tag = "poets",
     operation_id = "poets.get",
-    description = "A single poet with nickname, bio, era, avatar flag, and poem count, by slug.",
+    description = "A poet by slug, with nickname, biography, era, poem count, and whether an avatar image exists. A slug that was merged into another poet answers 301 to the surviving poet.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-zA-Z]{4}$", example = "yoFB"),
+        ("slug" = String, Path, description = "The poet's `slug`, from a list or search response.", pattern = "^[a-zA-Z]{4}$", example = "PAKT"),
     ),
     responses(
         (status = 200, description = "The requested poet.", body = ItemEnvelope<PoetStats>),

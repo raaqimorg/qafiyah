@@ -16,7 +16,8 @@ use crate::error::{AppError, Resource, RouteProblem};
 use crate::extract::SafePath;
 use crate::log::LogHandle;
 use crate::openapi::{
-    FilteredListErrors, FourLetterSlug, ListErrors, LookupErrors, TransliteratedSlug,
+    FilteredListErrors, FourLetterSlug, ListErrors, LookupErrors, RandomPoemOptionParam,
+    TransliteratedSlug,
 };
 use crate::query::Query;
 use crate::routes::permanent_redirect;
@@ -39,15 +40,15 @@ fn facets(query: &Query) -> Result<Facets, AppError> {
     path = "/poems",
     tag = "poems",
     operation_id = "poems.list",
-    description = "Paginated list of poems with optional multi-select facet filters (poet, era, theme, meter, rhyme, collection). Facets combine conjunctively; repeating a single facet ORs its values.",
+    description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND, e.g. `?poet=PAKT&meter=altawil&meter=alkamil`. A slug that matches nothing gives an empty page rather than an error, and unknown query params are ignored.",
     params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poet" = Option<Vec<FourLetterSlug>>, Query, description = "Filter by poet slug. Repeatable array param, e.g. ?poet=yoFB. Values are `slug` from GET /poets.", example = json!(["yoFB"])),
-        ("era" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by era slug. Repeatable array param, e.g. ?era=abbasi. Values are `slug` from GET /eras.", example = json!(["abbasi"])),
-        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by theme slug. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.", example = json!(["alnasib"])),
-        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by meter slug. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.", example = json!(["altawil"])),
-        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by rhyme slug. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
-        ("collection" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by collection slug. Repeatable array param, e.g. ?collection=almuallaqat. Values are `slug` from GET /collections.", example = json!(["almuallaqat"])),
+        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 30 poems a page. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("poet" = Option<Vec<FourLetterSlug>>, Query, description = "Filter by poet. Repeatable, e.g. `?poet=PAKT`. Values are `slug` from GET /poets.", example = json!(["PAKT"])),
+        ("era" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by era. Repeatable, e.g. `?era=jahili`. Values are `slug` from GET /eras.", example = json!(["jahili"])),
+        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by theme. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
+        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by meter. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.", example = json!(["altawil"])),
+        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by rhyme. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
+        ("collection" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter by collection. Repeatable, e.g. `?collection=almuallaqat`. Values are `slug` from GET /collections.", example = json!(["almuallaqat"])),
     ),
     responses(
         (status = 200, description = "A page of poems with pagination metadata.", body = ListEnvelope<PoemListItem>),
@@ -79,9 +80,9 @@ pub(crate) async fn list(
     path = "/poems/slugs",
     tag = "poems",
     operation_id = "poems.listSlugs",
-    description = "Paginated stream of poem slugs only, intended for sitemap generation and incremental crawling.",
+    description = "The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling.",
     params(
-        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("page" = Option<String>, Query, description = "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.", pattern = "^[1-9][0-9]*$", example = "1"),
     ),
     responses(
         (status = 200, description = "A page of poem slugs.", body = ListEnvelope<FourLetterSlug>),
@@ -115,7 +116,7 @@ pub(crate) async fn list_slugs(
     path = "/poems/count",
     tag = "poems",
     operation_id = "poems.count",
-    description = "Total number of poems in the catalog.",
+    description = "The number of poems in the catalog, counting primary readings only: the same poems `GET /poems` pages through with no filter.",
     responses(
         (status = 200, description = "The total poem count.", body = ItemEnvelope<Total>),
         ListErrors,
@@ -139,10 +140,10 @@ pub(crate) async fn count(
     operation_id = "poems.facets",
     description = "The meters, rhymes, and themes of one poet's poems, each with a poem count, for building filters over `GET /poems?poet=`. Narrow with the same `meter`, `rhyme`, and `theme` params as `GET /poems`: each list is counted under the other two filters but not its own, so it keeps every value that can still be added, and a selected value stays listed even at a count of zero. Values with no matching poem are left out. Lists are ordered by poem count descending, then by name.",
     params(
-        ("poet" = String, Query, description = "The poet whose poems are counted. A single `slug` from GET /poets.", pattern = "^[a-zA-Z]{4}$", example = "yoFB"),
-        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the rhyme and theme counts to poems of these meters. Repeatable array param, e.g. ?meter=altawil. Values are `slug` from GET /meters.", example = json!(["altawil"])),
-        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and theme counts to poems of these rhymes. Repeatable array param, e.g. ?rhyme=meem. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
-        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and rhyme counts to poems of these themes. Repeatable array param, e.g. ?theme=alnasib. Values are `slug` from GET /themes.", example = json!(["alnasib"])),
+        ("poet" = String, Query, description = "The poet whose poems are counted. A single `slug` from GET /poets.", pattern = "^[a-zA-Z]{4}$", example = "PAKT"),
+        ("meter" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the rhyme and theme counts to poems of these meters. Repeatable, e.g. `?meter=altawil`. Values are `slug` from GET /meters.", example = json!(["altawil"])),
+        ("rhyme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and theme counts to poems of these rhymes. Repeatable, e.g. `?rhyme=meem`. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
+        ("theme" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the meter and rhyme counts to poems of these themes. Repeatable, e.g. `?theme=alhikma`. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
     ),
     responses(
         (status = 200, description = "The poet's meters, rhymes, and themes with poem counts under the given filters.", body = ItemEnvelope<PoemFacets>),
@@ -177,9 +178,9 @@ pub(crate) async fn facet_counts(
     path = "/poems/{slug}",
     tag = "poems",
     operation_id = "poems.get",
-    description = "Full poem detail by slug, including verses, prosody metadata, and related poems.",
+    description = "A poem by slug: its full verse text, its classification, its neighbors in the poet's list, its alternate readings, and up to 10 related poems. An alternate reading has its own slug and names its primary in `recensionOf`. A slug that was merged into another poem answers 301 to the surviving poem.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-zA-Z]{4}$", example = "TnKK"),
+        ("slug" = String, Path, description = "The poem's `slug`, from a list or search response.", pattern = "^[a-zA-Z]{4}$", example = "gnNg"),
     ),
     responses(
         (status = 200, description = "The requested poem.", body = ItemEnvelope<PoemDetail>),
@@ -226,7 +227,21 @@ fn random_option(raw: Option<&str>) -> Result<RandomPoemOption, AppError> {
     }
 }
 
-async fn random(
+#[utoipa::path(
+    get,
+    path = "/poems/random",
+    tag = "poems",
+    operation_id = "poems.random",
+    description = "A random poem, as plain text that is never cached. By default, or with `option=slug`, the body is the poem's slug, for `GET /poems/{slug}`. With `option=lines` it is one verse of the poem, its two half-lines on two lines, then a blank line and the poet's name, at most 280 characters. A poet is picked at random first and then one of their poems, so every poet is equally likely. A poem is eligible when it is a primary reading by a named poet of the jahili, islami, umawi, or abbasi era, in the amudi form, at least four verses long, and of a known meter.",
+    params(
+        ("option" = Option<RandomPoemOptionParam>, Query, description = "What the body holds: `slug` (the default) or `lines`.", example = "slug"),
+    ),
+    responses(
+        (status = 200, description = "The slug, or with `option=lines` one verse and the poet's name.", content_type = "text/plain", body = String, example = "gnNg"),
+        FilteredListErrors,
+    ),
+)]
+pub(crate) async fn random(
     State(state): State<AppState>,
     RawQuery(raw): RawQuery,
 ) -> Result<Response, AppError> {

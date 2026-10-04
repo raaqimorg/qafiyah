@@ -136,7 +136,7 @@ async fn get_poem_counted_kind(
     path = "/meters",
     tag = "meters",
     operation_id = "meters.list",
-    description = "All prosodic meters (al-buhur) with poem and poet counts.",
+    description = "Every prosodic meter (al-buhur) with its poem and poet counts, in name order. Counts include primary readings only.",
     responses(
         (status = 200, description = "All meters.", body = ListEnvelope<CountedStats>),
         ListErrors,
@@ -154,9 +154,9 @@ pub(crate) async fn list_meters(
     path = "/meters/{slug}",
     tag = "meters",
     operation_id = "meters.get",
-    description = "A single meter with poem and poet counts, by slug.",
+    description = "A meter by slug, with its poem and poet counts.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "altawil"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "altawil"),
     ),
     responses(
         (status = 200, description = "The requested meter.", body = ItemEnvelope<CountedStats>),
@@ -176,7 +176,7 @@ pub(crate) async fn get_meter(
     path = "/rhymes",
     tag = "rhymes",
     operation_id = "rhymes.list",
-    description = "All rhyme letters (al-qawafi) with poem and poet counts.",
+    description = "Every rhyme letter (al-qawafi) with its poem and poet counts, in a fixed letter order with the alif, hamza, and ta marbuta forms first. Counts include primary readings only.",
     responses(
         (status = 200, description = "All rhymes.", body = ListEnvelope<CountedStats>),
         ListErrors,
@@ -194,9 +194,9 @@ pub(crate) async fn list_rhymes(
     path = "/rhymes/{slug}",
     tag = "rhymes",
     operation_id = "rhymes.get",
-    description = "A single rhyme with poem and poet counts, by slug.",
+    description = "A rhyme letter by slug, with its poem and poet counts.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "meem"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "meem"),
     ),
     responses(
         (status = 200, description = "The requested rhyme.", body = ItemEnvelope<CountedStats>),
@@ -216,7 +216,7 @@ pub(crate) async fn get_rhyme(
     path = "/eras",
     tag = "eras",
     operation_id = "eras.list",
-    description = "All literary eras (al-usur al-adabiyya) with poem and poet counts.",
+    description = "Every literary era (al-usur al-adabiyya) with its poem and poet counts, oldest first, with the unknown era last. Counts include primary readings only.",
     responses(
         (status = 200, description = "All eras.", body = ListEnvelope<CountedStats>),
         ListErrors,
@@ -234,9 +234,9 @@ pub(crate) async fn list_eras(
     path = "/eras/{slug}",
     tag = "eras",
     operation_id = "eras.get",
-    description = "A single era with poem and poet counts, by slug.",
+    description = "An era by slug, with its poem and poet counts.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "abbasi"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "jahili"),
     ),
     responses(
         (status = 200, description = "The requested era.", body = ItemEnvelope<CountedStats>),
@@ -256,7 +256,7 @@ pub(crate) async fn get_era(
     path = "/themes",
     tag = "themes",
     operation_id = "themes.list",
-    description = "All thematic categories (al-aghrad) with poem counts.",
+    description = "Every theme (al-aghrad) with its poem count. Counts include primary readings only.",
     responses(
         (status = 200, description = "All themes.", body = ListEnvelope<PoemCountStats>),
         ListErrors,
@@ -274,9 +274,9 @@ pub(crate) async fn list_themes(
     path = "/themes/{slug}",
     tag = "themes",
     operation_id = "themes.get",
-    description = "A single theme with poem count, by slug.",
+    description = "A theme by slug, with its poem count.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "alnasib"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "alhikma"),
     ),
     responses(
         (status = 200, description = "The requested theme.", body = ItemEnvelope<PoemCountStats>),
@@ -296,7 +296,7 @@ pub(crate) async fn get_theme(
     path = "/collections",
     tag = "collections",
     operation_id = "collections.list",
-    description = "All curated poem collections (al-dawawin) with poem counts.",
+    description = "Every curated collection (al-dawawin) with its poem count. Counts include primary readings only.",
     responses(
         (status = 200, description = "All collections.", body = ListEnvelope<PoemCountStats>),
         ListErrors,
@@ -314,9 +314,9 @@ pub(crate) async fn list_collections(
     path = "/collections/{slug}",
     tag = "collections",
     operation_id = "collections.get",
-    description = "A single collection with poem count, by slug.",
+    description = "A collection by slug, with its poem count.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "almuallaqat"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "almuallaqat"),
     ),
     responses(
         (status = 200, description = "The requested collection.", body = ItemEnvelope<PoemCountStats>),
@@ -336,7 +336,7 @@ pub(crate) async fn get_collection(
     path = "/poem-types",
     tag = "poem-types",
     operation_id = "poemTypes.list",
-    description = "All verse forms (anwa' al-qasida) with poem and poet counts, most poems first.",
+    description = "Every verse form (anwa' al-qasida) with its poem and poet counts, most poems first. Counts include primary readings only.",
     responses(
         (status = 200, description = "All verse forms.", body = ListEnvelope<CountedStats>),
         ListErrors,
@@ -354,9 +354,9 @@ pub(crate) async fn list_poem_types(
     path = "/poem-types/{slug}",
     tag = "poem-types",
     operation_id = "poemTypes.get",
-    description = "A single verse form with poem and poet counts, by slug.",
+    description = "A verse form by slug, with its poem and poet counts.",
     params(
-        ("slug" = String, Path, description = "Resource identifier taken from the `slug` field of the matching list endpoint.", pattern = "^[a-z][a-z-]*$", example = "amudi"),
+        ("slug" = String, Path, description = "The term's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "amudi"),
     ),
     responses(
         (status = 200, description = "The requested verse form.", body = ItemEnvelope<CountedStats>),

@@ -21,9 +21,16 @@ use crate::slug;
 use crate::state::AppState;
 
 #[derive(Serialize, ToSchema)]
+#[schema(
+    description = "The query as searched and the requested sections: `poems` is present when `types` includes poems, `poets` when it includes poets."
+)]
 pub(crate) struct SearchResponse {
+    /// The query as searched: Unicode NFKC, whitespace collapsed and trimmed. Empty when browsing.
+    #[schema(example = "أمن أم أوفى")]
     q: String,
+    /// The poems section. Left out unless `types` includes poems.
     poems: Option<ListEnvelope<PoemResult>>,
+    /// The poets section. Left out unless `types` includes poets.
     poets: Option<ListEnvelope<PoetResult>>,
 }
 
@@ -32,23 +39,23 @@ pub(crate) struct SearchResponse {
     path = "/search",
     tag = "search",
     operation_id = "search.search",
-    description = "Full-text search over poems and poets with optional facet filters. Array filters are repeatable params, e.g. ?eraSlugs=andalusi&meterSlugs=altawil. Poets are filterable by era only; meter, rhyme, theme, verse form, and collection filters apply to poems and are rejected with a 400 when the `poets` result type is requested. Unknown query params are ignored.",
+    description = "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values: `?types=poems&eraSlugs=andalusi&meterSlugs=altawil`. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. Unknown query params are ignored.",
     params(
-        ("q" = Option<String>, Query, description = "Search query in Arabic. When empty, the results are browsed rather than matched: poems most recently added first, classical eras first when no era is chosen, and poets most recently added first, all narrowed by the filters.", max_length = 100, example = "المتنبي"),
-        ("types" = Option<Vec<SearchTypeParam>>, Query, description = "Result types to include. Defaults to all types when omitted.", max_items = 2),
-        ("poemsPage" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poetsPage" = Option<String>, Query, description = "Page number as a 1-based integer string. Minimum 1, maximum 500 (offsets past this exceed the Elasticsearch result window).", pattern = "^[1-9][0-9]*$", example = "1"),
-        ("poetSlugs" = Option<Vec<FourLetterSlug>>, Query, description = "Filter results by poet slug. Repeatable array param, e.g. ?poetSlugs=yoFB. Slugs are the `slug` values from GET /poets.", example = json!(["yoFB"])),
-        ("eraSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter results by era slug. Repeatable array param, e.g. ?eraSlugs=abbasi. Slugs are the `slug` values from GET /eras.", example = json!(["abbasi"])),
-        ("meterSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by meter slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?meterSlugs=altawil. Slugs are the `slug` values from GET /meters.", example = json!(["altawil"])),
-        ("rhymeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by rhyme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?rhymeSlugs=meem. Slugs are the `slug` values from GET /rhymes.", example = json!(["meem"])),
-        ("themeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by theme slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?themeSlugs=alnasib. Slugs are the `slug` values from GET /themes.", example = json!(["alnasib"])),
-        ("poemTypeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by verse form slug (amudi, hurr, and the rest). Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?poemTypeSlugs=hurr. Slugs are the `slug` values from GET /poem-types.", example = json!(["hurr"])),
-        ("collectionSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Filter poems by collection slug. Applies to the poems result set only and cannot be combined with the `poets` result type. Repeatable array param, e.g. ?collectionSlugs=almuallaqat. Slugs are the `slug` values from GET /collections.", example = json!(["almuallaqat"])),
+        ("q" = Option<String>, Query, description = "Search query in Arabic, up to 100 characters. It is normalized (Unicode NFKC, whitespace collapsed and trimmed) and echoed back as `q`. A query of three words or more puts poems holding the words as a phrase above every other result, the oldest classical era first. When empty, the sections are browsed (see above).", max_length = 100, example = "أمن أم أوفى"),
+        ("types" = Option<Vec<SearchTypeParam>>, Query, description = "Sections to include: `poems`, `poets`, or both, which is the default. Repeat to send both, e.g. `?types=poems&types=poets`. Send `types=poems` alone to use any poem-only filter.", max_items = 2, example = json!(["poems"])),
+        ("poemsPage" = Option<String>, Query, description = "Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("poetsPage" = Option<String>, Query, description = "Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.", pattern = "^[1-9][0-9]*$", example = "1"),
+        ("poetSlugs" = Option<Vec<FourLetterSlug>>, Query, description = "Narrow the poems section to these poets. The poets section ignores it. Repeatable, e.g. `?poetSlugs=PAKT`. Values are `slug` from GET /poets.", example = json!(["PAKT"])),
+        ("eraSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow both sections to these eras. Repeatable, e.g. `?eraSlugs=jahili`. Values are `slug` from GET /eras.", example = json!(["jahili"])),
+        ("meterSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these meters. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&meterSlugs=altawil`. Values are `slug` from GET /meters.", example = json!(["altawil"])),
+        ("rhymeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these rhymes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&rhymeSlugs=meem`. Values are `slug` from GET /rhymes.", example = json!(["meem"])),
+        ("themeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these themes. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&themeSlugs=alhikma`. Values are `slug` from GET /themes.", example = json!(["alhikma"])),
+        ("poemTypeSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these verse forms (amudi, hurr, and the rest). Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&poemTypeSlugs=amudi`. Values are `slug` from GET /poem-types.", example = json!(["amudi"])),
+        ("collectionSlugs" = Option<Vec<TransliteratedSlug>>, Query, description = "Narrow the poems section to these collections. Poems only: needs `types=poems`. Repeatable, e.g. `?types=poems&collectionSlugs=almuallaqat`. Values are `slug` from GET /collections.", example = json!(["almuallaqat"])),
         ("exact" = Option<ExactFlag>, Query, description = "When true, match the literal phrase only (poem title or text, and poet name or nickname), with no stemming, fuzzy, or autocomplete expansion (Arabic letter normalization still applies, except that a standalone hamza in a poem phrase must match as typed). Applies to both result sets.", example = "false"),
     ),
     responses(
-        (status = 200, description = "Echoed query plus the requested poem and poet result sections.", body = SearchResponse),
+        (status = 200, description = "The normalized query and the requested sections, each with its own results and pagination.", body = SearchResponse),
         FilteredListErrors,
     ),
 )]
