@@ -28,12 +28,22 @@ services:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-postgres-exporter
   elasticsearch-exporter:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-elasticsearch-exporter
+  blackbox-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-blackbox-exporter
+  prometheus:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-prometheus
+  grafana:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-grafana
+    ports: !override
+      - "127.0.0.1:${DEV_GRAFANA_PORT:-3300}:3000"
 
 volumes:
   db_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-db-data
   es_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-es-data
+  prometheus_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-prometheus-data
 
 networks:
   edge:

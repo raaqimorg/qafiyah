@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { DEV_EDGE_PORT, DEV_ES_PORT, DEV_POSTGRES_PORT } from '@qafiyah/config';
+import { DEV_EDGE_PORT, DEV_ES_PORT, DEV_GRAFANA_PORT, DEV_POSTGRES_PORT } from '@qafiyah/config';
 
 const ROOT = `${import.meta.dir}/../..`;
 
@@ -75,6 +75,7 @@ if (import.meta.main) {
       `DEV_POSTGRES_PORT=${DEV_POSTGRES_PORT + offset}`,
       `DEV_ES_PORT=${DEV_ES_PORT + offset}`,
       `DEV_EDGE_PORT=${DEV_EDGE_PORT + offset}`,
+      `DEV_GRAFANA_PORT=${DEV_GRAFANA_PORT + offset}`,
     ].join('\n')
   );
 }
