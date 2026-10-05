@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { methodLabel, timeRequest, type RequestAttributes } from './request-timing';
+import { claimTiming, methodLabel, timeRequest, type RequestAttributes } from './request-timing';
 
 function clock(...readings: number[]): () => number {
   let i = 0;
@@ -106,5 +106,19 @@ describe('timeRequest', () => {
       )
     ).rejects.toBe(failure);
     expect(calls).toEqual([[0.03, expected(500)]]);
+  });
+});
+
+describe('claimTiming', () => {
+  it('lets only the first pass through a request time it, so a rewrite is not timed twice', () => {
+    const locals: { requestTimed?: boolean } = {};
+    expect(claimTiming(locals)).toBe(true);
+    expect(claimTiming(locals)).toBe(false);
+    expect(claimTiming(locals)).toBe(false);
+  });
+
+  it('gives each request its own claim', () => {
+    expect(claimTiming({})).toBe(true);
+    expect(claimTiming({})).toBe(true);
   });
 });

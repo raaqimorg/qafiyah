@@ -18,6 +18,12 @@ export type RequestAttributes = {
 
 export type RecordDuration = (seconds: number, attributes: RequestAttributes) => void;
 
+export function claimTiming(locals: { requestTimed?: boolean }): boolean {
+  if (locals.requestTimed === true) return false;
+  locals.requestTimed = true;
+  return true;
+}
+
 export function methodLabel(method: string): string {
   return KNOWN_METHODS.has(method) ? method : '_OTHER';
 }
