@@ -87,6 +87,11 @@ const PHASES: readonly Phase[] = [
   { name: 'unit', tasks: UNIT, kind: 'parallel' },
   { name: 'contract', tasks: CONTRACT, kind: 'parallel' },
   {
+    name: 'diagrams',
+    tasks: [{ name: 'diagrams', cmd: ['bun', 'run', 'docs:diagrams:check'] }],
+    kind: 'docker',
+  },
+  {
     name: 'db',
     tasks: [{ name: 'db', cmd: ['bun', 'run', 'rust:test:db', ...smokeArgs] }],
     kind: 'docker',
