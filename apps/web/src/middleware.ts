@@ -9,6 +9,6 @@ import type { MiddlewareHandler } from 'astro';
 const record = requestDurationRecorder(OTLP_METRICS_ENDPOINT, hostname());
 
 export const onRequest: MiddlewareHandler = (context, next) =>
-  record === undefined
+  record === undefined || context.originPathname !== context.url.pathname
     ? next()
     : timeRequest(record, { method: context.request.method, route: context.routePattern }, next);
