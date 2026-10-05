@@ -15,6 +15,7 @@ const SOURCE_DIR = join(ROOT, 'docs/architecture');
 const LEGEND = 'legend.puml';
 const OUT_DIR = 'docs/architecture/generated/structurizr';
 const REMEDY = ['Run: bun run docs:diagrams, then review the diff.'];
+const CALLER = `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`;
 
 const check = process.argv.includes('--check');
 
@@ -37,6 +38,8 @@ async function render(work: string): Promise<Map<string, string>> {
     'docker',
     'run',
     '--rm',
+    '--user',
+    CALLER,
     '-v',
     `${SOURCE_DIR}:/source:ro`,
     '-v',
@@ -55,6 +58,8 @@ async function render(work: string): Promise<Map<string, string>> {
     'docker',
     'run',
     '--rm',
+    '--user',
+    CALLER,
     '-v',
     `${work}:/work`,
     PLANTUML_IMAGE,
