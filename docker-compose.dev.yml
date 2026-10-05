@@ -32,6 +32,10 @@ services:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-blackbox-exporter
   prometheus:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-prometheus
+  loki:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-loki
+  alloy:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-alloy
   grafana:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-grafana
     ports: !override
@@ -44,6 +48,10 @@ volumes:
     name: qafiyah-dev${DEV_SUFFIX:-}-es-data
   prometheus_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-prometheus-data
+  loki_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-loki-data
+  alloy_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-alloy-data
 
 networks:
   edge:

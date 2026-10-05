@@ -38,6 +38,20 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  - job_name: containers
+    metrics_path: /api/v0/component/prometheus.exporter.cadvisor.containers/metrics
+    static_configs:
+      - targets: [alloy:12345]
+
+  - job_name: host
+    metrics_path: /api/v0/component/prometheus.exporter.unix.host/metrics
+    static_configs:
+      - targets: [alloy:12345]
+
+  - job_name: loki
+    static_configs:
+      - targets: [loki:3100]
+
   - job_name: prometheus
     static_configs:
       - targets: [127.0.0.1:9090]
