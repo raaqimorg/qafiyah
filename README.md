@@ -123,7 +123,7 @@ Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/is
 <br>
 
 - [`docs/development.md`](docs/development.md): running the stack locally, everyday commands, worktrees, committing.
-- [`docs/topology.md`](docs/topology.md): a diagram-first map of the whole system, code and production.
+- [`docs/topology.md`](docs/topology.md): a diagram-first map of the whole system, code and production, drawn from the C4 model in [`docs/architecture/workspace.dsl`](docs/architecture/workspace.dsl).
 - [`docs/deployment/README.md`](docs/deployment/README.md): the production entry point.
 - [`docs/domain.md`](docs/domain.md): what a poem, poet, meter, rhyme, era, theme, and collection mean.
 - [`docs/search.md`](docs/search.md): Arabic text handling, relevance tiers, snippet selection.
