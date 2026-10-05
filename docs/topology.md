@@ -16,14 +16,15 @@ Readers and API developers reach Qafiyah through Cloudflare. Poet avatars and br
 
 ![Containers: the edge gateway, website, API, databases, search index, search indexer, telemetry proxy, and avatar store](architecture/generated/structurizr/containers.gen.svg)
 
-Everything except the avatar store and the telemetry proxy runs in one `docker compose` project on the VPS, on four networks:
+Everything except the avatar store and the telemetry proxy runs in one `docker compose` project on the VPS, on five networks:
 
 - `edge`: the edge gateway and the website.
 - `backend`: the website and the API.
-- `default`: the website, the API, Postgres, Elasticsearch, the search indexer, the monitor-role job, the three exporters, and Prometheus.
+- `default`: the API, Postgres, Elasticsearch, the search indexer, the monitor-role job, the three exporters, and Prometheus.
 - `observability`: Prometheus, Grafana, Loki, and Alloy.
+- `metrics`: the website, Prometheus, and the blackbox exporter, for the website's metrics push and its health probe.
 
-The website reaches the API over `backend` and Prometheus over `default`; it holds no database or Elasticsearch credentials. Three hosts never touch the VPS, the WAF, or the Compose stack:
+The website shares no network with Postgres or Elasticsearch, and the API trusts forwarded visitor addresses only from `backend`, which carries nothing but the website and the API. Three hosts never touch the VPS, the WAF, or the Compose stack:
 
 - `cdn.qafiyah.com` serves poet avatar images straight from R2 (`poets/<slug>/avatar.webp`). See `data/avatars/README.md`.
 - `ix.qafiyah.com` is PostHog's own managed reverse proxy, provisioned on the Cloudflare side; there's no code for it in this repo.
