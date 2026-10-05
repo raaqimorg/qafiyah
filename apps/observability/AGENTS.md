@@ -42,4 +42,4 @@ The Postgres role is ensured by the one-shot `db-monitor-role` job (`scripts/db/
 
 - Website numbers exclude pages nginx answers from its cache and static files, which never reach Astro.
 - Counts over a window are Prometheus `increase()` estimates: a new series (a route's first request on a replica) counts from its first scrape or push, so up to 15 s of its first observations are not in the window's count.
-- Grafana keeps no volume: its datasource and dashboards are provisioned on every start, and a recreated container (every deploy) asks for the login again.
+- Grafana keeps no volume: its datasource and dashboards are provisioned on every start, and a recreated container (a deploy that changes Grafana's image or config) asks for the login again; a plain restart or an unchanged deploy keeps the session.
