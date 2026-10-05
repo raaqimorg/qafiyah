@@ -14,6 +14,7 @@ pub mod es;
 pub mod extract;
 pub mod js;
 pub mod log;
+pub mod metrics;
 pub mod openapi;
 pub mod params;
 pub mod rate_limit;
@@ -130,6 +131,7 @@ pub fn app(state: AppState) -> Router {
         .layer(from_fn(error::layer))
         .layer(from_fn(log::layer))
         .layer(from_fn(cors::layer))
+        .layer(from_fn_with_state(state.metrics.clone(), metrics::layer))
         .with_state(state)
 }
 

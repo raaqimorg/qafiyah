@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use qafiyah_elasticsearch::Endpoint;
 use reqwest::{Method, StatusCode};
@@ -7,30 +7,45 @@ use serde_json::Value;
 
 use crate::constants::ES_SEARCH_TIMEOUT_SECONDS;
 use crate::domain::StoreError;
+use crate::metrics::Metrics;
 
 pub struct Es {
     endpoint: Endpoint,
     timeout: Duration,
     pub poems_alias: String,
     pub poets_alias: String,
+    metrics: Metrics,
 }
 
 impl Es {
-    pub fn new(url: &str) -> Result<Self, String> {
-        Self::with_timeout(url, Duration::from_secs(ES_SEARCH_TIMEOUT_SECONDS))
+    pub fn new(url: &str, metrics: Metrics) -> Result<Self, String> {
+        Self::with_timeout(url, Duration::from_secs(ES_SEARCH_TIMEOUT_SECONDS), metrics)
     }
 
-    pub fn with_timeout(url: &str, timeout: Duration) -> Result<Self, String> {
+    pub fn with_timeout(url: &str, timeout: Duration, metrics: Metrics) -> Result<Self, String> {
         let identity = qafiyah_elasticsearch::load().identity;
         Ok(Self {
             endpoint: Endpoint::new(url)?,
             timeout,
             poems_alias: identity.poems_alias,
             poets_alias: identity.poets_alias,
+            metrics,
         })
     }
 
     pub async fn search<T: DeserializeOwned>(
+        &self,
+        index: &str,
+        body: &Value,
+    ) -> Result<T, StoreError> {
+        let started = Instant::now();
+        let outcome = self.send_search(index, body).await;
+        self.metrics
+            .observe_search(index, started.elapsed().as_secs_f64());
+        outcome
+    }
+
+    async fn send_search<T: DeserializeOwned>(
         &self,
         index: &str,
         body: &Value,
@@ -108,7 +123,8 @@ mod tests {
         });
 
         let timeout = Duration::from_millis(250);
-        let es = Es::with_timeout(&format!("http://{address}"), timeout).expect("an endpoint");
+        let es = Es::with_timeout(&format!("http://{address}"), timeout, Metrics::default())
+            .expect("an endpoint");
         let outcome = tokio::time::timeout(
             timeout + Duration::from_secs(5),
             es.search::<Value>("poems", &serde_json::json!({})),
@@ -136,7 +152,8 @@ mod tests {
             }),
         )
         .await;
-        let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
+        let client = Es::with_timeout(&es.url, Duration::from_secs(2), Metrics::default())
+            .expect("an endpoint");
 
         let result = client
             .search::<Value>("poems", &serde_json::json!({}))
@@ -168,8 +185,12 @@ mod tests {
                     tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes()).await;
             }
         });
-        let client = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
-            .expect("an endpoint");
+        let client = Es::with_timeout(
+            &format!("http://{address}"),
+            Duration::from_secs(2),
+            Metrics::default(),
+        )
+        .expect("an endpoint");
 
         let result = client
             .search::<Value>("poems", &serde_json::json!({}))
@@ -189,7 +210,8 @@ mod tests {
             serde_json::json!({ "error": "down" }),
         )
         .await;
-        let client = Es::with_timeout(&es.url, Duration::from_secs(2)).expect("an endpoint");
+        let client = Es::with_timeout(&es.url, Duration::from_secs(2), Metrics::default())
+            .expect("an endpoint");
         let result = client
             .search::<Value>("poems", &serde_json::json!({}))
             .await;
@@ -208,7 +230,7 @@ mod tests {
                 serde_json::json!({ "error": "busy" }),
             )
             .await;
-            let es = Es::new(&fake.url).expect("a fake endpoint");
+            let es = Es::new(&fake.url, Metrics::default()).expect("a fake endpoint");
             let result = es.search::<Value>("poems", &serde_json::json!({})).await;
             assert!(
                 matches!(result, Err(StoreError::Unavailable(_))),
@@ -220,7 +242,7 @@ mod tests {
             .expect("an ephemeral port");
         let address = listener.local_addr().expect("a bound address");
         drop(listener);
-        let es = Es::new(&format!("http://{address}")).expect("an endpoint");
+        let es = Es::new(&format!("http://{address}"), Metrics::default()).expect("an endpoint");
         let result = es.search::<Value>("poems", &serde_json::json!({})).await;
         assert!(matches!(result, Err(StoreError::Unavailable(_))));
     }
