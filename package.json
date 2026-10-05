@@ -44,6 +44,7 @@
     "knip": "knip",
     "lint": "oxlint --type-aware --fix .",
     "lint:check": "oxlint --type-aware --deny-warnings .",
+    "observe": "./scripts/observe.sh",
     "openapi:check": "bun scripts/openapi/snapshot.ts --check",
     "openapi:snapshot": "bun scripts/openapi/snapshot.ts",
     "openapi:types": "bun scripts/openapi/types.ts",
