@@ -205,3 +205,57 @@ pub fn histogram_count(families: &[MetricFamily], name: &str, labels: &[(&str, &
         .map(|histogram| histogram.sample_count)
         .sum()
 }
+
+thread_local! {
+    static CAPTURE: std::cell::RefCell<Option<Arc<std::sync::Mutex<Vec<u8>>>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[derive(Clone, Copy, Default)]
+struct ThreadLogs;
+
+impl std::io::Write for ThreadLogs {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        CAPTURE.with(|capture| {
+            if let Some(buffer) = capture.borrow().as_ref()
+                && let Ok(mut buffer) = buffer.lock()
+            {
+                buffer.extend_from_slice(bytes);
+            }
+        });
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for ThreadLogs {
+    type Writer = Self;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        *self
+    }
+}
+
+pub async fn logged(app: Router, request: Request<Body>) -> (Sent, Vec<Value>) {
+    static INSTALLED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    INSTALLED.get_or_init(|| {
+        tracing::subscriber::set_global_default(crate::log::subscriber(
+            crate::log::default_directives("development"),
+            ThreadLogs,
+        ))
+        .expect("one global subscriber for the test binary");
+    });
+    let buffer = Arc::new(std::sync::Mutex::new(Vec::new()));
+    CAPTURE.with(|capture| *capture.borrow_mut() = Some(buffer.clone()));
+    let sent = send(app, request).await;
+    CAPTURE.with(|capture| *capture.borrow_mut() = None);
+    let bytes = buffer.lock().expect("the log buffer").clone();
+    let lines = String::from_utf8_lossy(&bytes)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("every log line is JSON"))
+        .collect();
+    (sent, lines)
+}

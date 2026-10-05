@@ -12,7 +12,6 @@ use crate::constants::{
 };
 use crate::domain::StoreError;
 use crate::domain::poems::PoemError;
-use crate::log::stage_event;
 use crate::sentry;
 
 const PROBLEM_JSON: &str = "application/problem+json";
@@ -227,30 +226,17 @@ impl From<PoemError> for AppError {
     }
 }
 
-#[expect(
-    clippy::print_stderr,
-    reason = "database and search failures are logged to stderr before the response is built"
-)]
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match &self {
             AppError::Database(cause) => {
-                eprintln!(
-                    "{}",
-                    stage_event("query", Some(("error", cause.as_str().into())))
-                );
+                tracing::error!(stage = "query", error = %cause);
             }
             AppError::Search(cause) => {
-                eprintln!(
-                    "{}",
-                    stage_event("search", Some(("error", cause.as_str().into())))
-                );
+                tracing::error!(stage = "search", error = %cause);
             }
             AppError::Unavailable(cause) => {
-                eprintln!(
-                    "{}",
-                    stage_event("unavailable", Some(("error", cause.as_str().into())))
-                );
+                tracing::warn!(stage = "unavailable", error = %cause);
             }
             AppError::NotFound(_)
             | AppError::Unauthorized
