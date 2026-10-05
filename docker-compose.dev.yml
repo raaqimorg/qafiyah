@@ -22,6 +22,12 @@ services:
     mem_limit: 3g
   search-indexer:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-search-indexer
+  db-monitor-role:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-db-monitor-role
+  postgres-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-postgres-exporter
+  elasticsearch-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-elasticsearch-exporter
 
 volumes:
   db_data:

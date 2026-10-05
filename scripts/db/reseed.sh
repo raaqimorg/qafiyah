@@ -38,6 +38,7 @@ docker compose build api search-indexer
 trap 'echo "✗ restore failed, the API is still stopped: fix the cause and rerun bun run db:reseed" >&2' ERR
 docker compose stop api
 docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh
+docker compose run --rm --no-deps db-monitor-role
 docker compose up -d --no-deps --wait api
 trap - ERR
 docker compose run --rm -e SEARCH_INDEXER_FORCE=true search-indexer
