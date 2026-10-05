@@ -352,6 +352,7 @@ services:
         "--storage.tsdb.retention.time=15d",
         "--storage.tsdb.retention.size=1GB",
         "--web.enable-otlp-receiver",
+        "--enable-feature=created-timestamp-zero-ingestion",
       ]
     volumes:
       - ./apps/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
