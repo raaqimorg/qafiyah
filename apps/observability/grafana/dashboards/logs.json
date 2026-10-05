@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Logs from every container in this stack**, collected by Alloy into Loki and kept 14 days; Explore searches all of them. The API logs a request in production only when it failed (5xx), took over two seconds, or found nothing, so **searches that found nothing** lists what people looked for and did not find. These logs hold visitor addresses and search text: they stay private, reached only through the tunnel."
+        "content": "**Logs from every container in this stack**, collected by Alloy into Loki and kept 14 days; Explore searches all of them. The API logs through `tracing`: in production it keeps every error and warning (a 5xx, a request over two seconds, a failed query or search) and every request that found nothing, each with its request span (route, request id, the fields the handler recorded), so **searches that found nothing** lists what people looked for and did not find. These logs hold visitor addresses and search text: they stay private, reached only through the tunnel."
       }
     },
     {
@@ -65,7 +65,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(50, sum by (query_text) (count_over_time({service=\"api\"} | json | __error__=\"\" | result_count = 0 | query_text != \"\" [$__range])))",
+          "expr": "topk(50, sum by (span_query_text) (count_over_time({service=\"api\"} | json | __error__=\"\" | message=\"found nothing\" | span_query_text != \"\" [$__range])))",
           "queryType": "instant"
         }
       ],
@@ -77,7 +77,7 @@
               "Time": true
             },
             "renameByName": {
-              "query_text": "Search text",
+              "span_query_text": "Search text",
               "Value #A": "Times"
             }
           }
@@ -120,7 +120,7 @@
     },
     {
       "type": "logs",
-      "title": "API errors and slow requests",
+      "title": "API errors, failures, and slow requests",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -138,7 +138,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service=\"api\"} | json | __error__=\"\" | status_code >= 500 or duration_ms > 2000",
+          "expr": "{service=\"api\"} | json | __error__=\"\" | level=~\"ERROR|WARN\"",
           "queryType": "range"
         }
       ],
