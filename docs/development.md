@@ -75,6 +75,8 @@ bun run clean           # kill stray astro/qafiyah-api processes from a previous
 bun run reindex         # rebuild the indexer image, then force-rebuild the Elasticsearch indices from Postgres
 ```
 
+`bun run dev` records no metrics (the API and website run on the host without `METRICS_PORT` or an OTLP endpoint). To see the observability dashboards locally, run the full Docker stack (`bun run smoke:stack` leaves nothing running when it ends; for a stack that stays up, see `apps/observability/AGENTS.md`) and open Grafana on `http://127.0.0.1:3300` as `admin` with `GRAFANA_ADMIN_PASSWORD`.
+
 The sample dataset needs no credentials: `scripts/dev/compose.sh` and `scripts/dev/run.ts` default every dev database and Elasticsearch password, so a fresh clone has no `.env` at all. Two things change that:
 
 - **A real dump.** Email dumps@qafiyah.com for a passphrase (`data/db/README.md`), then put `DUMP_KEY__<dump-dir>=<passphrase>` in a root `.env` (gitignored). `bun run db:reset` restores that dump instead of the sample. `bun run dump:key:check` verifies a passphrase without restoring.
