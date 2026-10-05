@@ -9,6 +9,7 @@ import {
   API_V1_PREFIX,
   CF_CONNECTING_IP_HEADER,
   DEV_API_PORT,
+  DEV_GRAFANA_PORT,
   DEV_POSTGRES_PORT,
   DEV_WEB_PORT,
   ES_MAX_RESULT_WINDOW,
@@ -107,6 +108,11 @@ const PINNED: readonly { constant: string; value: string; files: readonly string
   {
     constant: 'DEV_POSTGRES_PORT',
     value: String(DEV_POSTGRES_PORT),
+    files: ['docker-compose.dev.yml'],
+  },
+  {
+    constant: 'DEV_GRAFANA_PORT',
+    value: String(DEV_GRAFANA_PORT),
     files: ['docker-compose.dev.yml'],
   },
   {
