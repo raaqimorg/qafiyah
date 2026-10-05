@@ -31,7 +31,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      docker-phases: ${{ github.event_name == 'workflow_dispatch' && '["db","origin","stack"]' || steps.filter.outputs.changes }}
+      docker-phases: ${{ github.event_name == 'workflow_dispatch' && '["diagrams","db","origin","stack"]' || steps.filter.outputs.changes }}
 
     steps:
       - name: Checkout code without the production dumps and avatars
@@ -88,6 +88,7 @@ jobs:
                 - "!.squawk.toml"
                 - "!.hadolint.yaml"
                 - "!scripts/check/**"
+                - "!scripts/docs/**"
               - "!apps/web/**"
               - "!apps/inspector/**"
               - "!apps/telemetry-proxy/**"
@@ -103,6 +104,9 @@ jobs:
               - *outside-every-docker-phase
               - "!apps/inspector/**"
               - "!apps/telemetry-proxy/**"
+            diagrams:
+              - "docs/architecture/**"
+              - "scripts/docs/**"
 
   gate:
     name: Gate
@@ -178,11 +182,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install the Rust toolchain
-        if: matrix.phase != 'stack'
+        if: matrix.phase == 'db' || matrix.phase == 'origin'
         run: rustup toolchain install
 
       - name: Cache Rust builds
-        if: matrix.phase != 'stack'
+        if: matrix.phase == 'db' || matrix.phase == 'origin'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: docker-${{ matrix.phase }}
