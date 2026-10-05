@@ -105,6 +105,27 @@ async fn serve(config: Config) {
             std::process::exit(1);
         }
     };
+
+    if let Some(port) = config.metrics_port {
+        let metrics_listener = match tokio::net::TcpListener::bind(("0.0.0.0", port)).await {
+            Ok(listener) => listener,
+            Err(e) => {
+                eprintln!(
+                    "{}",
+                    stage_event("bind_metrics", Some(("error", e.to_string().into())))
+                );
+                std::process::exit(1);
+            }
+        };
+        tokio::spawn(
+            axum::serve(
+                metrics_listener,
+                qafiyah_api::metrics::router(metrics.clone()),
+            )
+            .into_future(),
+        );
+    }
+
     println!(
         "{}",
         stage_event("ready", Some(("port", config.port.into())))
@@ -123,26 +144,6 @@ async fn serve(config: Config) {
         state.usage.clone(),
         Arc::new(qafiyah_api::db::usage::PgUsage::new(accounts)),
     );
-
-    if let Some(port) = config.metrics_port {
-        let metrics_listener = match tokio::net::TcpListener::bind(("0.0.0.0", port)).await {
-            Ok(listener) => listener,
-            Err(e) => {
-                eprintln!(
-                    "{}",
-                    stage_event("bind_metrics", Some(("error", e.to_string().into())))
-                );
-                std::process::exit(1);
-            }
-        };
-        tokio::spawn(
-            axum::serve(
-                metrics_listener,
-                qafiyah_api::metrics::router(state.metrics.clone()),
-            )
-            .into_future(),
-        );
-    }
 
     let app = qafiyah_api::app(state);
     match qafiyah_api::serve(listener, app, qafiyah_api::shutdown_signal()).await {
