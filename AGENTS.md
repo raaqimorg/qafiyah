@@ -10,7 +10,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 - `packages/tsconfig/`: the TypeScript config bases (`base`, `astro`, `bun`).
 - `config.ts` (root): constants shared by every TypeScript app and script, imported as `@qafiyah/config` through each `tsconfig.json`'s `paths`. `scripts/check/constants.ts` keeps the Rust side in sync.
 - `scripts/`: repo tooling and CI checks, one `bun run` name per entry point (see `scripts/AGENTS.md`).
-- `docs/`: everything that is not a component guide: `development.md`, `topology.md`, `identity.md`, the conventions files, `domain.md`, `search.md`, `exceptions.md`, and `deployment/` (entry point `docs/deployment/README.md`).
+- `docs/`: everything that is not a component guide: `development.md`, `topology.md`, `identity.md`, the conventions files, `domain.md`, `search.md`, `exceptions.md`, `architecture/` (the C4 model `workspace.dsl` and the diagrams `bun run docs:diagrams` renders from it), and `deployment/` (entry point `docs/deployment/README.md`).
 - `data/`: versioned encrypted snapshots (DB dumps, avatar images), see `data/README.md`.
 - `well-known/`: templates for `robots.txt`, `llms.txt`, and `security.txt`. `llms.api.md`, `robots.api.txt`, and `security.txt` are embedded by the API (`apps/api/src/routes/site.rs`); `llms.web.md`, `robots.web.txt`, and `security.txt` are rendered into `apps/web/src/lib/generated/well-known/` by `bun run well-known:generate`.
 - `secrets/`: SOPS-encrypted env files, see `docs/deployment/secrets.md`.
