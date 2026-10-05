@@ -590,11 +590,11 @@ The API is not just a thin DB connector, and the crate carries no doc comments b
 - **Normal approach:** Rust's own `char::is_whitespace` and `serde_json` number output.
 - **Date:** 2026-09-14
 
-### Production drops most successful-request logs
+### Production logs only the requests worth reading
 
-- **What:** `should_emit` drops about 95% of ordinary successful-request logs in production; errors, slow requests, and empty results are always kept.
+- **What:** in production `should_emit` keeps a request's log line only when it errored (5xx), took over two seconds, or found nothing; every other request is left out. Request counts and latency for every request come from the metrics instead (`apps/observability`).
 - **Where:** `apps/api/src/log.rs`
-- **Why:** keeps the log to the requests worth reading.
+- **Why:** keeps the log to the requests worth reading, including the text of searches that found nothing, which nothing else records.
 - **Normal approach:** log every request and filter by level.
 - **Date:** 2026-09-12
 

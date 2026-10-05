@@ -14,7 +14,6 @@ const SKIP_EXACT: &str = "/v1/openapi.json";
 const SKIP_HEALTH: &str = "/healthz";
 
 const SLOW_REQUEST_MS: u128 = 2000;
-const PROD_SAMPLE_RATE: f64 = 0.05;
 const SERVER_ERROR: u16 = 500;
 
 #[derive(Clone)]
@@ -119,10 +118,7 @@ fn should_emit(
     if status >= SERVER_ERROR || duration_ms > SLOW_REQUEST_MS {
         return true;
     }
-    if fields.get("result_count").and_then(Value::as_u64) == Some(0) {
-        return true;
-    }
-    rand::rng().random::<f64>() < PROD_SAMPLE_RATE
+    fields.get("result_count").and_then(Value::as_u64) == Some(0)
 }
 
 const SOURCE: &str = "api";
@@ -296,5 +292,21 @@ mod tests {
         let mut empty = Map::new();
         empty.insert("result_count".into(), 0.into());
         assert!(should_emit("production", 200, 1, &empty));
+    }
+
+    #[test]
+    fn production_never_logs_a_fast_successful_request_with_results() {
+        let mut found = Map::new();
+        found.insert("result_count".into(), 3.into());
+        for _ in 0..1_000 {
+            assert!(!should_emit("production", 200, 1, &found));
+            assert!(!should_emit("production", 404, 1, &Map::new()));
+            assert!(!should_emit(
+                "production",
+                200,
+                SLOW_REQUEST_MS,
+                &Map::new()
+            ));
+        }
     }
 }
