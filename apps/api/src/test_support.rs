@@ -6,12 +6,15 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Request, StatusCode};
 use axum::routing::post;
 use axum::{Json, Router};
+use prometheus_client::encoding::prometheus_protobuf::prometheus_data_model::MetricFamily;
+use prost::Message;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use crate::auth::Keys;
 use crate::es::client::Es;
+use crate::metrics::Metrics;
 use crate::state::AppState;
 
 const UNREACHABLE_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
@@ -76,12 +79,15 @@ impl FakeEs {
 }
 
 pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
+    let metrics = Metrics::default();
     AppState::new(
         lazy_pool(),
         lazy_pool(),
-        Es::with_timeout(&es.url, Duration::from_secs(2)).expect("a fake endpoint"),
+        Es::with_timeout(&es.url, Duration::from_secs(2), metrics.clone())
+            .expect("a fake endpoint"),
         keys,
         anon_requests,
+        metrics,
     )
 }
 
@@ -163,4 +169,39 @@ impl Rng {
             .expect("fits usize");
         items[index]
     }
+}
+
+pub async fn scrape(metrics: &Metrics) -> Vec<MetricFamily> {
+    let response = crate::metrics::router(metrics.clone())
+        .oneshot(request("GET", "/metrics"))
+        .await
+        .expect("the metrics router is infallible");
+    let mut bytes = to_bytes(response.into_body(), 16 * 1024 * 1024)
+        .await
+        .expect("a readable body");
+    let mut families = Vec::new();
+    while !bytes.is_empty() {
+        families.push(
+            MetricFamily::decode_length_delimited(&mut bytes).expect("a delimited metric family"),
+        );
+    }
+    families
+}
+
+pub fn histogram_count(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> u64 {
+    families
+        .iter()
+        .filter(|family| family.name == name)
+        .flat_map(|family| &family.metric)
+        .filter(|metric| {
+            labels.iter().all(|(key, value)| {
+                metric
+                    .label
+                    .iter()
+                    .any(|pair| pair.name == *key && pair.value == *value)
+            })
+        })
+        .filter_map(|metric| metric.histogram.as_ref())
+        .map(|histogram| histogram.sample_count)
+        .sum()
 }

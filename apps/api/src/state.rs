@@ -18,6 +18,7 @@ use crate::domain::poets::PoetRepository;
 use crate::domain::search::SearchIndex;
 use crate::domain::taxonomy::TaxonomyRepository;
 use crate::es::client::Es;
+use crate::metrics::Metrics;
 use crate::rate_limit::Limiter;
 
 #[derive(Clone)]
@@ -34,6 +35,7 @@ pub struct AppState {
     pub key_cache: Arc<KeyCache>,
     pub usage: Arc<UsageRecorder>,
     pub anon_requests: u32,
+    pub metrics: Metrics,
 }
 
 impl AppState {
@@ -43,6 +45,7 @@ impl AppState {
         search: Es,
         keys: Keys,
         anon_requests: u32,
+        metrics: Metrics,
     ) -> Self {
         Self {
             poems: Arc::new(PgPoems::new(corpus.clone())),
@@ -57,6 +60,7 @@ impl AppState {
             key_cache: Arc::new(KeyCache::default()),
             usage: Arc::new(UsageRecorder::default()),
             anon_requests,
+            metrics,
         }
     }
 }

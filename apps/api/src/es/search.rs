@@ -186,11 +186,13 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
+    use crate::metrics::Metrics;
     use crate::test_support::FakeEs;
 
     async fn answering(response: Value) -> (FakeEs, Es) {
         let fake = FakeEs::serving(StatusCode::OK, response).await;
-        let es = Es::with_timeout(&fake.url, Duration::from_secs(2)).expect("a fake endpoint");
+        let es = Es::with_timeout(&fake.url, Duration::from_secs(2), Metrics::default())
+            .expect("a fake endpoint");
         (fake, es)
     }
 

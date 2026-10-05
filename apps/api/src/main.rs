@@ -86,7 +86,8 @@ async fn serve(config: Config) {
         }
     };
 
-    let es = match Es::new(&config.elasticsearch_url) {
+    let metrics = qafiyah_api::metrics::Metrics::default();
+    let es = match Es::new(&config.elasticsearch_url, metrics.clone()) {
         Ok(es) => es,
         Err(e) => {
             eprintln!("{}", stage_event("boot_es", Some(("error", e.into()))));
@@ -109,7 +110,14 @@ async fn serve(config: Config) {
         stage_event("ready", Some(("port", config.port.into())))
     );
 
-    let state = AppState::new(pg, accounts.clone(), es, config.keys, config.anon_requests);
+    let state = AppState::new(
+        pg,
+        accounts.clone(),
+        es,
+        config.keys,
+        config.anon_requests,
+        metrics,
+    );
     qafiyah_api::rate_limit::sweeper(state.limiter.clone());
     qafiyah_api::accounts::usage::flusher(
         state.usage.clone(),
