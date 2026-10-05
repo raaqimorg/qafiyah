@@ -5,11 +5,17 @@ import {
   resolveSurface,
   STACK_API_KEY_FULL,
   STACK_API_KEY_INTERNAL,
+  STACK_GRAFANA_PASSWORD,
   STACK_SESSION_STATE_SECRET,
   type Surface,
 } from './surfaces';
 
-export { STACK_API_KEY_FULL, STACK_API_KEY_INTERNAL, STACK_SESSION_STATE_SECRET };
+export {
+  STACK_API_KEY_FULL,
+  STACK_API_KEY_INTERNAL,
+  STACK_GRAFANA_PASSWORD,
+  STACK_SESSION_STATE_SECRET,
+};
 
 export const SURFACE: Surface = await resolveSurface();
 export const TARGET = { name: SURFACE.name, manageServer: SURFACE.manageServer } as const;

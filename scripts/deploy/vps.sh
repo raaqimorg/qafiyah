@@ -65,7 +65,7 @@ export SENTRY_RELEASE="$target"
 
 docker compose build api web search-indexer
 
-docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway
+docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter prometheus loki alloy grafana
 tag_db_container "$(docker compose ps -q db)"
 
 rollout api

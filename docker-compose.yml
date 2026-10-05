@@ -96,6 +96,7 @@ services:
       API_KEY_INTERNAL: ${API_KEY_INTERNAL:-}
       API_KEY_FULL: ${API_KEY_FULL:-}
       ANON_REQUESTS: ${ANON_REQUESTS:-}
+      METRICS_PORT: "9464"
     networks:
       default:
       backend:
@@ -115,7 +116,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
     <<: *default-logging
-    mem_limit: 512m
+    mem_limit: 768m
     cpus: 1.0
     pids_limit: 512
     security_opt:
@@ -133,6 +134,7 @@ services:
       OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
       OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
       SESSION_STATE_SECRET: ${SESSION_STATE_SECRET:-}
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
     networks:
       default:
       edge:
@@ -234,12 +236,239 @@ services:
       DATABASE_URL: postgresql://qafiyah_api:${PG_READER_PASSWORD:?PG_READER_PASSWORD is required (set it in .env)}@db:5432/${POSTGRES_DB:-qafiyah}
       ELASTICSEARCH_URL: http://elastic:${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required (set it in .env)}@elasticsearch:9200
       ES_READER_PASSWORD: ${ES_READER_PASSWORD:?ES_READER_PASSWORD is required (set it in .env)}
+      ES_MONITOR_PASSWORD: ${ES_MONITOR_PASSWORD:?ES_MONITOR_PASSWORD is required (set it in .env)}
+
+  db-monitor-role:
+    image: postgres:18-alpine
+    container_name: qafiyah-db-monitor-role
+    restart: "no"
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/monitor-role.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-qafiyah}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (set it in .env)}
+      PGDATABASE: ${POSTGRES_DB:-qafiyah}
+      PG_MONITOR_PASSWORD: ${PG_MONITOR_PASSWORD:?PG_MONITOR_PASSWORD is required (set it in .env)}
+    volumes:
+      - ./scripts/db/monitor-role.sh:/monitor-role.sh:ro
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: qafiyah-postgres-exporter
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    depends_on:
+      db-monitor-role:
+        condition: service_completed_successfully
+    command:
+      [
+        "--collector.stat_statements",
+        "--collector.stat_statements.include_query",
+        "--collector.stat_statements.query_length=1000",
+        "--collector.stat_statements.exclude_users=qafiyah_monitor",
+      ]
+    environment:
+      DATA_SOURCE_URI: db:5432/${POSTGRES_DB:-qafiyah}?sslmode=disable
+      DATA_SOURCE_USER: qafiyah_monitor
+      DATA_SOURCE_PASS: ${PG_MONITOR_PASSWORD:?PG_MONITOR_PASSWORD is required (set it in .env)}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9187/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch-exporter:
+    image: prometheuscommunity/elasticsearch-exporter:v1.11.0
+    container_name: qafiyah-elasticsearch-exporter
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    depends_on:
+      search-indexer:
+        condition: service_completed_successfully
+    command: ["--es.uri=http://elasticsearch:9200"]
+    environment:
+      ES_USERNAME: qafiyah_monitor
+      ES_PASSWORD: ${ES_MONITOR_PASSWORD:?ES_MONITOR_PASSWORD is required (set it in .env)}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9114/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: qafiyah-blackbox-exporter
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9115/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    container_name: qafiyah-prometheus
+    restart: unless-stopped
+    stop_grace_period: 30s
+    <<: *default-logging
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    command:
+      [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--storage.tsdb.retention.time=15d",
+        "--storage.tsdb.retention.size=1GB",
+        "--web.enable-otlp-receiver",
+        "--enable-feature=created-timestamp-zero-ingestion",
+      ]
+    volumes:
+      - ./apps/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      default:
+      observability:
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    container_name: qafiyah-grafana
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required (set it in .env)}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/health.json
+    volumes:
+      - ./apps/observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./apps/observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./apps/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - observability
+
+  loki:
+    image: grafana/loki:3.7.8
+    container_name: qafiyah-loki
+    restart: unless-stopped
+    stop_grace_period: 30s
+    <<: *default-logging
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./apps/observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - observability
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: qafiyah-alloy
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cgroup: host
+    depends_on:
+      loki:
+        condition: service_started
+    command:
+      [
+        "run",
+        "/etc/alloy/config.alloy",
+        "--storage.path=/var/lib/alloy/data",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--disable-reporting",
+      ]
+    environment:
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-qafiyah}
+    volumes:
+      - ./apps/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host/root:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - observability
 
 volumes:
   db_data:
     name: qafiyah-db-data
   es_data:
     name: qafiyah-es-data
+  prometheus_data:
+    name: qafiyah-prometheus-data
+  loki_data:
+    name: qafiyah-loki-data
+  alloy_data:
+    name: qafiyah-alloy-data
 
 networks:
   default:
@@ -251,6 +480,7 @@ networks:
     ipam:
       config:
         - subnet: 172.27.0.0/24
+  observability:
 
 secrets:
   sentry_auth_token:

@@ -14,6 +14,7 @@ pub mod es;
 pub mod extract;
 pub mod js;
 pub mod log;
+pub mod metrics;
 pub mod openapi;
 pub mod params;
 pub mod rate_limit;
@@ -40,6 +41,7 @@ use axum::{BoxError, Router};
 use tower::ServiceBuilder;
 use tower::timeout::TimeoutLayer;
 use tower::timeout::error::Elapsed;
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -128,15 +130,14 @@ pub fn app(state: AppState) -> Router {
                 ))),
         )
         .layer(from_fn(error::layer))
-        .layer(from_fn(log::layer))
+        .layer(PropagateRequestIdLayer::x_request_id())
+        .layer(log::trace())
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(from_fn(cors::layer))
+        .layer(from_fn_with_state(state.metrics.clone(), metrics::layer))
         .with_state(state)
 }
 
-#[expect(
-    clippy::print_stdout,
-    reason = "the drain notice is one structured line on stdout"
-)]
 pub async fn shutdown_signal() {
     let interrupt = async {
         let _interrupt = tokio::signal::ctrl_c().await;
@@ -153,7 +154,7 @@ pub async fn shutdown_signal() {
         () = interrupt => {},
         () = terminate => {},
     }
-    println!("{}", log::stage_event("draining", None));
+    tracing::info!(stage = "draining");
 }
 
 async fn method_not_allowed(method: Method, uri: OriginalUri) -> AppError {

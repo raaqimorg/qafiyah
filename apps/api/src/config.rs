@@ -6,6 +6,7 @@ pub struct Config {
     pub database_url_accounts: String,
     pub elasticsearch_url: String,
     pub port: u16,
+    pub metrics_port: Option<u16>,
     pub environment: String,
     pub keys: Keys,
     pub anon_requests: u32,
@@ -50,6 +51,13 @@ impl Config {
         let full_key =
             required_in_production("API_KEY_FULL", lookup("API_KEY_FULL"), &environment)?;
         let required = |name: &str| lookup(name).ok_or_else(|| format!("{name} is required"));
+        let metrics_port = lookup("METRICS_PORT")
+            .map(|value| {
+                value
+                    .parse::<u16>()
+                    .map_err(|_| "METRICS_PORT must be a port number".to_string())
+            })
+            .transpose()?;
         Ok(Self {
             database_url: required("DATABASE_URL")?,
             database_url_accounts: required("DATABASE_URL_ACCOUNTS")?,
@@ -57,6 +65,7 @@ impl Config {
             port: lookup("PORT")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(default_port),
+            metrics_port,
             keys: Keys::new(internal_key, full_key),
             anon_requests: anon_requests(lookup("ANON_REQUESTS").as_deref(), &environment),
             environment,
@@ -183,5 +192,30 @@ mod tests {
         .expect("a config");
         assert_eq!(config.anon_requests, 40);
         assert_eq!(config.port, 9000);
+    }
+
+    #[test]
+    fn the_metrics_port_is_optional_but_never_silently_wrong() {
+        let base = [
+            ("DATABASE_URL", "x"),
+            ("DATABASE_URL_ACCOUNTS", "y"),
+            ("ELASTICSEARCH_URL", "z"),
+        ];
+        let unset = Config::from_vars(vars(&base), 1).expect("a config");
+        assert_eq!(unset.metrics_port, None);
+        let mut set = base.to_vec();
+        set.push(("METRICS_PORT", "9464"));
+        assert_eq!(
+            Config::from_vars(vars(&set), 1)
+                .expect("a config")
+                .metrics_port,
+            Some(9464)
+        );
+        let mut bad = base.to_vec();
+        bad.push(("METRICS_PORT", "nine"));
+        assert_eq!(
+            Config::from_vars(vars(&bad), 1).err(),
+            Some("METRICS_PORT must be a port number".into())
+        );
     }
 }

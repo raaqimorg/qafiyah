@@ -47,20 +47,13 @@ impl UsageRecorder {
     }
 }
 
-#[expect(
-    clippy::print_stderr,
-    reason = "a failed usage flush reports to stderr and keeps the recorder draining"
-)]
 pub fn flusher(recorder: Arc<UsageRecorder>, usage: Arc<dyn UsageRepository>) {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(std::time::Duration::from_secs(USAGE_FLUSH_SECONDS));
         loop {
             ticker.tick().await;
             if let Err(e) = recorder.flush(usage.as_ref()).await {
-                eprintln!(
-                    "{}",
-                    crate::log::stage_event("usage_flush", Some(("error", e.to_string().into())))
-                );
+                tracing::error!(stage = "usage_flush", error = %e);
             }
         }
     });

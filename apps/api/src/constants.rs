@@ -55,7 +55,6 @@ pub const RATE_LIMIT_REMAINING_HEADER: &str = "x-ratelimit-remaining";
 pub const RATE_LIMIT_RESET_HEADER: &str = "x-ratelimit-reset";
 
 pub const SITE_NAME_EN: &str = "Qafiyah";
-pub const API_SERVICE_NAME: &str = "qafiyah-api";
 pub const API_DOCS_PATH: &str = "/v1/docs";
 pub const FAVICON_EMOJI: &str = "\u{1F4DC}";
 pub const FAVICON_CACHE_CONTROL: &str = "public, max-age=2592000, immutable";

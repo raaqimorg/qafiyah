@@ -4,6 +4,8 @@ mod catalog;
 mod cors;
 mod errors;
 mod go;
+mod logging;
+mod metrics;
 mod parsing;
 mod rate_limit;
 mod routing;

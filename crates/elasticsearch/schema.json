@@ -534,6 +534,8 @@
     "poetsPrefix": "poets_v",
     "apiUsername": "qafiyah_api",
     "apiRole": "qafiyah_reader",
+    "monitorUsername": "qafiyah_monitor",
+    "monitorRole": "qafiyah_monitor_role",
     "bulkBatchSize": 1000
   }
 }

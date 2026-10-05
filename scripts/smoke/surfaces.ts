@@ -1,6 +1,7 @@
 import {
   DEV_API_PORT,
   DEV_EDGE_PORT,
+  DEV_GRAFANA_PORT,
   DEV_WEB_PORT,
   PROD_API_URL,
   PROD_DOMAIN,
@@ -16,12 +17,14 @@ export type Host = 'web' | 'api';
 export const STACK_API_KEY_FULL = 'dev-stack-full';
 export const STACK_API_KEY_INTERNAL = 'dev-stack-internal';
 export const STACK_SESSION_STATE_SECRET = 'dev-stack-session-secret';
+export const STACK_GRAFANA_PASSWORD = 'dev-stack-grafana';
 
 export type Surface = {
   readonly name: SurfaceName;
   readonly web: string;
   readonly api: string;
   readonly edgePort: number;
+  readonly grafana: string | null;
   readonly manageServer: boolean;
   readonly prodOnly: boolean;
 };
@@ -53,6 +56,7 @@ export async function resolveSurface(): Promise<Surface> {
       web: `http://localhost:${DEV_WEB_PORT + offset}`,
       api: `http://localhost:${DEV_API_PORT + offset}`,
       edgePort: DEV_EDGE_PORT + offset,
+      grafana: null,
       manageServer: true,
       prodOnly: false,
     };
@@ -63,6 +67,7 @@ export async function resolveSurface(): Promise<Surface> {
       web: `http://localhost:${DEV_EDGE_PORT + offset}`,
       api: `http://localhost:${DEV_EDGE_PORT + offset}`,
       edgePort: DEV_EDGE_PORT + offset,
+      grafana: `http://localhost:${DEV_GRAFANA_PORT + offset}`,
       manageServer: true,
       prodOnly: false,
     };
@@ -73,6 +78,7 @@ export async function resolveSurface(): Promise<Surface> {
       web: PROD_SITE_URL,
       api: PROD_API_URL,
       edgePort: 443,
+      grafana: null,
       manageServer: false,
       prodOnly: true,
     };

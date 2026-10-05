@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::extract::{Extension, State};
+use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
@@ -13,7 +13,6 @@ use crate::domain::search::{self, PoetSearchParams, PoetSort};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
-use crate::log::LogHandle;
 use crate::openapi::{ListErrors, LookupErrors};
 use crate::params::{
     AnyPage, FourLetterSlug, NoParams, Page, SearchText, SlugsParams, TransliteratedSlug,
@@ -50,7 +49,6 @@ pub(crate) struct PoetsParams {
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<PoetsParams>,
 ) -> Result<Json<ListEnvelope<PoetListItem>>, AppError> {
     let page = params.page.map_or(1, Page::get);
@@ -73,9 +71,9 @@ pub(crate) async fn list(
         })
         .await?;
 
-    log.set("result_count", found.total);
-    log.set("page", page);
-    log.set("page_size", POEMS_PER_PAGE);
+    crate::log::record_results(u64::from(found.total));
+    tracing::Span::current().record("page", page);
+    tracing::Span::current().record("page_size", POEMS_PER_PAGE);
     let envelope = ListEnvelope {
         data: found.hits.into_iter().map(PoetListItem::from).collect(),
         pagination: build_pagination(page, POEMS_PER_PAGE, found.total),
@@ -97,7 +95,6 @@ pub(crate) async fn list(
 )]
 pub(crate) async fn list_slugs(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<SlugsParams>,
 ) -> Result<Json<ListEnvelope<PoetSlugEntry>>, AppError> {
     let page = params.page.map_or(1, AnyPage::get);
@@ -105,11 +102,8 @@ pub(crate) async fn list_slugs(
         state.poets.list_slugs(page, SITEMAP_POETS_PER_SHARD),
         state.poets.count_with_poems()
     )?;
-    log.set(
-        "result_count",
-        u64::try_from(data.len()).unwrap_or(u64::MAX),
-    );
-    log.set("page", page);
+    crate::log::record_results(u64::try_from(data.len()).unwrap_or(u64::MAX));
+    tracing::Span::current().record("page", page);
     let envelope = ListEnvelope {
         data: data.into_iter().map(PoetSlugEntry::from).collect(),
         pagination: build_pagination(page, SITEMAP_POETS_PER_SHARD, total.cast_unsigned()),
@@ -134,18 +128,17 @@ pub(crate) async fn list_slugs(
 )]
 pub(crate) async fn detail(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Response, AppError> {
     let slug = FourLetterSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
     let slug = slug.as_str();
-    log.set("poet_id", slug);
+    tracing::Span::current().record("poet_id", slug);
     let Some(poet) = state.poets.get(slug).await? else {
         let Some(survivor) = state.poets.alias_target(slug).await? else {
             return Err(AppError::NotFound(Resource::Poet));
         };
-        log.set("alias_of", survivor.clone());
+        tracing::Span::current().record("alias_of", survivor.as_str());
         return Ok(permanent_redirect(
             &format!("{API_V1_PREFIX}/poets/{survivor}"),
             READ_CACHE_CONTROL,

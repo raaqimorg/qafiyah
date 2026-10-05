@@ -22,12 +22,36 @@ services:
     mem_limit: 3g
   search-indexer:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-search-indexer
+  db-monitor-role:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-db-monitor-role
+  postgres-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-postgres-exporter
+  elasticsearch-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-elasticsearch-exporter
+  blackbox-exporter:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-blackbox-exporter
+  prometheus:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-prometheus
+  loki:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-loki
+  alloy:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-alloy
+  grafana:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-grafana
+    ports: !override
+      - "127.0.0.1:${DEV_GRAFANA_PORT:-3300}:3000"
 
 volumes:
   db_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-db-data
   es_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-es-data
+  prometheus_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-prometheus-data
+  loki_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-loki-data
+  alloy_data:
+    name: qafiyah-dev${DEV_SUFFIX:-}-alloy-data
 
 networks:
   edge:

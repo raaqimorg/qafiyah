@@ -9,7 +9,7 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 - `pg.rs`: `PgCorpus`, the `CorpusSource` adapter: the batched streaming reads through Diesel, over the schema in `crates/corpus`. A poem page is two queries, its rows and then their verses, and each poem's content is its hemistichs joined by `*`.
 - `docs.rs`: row to document mapping (`to_poem_doc`, `to_poet_doc`), and `Document`, the typed poem or poet the job hands to `IndexStore::bulk`.
 - `arabic.rs`: tashkeel stripping and the sort folding derived from the schema's char filter. `arabic-text.vectors.json` is the fixture the `matches_the_shared_vectors` test pins this crate's output to.
-- `es.rs`: the Elasticsearch client, which implements `IndexStore` (create index, bulk, which serializes each `Document` and fails the batch if one cannot be serialized, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap, alias counts, and the read-only role and user for the API).
+- `es.rs`: the Elasticsearch client, which implements `IndexStore` (create index, bulk, which serializes each `Document` and fails the batch if one cannot be serialized, refresh-interval toggling, the force merge with its own 30-minute timeout, alias swap, alias counts, and the read-only role and user for the API, and the monitor role, which holds only the cluster `monitor` privilege, and its user for elasticsearch_exporter).
 - `error.rs`: `IndexerError`, which says which side failed (configuration, Postgres, or Elasticsearch) and keeps each failure's message.
 - `log.rs`: one-line structured log output.
 
@@ -20,6 +20,7 @@ Rust binary that builds the Elasticsearch indices `apps/api` searches. It reads 
 | `DATABASE_URL`         | Postgres, the read-only `qafiyah_api` role                       |
 | `ELASTICSEARCH_URL`    | Elasticsearch as the `elastic` superuser (it creates the reader) |
 | `ES_READER_PASSWORD`   | password to set on the read-only Elasticsearch user              |
+| `ES_MONITOR_PASSWORD`  | password to set on the monitor user elasticsearch_exporter uses  |
 | `SEARCH_INDEXER_FORCE` | `true` rebuilds even when the aliases already hold documents     |
 
 ## Tests
