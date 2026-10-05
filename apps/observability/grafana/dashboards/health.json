@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Up** means the last check passed: an HTTP probe of `/healthz` for the API and the website, the exporter's connection for Postgres, and a reachable cluster that is not red for Elasticsearch. **Unknown** means there is no data, so the check itself is not running; it never means up. **Metrics freshness** shows when Prometheus last scraped the API and when the website last pushed its numbers, so an empty latency view reads as a broken pipe, not as no traffic."
+        "content": "**Up** means the last check passed: an HTTP probe of `/healthz` for the API and the website, the exporter's connection for Postgres, and a reachable cluster that is not red for Elasticsearch. **Unknown** means there is no data, so the check itself is not running; it never means up. **Metrics freshness** shows when Prometheus last scraped the API and when the website last pushed its numbers, so an empty latency view reads as a broken pipe, not as no traffic, and whether Loki (logs) and Alloy (log shipping, container and host metrics) are up."
       }
     },
     {
@@ -591,6 +591,28 @@
           "instant": false,
           "range": true,
           "legendFormat": "Website pushed"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"loki\"})",
+          "instant": false,
+          "range": true,
+          "legendFormat": "Loki"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"containers\"})",
+          "instant": false,
+          "range": true,
+          "legendFormat": "Alloy"
         }
       ],
       "fieldConfig": {
@@ -643,6 +665,70 @@
                       },
                       "0": {
                         "text": "not all",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "D"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "up",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "0": {
+                        "text": "down",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "up",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "0": {
+                        "text": "down",
                         "color": "red",
                         "index": 1
                       }
