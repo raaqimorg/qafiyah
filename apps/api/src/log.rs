@@ -11,6 +11,7 @@ use crate::constants::{API_SERVICE_NAME, UNKNOWN_ENVIRONMENT};
 
 const SKIP_PREFIX: &str = "/v1/docs";
 const SKIP_EXACT: &str = "/v1/openapi.json";
+const SKIP_HEALTH: &str = "/healthz";
 
 const SLOW_REQUEST_MS: u128 = 2000;
 const PROD_SAMPLE_RATE: f64 = 0.05;
@@ -137,7 +138,10 @@ pub fn stage_event(stage: &str, detail: Option<(&str, Value)>) -> String {
 }
 
 fn should_skip(path: &str) -> bool {
-    path == SKIP_EXACT || path == SKIP_PREFIX || path.starts_with("/v1/docs/")
+    path == SKIP_EXACT
+        || path == SKIP_HEALTH
+        || path == SKIP_PREFIX
+        || path.starts_with("/v1/docs/")
 }
 
 #[expect(
@@ -265,6 +269,13 @@ mod tests {
         assert!(!should_skip("/v1/search"));
         assert!(!should_skip("/v1/poems/random"));
         assert!(!should_skip("/v1/docsXYZ"));
+    }
+
+    #[test]
+    fn skips_the_health_check_that_the_probes_and_docker_call_every_few_seconds() {
+        assert!(should_skip("/healthz"));
+        assert!(!should_skip("/healthz/x"));
+        assert!(!should_skip("/v1/healthz"));
     }
 
     #[test]
