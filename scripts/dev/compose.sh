@@ -16,6 +16,9 @@ dev_default PG_READER_PASSWORD qafiyah-dev-pg-reader
 dev_default PG_ACCOUNTS_PASSWORD qafiyah-dev-pg-accounts
 dev_default ELASTIC_PASSWORD qafiyah-dev-es
 dev_default ES_READER_PASSWORD qafiyah-dev-reader
+dev_default PG_MONITOR_PASSWORD qafiyah-dev-pg-monitor
+dev_default ES_MONITOR_PASSWORD qafiyah-dev-es-monitor
+dev_default GRAFANA_ADMIN_PASSWORD qafiyah-dev-grafana
 
 worktree_flag=false
 args=()

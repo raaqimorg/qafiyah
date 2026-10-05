@@ -1,4 +1,4 @@
-use axum::extract::{Extension, State};
+use axum::extract::State;
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -15,7 +15,6 @@ use crate::domain::poems::{self, Facets, RandomPoemOption};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
-use crate::log::LogHandle;
 use crate::openapi::{ListErrors, LookupErrors};
 use crate::params::{
     AnyPage, FourLetterSlug, NoParams, PoetSlugs, RandomPoemOptionParam, SlugsParams, TermSlugs,
@@ -70,7 +69,6 @@ pub(crate) struct PoemsParams {
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<PoemsParams>,
 ) -> Result<Json<ListEnvelope<PoemListItem>>, AppError> {
     let page = params.page.map_or(1, AnyPage::get);
@@ -87,10 +85,10 @@ pub(crate) async fn list(
         data: poems.into_iter().map(PoemListItem::from).collect(),
         pagination: build_pagination(page, POEMS_PER_PAGE, total.cast_unsigned()),
     };
-    log.set("result_count", total);
-    log.set("page", page);
-    log.set("page_size", POEMS_PER_PAGE);
-    log.set("total_pages", envelope.pagination.total_pages);
+    crate::log::record_results(u64::try_from(total).unwrap_or(0));
+    tracing::Span::current().record("page", page);
+    tracing::Span::current().record("page_size", POEMS_PER_PAGE);
+    tracing::Span::current().record("total_pages", envelope.pagination.total_pages);
     Ok(Json(envelope))
 }
 
@@ -108,7 +106,6 @@ pub(crate) async fn list(
 )]
 pub(crate) async fn list_slugs(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<SlugsParams>,
 ) -> Result<Json<ListEnvelope<String>>, AppError> {
     let page = params.page.map_or(1, AnyPage::get);
@@ -116,11 +113,8 @@ pub(crate) async fn list_slugs(
         state.poems.list_slugs(page, SITEMAP_POEMS_PER_SHARD),
         state.poems.count()
     )?;
-    log.set(
-        "result_count",
-        u64::try_from(data.len()).unwrap_or(u64::MAX),
-    );
-    log.set("page", page);
+    crate::log::record_results(u64::try_from(data.len()).unwrap_or(u64::MAX));
+    tracing::Span::current().record("page", page);
     let envelope = ListEnvelope {
         data,
         pagination: build_pagination(page, SITEMAP_POEMS_PER_SHARD, total.cast_unsigned()),
@@ -141,11 +135,10 @@ pub(crate) async fn list_slugs(
 )]
 pub(crate) async fn count(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<Total>>, AppError> {
     let total = state.poems.count().await?;
-    log.set("result_count", total);
+    crate::log::record_results(u64::try_from(total).unwrap_or(0));
     Ok(Json(ItemEnvelope {
         data: Total { total },
     }))
@@ -186,11 +179,10 @@ pub(crate) struct FacetsParams {
 )]
 pub(crate) async fn facet_counts(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<FacetsParams>,
 ) -> Result<Json<ItemEnvelope<PoemFacets>>, AppError> {
     let poet = params.poet.into_inner();
-    log.set("poet_id", poet.clone());
+    tracing::Span::current().record("poet_id", poet.as_str());
     let facets = Facets {
         poet: vec![poet],
         meter: params.meter.into_strings(),
@@ -221,7 +213,6 @@ pub(crate) async fn facet_counts(
 )]
 pub(crate) async fn detail(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Response, AppError> {
@@ -231,18 +222,18 @@ pub(crate) async fn detail(
         let Some(survivor) = state.poems.alias_target(slug).await? else {
             return Err(AppError::NotFound(Resource::Poem));
         };
-        log.set("poem_id", slug);
-        log.set("alias_of", survivor.clone());
+        tracing::Span::current().record("poem_id", slug);
+        tracing::Span::current().record("alias_of", survivor.as_str());
         return Ok(permanent_redirect(
             &format!("{API_V1_PREFIX}/poems/{survivor}"),
             READ_CACHE_CONTROL,
         ));
     };
-    log.set("poem_id", slug);
-    log.set("poet_id", poem.poet.slug.clone());
-    log.set("era", poem.era.slug.clone());
-    log.set("meter", poem.meter.slug.clone());
-    log.set("theme", poem.theme.slug.clone());
+    tracing::Span::current().record("poem_id", slug);
+    tracing::Span::current().record("poet_id", poem.poet.slug.as_str());
+    tracing::Span::current().record("era", poem.era.slug.as_str());
+    tracing::Span::current().record("meter", poem.meter.slug.as_str());
+    tracing::Span::current().record("theme", poem.theme.slug.as_str());
     Ok(Json(ItemEnvelope {
         data: PoemDetail::from(poem),
     })

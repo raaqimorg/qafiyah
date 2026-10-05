@@ -13,6 +13,9 @@ const VALID_PROD = [
   'PG_ACCOUNTS_PASSWORD=accounts-password-003',
   'ELASTIC_PASSWORD=elastic-password-00004',
   'ES_READER_PASSWORD=es-reader-password-05',
+  'PG_MONITOR_PASSWORD=pg-monitor-password-10',
+  'ES_MONITOR_PASSWORD=es-monitor-password-11',
+  'GRAFANA_ADMIN_PASSWORD=grafana-admin-password-12',
   'ENVIRONMENT=production',
   `API_KEY_INTERNAL=${HEX_A}`,
   `API_KEY_FULL=${HEX_B}`,
@@ -43,7 +46,7 @@ describe('checkDecryptedValues', () => {
   test('a key set twice is reported with both lines', () => {
     const text = `${VALID_PROD}\nAPI_KEY_FULL=${HEX_B}`;
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'API_KEY_FULL is set 2 times (lines 8, 21)'
+      'API_KEY_FULL is set 2 times (lines 11, 24)'
     );
   });
 

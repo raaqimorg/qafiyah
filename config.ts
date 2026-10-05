@@ -63,3 +63,4 @@ export const DEV_INSPECTOR_PORT = 4322;
 
 export const DEV_ES_PORT = 9201;
 export const DEV_EDGE_PORT = 8090;
+export const DEV_GRAFANA_PORT = 3300;

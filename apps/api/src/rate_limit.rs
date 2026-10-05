@@ -15,7 +15,6 @@ use crate::constants::{
     RATE_LIMIT_SWEEP_SECONDS, SECONDS_PER_HOUR, VISITOR_REQUESTS, WINDOW_SECONDS,
 };
 use crate::error::AppError;
-use crate::log::LogHandle;
 use crate::state::AppState;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -288,9 +287,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         None
     };
     if state.keys.is_unlimited(key) && visitor.is_none() {
-        if let Some(log) = request.extensions().get::<LogHandle>() {
-            log.set("keyed", true);
-        }
+        tracing::Span::current().record("keyed", true);
         return next.run(request).await;
     }
 
@@ -320,15 +317,14 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         state.usage.record(caller.key_id, hour_of(now));
     }
 
-    if let Some(log) = request.extensions().get::<LogHandle>() {
-        log.set(
-            "rate_limit_remaining",
-            i64::from(outcome.reported.remaining),
-        );
-        log.set("keyed", caller.is_some() || visitor.is_some());
-        if let Some(caller) = caller {
-            log.set("api_key_id", caller.key_id);
-        }
+    let span = tracing::Span::current();
+    span.record(
+        "rate_limit_remaining",
+        i64::from(outcome.reported.remaining),
+    );
+    span.record("keyed", caller.is_some() || visitor.is_some());
+    if let Some(caller) = caller {
+        span.record("api_key_id", caller.key_id);
     }
 
     if !outcome.allowed {

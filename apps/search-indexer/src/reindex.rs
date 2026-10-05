@@ -39,6 +39,12 @@ pub(crate) trait IndexStore: Send + Sync {
         password: &str,
         index_patterns: &[String],
     ) -> Result<(), IndexerError>;
+    async fn ensure_monitor_user(
+        &self,
+        role: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<(), IndexerError>;
 }
 
 pub(crate) struct Progress<'a> {
@@ -65,6 +71,7 @@ pub(crate) struct Ctx<'a> {
 pub(crate) struct Plan<'a> {
     pub schema: &'a Schema,
     pub reader_password: &'a str,
+    pub monitor_password: &'a str,
     pub force: bool,
 }
 
@@ -199,6 +206,13 @@ where
                 format!("{}*", id.poems_prefix),
                 format!("{}*", id.poets_prefix),
             ],
+        )
+        .await?;
+    index
+        .ensure_monitor_user(
+            &id.monitor_role,
+            &id.monitor_username,
+            plan.monitor_password,
         )
         .await?;
 
@@ -399,6 +413,7 @@ mod tests {
         indices: Mutex<BTreeMap<String, Stored>>,
         aliases: Mutex<BTreeMap<String, String>>,
         readers: Mutex<Vec<(String, Vec<String>)>>,
+        monitors: Mutex<Vec<String>>,
         rejects_writes: bool,
     }
 
@@ -530,6 +545,18 @@ mod tests {
                 .push((username.to_string(), index_patterns.to_vec()));
             Ok(())
         }
+        async fn ensure_monitor_user(
+            &self,
+            _: &str,
+            username: &str,
+            _: &str,
+        ) -> Result<(), IndexerError> {
+            self.monitors
+                .lock()
+                .expect("monitors")
+                .push(username.to_string());
+            Ok(())
+        }
     }
 
     async fn reindex_poets(
@@ -647,6 +674,7 @@ mod tests {
             &Plan {
                 schema: &schema,
                 reader_password: "secret",
+                monitor_password: "watch",
                 force,
             },
             || async {
@@ -737,6 +765,18 @@ mod tests {
                     format!("{}*", identity.poets_prefix),
                 ]
             )]
+        );
+    }
+
+    #[tokio::test]
+    async fn every_run_ensures_the_monitor_user_even_when_it_skips() {
+        let identity = qafiyah_elasticsearch::load().identity;
+        let cluster = serving_both();
+        let (outcome, _) = boot(&cluster, false).await;
+        assert_eq!(outcome, Ok(Outcome::Skipped));
+        assert_eq!(
+            *cluster.monitors.lock().expect("monitors"),
+            [identity.monitor_username]
         );
     }
 }

@@ -36,7 +36,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### Deploys build images on the production VPS over SSH
 
-- **What:** `bun run deploy` concatenates shell files, uploads them over SSH to a temporary file on the host, and runs it there with stdin from `/dev/null`; it runs `git reset --hard`, builds every image on the 4 GB production box, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` the same way before it restores.
+- **What:** `bun run deploy` concatenates shell files, uploads them over SSH to a temporary file on the host, and runs it there with stdin from `/dev/null`; it runs `git reset --hard`, builds every image on the 8 GB production box, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` the same way before it restores.
 - **Where:** `scripts/deploy/vps.sh`, `scripts/lib/remote.sh`, `scripts/db/reseed.sh`, `scripts/es/reindex-prod.sh`, `.github/workflows/images.yml`, `.claude/skills/deploy/SKILL.md`, `docs/deployment/architecture.md`
 - **Why it's unusual:** release Rust builds (`lto = true`, one codegen unit) and the Astro build compete with the live stack for memory, which is why the docs keep swap. With no registry, rollback means reverting main and rebuilding. The Images workflow builds each image and throws it away. `rollout()` reimplements the docker-rollout plugin with fixed timings (a 150-second health deadline and a 7-second settle).
 - **Normal approach:** CI builds on merge and pushes SHA-tagged images to GHCR, the VPS runs `docker compose pull` and `docker rollout` (or Kamal), and rollback redeploys the previous tag.
@@ -52,7 +52,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### Dev stacks are documented as running on the production VPS
 
-- **What:** the dev override renames containers, ports, volumes, and subnets so a dev clone can run beside production on the same 4 GB host.
+- **What:** the dev override renames containers, ports, volumes, and subnets so a dev clone can run beside production on the same 8 GB host.
 - **Where:** `docker-compose.dev.yml`, `docs/deployment/architecture.md` ("Prod vs dev isolation (both on one host)"), `docs/topology.md`
 - **Why it's unusual:** production limits already add up to about 3 GB before a rollout doubles `api` and `web`, and the dev override alone gives Elasticsearch a 1500m heap and `mem_limit: 3g`, so a dev run can push production into OOM.
 - **Normal approach:** develop on laptops or a separate staging VM, and keep the production host for production.
@@ -106,12 +106,12 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 - **Normal approach:** a maintained primitive (shadcn Popover with cmdk, Headless UI `Listbox multiple`, or React Aria), or a checkbox group in a `<fieldset>` with a `<legend>`.
 - **Status:** Needs review
 
-### The API's logging, request ids, and error reporting are hand-rolled
+### The API reports errors to Sentry by hand
 
-- **What:** request logs are `println!` of a `serde_json::Map` gathered through an `Arc<Mutex<Map>>` extension, request ids are a hand-formatted UUID v4, and errors go to `eprintln!` and manual Sentry capture.
-- **Where:** `apps/api/src/log.rs`, `apps/api/src/error.rs`, `apps/api/src/sentry.rs`, `apps/api/src/accounts/usage.rs`, `apps/api/src/main.rs`, and every handler that takes `Extension<LogHandle>`
-- **Why it's unusual:** the approved entries cover only the sampling rule and `civil_from_days`, and the rest is a homemade structured-logging framework. The request id is generated after the response exists and is never returned in a header, sent to Sentry, or attached to stage events, so it correlates nothing. Eleven `clippy::print_stdout`/`print_stderr` expectations exist only to allow it.
-- **Normal approach:** `tracing` with `tracing-subscriber` JSON output, `tower_http::trace::TraceLayer`, `tower_http::request_id`, and `sentry-tower` or `sentry-tracing`. The sampling rule can stay as a custom layer.
+- **What:** the error layer calls `sentry::capture_error` with tags for the contract code, method, and path. Logging and request ids are `tracing` and `tower-http` (#195), but nothing ties a Sentry event to the request's `x-request-id` or its log lines.
+- **Where:** `apps/api/src/error.rs`, `apps/api/src/sentry.rs`
+- **Why it's unusual:** the Sentry SDK has integrations that do this from the request and the log: `sentry-tower` attaches the request, and `sentry-tracing` turns `error` events into Sentry events with their span fields.
+- **Normal approach:** `sentry-tower`'s layers, or the `sentry-tracing` layer on the `tracing` subscriber.
 - **Status:** Needs review
 
 ### `bun run dev` is a custom process supervisor that reads its children's output
@@ -148,8 +148,8 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### API configuration is read three ways, and trusted proxy subnets are compiled in
 
-- **What:** `Config::from_vars` is injected and tested, `sentry::Config::from_env` reads `std::env` directly, and `log::environment()` re-reads `ENVIRONMENT` into a `OnceLock` global. The trusted proxy networks are a compile-time constant parsed by a hand-written CIDR parser.
-- **Where:** `apps/api/src/config.rs`, `apps/api/src/sentry.rs`, `apps/api/src/log.rs`, `apps/api/src/constants.rs::TRUSTED_PROXY_NETWORKS`, `apps/api/src/client_ip.rs`, `docker-compose.yml`, `docker-compose.dev.yml`, `apps/web/nginx.conf`, `scripts/dev/worktree.ts`
+- **What:** `Config::from_vars` is injected and tested, `sentry::Config::from_env` reads `std::env` directly, and `main.rs` reads `ENVIRONMENT` once more to start logging before `Config` exists. The trusted proxy networks are a compile-time constant parsed by a hand-written CIDR parser.
+- **Where:** `apps/api/src/config.rs`, `apps/api/src/sentry.rs`, `apps/api/src/main.rs`, `apps/api/src/constants.rs::TRUSTED_PROXY_NETWORKS`, `apps/api/src/client_ip.rs`, `docker-compose.yml`, `docker-compose.dev.yml`, `apps/web/nginx.conf`, `scripts/dev/worktree.ts`
 - **Why it's unusual:** it breaks the repo's own "no globals/singletons" rule. The `172.26` to `172.29` subnets appear in four places with no sync check, and production images also trust the dev subnets. If a Compose subnet changes, nginx becomes an untrusted peer and every public caller shares one anonymous bucket, with no error anywhere. The approved `client_ip` entry covers the trust policy, not compiling the ranges in.
 - **Normal approach:** one `Config` passed into `AppState` and the layers, with the trusted proxies from an env var (for example `TRUSTED_PROXIES`) parsed by the `ipnet` crate.
 - **Status:** Needs review
@@ -188,8 +188,8 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### JavaScript runtime semantics spread beyond `js.rs`
 
-- **What:** the ETag is FNV-1a over UTF-16 code units, lengths are counted with `encode_utf16().count()`, `go.rs` hand-writes `encodeURIComponent`, and the log formats instants "the way javascript does".
-- **Where:** `apps/api/src/cache.rs`, `apps/api/src/domain/poems.rs`, `apps/api/src/domain/search.rs`, `apps/api/src/routes/go.rs`, `apps/api/src/log.rs`
+- **What:** the ETag is FNV-1a over UTF-16 code units, lengths are counted with `encode_utf16().count()`, and `go.rs` hand-writes `encodeURIComponent`.
+- **Where:** `apps/api/src/cache.rs`, `apps/api/src/domain/poems.rs`, `apps/api/src/domain/search.rs`, `apps/api/src/routes/go.rs`
 - **Why it's unusual:** the approved `js.rs` entry says not to reach for JavaScript semantics outside that module. No consumer recomputes the ETag, so hashing UTF-16 buys nothing.
 - **Normal approach:** any stable hash over the bytes for the ETag (`sha2` is already a dependency), `chars().count()`, and `percent_encoding` or `url::Url::query_pairs_mut`.
 - **Status:** Needs review
@@ -589,22 +589,6 @@ The API is not just a thin DB connector, and the crate carries no doc comments b
 - **Why:** the TS client must see exactly what JavaScript would produce. These are not general text utilities; don't reach for them outside that purpose.
 - **Normal approach:** Rust's own `char::is_whitespace` and `serde_json` number output.
 - **Date:** 2026-09-14
-
-### Production drops most successful-request logs
-
-- **What:** `should_emit` drops about 95% of ordinary successful-request logs in production; errors, slow requests, and empty results are always kept.
-- **Where:** `apps/api/src/log.rs`
-- **Why:** keeps the log to the requests worth reading.
-- **Normal approach:** log every request and filter by level.
-- **Date:** 2026-09-12
-
-### `civil_from_days` hand-rolls date math
-
-- **What:** days since the epoch are converted to a civil date by hand.
-- **Where:** `apps/api/src/log.rs::civil_from_days`
-- **Why:** avoids a date-crate dependency. It is not a general calendar utility.
-- **Normal approach:** the `time` or `chrono` crate.
-- **Date:** 2026-09-12
 
 ### The poem list picks its SQL shape for the planner
 

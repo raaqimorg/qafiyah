@@ -10,7 +10,7 @@ Astro (SSR, `output: 'server'`) + React-island frontend for the qafiyah.com Arab
 - `lib/generated/`: nothing here is hand-authored (see `docs/code-conventions.md`'s "Generated files" rule); one subfolder per source: `openapi/schema.gen.ts` (from `apps/api/generated/openapi/openapi.json`), `well-known/well-known.gen.ts` (from `well-known/*` templates). Don't hand-edit; regenerate via the matching `bun run <name>:generate` script and commit the diff.
 - `components/ui/`: design-system primitives. `ui-extended/`: composed pieces built from them. `search/`: the search island (React Query + `nuqs` URL state). `layout/`: page chrome, including the `is:inline` scripts that run before hydration (see below).
 - `lib/settings/`: client-only theme/font-scale persistence (localStorage, versioned, every field parsed defensively so one bad value never discards the rest).
-- `lib/observability/`: Sentry reporting, plus the transient-network-error check that drives the SSR retry in `lib/server/unwrap.ts`.
+- `lib/observability/`: Sentry reporting, the transient-network-error check that drives the SSR retry in `lib/server/unwrap.ts`, and request timing: `src/middleware.ts` times every request that reaches Astro to the end of its body (`request-timing.ts`) and records it by method, route pattern, and status into an OpenTelemetry exponential histogram (`request-metrics.ts`) pushed every 15 s to `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Only compose sets that variable, so `bun run dev` and tests record nothing. What reads it: `apps/observability/AGENTS.md`.
 - `lib/arabic.ts`: Arabic-specific text helpers: digit conversion, singular/dual/plural noun agreement, input sanitization.
 - `lib/seo/`: per-route-type metadata and JSON-LD builders.
 

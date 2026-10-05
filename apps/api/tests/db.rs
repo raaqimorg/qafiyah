@@ -32,6 +32,7 @@ use qafiyah_api::auth::Keys;
 use qafiyah_api::db::accounts_schema::users;
 use qafiyah_api::db::lower;
 use qafiyah_api::es::client::Es;
+use qafiyah_api::metrics::Metrics;
 use qafiyah_api::state::AppState;
 
 pub const INTERNAL: &str = "internal-test-key";
@@ -92,12 +93,14 @@ pub async fn harness() -> Option<Harness> {
         qafiyah_api::db::accounts_setup(),
     )
     .expect("the accounts database");
+    let metrics = Metrics::default();
     let state = AppState::new(
         pg.clone(),
         accounts.clone(),
-        Es::new(&es_url).expect("an Elasticsearch endpoint"),
+        Es::new(&es_url, metrics.clone()).expect("an Elasticsearch endpoint"),
         Keys::new(Some(INTERNAL.into()), Some(FULL.into())),
         1_000_000,
+        metrics,
     );
     Some(Harness {
         app: qafiyah_api::app(state.clone()),
@@ -365,7 +368,7 @@ impl Admin {
             .json()
             .await
             .expect("a bulk report");
-        let es = Es::new(&self.url).expect("an Elasticsearch endpoint");
+        let es = Es::new(&self.url, Metrics::default()).expect("an Elasticsearch endpoint");
         let outcome = tokio::spawn(body(es, index.clone())).await;
         self.endpoint
             .request(Method::DELETE, &format!("/{index}"))

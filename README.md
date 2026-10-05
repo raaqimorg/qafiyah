@@ -104,7 +104,7 @@ flowchart LR
 
 Search reads Arabic the way people do: hamza forms, alif maqsura, and ta marbuta fold to their base letters, diacritics are ignored for matching and kept for display, and an exact title always outranks scattered matches. The full account is in [`docs/search.md`](docs/search.md).
 
-Production is one VPS running six containers behind a Cloudflare Tunnel, with nothing reachable inbound, and deploys are a manual step. [`docs/topology.md`](docs/topology.md) maps the whole system and [`docs/deployment/`](docs/deployment/README.md) covers operations.
+Production is one VPS running fourteen containers (the site, its data stores, and a private observability stack) behind a Cloudflare Tunnel, with nothing reachable inbound, and deploys are a manual step. [`docs/topology.md`](docs/topology.md) maps the whole system and [`docs/deployment/`](docs/deployment/README.md) covers operations.
 
 ## Contributing
 

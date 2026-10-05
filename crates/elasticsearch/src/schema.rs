@@ -12,6 +12,8 @@ pub struct Identity {
     pub poets_prefix: String,
     pub api_username: String,
     pub api_role: String,
+    pub monitor_username: String,
+    pub monitor_role: String,
     pub bulk_batch_size: usize,
 }
 
@@ -405,6 +407,8 @@ mod tests {
         assert_ne!(identity.poets_prefix, identity.poets_alias);
         assert_eq!(identity.api_username, "qafiyah_api");
         assert_eq!(identity.api_role, "qafiyah_reader");
+        assert_eq!(identity.monitor_username, "qafiyah_monitor");
+        assert_eq!(identity.monitor_role, "qafiyah_monitor_role");
         assert!(identity.bulk_batch_size > 0);
         assert!(
             identity.bulk_batch_size <= 5_000,

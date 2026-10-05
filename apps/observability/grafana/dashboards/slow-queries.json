@@ -1,0 +1,321 @@
+{
+  "uid": "slow-queries",
+  "title": "Slow queries",
+  "tags": ["qafiyah"],
+  "editable": true,
+  "schemaVersion": 41,
+  "version": 1,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "timepicker": {},
+  "timezone": "",
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": ["qafiyah"],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true,
+      "title": "Qafiyah",
+      "icon": "external link"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Time spent, not latency.** From `pg_stat_statements` through postgres_exporter: each statement's total execution time over the range, with its calls and rows. \"Mean per call\" is total time divided by calls, a cost number, not a latency.\n\nThe exporter sees only the 100 statements with the most total time since the last reset, and the counters reset when Postgres restarts or the database is reseeded, so a statement that just entered the top 100 shows only the time since it entered."
+      }
+    },
+    {
+      "type": "table",
+      "title": "Statements by total time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(20, increase(pg_stat_statements_seconds_total[$__range]) > 0) * on (queryid) group_left (query) max by (queryid, query) (pg_stat_statements_query_id)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(increase(pg_stat_statements_calls_total[$__range]) and on (queryid, datname, user) topk(20, increase(pg_stat_statements_seconds_total[$__range]) > 0)) * on (queryid) group_left (query) max by (queryid, query) (pg_stat_statements_query_id)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(increase(pg_stat_statements_rows_total[$__range]) and on (queryid, datname, user) topk(20, increase(pg_stat_statements_seconds_total[$__range]) > 0)) * on (queryid) group_left (query) max by (queryid, query) (pg_stat_statements_query_id)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((increase(pg_stat_statements_seconds_total[$__range]) / increase(pg_stat_statements_calls_total[$__range])) and on (queryid, datname, user) topk(20, increase(pg_stat_statements_seconds_total[$__range]) > 0)) * on (queryid) group_left (query) max by (queryid, query) (pg_stat_statements_query_id)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "queryid": true
+            },
+            "indexByName": {
+              "Value #A": 0,
+              "Value #B": 1,
+              "Value #C": 2,
+              "Value #D": 3,
+              "datname": 4,
+              "user": 5,
+              "query": 6
+            },
+            "renameByName": {
+              "Value #A": "Total time",
+              "Value #B": "Calls",
+              "Value #C": "Rows",
+              "Value #D": "Mean per call (cost)",
+              "datname": "Database",
+              "user": "User",
+              "query": "Query"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Total time",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Calls"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mean per call (cost)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Database"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "User"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Query"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Statement time per second, top 5 (cost)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(5, rate(pg_stat_statements_seconds_total[$__rate_interval]) > 0)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{queryid}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}
