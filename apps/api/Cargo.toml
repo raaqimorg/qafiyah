@@ -46,6 +46,9 @@ diesel_migrations = { version = "2.3", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 async-trait = "0.1"
 tower = { version = "0.5", features = ["timeout"] }
+tower-http = { version = "0.7.1", features = ["trace", "request-id", "util"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter", "fmt"] }
 prometheus-client = { version = "0.25.1", default-features = false, features = [
   "prometheus_protobuf",
   "protobuf-protox",

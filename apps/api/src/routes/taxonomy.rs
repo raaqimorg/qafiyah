@@ -1,12 +1,11 @@
 use axum::Json;
-use axum::extract::{Extension, State};
+use axum::extract::State;
 
 use crate::contract::taxonomy::{CountedStats, PoemCountStats};
 use crate::domain::taxonomy::{Counted, PoemCounted};
 use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
-use crate::log::LogHandle;
 use crate::openapi::{ListErrors, LookupErrors};
 use crate::params::{NoParams, TransliteratedSlug};
 use crate::state::AppState;
@@ -52,9 +51,9 @@ impl Kind for PoemCounted {
     }
 }
 
-fn listed<T>(rows: Vec<T>, log: &LogHandle) -> Json<ListEnvelope<T>> {
+fn listed<T>(rows: Vec<T>) -> Json<ListEnvelope<T>> {
     let count = u32::try_from(rows.len()).unwrap_or(u32::MAX);
-    log.set("result_count", count);
+    crate::log::record_results(u64::from(count));
     Json(ListEnvelope {
         data: rows,
         pagination: build_pagination(1, count.max(1), count),
@@ -63,7 +62,6 @@ fn listed<T>(rows: Vec<T>, log: &LogHandle) -> Json<ListEnvelope<T>> {
 
 async fn list_counted_kind(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     kind: Counted,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
     Ok(listed(
@@ -74,19 +72,17 @@ async fn list_counted_kind(
             .into_iter()
             .map(CountedStats::from)
             .collect(),
-        &log,
     ))
 }
 
 async fn get_counted_kind(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
     kind: Counted,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
     let slug = TransliteratedSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
     let slug = slug.as_str();
-    log.set(kind.log_field(), slug);
+    tracing::Span::current().record(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
         data: state
             .taxonomy
@@ -99,7 +95,6 @@ async fn get_counted_kind(
 
 async fn list_poem_counted_kind(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     kind: PoemCounted,
 ) -> Result<Json<ListEnvelope<PoemCountStats>>, AppError> {
     Ok(listed(
@@ -110,19 +105,17 @@ async fn list_poem_counted_kind(
             .into_iter()
             .map(PoemCountStats::from)
             .collect(),
-        &log,
     ))
 }
 
 async fn get_poem_counted_kind(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafePath(raw): SafePath<String>,
     kind: PoemCounted,
 ) -> Result<Json<ItemEnvelope<PoemCountStats>>, AppError> {
     let slug = TransliteratedSlug::parse(&raw).map_err(|reason| invalid_path_slug(&reason))?;
     let slug = slug.as_str();
-    log.set(kind.log_field(), slug);
+    tracing::Span::current().record(kind.log_field(), slug);
     Ok(Json(ItemEnvelope {
         data: state
             .taxonomy
@@ -146,10 +139,9 @@ async fn get_poem_counted_kind(
 )]
 pub(crate) async fn list_meters(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
-    list_counted_kind(state, log, Counted::Meters).await
+    list_counted_kind(state, Counted::Meters).await
 }
 
 #[utoipa::path(
@@ -168,11 +160,10 @@ pub(crate) async fn list_meters(
 )]
 pub(crate) async fn get_meter(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
-    get_counted_kind(state, log, path, Counted::Meters).await
+    get_counted_kind(state, path, Counted::Meters).await
 }
 
 #[utoipa::path(
@@ -188,10 +179,9 @@ pub(crate) async fn get_meter(
 )]
 pub(crate) async fn list_rhymes(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
-    list_counted_kind(state, log, Counted::Rhymes).await
+    list_counted_kind(state, Counted::Rhymes).await
 }
 
 #[utoipa::path(
@@ -210,11 +200,10 @@ pub(crate) async fn list_rhymes(
 )]
 pub(crate) async fn get_rhyme(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
-    get_counted_kind(state, log, path, Counted::Rhymes).await
+    get_counted_kind(state, path, Counted::Rhymes).await
 }
 
 #[utoipa::path(
@@ -230,10 +219,9 @@ pub(crate) async fn get_rhyme(
 )]
 pub(crate) async fn list_eras(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
-    list_counted_kind(state, log, Counted::Eras).await
+    list_counted_kind(state, Counted::Eras).await
 }
 
 #[utoipa::path(
@@ -252,11 +240,10 @@ pub(crate) async fn list_eras(
 )]
 pub(crate) async fn get_era(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
-    get_counted_kind(state, log, path, Counted::Eras).await
+    get_counted_kind(state, path, Counted::Eras).await
 }
 
 #[utoipa::path(
@@ -272,10 +259,9 @@ pub(crate) async fn get_era(
 )]
 pub(crate) async fn list_themes(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<PoemCountStats>>, AppError> {
-    list_poem_counted_kind(state, log, PoemCounted::Themes).await
+    list_poem_counted_kind(state, PoemCounted::Themes).await
 }
 
 #[utoipa::path(
@@ -294,11 +280,10 @@ pub(crate) async fn list_themes(
 )]
 pub(crate) async fn get_theme(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<PoemCountStats>>, AppError> {
-    get_poem_counted_kind(state, log, path, PoemCounted::Themes).await
+    get_poem_counted_kind(state, path, PoemCounted::Themes).await
 }
 
 #[utoipa::path(
@@ -314,10 +299,9 @@ pub(crate) async fn get_theme(
 )]
 pub(crate) async fn list_collections(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<PoemCountStats>>, AppError> {
-    list_poem_counted_kind(state, log, PoemCounted::Collections).await
+    list_poem_counted_kind(state, PoemCounted::Collections).await
 }
 
 #[utoipa::path(
@@ -336,11 +320,10 @@ pub(crate) async fn list_collections(
 )]
 pub(crate) async fn get_collection(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<PoemCountStats>>, AppError> {
-    get_poem_counted_kind(state, log, path, PoemCounted::Collections).await
+    get_poem_counted_kind(state, path, PoemCounted::Collections).await
 }
 
 #[utoipa::path(
@@ -356,10 +339,9 @@ pub(crate) async fn get_collection(
 )]
 pub(crate) async fn list_poem_types(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ListEnvelope<CountedStats>>, AppError> {
-    list_counted_kind(state, log, Counted::PoemTypes).await
+    list_counted_kind(state, Counted::PoemTypes).await
 }
 
 #[utoipa::path(
@@ -378,9 +360,8 @@ pub(crate) async fn list_poem_types(
 )]
 pub(crate) async fn get_poem_type(
     state: State<AppState>,
-    log: Extension<LogHandle>,
     path: SafePath<String>,
     _: SafeQuery<NoParams>,
 ) -> Result<Json<ItemEnvelope<CountedStats>>, AppError> {
-    get_counted_kind(state, log, path, Counted::PoemTypes).await
+    get_counted_kind(state, path, Counted::PoemTypes).await
 }

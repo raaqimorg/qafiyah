@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::extract::{Extension, State};
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -11,7 +11,6 @@ use crate::domain::search::{self, PoemSearchParams, PoetSearchParams};
 use crate::envelope::{ListEnvelope, build_pagination};
 use crate::error::{AppError, RouteProblem};
 use crate::extract::SafeQuery;
-use crate::log::LogHandle;
 use crate::openapi::ListErrors;
 use crate::params::{ExactFlag, Page, PoetSlugs, SearchText, SearchTypeParam, TermSlugs};
 use crate::state::AppState;
@@ -93,7 +92,6 @@ pub(crate) struct SearchParams {
 )]
 pub(crate) async fn search(
     State(state): State<AppState>,
-    Extension(log): Extension<LogHandle>,
     SafeQuery(params): SafeQuery<SearchParams>,
 ) -> Result<Json<SearchResponse>, AppError> {
     let q = params
@@ -161,15 +159,15 @@ pub(crate) async fn search(
     let (poems, poets) = tokio::try_join!(poems, poets)?;
 
     if !q.is_empty() {
-        log.set("query_text", q.clone());
+        tracing::Span::current().record("query_text", q.as_str());
     }
-    log.set(
+    tracing::Span::current().record(
         "poems_count",
         poems
             .as_ref()
             .map_or(0, |page| u64::try_from(page.hits.len()).unwrap_or(u64::MAX)),
     );
-    log.set(
+    tracing::Span::current().record(
         "poets_count",
         poets
             .as_ref()
@@ -177,7 +175,7 @@ pub(crate) async fn search(
     );
     let found = u64::from(poems.as_ref().map_or(0, |page| page.total))
         .saturating_add(u64::from(poets.as_ref().map_or(0, |page| page.total)));
-    log.set("result_count", found);
+    crate::log::record_results(found);
     Ok(Json(SearchResponse {
         q,
         poems: poems.map(|page| ListEnvelope {
