@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Up** means the last check passed: an HTTP probe of `/healthz` for the API and the website, the exporter's connection for Postgres, and a reachable cluster that is not red for Elasticsearch. **Unknown** means there is no data, so the check itself is not running; it never means up. **Metrics freshness** shows when Prometheus last scraped the API and when the website last pushed its numbers, so an empty latency view reads as a broken pipe, not as no traffic, and whether Loki (logs) and Alloy (log shipping, container and host metrics) are up."
+        "content": "**Up** means the last check passed: an HTTP probe of `/healthz` for the API and the website, the exporter's connection for Postgres, and a reachable cluster that is not red for Elasticsearch. **Unknown** means there is no data, so the check itself is not running; it never means up. **Metrics freshness** shows when Prometheus last scraped the API and when the website last pushed its numbers, so an empty latency view reads as a broken pipe, not as no traffic, and whether Loki (logs) and Alloy (log shipping, container and host metrics) are up. **Log lines dropped** counts what Alloy discarded because a service logged more than 10 lines a second beyond a burst of 2,000 (a flood); the metrics still count every request."
       }
     },
     {
@@ -739,6 +739,69 @@
             ]
           }
         ]
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Log lines dropped by the rate limit over the range",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_value) (increase(loki_process_dropped_lines_by_label_total[$__range]))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{label_value}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
       "options": {
         "colorMode": "value",
