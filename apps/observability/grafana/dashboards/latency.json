@@ -103,7 +103,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**How to read this.** Every latency here is a percentile computed from merged histograms when the panel is drawn, never an average (an average is a time no request took). p50 moving means something changed for everyone; p95 and p99 show what the slowest visitors get. The request count sits beside every percentile.\n\n**API**: every request the API answered, timed inside the API from receiving it to returning the response, merged across replicas. **Website**: every request that reached Astro, timed to the end of the response body. Pages nginx answered from its cache and static files never reach Astro, so these are render times, not everything a visitor sees. The API's `/healthz`, called every few seconds by the health probe and Docker, is left out.\n\n**Empty cells**: p95 needs at least 100 requests in the window and p99 at least 500, so that at least five requests sit beyond the percentile. Widen the time range to see them. Counts are Prometheus estimates over the range, counted from each series' first scrape."
+        "content": "**How to read this.** Every latency here is a percentile computed from merged histograms when the panel is drawn, never an average (an average is a time no request took). p50 moving means something changed for everyone; p95 and p99 show what the slowest visitors get. The request count sits beside every percentile.\n\n**API**: every request the API answered, timed inside the API from receiving it to returning the response, merged across replicas. **Website**: every request that reached Astro, timed to the end of the response body. Pages nginx answered from its cache and static files never reach Astro, so these are render times, not everything a visitor sees. The API's `/healthz`, called every few seconds by the health probe and Docker, is left out. Every request nginx answered, cache hits included, is on the Edge dashboard.\n\n**Empty cells**: p95 needs at least 100 requests in the window and p99 at least 500, so that at least five requests sit beyond the percentile. Widen the time range to see them. Counts are Prometheus estimates over the range, counted from each series' first scrape."
       }
     },
     {
@@ -381,6 +381,171 @@
       }
     },
     {
+      "type": "table",
+      "title": "Errors by route (every status, the Status filter does not apply)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=~\"5..\"}[$__range])))) or on (job, http_route) (0 * histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))))) and on (job, http_route) (histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=~\"4..\", http_response_status_code!=\"429\"}[$__range])))) or on (job, http_route) (0 * histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))))) and on (job, http_route) (histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=\"429\"}[$__range])))) or on (job, http_route) (0 * histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))))) and on (job, http_route) (histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (((histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=~\"5..\"}[$__range])))) or on (job, http_route) (0 * histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))))) and on (job, http_route) (histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0)) / (histogram_count(sum by (job, http_route) (increase(http_server_request_duration_seconds{http_route!=\"/healthz\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "job": 0,
+              "http_route": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #E": 4,
+              "Value #C": 5,
+              "Value #D": 6
+            },
+            "renameByName": {
+              "job": "Service",
+              "http_route": "Route",
+              "Value #A": "Requests",
+              "Value #B": "5xx",
+              "Value #E": "5xx share",
+              "Value #C": "4xx (not 429)",
+              "Value #D": "429 (rate limited)"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "5xx",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx share"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Service"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Route"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
       "type": "timeseries",
       "title": "Percentiles over time",
       "datasource": {
@@ -391,7 +556,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 37
       },
       "targets": [
         {
@@ -457,7 +622,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 37
       },
       "targets": [
         {
@@ -470,6 +635,61 @@
           "instant": false,
           "range": true,
           "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Server errors and rate limiting per second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (job) (rate(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=~\"5..\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}} 5xx"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (job) (rate(http_server_request_duration_seconds{http_route!=\"/healthz\", http_response_status_code=\"429\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}} 429"
         }
       ],
       "fieldConfig": {
