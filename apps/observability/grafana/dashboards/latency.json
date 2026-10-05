@@ -1,0 +1,494 @@
+{
+  "uid": "latency",
+  "title": "Latency",
+  "tags": ["qafiyah"],
+  "editable": true,
+  "schemaVersion": 41,
+  "version": 1,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "timepicker": {},
+  "timezone": "",
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": ["qafiyah"],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true,
+      "title": "Qafiyah",
+      "icon": "external link"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "route",
+        "label": "Route",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(http_server_request_duration_seconds, http_route)",
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds, http_route)",
+          "refId": "route"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "type": "custom",
+        "name": "status",
+        "label": "Status",
+        "query": "All : .*,2xx : 2..,3xx : 3..,4xx : 4..,5xx : 5..",
+        "current": {
+          "text": "All",
+          "value": ".*"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": ".*",
+            "selected": true
+          },
+          {
+            "text": "2xx",
+            "value": "2..",
+            "selected": false
+          },
+          {
+            "text": "3xx",
+            "value": "3..",
+            "selected": false
+          },
+          {
+            "text": "4xx",
+            "value": "4..",
+            "selected": false
+          },
+          {
+            "text": "5xx",
+            "value": "5..",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**How to read this.** Every latency here is a percentile computed from merged histograms when the panel is drawn, never an average (an average is a time no request took). p50 moving means something changed for everyone; p95 and p99 show what the slowest visitors get. The request count sits beside every percentile.\n\n**API**: every request the API answered, timed inside the API from receiving it to returning the response, merged across replicas. **Website**: every request that reached Astro, timed to the end of the response body. Pages nginx answered from its cache and static files never reach Astro, so these are render times, not everything a visitor sees.\n\n**Empty cells**: p95 needs at least 100 requests in the window and p99 at least 500, so that at least five requests sit beyond the percentile. Widen the time range to see them. Counts are Prometheus estimates over the range, counted from each series' first scrape."
+      }
+    },
+    {
+      "type": "table",
+      "title": "API routes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) > 0",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) >= 100)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"api\", http_response_status_code=~\"$status\"}[$__range]))) >= 500)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "http_route": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4
+            },
+            "renameByName": {
+              "http_route": "Route",
+              "Value #A": "Requests",
+              "Value #B": "p50",
+              "Value #C": "p95",
+              "Value #D": "p99"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Requests",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Route"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Website page types",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) > 0",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) > 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) >= 100)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) and on (http_route) (histogram_count(sum by (http_route) (increase(http_server_request_duration_seconds{job=\"web\", http_response_status_code=~\"$status\"}[$__range]))) >= 500)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "http_route": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4
+            },
+            "renameByName": {
+              "http_route": "Page type",
+              "Value #A": "Requests",
+              "Value #B": "p50",
+              "Value #C": "p95",
+              "Value #D": "p99"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Requests",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Page type"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Percentiles over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (job) (rate(http_server_request_duration_seconds{http_route=~\"$route\", http_response_status_code=~\"$status\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}} p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (job) (rate(http_server_request_duration_seconds{http_route=~\"$route\", http_response_status_code=~\"$status\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}} p95"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (job) (rate(http_server_request_duration_seconds{http_route=~\"$route\", http_response_status_code=~\"$status\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}} p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests per second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_count(sum by (job) (rate(http_server_request_duration_seconds{http_route=~\"$route\", http_response_status_code=~\"$status\"}[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}
