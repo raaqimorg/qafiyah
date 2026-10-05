@@ -4,11 +4,11 @@
 
 Rust + axum (`apps/api/Dockerfile`): a static musl binary in a ~15MB alpine image running **non-root** (`api` user) with `tini` as PID 1. Its environment is the `api` service block in `docker-compose.yml`; `apps/api/src/config.rs` is what reads it and what refuses to start in production without the two `API_KEY_*` values. Healthcheck hits `GET /healthz` (a 200 that never touches the DB and sits outside the `/v1` rate limiter, so the probe never throttles itself). Reached by the web container over the dedicated `backend` network (`api-backend:8787`), which is also the only source the API trusts for `CF-Connecting-IP`.
 
-`ENVIRONMENT` decides how much it logs: outside production every request emits a structured line, in production the line is sampled at 5% unless the request errored, took over two seconds, or found nothing.
+`ENVIRONMENT` decides how much it logs: outside production every request (except `/healthz`) emits a structured line; in production only a request that errored, took over two seconds, or found nothing does. Docker's log files and Loki (`apps/observability`) keep them.
 
 Server errors are reported to Sentry, tagged with the contract code, the method and the path, and with the panic hook installed so a handler that dies without reaching the error path is reported too. Only 5xx: a 404 for a slug that does not exist is the API working, and reporting those would bury what matters. Reporting needs `SENTRY_DSN` **and** `ENVIRONMENT=production`, so a developer holding production credentials cannot fill the project from a laptop.
 
-There is no performance tracing; the per-request log line (with `duration_ms`, always kept for a slow request) covers that ground.
+Latency and request counts for every request are the metrics in `apps/observability` (per route, with percentiles); the log line adds the details of a slow or failed request.
 
 **Checking a deploy.** `bun run api:conformance` (or `api:conformance prod`) runs Schemathesis, in Docker, over every documented operation against a running API: each operation is sent its documented examples and must answer 2xx, with a status, content type, headers, and body that match the committed OpenAPI document. This is the post-deploy verification step in `.claude/skills/deploy/SKILL.md`.
 
