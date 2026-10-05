@@ -17,6 +17,7 @@ struct Env {
     database_url: String,
     elasticsearch_url: String,
     es_reader_password: String,
+    es_monitor_password: String,
     force: bool,
 }
 
@@ -27,6 +28,7 @@ fn parse_env(lookup: impl Fn(&str) -> Option<String>) -> Result<Env, IndexerErro
         database_url: need("DATABASE_URL")?,
         elasticsearch_url: need("ELASTICSEARCH_URL")?,
         es_reader_password: need("ES_READER_PASSWORD")?,
+        es_monitor_password: need("ES_MONITOR_PASSWORD")?,
         force: lookup("SEARCH_INDEXER_FORCE").as_deref() == Some("true"),
     })
 }
@@ -60,6 +62,7 @@ async fn run(env: &Env, schema: &Schema) -> Result<(), IndexerError> {
         &Plan {
             schema,
             reader_password: &env.es_reader_password,
+            monitor_password: &env.es_monitor_password,
             force: env.force,
         },
         || async {
@@ -132,11 +135,12 @@ mod tests {
     }
 
     #[test]
-    fn the_environment_needs_three_values_and_reads_force_only_when_exactly_true() {
+    fn the_environment_needs_four_values_and_reads_force_only_when_exactly_true() {
         let env = parse_env(vars(&[
             ("DATABASE_URL", "p"),
             ("ELASTICSEARCH_URL", "e"),
             ("ES_READER_PASSWORD", "x"),
+            ("ES_MONITOR_PASSWORD", "m"),
             ("SEARCH_INDEXER_FORCE", "True"),
         ]))
         .expect("an env");
@@ -145,15 +149,22 @@ mod tests {
             ("DATABASE_URL", "p"),
             ("ELASTICSEARCH_URL", "e"),
             ("ES_READER_PASSWORD", "x"),
+            ("ES_MONITOR_PASSWORD", "m"),
             ("SEARCH_INDEXER_FORCE", "true"),
         ]))
         .expect("an env");
         assert!(forced.force);
-        for missing in ["DATABASE_URL", "ELASTICSEARCH_URL", "ES_READER_PASSWORD"] {
+        for missing in [
+            "DATABASE_URL",
+            "ELASTICSEARCH_URL",
+            "ES_READER_PASSWORD",
+            "ES_MONITOR_PASSWORD",
+        ] {
             let pairs: Vec<(&str, &str)> = [
                 ("DATABASE_URL", "p"),
                 ("ELASTICSEARCH_URL", "e"),
                 ("ES_READER_PASSWORD", "x"),
+                ("ES_MONITOR_PASSWORD", "m"),
             ]
             .into_iter()
             .filter(|(n, _)| *n != missing)

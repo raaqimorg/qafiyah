@@ -208,6 +208,27 @@ impl IndexStore for Es {
         .await?;
         Ok(())
     }
+    async fn ensure_monitor_user(
+        &self,
+        role: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<(), IndexerError> {
+        self.expect_ok(
+            Method::PUT,
+            &format!("/_security/role/{role}"),
+            Some(&json!({ "cluster": ["monitor"] })),
+        )
+        .await?;
+        let user_body = json!({ "password": password, "roles": [role] });
+        self.expect_ok(
+            Method::PUT,
+            &format!("/_security/user/{username}"),
+            Some(&user_body),
+        )
+        .await?;
+        Ok(())
+    }
     async fn alias_count(&self, alias: &str) -> Result<Option<u64>, IndexerError> {
         let path = format!("/{alias}/_count");
         let (status, value) = self.send_json::<()>(Method::GET, &path, None).await?;
@@ -553,5 +574,29 @@ mod tests {
             .await;
         assert!(outcome.is_err());
         assert_eq!(captured.lock().expect("the request log").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_monitor_gets_a_role_with_only_cluster_monitor_then_its_user() {
+        let (address, captured) = serve_capturing(vec!["200 OK", "200 OK"]).await;
+        let es = Es::with_timeout(&format!("http://{address}"), Duration::from_secs(2))
+            .expect("a local endpoint");
+        es.ensure_monitor_user("monitor_role", "monitor", "secret")
+            .await
+            .expect("a provisioned monitor");
+        let requests = captured.lock().expect("the request log").clone();
+        assert_eq!(
+            requests,
+            [
+                (
+                    "PUT /_security/role/monitor_role HTTP/1.1".to_string(),
+                    json!({ "cluster": ["monitor"] })
+                ),
+                (
+                    "PUT /_security/user/monitor HTTP/1.1".to_string(),
+                    json!({ "password": "secret", "roles": ["monitor_role"] })
+                ),
+            ]
+        );
     }
 }
