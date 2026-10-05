@@ -58,14 +58,17 @@ flowchart LR
     exporters --> db
     exporters --> es
     grafana["grafana<br/>(127.0.0.1:3000)"] -->|"observability net"| prometheus
+    grafana --> loki[("loki")]
+    alloy["alloy"] -->|"container logs"| loki
+    prometheus -->|"container and host stats"| alloy
 ```
 
-Twelve containers, one `docker compose` stack, prod and dev coexist on the same VPS under separate
+Fourteen containers, one `docker compose` stack, prod and dev coexist on the same VPS under separate
 project namespaces. They are segmented into four networks so each hop trusts only its immediate
 upstream: `edge` carries `edge-gateway` and `web` only, `backend` carries `web` and `api` only,
 `default` carries `api`, `db`, `es`, the indexer, the exporters, and Prometheus, and
-`observability` carries Prometheus and Grafana only. The observability half (Prometheus, Grafana,
-three exporters, and the one-shot `db-monitor-role` job) is private: Grafana listens on loopback
+`observability` carries Prometheus, Grafana, Loki, and Alloy only. The observability half (Prometheus,
+Grafana, Loki, Alloy, three exporters, and the one-shot `db-monitor-role` job) is private: Grafana listens on loopback
 and is reached with `bun run observe` (`apps/observability/AGENTS.md`). Ports, healthchecks, and per-service details:
 `docs/deployment/services.md` and `docs/deployment/architecture.md`.
 

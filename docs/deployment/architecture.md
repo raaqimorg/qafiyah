@@ -12,7 +12,7 @@ The path is drawn in `docs/topology.md` ("Traffic into the VPS"); this section i
 
 Tradeoff: no public-port fallback (if the tunnel is down, SSH is gone too); and the path has one extra hop (edge-gateway → web), so an edge-gateway crash drops the whole edge until `restart: unless-stopped` recovers it.
 
-## The stack (`/opt/qafiyah`, `docker compose`, 12 containers)
+## The stack (`/opt/qafiyah`, `docker compose`, 14 containers)
 
 Canonical service definitions, pinned image versions, and ports live in `docker-compose.yml`.
 
@@ -30,8 +30,10 @@ Canonical service definitions, pinned image versions, and ports live in `docker-
 | `qafiyah-blackbox-exporter`                             | `/healthz` probes of api and web         | none (`:9115`)            | **no**           |
 | `qafiyah-prometheus`                                    | metrics store, scrapes, OTLP receiver    | none (`:9090`)            | **no**           |
 | `qafiyah-grafana`                                       | the four dashboards (admin login)        | `127.0.0.1:3000`          | **no**           |
+| `qafiyah-loki`                                          | container logs, kept 14 days             | none (`:3100`)            | **no**           |
+| `qafiyah-alloy`                                         | log shipping, container and host stats   | none (`:12345`)           | **no**           |
 
-The last six are the private observability stack (`apps/observability/AGENTS.md`): open it with `bun run observe`, an SSH port forward over the existing tunnel.
+The last eight are the private observability stack (`apps/observability/AGENTS.md`): open it with `bun run observe`, an SSH port forward over the existing tunnel.
 
 - **DB self-seeds** on first boot from the newest dump in `data/db/` (only when the data volume is empty). Whichever script forces a restore (`bun run db:reseed` in prod, which reruns the same restore script inside the running container, or `bun run db:reset` in dev) renames the running container afterward to `<container>-<dump-number>` (e.g. `qafiyah-db-0019`), so `docker ps` shows which dump is live. `container_name` in the compose files is unaffected, Compose keeps tracking the container by its own labels.
 - **`search-indexer`** is a one-shot init job, see `apps/search-indexer/AGENTS.md` and `docs/deployment/services.md` for how to force a reindex.
@@ -77,5 +79,6 @@ Volumes persist and a failed build leaves the running stack untouched. **`bun` i
 - Host hardening baseline (exact rules live on the box): default-deny inbound firewall with **no** allow rules (`sshd` listens on loopback only, reached via the tunnel), key-only SSH with brute-force banning, automatic security updates, and swap so builds/ES/Postgres don't OOM.
 - Every service carries a `mem_limit`, `cpus`, and `pids_limit` in `docker-compose.yml` (Elasticsearch and Postgres also a `mem_reservation`), sized for the box (4 vCPUs, 8 GB of RAM, measured 2026-10-05), so a leak or fork storm in one container cannot take the whole host down. `api` and `search-indexer` additionally run `read_only: true`.
 - Base images are pinned by tag, not digest, deliberately: floating `-alpine` tags pick up base-OS security patches on each rebuild, while the application dependencies are locked by `--locked` (Rust) and `--frozen-lockfile` (Bun). Bump a tag explicitly when a specific base revision matters.
+- Alloy mounts the Docker socket (read-only) and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker` read-only to read every container's logs and stats, so it is root-equivalent if compromised; it publishes no port and joins only the `observability` network. Loki keeps visitor addresses, request URIs, and search text for 14 days.
 - The observability stack adds no public surface: Grafana binds `127.0.0.1:3000` and joins only the `observability` network with Prometheus, the API's metrics port (`9464`) and Prometheus's OTLP receiver are reachable only on the internal `default` network, and the exporters use their own monitor credentials (`PG_MONITOR_PASSWORD`, `ES_MONITOR_PASSWORD`) with read-only monitoring privileges.
 - Exposure check: `ss -tulpn | grep -vE '127\.0\.0\.1|\[::1\]'` should show **no** public listeners (only `cloudflared`'s outbound QUIC sockets); `ufw status verbose` for the firewall.
