@@ -402,6 +402,61 @@ services:
     networks:
       - observability
 
+  loki:
+    image: grafana/loki:3.7.8
+    container_name: qafiyah-loki
+    restart: unless-stopped
+    stop_grace_period: 30s
+    <<: *default-logging
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./apps/observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - observability
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: qafiyah-alloy
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cgroup: host
+    depends_on:
+      loki:
+        condition: service_started
+    command:
+      [
+        "run",
+        "/etc/alloy/config.alloy",
+        "--storage.path=/var/lib/alloy/data",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--disable-reporting",
+      ]
+    environment:
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-qafiyah}
+    volumes:
+      - ./apps/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host/root:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - observability
+
 volumes:
   db_data:
     name: qafiyah-db-data
@@ -409,6 +464,10 @@ volumes:
     name: qafiyah-es-data
   prometheus_data:
     name: qafiyah-prometheus-data
+  loki_data:
+    name: qafiyah-loki-data
+  alloy_data:
+    name: qafiyah-alloy-data
 
 networks:
   default:
