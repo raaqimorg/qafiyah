@@ -1,7 +1,15 @@
 import { Glob } from 'bun';
 
 const DASHBOARD_DIR = `${import.meta.dir}/../../apps/observability/grafana/dashboards`;
-const UIDS = ['elasticsearch', 'health', 'latency', 'slow-queries'] as const;
+const UIDS = [
+  'edge',
+  'elasticsearch',
+  'health',
+  'latency',
+  'logs',
+  'resources',
+  'slow-queries',
+] as const;
 const WAIT_MS = 90_000;
 const POLL_MS = 3_000;
 
@@ -23,27 +31,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function panelExpressions(panels: unknown): string[] {
+export type DashboardQuery = { readonly datasource: string; readonly expr: string };
+
+function datasourceUid(holder: Record<string, unknown>): string | undefined {
+  const datasource: unknown = holder['datasource'];
+  return isRecord(datasource) && typeof datasource['uid'] === 'string'
+    ? datasource['uid']
+    : undefined;
+}
+
+function panelQueries(panels: unknown): DashboardQuery[] {
   if (!Array.isArray(panels)) return [];
   return panels.flatMap((panel: unknown) => {
     if (!isRecord(panel)) return [];
     const targets: unknown = panel['targets'];
     const own = Array.isArray(targets)
       ? targets.flatMap((target: unknown) =>
-          isRecord(target) && typeof target['expr'] === 'string' ? [target['expr']] : []
+          isRecord(target) && typeof target['expr'] === 'string'
+            ? [
+                {
+                  datasource: datasourceUid(target) ?? datasourceUid(panel) ?? 'prometheus',
+                  expr: target['expr'],
+                },
+              ]
+            : []
         )
       : [];
-    return [...own, ...panelExpressions(panel['panels'])];
+    return [...own, ...panelQueries(panel['panels'])];
   });
 }
 
-export function dashboardExpressions(dashboard: unknown): string[] {
-  return isRecord(dashboard) ? panelExpressions(dashboard['panels']) : [];
+export function dashboardQueries(dashboard: unknown): DashboardQuery[] {
+  return isRecord(dashboard) ? panelQueries(dashboard['panels']) : [];
 }
 
 export function substituteVariables(expr: string): string {
   return expr
     .replaceAll('$__rate_interval', '1m')
+    .replaceAll('$__auto', '1m')
     .replaceAll('$__range', '1h')
     .replaceAll('$route', '.+')
     .replaceAll('$status', '.+');
@@ -66,6 +91,30 @@ async function query(
   return { vector: body.data?.result ?? [], error: null };
 }
 
+async function lokiQuery(
+  grafana: Grafana,
+  expr: string
+): Promise<{ vector: Vector; error: string | null }> {
+  const end = Date.now() * 1_000_000;
+  const start = end - 3_600_000 * 1_000_000;
+  const url = `${grafana.url}/api/datasources/proxy/uid/loki/loki/api/v1/query_range?query=${encodeURIComponent(expr)}&start=${start}&end=${end}&step=3600&limit=1`;
+  const response = await fetch(url, { headers: grafana.headers });
+  const body = (await response.json()) as {
+    status?: string;
+    error?: string;
+    message?: string;
+    data?: { result: readonly { metric?: Record<string, string>; values?: [string, string][] }[] };
+  };
+  if (body.status !== 'success') {
+    return { vector: [], error: body.error ?? body.message ?? `status ${response.status}` };
+  }
+  const vector = (body.data?.result ?? []).map((series) => {
+    const last = series.values?.at(-1) ?? [String(Date.now() / 1000), '0'];
+    return { metric: series.metric ?? {}, value: [Number(last[0]), last[1]] as const };
+  });
+  return { vector, error: null };
+}
+
 async function eventually(
   note: string,
   url: string,
@@ -81,9 +130,16 @@ async function eventually(
   return { note, url, ms: performance.now() - started, failure };
 }
 
-function positive(grafana: Grafana, note: string, expr: string): Promise<ObservabilityResult> {
+function positive(
+  grafana: Grafana,
+  note: string,
+  expr: string,
+  datasource: 'prometheus' | 'loki' = 'prometheus'
+): Promise<ObservabilityResult> {
   return eventually(note, expr, async () => {
-    const { vector, error } = await query(grafana, expr);
+    const { vector, error } = await (datasource === 'loki'
+      ? lokiQuery(grafana, expr)
+      : query(grafana, expr));
     if (error !== null) return error;
     const raw = vector[0]?.value[1];
     return Number(raw ?? Number.NaN) > 0
@@ -131,9 +187,12 @@ async function everyQueryEvaluates(grafana: Grafana, file: string): Promise<Obse
   const started = performance.now();
   const dashboard: unknown = JSON.parse(await Bun.file(`${DASHBOARD_DIR}/${file}`).text());
   const errors: string[] = [];
-  for (const expr of dashboardExpressions(dashboard)) {
-    const { error } = await query(grafana, substituteVariables(expr));
-    if (error !== null) errors.push(`${expr}: ${error}`);
+  for (const { datasource, expr } of dashboardQueries(dashboard)) {
+    const substituted = substituteVariables(expr);
+    const { error } = await (datasource === 'loki'
+      ? lokiQuery(grafana, substituted)
+      : query(grafana, substituted));
+    if (error !== null) errors.push(`${datasource}: ${expr}: ${error}`);
   }
   return {
     note: `every query in ${file} evaluates`,
@@ -152,7 +211,7 @@ export async function observabilityChecks(
     headers: { Authorization: `Basic ${btoa(`admin:${password}`)}` },
   };
   const results: ObservabilityResult[] = [
-    await eventually('grafana has the four dashboards', `${url}/api/search`, () =>
+    await eventually('grafana has every dashboard', `${url}/api/search`, () =>
       dashboardsProvisioned(grafana)
     ),
     await eventually('every prometheus target is up', 'api/v1/targets', () =>
@@ -188,6 +247,18 @@ export async function observabilityChecks(
       grafana,
       'both health probes succeed',
       'min(probe_success) * count(probe_success) - 1'
+    ),
+    await positive(
+      grafana,
+      'container memory and limits arrive',
+      'count(container_spec_memory_limit_bytes{name!=""} > 0)'
+    ),
+    await positive(grafana, 'host memory arrives', 'max(node_memory_MemTotal_bytes)'),
+    await positive(
+      grafana,
+      'the website nginx log reaches loki as JSON',
+      'sum(count_over_time({service="web"} |= `"source":"nginx"` | json | __error__="" | request_time >= 0 [1h]))',
+      'loki'
     ),
   ];
   for await (const file of new Glob('*.json').scan(DASHBOARD_DIR)) {
