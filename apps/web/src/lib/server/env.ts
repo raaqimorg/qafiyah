@@ -22,6 +22,7 @@ export const OAUTH_GOOGLE_CLIENT_SECRET = process.env['OAUTH_GOOGLE_CLIENT_SECRE
 export const OAUTH_GITHUB_CLIENT_ID = process.env['OAUTH_GITHUB_CLIENT_ID'] ?? '';
 export const OAUTH_GITHUB_CLIENT_SECRET = process.env['OAUTH_GITHUB_CLIENT_SECRET'] ?? '';
 export const SESSION_STATE_SECRET = process.env['SESSION_STATE_SECRET'] ?? '';
+export const OTLP_METRICS_ENDPOINT = process.env['OTEL_EXPORTER_OTLP_METRICS_ENDPOINT'] ?? '';
 
 export function providerConfigured(provider: 'google' | 'github'): boolean {
   return provider === 'google'
