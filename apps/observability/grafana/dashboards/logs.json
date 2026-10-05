@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Logs from every container in this stack**, collected by Alloy into Loki and kept 14 days; Explore searches all of them. The API logs through `tracing`: in production it keeps every error and warning (a 5xx, a request over two seconds, a failed query or search) and every request that found nothing, each with its request span (route, request id, the fields the handler recorded), so **searches that found nothing** lists what people looked for and did not find. These logs hold visitor addresses and search text: they stay private, reached only through the tunnel."
+        "content": "**Logs from every container in this stack**, collected by Alloy into Loki and kept 7 days (at most 10 lines a second per service beyond a burst of 2,000, so a request flood keeps Loki under about 1 GB); Explore searches all of them. The API logs through `tracing`: in production it keeps every error and warning (a 5xx, a request over two seconds, a failed query or search) and every request that found nothing, each with its request span (route, request id, the fields the handler recorded), so **searches that found nothing** lists what people looked for and did not find. These logs hold visitor addresses and search text: they stay private, reached only through the tunnel."
       }
     },
     {

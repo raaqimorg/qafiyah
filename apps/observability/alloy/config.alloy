@@ -1,5 +1,6 @@
 discovery.docker "containers" {
-	host = "unix:///var/run/docker.sock"
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "5s"
 }
 
 discovery.relabel "containers" {
@@ -26,7 +27,18 @@ discovery.relabel "containers" {
 loki.source.docker "containers" {
 	host       = "unix:///var/run/docker.sock"
 	targets    = discovery.relabel.containers.output
+	forward_to = [loki.process.limit.receiver]
+}
+
+loki.process "limit" {
 	forward_to = [loki.write.local.receiver]
+
+	stage.limit {
+		rate          = 10
+		burst         = 2000
+		by_label_name = "service"
+		drop          = true
+	}
 }
 
 loki.write "local" {
