@@ -94,6 +94,15 @@ CRS can false-positive on **Arabic search input** (unusual encodings/punctuation
 
 Search is served from Elasticsearch, populated from Postgres by `apps/search-indexer`, both in the same Compose stack, loopback-only. The indexer is a one-shot init job that `api` waits on; what it does and when it reindexes: `apps/search-indexer/AGENTS.md`. Fix drift on a populated index with `bun run reindex:prod` (full rebuild + alias swap; bare `bun run reindex` targets dev). The ordered command is in `.claude/skills/deploy/SKILL.md`.
 
+## Observability (`apps/observability`)
+
+Prometheus, Grafana, postgres_exporter, elasticsearch_exporter, blackbox_exporter, and the one-shot `db-monitor-role` job run in the same Compose stack; `bun run deploy` converges them with `db` and `elasticsearch`. What each dashboard shows and how to read it: `apps/observability/AGENTS.md`.
+
+- **Open it:** `bun run observe` on your laptop forwards `127.0.0.1:3301` to Grafana's `127.0.0.1:3000` on the VPS; log in as `admin` with `GRAFANA_ADMIN_PASSWORD` (the script prints the `sops` command that reads it). Grafana keeps no volume, so every deploy asks for the login again.
+- **Restart:** `docker compose restart prometheus grafana`. Neither the API nor the website waits on them: a down Prometheus only means gaps in the graphs.
+- **Monitor credentials:** `PG_MONITOR_PASSWORD` is set on the `qafiyah_monitor` Postgres role by `db-monitor-role` on every `up` (and by `bun run db:reseed` right after its restore, which recreates the `public` schema and its grants); `ES_MONITOR_PASSWORD` is set on the Elasticsearch monitor user by the search-indexer on every run. Changing either in `secrets/prod.enc.env` takes effect on the next deploy.
+- **Disk:** Prometheus keeps 15 days or 1 GB in the `qafiyah-prometheus-data` volume, whichever is smaller. Wiping it loses only history; do it only when asked (`docker compose rm -sf prometheus && docker volume rm qafiyah-prometheus-data`, then `docker compose up -d prometheus`).
+
 ### Accounts database backups
 
 `qafiyah_accounts` is a separate database in the same Postgres container, holding

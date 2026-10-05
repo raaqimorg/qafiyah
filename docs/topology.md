@@ -52,12 +52,21 @@ flowchart LR
     api -->|"default net"| es[("Elasticsearch")]
     indexer["search-indexer<br/>(one-shot init job)"] -->|"default net"| db
     indexer -->|"default net"| es
+    prometheus["prometheus"] -->|"scrape :9464"| api
+    web -->|"OTLP push"| prometheus
+    prometheus --> exporters["postgres, elasticsearch,<br/>and blackbox exporters"]
+    exporters --> db
+    exporters --> es
+    grafana["grafana<br/>(127.0.0.1:3000)"] -->|"observability net"| prometheus
 ```
 
-Six containers, one `docker compose` stack, prod and dev coexist on the same VPS under separate
-project namespaces. They are segmented into three networks so each hop trusts only its immediate
-upstream: `edge` carries `edge-gateway` and `web` only, `backend` carries `web` and `api` only, and
-`default` carries `api`, `db`, `es`, and the indexer. Ports, healthchecks, and per-service details:
+Twelve containers, one `docker compose` stack, prod and dev coexist on the same VPS under separate
+project namespaces. They are segmented into four networks so each hop trusts only its immediate
+upstream: `edge` carries `edge-gateway` and `web` only, `backend` carries `web` and `api` only,
+`default` carries `api`, `db`, `es`, the indexer, the exporters, and Prometheus, and
+`observability` carries Prometheus and Grafana only. The observability half (Prometheus, Grafana,
+three exporters, and the one-shot `db-monitor-role` job) is private: Grafana listens on loopback
+and is reached with `bun run observe` (`apps/observability/AGENTS.md`). Ports, healthchecks, and per-service details:
 `docs/deployment/services.md` and `docs/deployment/architecture.md`.
 
 ## Data topology
@@ -90,6 +99,7 @@ flowchart LR
         edge["apps/edge-gateway (nginx config)"]
         telemetry["apps/telemetry-proxy (TS)"]
         inspector["apps/inspector (TS, dev-only)"]
+        observability["apps/observability (Prometheus + Grafana config)"]
     end
     tsconfig["packages/tsconfig"]
     es_crate["crates/elasticsearch"]
@@ -109,7 +119,8 @@ flowchart LR
 
 Turborepo orchestrates the TypeScript workspace (`apps/*` + `packages/*`); a separate Cargo
 workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `crates/elasticsearch`, `crates/corpus`).
-`apps/edge-gateway` is config only (no build step, an nginx image plus a template override).
+`apps/edge-gateway` is config only (no build step, an nginx image plus a template override), and
+so is `apps/observability` (Prometheus and Grafana images plus their config and dashboards).
 Conventions: `docs/code-conventions.md`, `docs/typescript-conventions.md`,
 `docs/rust-conventions.md`. Each component's `AGENTS.md` is listed in `README.md` ("Documentation map").
 

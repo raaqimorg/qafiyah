@@ -36,7 +36,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### Deploys build images on the production VPS over SSH
 
-- **What:** `bun run deploy` concatenates shell files, uploads them over SSH to a temporary file on the host, and runs it there with stdin from `/dev/null`; it runs `git reset --hard`, builds every image on the 4 GB production box, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` the same way before it restores.
+- **What:** `bun run deploy` concatenates shell files, uploads them over SSH to a temporary file on the host, and runs it there with stdin from `/dev/null`; it runs `git reset --hard`, builds every image on the 8 GB production box, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` the same way before it restores.
 - **Where:** `scripts/deploy/vps.sh`, `scripts/lib/remote.sh`, `scripts/db/reseed.sh`, `scripts/es/reindex-prod.sh`, `.github/workflows/images.yml`, `.claude/skills/deploy/SKILL.md`, `docs/deployment/architecture.md`
 - **Why it's unusual:** release Rust builds (`lto = true`, one codegen unit) and the Astro build compete with the live stack for memory, which is why the docs keep swap. With no registry, rollback means reverting main and rebuilding. The Images workflow builds each image and throws it away. `rollout()` reimplements the docker-rollout plugin with fixed timings (a 150-second health deadline and a 7-second settle).
 - **Normal approach:** CI builds on merge and pushes SHA-tagged images to GHCR, the VPS runs `docker compose pull` and `docker rollout` (or Kamal), and rollback redeploys the previous tag.
@@ -52,7 +52,7 @@ Departures not yet approved, found by a full scan on 2026-09-24 and ordered from
 
 ### Dev stacks are documented as running on the production VPS
 
-- **What:** the dev override renames containers, ports, volumes, and subnets so a dev clone can run beside production on the same 4 GB host.
+- **What:** the dev override renames containers, ports, volumes, and subnets so a dev clone can run beside production on the same 8 GB host.
 - **Where:** `docker-compose.dev.yml`, `docs/deployment/architecture.md` ("Prod vs dev isolation (both on one host)"), `docs/topology.md`
 - **Why it's unusual:** production limits already add up to about 3 GB before a rollout doubles `api` and `web`, and the dev override alone gives Elasticsearch a 1500m heap and `mem_limit: 3g`, so a dev run can push production into OOM.
 - **Normal approach:** develop on laptops or a separate staging VM, and keep the production host for production.
