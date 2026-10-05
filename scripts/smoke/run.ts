@@ -15,6 +15,7 @@ import {
   waitForServer,
   type ServerUnready,
 } from './http';
+import { observabilityChecks } from './observability';
 import { conditionals, differentials } from './probes/http-shape';
 import { searchBursts, sharedEntries } from './probes/page-cache';
 import { hammers } from './probes/rate-limit';
@@ -29,6 +30,7 @@ import {
   SEARCH,
   STACK_API_KEY_FULL,
   STACK_API_KEY_INTERNAL,
+  STACK_GRAFANA_PASSWORD,
   STACK_SESSION_STATE_SECRET,
   SURFACE,
   WEB,
@@ -414,6 +416,7 @@ async function startSurface(): Promise<StartedSurface> {
       API_KEY_INTERNAL: process.env['API_KEY_INTERNAL'] ?? STACK_API_KEY_INTERNAL,
       API_KEY_FULL: process.env['API_KEY_FULL'] ?? STACK_API_KEY_FULL,
       SESSION_STATE_SECRET: process.env['SESSION_STATE_SECRET'] ?? STACK_SESSION_STATE_SECRET,
+      GRAFANA_ADMIN_PASSWORD: process.env['GRAFANA_ADMIN_PASSWORD'] ?? STACK_GRAFANA_PASSWORD,
     };
     const running = await runningServices();
     const restore = DEV_CONTAINERS.filter((service) => running.includes(service));
@@ -587,6 +590,18 @@ async function main() {
     const check = latencyCheck(p95, budget);
     if (check.isErr()) record(fail(target.id, target.url, p95, check.error));
     else record(pass(target.id, target.url, p95));
+  }
+
+  if (SURFACE.grafana !== null) {
+    console.log(`\n${cyan('[')} ${bold('observability')} ${cyan(']')}`);
+    const password = process.env['GRAFANA_ADMIN_PASSWORD'] ?? STACK_GRAFANA_PASSWORD;
+    for (const result of await observabilityChecks(SURFACE.grafana, password)) {
+      record(
+        result.failure === null
+          ? pass(result.note, result.url, result.ms)
+          : fail(result.note, result.url, result.ms, result.failure)
+      );
+    }
   }
 
   const totalMs = performance.now() - runStarted;
