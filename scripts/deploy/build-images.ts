@@ -15,6 +15,7 @@ const env = {
   PG_READER_PASSWORD: process.env['PG_READER_PASSWORD'] ?? PLACEHOLDER,
   PG_MONITOR_PASSWORD: process.env['PG_MONITOR_PASSWORD'] ?? PLACEHOLDER,
   ES_MONITOR_PASSWORD: process.env['ES_MONITOR_PASSWORD'] ?? PLACEHOLDER,
+  GRAFANA_ADMIN_PASSWORD: process.env['GRAFANA_ADMIN_PASSWORD'] ?? PLACEHOLDER,
 };
 
 const config = spawnSync(`${ROOT}/scripts/dev/compose.sh`, ['config', '--format', 'json'], {
