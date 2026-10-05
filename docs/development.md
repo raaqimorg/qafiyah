@@ -100,7 +100,8 @@ bun run rust:lint         # cargo clippy, workspace, -D warnings; cargo's own wa
 bun run rust:test         # cargo test, workspace
 bun run rust:test:db      # database-backed API and indexer tests against the dev stack (needs Docker)
 bun run smoke:dev         # black-box HTTP probes against a locally-managed dev server
-bun run ci                # the full gate (GitHub Actions runs it scoped to the change); --no-docker skips db and smoke, --docker-only runs just those
+bun run docs:diagrams     # render docs/architecture/workspace.dsl to the C4 SVGs (needs Docker); docs:diagrams:check compares
+bun run ci                # the full gate (GitHub Actions runs it scoped to the change); --no-docker skips the diagrams, db, and smoke phases, --docker-only runs just those
 ```
 
 Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
@@ -122,7 +123,7 @@ plain `cargo test` stays pure.
 
 Run `bun run ci` before opening a PR; it's the full gate. GitHub Actions runs the same gate, skipping a Docker
 phase when the change touches nothing it uses (`docs/topology.md`, "CI/CD topology"). `bun run ci --no-docker`
-skips the Docker-dependent steps (the database-backed tests and both smokes) if Docker isn't
+skips the Docker-dependent steps (the diagram check, the database-backed tests, and both smokes) if Docker isn't
 available, and `bun run ci --docker-only` runs only those. The stack smoke builds the three images
 through `compose up --build`, so a full run still proves every image builds.
 

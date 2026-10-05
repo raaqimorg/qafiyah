@@ -4,7 +4,7 @@ One small Linux VPS fronted by Cloudflare. **Nothing is reachable inbound, inclu
 
 ## How traffic gets in
 
-The path is drawn in `docs/topology.md` ("Traffic into the VPS"); this section is the mechanics.
+The path is drawn in `docs/topology.md` ("Production deployment"); this section is the mechanics.
 
 `cloudflared` runs as a **systemd service**, dialing out to Cloudflare (no inbound 80/443/22). Routing in `/etc/cloudflared/config.yml`: `qafiyah.com` + `www` → `localhost:80`, `api.qafiyah.com` → `localhost:80`, `ssh.qafiyah.com` → `ssh://localhost:22`, else 404. (`cloudflared tunnel list` for name/id.)
 
@@ -29,7 +29,7 @@ Canonical service definitions, pinned image versions, and ports live in `docker-
 | `qafiyah-elasticsearch-exporter`                        | cluster health, heap, query totals       | none (`:9114`)            | **no**           |
 | `qafiyah-blackbox-exporter`                             | `/healthz` probes of api and web         | none (`:9115`)            | **no**           |
 | `qafiyah-prometheus`                                    | metrics store, scrapes, OTLP receiver    | none (`:9090`)            | **no**           |
-| `qafiyah-grafana`                                       | the four dashboards (admin login)        | `127.0.0.1:3000`          | **no**           |
+| `qafiyah-grafana`                                       | the seven dashboards (admin login)       | `127.0.0.1:3000`          | **no**           |
 | `qafiyah-loki`                                          | container logs, kept 7 days              | none (`:3100`)            | **no**           |
 | `qafiyah-alloy`                                         | log shipping, container and host stats   | none (`:12345`)           | **no**           |
 
