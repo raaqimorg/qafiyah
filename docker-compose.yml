@@ -116,7 +116,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
     <<: *default-logging
-    mem_limit: 512m
+    mem_limit: 768m
     cpus: 1.0
     pids_limit: 512
     security_opt:
