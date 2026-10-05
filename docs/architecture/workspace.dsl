@@ -83,7 +83,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         maintainer -> qafiyah.indexer "Runs forced reindexes with (bun run reindex:prod)" "SSH, docker compose run"
         maintainer -> qafiyah.grafana "Opens the dashboards in (bun run observe)" "HTTP over an SSH port forward"
 
-        qafiyah.web -> qafiyah.prometheus "Pushes request durations to" "OTLP/HTTP, default network"
+        qafiyah.web -> qafiyah.prometheus "Pushes request durations to" "OTLP/HTTP, metrics network"
         qafiyah.prometheus -> qafiyah.api "Scrapes request and search histograms from" "HTTP, protobuf, default network"
         qafiyah.prometheus -> qafiyah.pgExporter "Scrapes" "HTTP, default network"
         qafiyah.prometheus -> qafiyah.esExporter "Scrapes" "HTTP, default network"
@@ -93,7 +93,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         qafiyah.pgExporter -> qafiyah.corpus "Reads query statistics and health from" "SQL, default network"
         qafiyah.esExporter -> qafiyah.search "Reads cluster health and stats from" "HTTP/JSON, default network"
         qafiyah.blackbox -> qafiyah.api "Probes /healthz on" "HTTP, default network"
-        qafiyah.blackbox -> qafiyah.web "Probes /healthz on" "HTTP, default network"
+        qafiyah.blackbox -> qafiyah.web "Probes /healthz on" "HTTP, metrics network"
         qafiyah.alloy -> qafiyah.loki "Pushes container logs to" "HTTP, observability network"
         qafiyah.grafana -> qafiyah.prometheus "Queries" "PromQL over HTTP, observability network"
         qafiyah.grafana -> qafiyah.loki "Queries" "LogQL over HTTP, observability network"
@@ -113,7 +113,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         qafiyah.web.identity -> qafiyah.api "Makes account calls to" "HTTP/JSON, backend network"
         qafiyah.web.identity -> google "Exchanges sign-in codes with" "OAuth 2.0"
         qafiyah.web.identity -> github "Exchanges sign-in codes with" "OAuth 2.0"
-        qafiyah.web.timing -> qafiyah.prometheus "Pushes request durations to" "OTLP/HTTP, default network"
+        qafiyah.web.timing -> qafiyah.prometheus "Pushes request durations to" "OTLP/HTTP, metrics network"
         qafiyah.web.timing -> sentry "Reports server errors to" "HTTPS"
 
         qafiyah.web -> qafiyah.api.layers "Sends every request through" "HTTP/JSON, backend network"
@@ -147,7 +147,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
             vps = deploymentNode "VPS" "One small Linux server; nothing listens on a public port." "Linux" {
                 cloudflared = infrastructureNode "cloudflared" "Dials out to Cloudflare and forwards each host to 127.0.0.1." "systemd service"
                 sshd = infrastructureNode "sshd" "SSH on 127.0.0.1:22, reached only through the tunnel." "systemd service"
-                compose = deploymentNode "Docker Compose project qafiyah" "Fourteen containers on four networks: edge, backend, default, and observability." "Docker Compose" {
+                compose = deploymentNode "Docker Compose project qafiyah" "Fourteen containers on five networks: edge, backend, default, observability, and metrics." "Docker Compose" {
                     edgeInstance = containerInstance qafiyah.edge
                     containerInstance qafiyah.web
                     containerInstance qafiyah.api
