@@ -527,6 +527,7 @@ process.env['PG_READER_PASSWORD'] ??= 'qafiyah-dev-pg-reader';
 process.env['PG_ACCOUNTS_PASSWORD'] ??= 'qafiyah-dev-pg-accounts';
 process.env['PG_MONITOR_PASSWORD'] ??= 'qafiyah-dev-pg-monitor';
 process.env['ES_MONITOR_PASSWORD'] ??= 'qafiyah-dev-es-monitor';
+process.env['GRAFANA_ADMIN_PASSWORD'] ??= 'qafiyah-dev-grafana';
 process.env['INTERNAL_API_KEY'] = process.env['API_KEY_INTERNAL'] ?? '';
 
 const identity = await resolveWorktreeIdentity();

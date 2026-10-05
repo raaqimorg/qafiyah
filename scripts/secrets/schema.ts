@@ -38,6 +38,7 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   ES_READER_PASSWORD: { presence: prodRequired, format: 'url-password', isSecret: true },
   PG_MONITOR_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
   ES_MONITOR_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
+  GRAFANA_ADMIN_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
   ENVIRONMENT: {
     presence: { dev: 'forbidden', prod: 'required' },
     format: 'production',
