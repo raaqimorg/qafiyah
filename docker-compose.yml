@@ -234,6 +234,85 @@ services:
       DATABASE_URL: postgresql://qafiyah_api:${PG_READER_PASSWORD:?PG_READER_PASSWORD is required (set it in .env)}@db:5432/${POSTGRES_DB:-qafiyah}
       ELASTICSEARCH_URL: http://elastic:${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required (set it in .env)}@elasticsearch:9200
       ES_READER_PASSWORD: ${ES_READER_PASSWORD:?ES_READER_PASSWORD is required (set it in .env)}
+      ES_MONITOR_PASSWORD: ${ES_MONITOR_PASSWORD:?ES_MONITOR_PASSWORD is required (set it in .env)}
+
+  db-monitor-role:
+    image: postgres:18-alpine
+    container_name: qafiyah-db-monitor-role
+    restart: "no"
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/monitor-role.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-qafiyah}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (set it in .env)}
+      PGDATABASE: ${POSTGRES_DB:-qafiyah}
+      PG_MONITOR_PASSWORD: ${PG_MONITOR_PASSWORD:?PG_MONITOR_PASSWORD is required (set it in .env)}
+    volumes:
+      - ./scripts/db/monitor-role.sh:/monitor-role.sh:ro
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: qafiyah-postgres-exporter
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    depends_on:
+      db-monitor-role:
+        condition: service_completed_successfully
+    command:
+      [
+        "--collector.stat_statements",
+        "--collector.stat_statements.include_query",
+        "--collector.stat_statements.query_length=1000",
+        "--collector.stat_statements.exclude_users=qafiyah_monitor",
+      ]
+    environment:
+      DATA_SOURCE_URI: db:5432/${POSTGRES_DB:-qafiyah}?sslmode=disable
+      DATA_SOURCE_USER: qafiyah_monitor
+      DATA_SOURCE_PASS: ${PG_MONITOR_PASSWORD:?PG_MONITOR_PASSWORD is required (set it in .env)}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9187/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch-exporter:
+    image: prometheuscommunity/elasticsearch-exporter:v1.11.0
+    container_name: qafiyah-elasticsearch-exporter
+    restart: unless-stopped
+    <<: *default-logging
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    depends_on:
+      search-indexer:
+        condition: service_completed_successfully
+    command: ["--es.uri=http://elasticsearch:9200"]
+    environment:
+      ES_USERNAME: qafiyah_monitor
+      ES_PASSWORD: ${ES_MONITOR_PASSWORD:?ES_MONITOR_PASSWORD is required (set it in .env)}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9114/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db_data:
