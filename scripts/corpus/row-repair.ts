@@ -78,3 +78,66 @@ export function mergePairs(rows: readonly string[]): string[] {
   }
   return merged;
 }
+
+const MARKS = /[ً-ٰٟۖ-ۭـ]/;
+const ANSWER = /^w(\d+)(?:\+(\d+))?$/;
+
+const isLetter = (character: string): boolean => lettersOnly(character).length > 0;
+
+export function numberedWords(row: string): string {
+  return row
+    .trim()
+    .split(/\s+/)
+    .map((word, index) => `${index + 1}:${word}`)
+    .join(' ');
+}
+
+export function answerToLetters(row: string, answer: string): number | undefined {
+  const match = ANSWER.exec(answer.trim());
+  if (match === null) return undefined;
+  const words = row.trim().split(/\s+/);
+  const word = Number(match[1]);
+  const offset = match[2] === undefined ? 0 : Number(match[2]);
+  if (word < 1 || word > words.length) return undefined;
+  if (offset > 0 && offset >= letters(words[word - 1] ?? '')) return undefined;
+  const before =
+    words.slice(0, word - 1).reduce((sum, earlier) => sum + letters(earlier), 0) + offset;
+  return before > 0 ? before : undefined;
+}
+
+export function cutAt(row: string, lettersBefore: number): [string, string] | undefined {
+  let seen = 0;
+  for (let index = 0; index < row.length; index += 1) {
+    if (isLetter(row[index] ?? '')) seen += 1;
+    if (seen === lettersBefore) {
+      let end = index + 1;
+      while (end < row.length && MARKS.test(row[end] ?? '')) end += 1;
+      const first = row.slice(0, end).trim();
+      const second = row.slice(end).trim();
+      return first.length > 0 && letters(second) > 0 ? [first, second] : undefined;
+    }
+  }
+  return undefined;
+}
+
+export function acceptSplit(row: string, lettersBefore: number, half: number): string | undefined {
+  const halves = cutAt(row, lettersBefore);
+  if (halves === undefined) return undefined;
+  const [first, second] = halves;
+  const balanced = [first, second].every((part) => {
+    const ratio = letters(part) / half;
+    return ratio >= SPLIT_LOW && ratio <= SPLIT_HIGH;
+  });
+  const repaired = `${first}*${second}`;
+  return balanced && lettersOnly(repaired) === lettersOnly(row) ? repaired : undefined;
+}
+
+export function copyCuts(rows: Iterable<string>): Map<string, number> {
+  const cuts = new Map<string, number>();
+  for (const row of rows) {
+    const parts = row.split('*');
+    if (parts.length !== 2) continue;
+    cuts.set(foldKey(row), letters(parts[0] ?? ''));
+  }
+  return cuts;
+}

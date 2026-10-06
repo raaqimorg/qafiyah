@@ -2,10 +2,15 @@ import { describe, expect, it } from 'bun:test';
 
 import { lettersOnly } from './arabic-text';
 import {
+  acceptSplit,
+  answerToLetters,
   classifyFlat,
+  copyCuts,
+  cutAt,
   foldKey,
   isUnsplitVerse,
   mergePairs,
+  numberedWords,
   rhymePattern,
   typicalHalf,
 } from './row-repair';
@@ -113,5 +118,84 @@ describe('mergePairs', () => {
 describe('foldKey', () => {
   it('folds alif forms, alif maqsura, and ta marbuta and drops marks, spaces, and separators', () => {
     expect(foldKey('أَإِآ ى ة*')).toBe(foldKey('ااا ي ه'));
+  });
+});
+
+describe('numberedWords', () => {
+  it('numbers each word from one so a review answer can name it', () => {
+    expect(numberedWords(' قِفا  نَبكِ مِن ')).toBe('1:قِفا 2:نَبكِ 3:مِن');
+  });
+});
+
+describe('answerToLetters', () => {
+  const row = `${half(3)} ${half(4)} ${half(5)} ${half(6)}`;
+
+  it('counts the letters before the word that opens the second half', () => {
+    expect(answerToLetters(row, 'w3')).toBe(7);
+  });
+
+  it('adds the letters a straddling word keeps in the first half', () => {
+    expect(answerToLetters(row, 'w2+2')).toBe(5);
+  });
+
+  it('refuses a cut before the first letter, a word past the end, an offset past the word, and an unsure answer', () => {
+    expect(answerToLetters(row, 'w1')).toBeUndefined();
+    expect(answerToLetters(row, 'w5')).toBeUndefined();
+    expect(answerToLetters(row, 'w2+9')).toBeUndefined();
+    expect(answerToLetters(row, '?')).toBeUndefined();
+  });
+});
+
+describe('cutAt', () => {
+  it('cuts at a word boundary and drops the space between the halves', () => {
+    expect(cutAt(`${half(3)} ${half(4)}`, 3)).toEqual([half(3), half(4)]);
+  });
+
+  it('carries the diacritics of the last letter into the first half', () => {
+    expect(cutAt('بَكَى سَمِعَ', 2)).toEqual(['بَكَ', 'ى سَمِعَ']);
+  });
+
+  it('cuts inside a word when the word straddles the halves', () => {
+    expect(cutAt(`${half(4)} ${half(4)}`, 2)).toEqual(['سس', `سس ${half(4)}`]);
+  });
+
+  it('refuses a cut that leaves either half empty', () => {
+    expect(cutAt(half(4), 4)).toBeUndefined();
+    expect(cutAt(half(4), 9)).toBeUndefined();
+  });
+});
+
+describe('a real verse whose word straddles the halves', () => {
+  const row = 'لَنَا وَلِهِنْدٍ بِبَطْنِ العَقِيقِ مُبْدىً وَمَنْزِلُهُ مُونِقُ';
+  const copyFirst = 'لَنا وَلهندٍ بِبَطنِ العَقي';
+  const copySecond = 'قِ مُبدىً وَمَنزِلُهُ مُونِقُ';
+
+  it('splits where its correctly stored copy splits, inside a word, keeping every letter', () => {
+    const [first, second] = cutAt(row, lettersOnly(copyFirst).length) ?? ['', ''];
+    expect([lettersOnly(first).length, lettersOnly(second).length]).toEqual([17, 15]);
+    expect(foldKey(first)).toBe(foldKey(copyFirst));
+    expect(foldKey(second)).toBe(foldKey(copySecond));
+    expect(lettersOnly(first + second)).toBe(lettersOnly(row));
+  });
+});
+
+describe('acceptSplit', () => {
+  const row = `${'ب'.repeat(11)} ${'س'.repeat(9)}`;
+
+  it('accepts halves within the expected share of a half-line and keeps every letter', () => {
+    const repaired = acceptSplit(row, 11, 10);
+    expect(repaired).toBe(`${'ب'.repeat(11)}*${'س'.repeat(9)}`);
+    expect(lettersOnly(repaired ?? '')).toBe(lettersOnly(row));
+  });
+
+  it('refuses halves far from a half-line', () => {
+    expect(acceptSplit(row, 5, 10)).toBeUndefined();
+  });
+});
+
+describe('copyCuts', () => {
+  it('keeps the first half length of every row with exactly one separator, by its folded letters', () => {
+    const cuts = copyCuts([`${half(3)}*بببب`, half(5), 'ا*ب*ج']);
+    expect([...cuts]).toEqual([[foldKey(`${half(3)}بببب`), 3]]);
   });
 });
