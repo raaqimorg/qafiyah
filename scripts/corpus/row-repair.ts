@@ -1,10 +1,10 @@
 import { DEFAULT_SOUND_CLASSES, lettersOnly } from './arabic-text';
 import { rhymeScore } from './qafiya';
 
-export const UNSPLIT_RATIO = 1.6;
-export const HALF_LINE_RATIO = 1.3;
-export const SPLIT_LOW = 0.7;
-export const SPLIT_HIGH = 1.3;
+const UNSPLIT_RATIO = 1.6;
+const HALF_LINE_RATIO = 1.3;
+const SPLIT_LOW = 0.7;
+const SPLIT_HIGH = 1.3;
 const RHYMES = 0.8;
 const DOES_NOT_RHYME = 0.6;
 const MIN_HALVES = 4;
@@ -186,4 +186,81 @@ export function buildApplySql(changes: readonly Change[]): string {
   }
   lines.push('COMMIT;', ...REFRESHES);
   return `${lines.join('\n')}\n`;
+}
+
+export type PoemPlan =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'merge'; readonly newRows: readonly string[] }
+  | { readonly kind: 'unclear' }
+  | { readonly kind: 'splits'; readonly indexes: readonly number[] };
+
+function unsplitIndexes(rows: readonly string[], half: number): number[] {
+  return rows.flatMap((row, index) => (isUnsplitVerse(row, half) ? [index] : []));
+}
+
+export function planPoem(rows: readonly string[], half: number): PoemPlan {
+  const kind = classifyFlat(rows, half);
+  if (kind === 'half-line-pairs') return { kind: 'merge', newRows: mergePairs(rows) };
+  if (kind === 'unclear') return { kind: 'unclear' };
+  if (kind === 'rhyming-half-lines') return { kind: 'none' };
+  const indexes = unsplitIndexes(rows, half);
+  return indexes.length > 0 ? { kind: 'splits', indexes } : { kind: 'none' };
+}
+
+export function applySplits(
+  rows: readonly string[],
+  splits: ReadonlyMap<number, string>
+): string[] {
+  return rows.map((row, index) => splits.get(index) ?? row);
+}
+
+export function acceptCouplets(rows: readonly string[]): string[] | undefined {
+  const secondHalves = rows.filter((_, index) => index % 2 === 1);
+  if (secondHalves.length < 2) return undefined;
+  return rhymeScore(secondHalves, DEFAULT_SOUND_CLASSES) >= RHYMES ? mergePairs(rows) : undefined;
+}
+
+export function parseAnswers(csv: string): Map<string, string> {
+  const answers = new Map<string, string>();
+  for (const line of csv.split('\n').slice(1)) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    const comma = trimmed.indexOf(',');
+    if (comma < 0) continue;
+    answers.set(trimmed.slice(0, comma).trim(), trimmed.slice(comma + 1).trim());
+  }
+  return answers;
+}
+
+export type MeasureScore = {
+  readonly total: number;
+  readonly answered: number;
+  readonly exact: number;
+  readonly unsure: number;
+};
+
+export function scoreMeasure(
+  rows: ReadonlyMap<string, string>,
+  truth: ReadonlyMap<string, number>,
+  answers: ReadonlyMap<string, string>
+): MeasureScore {
+  let answered = 0;
+  let exact = 0;
+  let unsure = 0;
+  for (const [key, cut] of truth) {
+    const answer = answers.get(key);
+    if (answer === undefined || answer === '?') {
+      unsure += 1;
+      continue;
+    }
+    answered += 1;
+    if (answerToLetters(rows.get(key) ?? '', answer) === cut) exact += 1;
+  }
+  return { total: truth.size, answered, exact, unsure };
+}
+
+export function csvLine(fields: readonly string[]): string {
+  return fields
+    .map((field) => (/[",\n]/.test(field) ? `"${field.replaceAll('"', '""')}"` : field))
+    .join(',');
 }
