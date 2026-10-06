@@ -214,14 +214,19 @@ describe('a real verse whose word straddles the halves', () => {
 describe('acceptSplit', () => {
   const row = `${'ب'.repeat(11)} ${'س'.repeat(9)}`;
 
-  it('accepts halves within the expected share of a half-line and keeps every letter', () => {
-    const repaired = acceptSplit(row, 11, 10);
+  it('accepts a cut that leaves each half a fair share of the row and keeps every letter', () => {
+    const repaired = acceptSplit(row, 11);
     expect(repaired).toBe(`${'ب'.repeat(11)}*${'س'.repeat(9)}`);
     expect(lettersOnly(repaired ?? '')).toBe(lettersOnly(row));
   });
 
-  it('refuses halves far from a half-line', () => {
-    expect(acceptSplit(row, 5, 10)).toBeUndefined();
+  it('refuses a cut that leaves one half under 35 percent of the row', () => {
+    expect(acceptSplit(row, 5)).toBeUndefined();
+  });
+
+  it('accepts a balanced cut of a row longer than the poem usual verse', () => {
+    const long = `${'ب'.repeat(25)} ${'س'.repeat(27)}`;
+    expect(acceptSplit(long, 25)).toBe(`${'ب'.repeat(25)}*${'س'.repeat(27)}`);
   });
 });
 
