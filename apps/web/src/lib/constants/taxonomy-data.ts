@@ -137,3 +137,4 @@ export const RESULTS_NOUN_FORMS = {
 } as const satisfies ArabicNounForms;
 
 export const CLASSICAL_POEM_TYPE = 'amudi';
+export const FREE_VERSE_POEM_TYPE = 'hurr';
