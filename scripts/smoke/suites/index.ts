@@ -13,6 +13,7 @@ import {
   searchUnicodeProbes,
 } from '../probes/search';
 import { securityProbes } from '../probes/security';
+import { verseProbes } from '../probes/verses';
 
 import { apiContractProbes } from './api-contract';
 import { authProbes } from './auth';
@@ -47,6 +48,7 @@ export const SUITES: readonly Suite[] = [
   },
   { name: 'pages', probes: [...pageProbes, ...poetsSsrProbes, ...detailBoundaryProbes] },
   { name: 'poem-nav', probes: poemNavProbes },
+  { name: 'verses', probes: verseProbes },
   { name: 'proxy', probes: proxyProbes },
   { name: 'well-known', probes: wellKnownProbes },
   { name: 'sitemaps', probes: sitemapProbes },

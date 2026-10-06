@@ -130,8 +130,8 @@ fn longest_mark_span(hemistich: Option<&&str>) -> usize {
     longest
 }
 
-fn leading_verse(content: &str) -> String {
-    content.split('*').take(2).collect::<Vec<&str>>().join("*")
+fn leading_row(content: &str) -> String {
+    content.split('\n').next().unwrap_or_default().to_string()
 }
 
 fn ends_inside_mark(text: &str) -> bool {
@@ -142,49 +142,46 @@ fn ends_inside_mark(text: &str) -> bool {
     }
 }
 
-fn balanced_hemistichs(highlighted: &str) -> Vec<String> {
+fn balanced_rows(highlighted: &str) -> Vec<String> {
     let mut open = false;
     highlighted
-        .split('*')
-        .map(|hemistich| {
-            let mut balanced = if open {
-                format!("{MARK_OPEN}{hemistich}")
-            } else {
-                hemistich.to_string()
-            };
-            open = ends_inside_mark(&balanced);
-            if open {
-                balanced.push_str(MARK_CLOSE);
-            }
-            balanced
+        .split('\n')
+        .map(|row| {
+            row.split('*')
+                .map(|part| {
+                    let mut balanced = if open {
+                        format!("{MARK_OPEN}{part}")
+                    } else {
+                        part.to_string()
+                    };
+                    open = ends_inside_mark(&balanced);
+                    if open {
+                        balanced.push_str(MARK_CLOSE);
+                    }
+                    balanced
+                })
+                .collect::<Vec<String>>()
+                .join("*")
         })
         .collect()
 }
 
 pub fn poem_snippet(highlight: Option<&str>, content: &str) -> String {
     if let Some(highlighted) = highlight {
-        let balanced = balanced_hemistichs(highlighted);
-        let hemistichs: Vec<&str> = balanced.iter().map(String::as_str).collect();
-        let mut best_start = None;
+        let mut best = None;
         let mut best_span = 0;
-        let mut index = 0;
-        while index < hemistichs.len() {
-            let span = longest_mark_span(hemistichs.get(index))
-                .max(longest_mark_span(hemistichs.get(index.saturating_add(1))));
+        for row in balanced_rows(highlighted) {
+            let span = longest_mark_span(Some(&row.as_str()));
             if span > best_span {
                 best_span = span;
-                best_start = Some(index);
+                best = Some(row);
             }
-            index = index.saturating_add(2);
         }
-        if let Some(start) = best_start {
-            let end = start.saturating_add(2).min(hemistichs.len());
-            if let Some(verse) = hemistichs.get(start..end) {
-                return verse.join("*");
-            }
+        if let Some(row) = best {
+            return row;
         }
     }
-    leading_verse(content)
+    leading_row(content)
 }
 
 pub fn normalize_query(raw: &str) -> String {
@@ -196,18 +193,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn picks_the_verse_with_the_widest_highlight() {
-        let highlighted = "one*two <mark>ab</mark>*three*four <mark>abcd</mark>";
+    fn the_snippet_is_the_row_with_the_longest_mark() {
+        let highlighted = "one*two <mark>ab</mark>\nthree*four <mark>abcd</mark>";
         assert_eq!(
             poem_snippet(Some(highlighted), "ignored"),
             "three*four <mark>abcd</mark>"
         );
+        assert_eq!(
+            poem_snippet(Some("a1*a2\n<mark>c</mark>\nd1*d2"), "ignored"),
+            "<mark>c</mark>"
+        );
     }
 
     #[test]
-    fn falls_back_to_the_opening_verse_when_nothing_is_highlighted() {
-        assert_eq!(poem_snippet(None, "a*b*c*d"), "a*b");
-        assert_eq!(poem_snippet(Some("a*b*c*d"), "x*y*z"), "x*y");
+    fn with_no_highlight_the_snippet_is_the_first_row() {
+        assert_eq!(poem_snippet(None, "a*b\nc\nd*e"), "a*b");
+        assert_eq!(poem_snippet(None, "c\nd*e"), "c");
+        assert_eq!(poem_snippet(Some("a*b\nc*d"), "x*y\nz"), "x*y");
+    }
+
+    #[test]
+    fn a_mark_never_leaks_into_the_next_row() {
+        assert_eq!(
+            balanced_rows("a <mark>b\nc</mark> d"),
+            ["a <mark>b</mark>", "<mark>c</mark> d"]
+        );
+        assert_eq!(
+            poem_snippet(Some("a <mark>bc\nd</mark> e"), "ignored"),
+            "a <mark>bc</mark>"
+        );
     }
 
     #[test]
@@ -223,7 +237,7 @@ mod tests {
     #[test]
     fn balances_a_mark_that_spans_the_two_halves_of_a_verse() {
         let highlighted =
-            "طلمباتُ الطريق الزراعي*ما تزال في مكانها*«<mark>يا ليلُ،*الصَبُّ</mark> متى غدُه؟";
+            "طلمباتُ الطريق الزراعي*ما تزال في مكانها\n«<mark>يا ليلُ،*الصَبُّ</mark> متى غدُه؟";
         assert_eq!(
             poem_snippet(Some(highlighted), "ignored*fallback"),
             "«<mark>يا ليلُ،</mark>*<mark>الصَبُّ</mark> متى غدُه؟"
@@ -231,8 +245,8 @@ mod tests {
     }
 
     #[test]
-    fn picks_the_verse_holding_the_longer_part_of_a_mark_that_spans_two_verses() {
-        let highlighted = "a*b <mark>cd*efg</mark>*h";
+    fn picks_the_row_holding_the_longer_part_of_a_mark_that_spans_two_rows() {
+        let highlighted = "a*b <mark>cd\nefg</mark>*h";
         assert_eq!(
             poem_snippet(Some(highlighted), "ignored*fallback"),
             "<mark>efg</mark>*h"
@@ -241,7 +255,7 @@ mod tests {
 
     #[test]
     fn keeps_the_first_of_two_equal_spans() {
-        let highlighted = "<mark>ab</mark>*x*<mark>cd</mark>*y";
+        let highlighted = "<mark>ab</mark>*x\n<mark>cd</mark>*y";
         assert_eq!(
             poem_snippet(Some(highlighted), "ignored"),
             "<mark>ab</mark>*x"

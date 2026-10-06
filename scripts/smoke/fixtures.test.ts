@@ -4,7 +4,7 @@ import { POEMS_PER_PAGE } from '@qafiyah/config';
 
 import { ROOT } from '../lib/root';
 
-import { SAMPLE_FIXTURE_POETS } from './fixtures';
+import { HALF_LINES_FIXTURE_POEM, SAMPLE_FIXTURE_POETS } from './fixtures';
 
 type SamplePoet = { readonly slug: string; readonly poems: readonly string[] };
 type SampleManifest = {
@@ -59,6 +59,13 @@ describe('the committed sample dump', () => {
       const poet = manifest.poets.find((candidate) => candidate.slug === fixture.slug);
       expect(poet?.poems).toEqual([...fixture.poems]);
     }
+  });
+
+  test('holds the poem stored as half-lines that the verses probes read', () => {
+    const poet = manifest.poets.find(
+      (candidate) => candidate.slug === HALF_LINES_FIXTURE_POEM.poet
+    );
+    expect(poet?.poems).toContain(HALF_LINES_FIXTURE_POEM.slug);
   });
 
   test('stays pre-Islamic only, so it is safe to ship in plaintext', () => {
