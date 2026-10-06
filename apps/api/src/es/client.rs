@@ -84,12 +84,19 @@ impl Es {
 }
 
 fn failed(index: &str, cause: &reqwest::Error) -> StoreError {
-    let message = format!("{index}: {cause}");
+    let message = format!("{index}: {}", with_causes(cause));
     if cause.is_timeout() || cause.is_connect() {
         StoreError::Unavailable(message)
     } else {
         StoreError::Search(message)
     }
+}
+
+fn with_causes(error: &(dyn std::error::Error + 'static)) -> String {
+    std::iter::successors(Some(error), |level| level.source())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(": ")
 }
 
 fn refusal_reason(value: &Value) -> Option<String> {
@@ -132,7 +139,52 @@ mod tests {
         .await;
 
         let result = outcome.expect("the search must give up on its own, not be rescued");
-        assert!(matches!(result, Err(StoreError::Unavailable(_))));
+        assert!(
+            matches!(&result, Err(StoreError::Unavailable(message)) if message.contains("timed out")),
+            "{:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_search_that_cannot_connect_says_the_connection_was_refused() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        drop(listener);
+        let es = Es::with_timeout(
+            &format!("http://{address}"),
+            Duration::from_secs(5),
+            Metrics::default(),
+        )
+        .expect("an endpoint");
+
+        let result = es.search::<Value>("poems", &serde_json::json!({})).await;
+
+        assert!(
+            matches!(&result, Err(StoreError::Unavailable(message)) if message.to_lowercase().contains("connection refused")),
+            "{:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_search_whose_host_does_not_resolve_says_the_lookup_failed() {
+        let es = Es::with_timeout(
+            "http://qafiyah-no-such-host.invalid:9200",
+            Duration::from_secs(10),
+            Metrics::default(),
+        )
+        .expect("an endpoint");
+
+        let result = es.search::<Value>("poems", &serde_json::json!({})).await;
+
+        assert!(
+            matches!(&result, Err(StoreError::Unavailable(message)) if message.contains("dns error")),
+            "{:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
