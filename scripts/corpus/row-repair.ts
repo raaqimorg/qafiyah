@@ -7,7 +7,7 @@ const SPLIT_LOW = 0.7;
 const SPLIT_HIGH = 1.3;
 const RHYMES = 0.8;
 const DOES_NOT_RHYME = 0.6;
-const MIN_HALVES = 4;
+const MIN_VERSES = 4;
 
 export type RhymePattern = 'every' | 'alternating' | 'unclear';
 export type FlatKind =
@@ -34,11 +34,15 @@ export function foldKey(text: string): string {
   );
 }
 
+export function isFullVerse(row: string): boolean {
+  const parts = row.split('*');
+  return parts.length === 2 && parts.every((part) => letters(part) > 0);
+}
+
 export function typicalHalf(rows: readonly string[], meterBaseline?: number): number | undefined {
-  const halves = rows
-    .filter((row) => row.split('*').length === 2)
-    .flatMap((row) => row.split('*').map((part) => letters(part)));
-  return halves.length >= MIN_HALVES ? median(halves) : meterBaseline;
+  const verses = rows.filter((row) => isFullVerse(row));
+  if (verses.length < MIN_VERSES) return meterBaseline;
+  return median(verses.flatMap((row) => row.split('*').map((part) => letters(part))));
 }
 
 export function isUnsplitVerse(row: string, half: number): boolean {
@@ -135,9 +139,8 @@ export function acceptSplit(row: string, lettersBefore: number, half: number): s
 export function copyCuts(rows: Iterable<string>): Map<string, number> {
   const cuts = new Map<string, number>();
   for (const row of rows) {
-    const parts = row.split('*');
-    if (parts.length !== 2) continue;
-    cuts.set(foldKey(row), letters(parts[0] ?? ''));
+    if (!isFullVerse(row)) continue;
+    cuts.set(foldKey(row), letters(row.split('*')[0] ?? ''));
   }
   return cuts;
 }

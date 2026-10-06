@@ -12,6 +12,7 @@ import {
   copyCuts,
   csvLine,
   foldKey,
+  isFullVerse,
   letters,
   numberedWords,
   parseAnswers,
@@ -74,8 +75,7 @@ function median(values: readonly number[]): number | undefined {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-const isCleanVerse = (row: string): boolean => row.split('*').length === 2;
-const allClean = (poem: Poem): boolean => poem.rows.every((row) => isCleanVerse(row));
+const allClean = (poem: Poem): boolean => poem.rows.every((row) => isFullVerse(row));
 const rowKey = (poem: Poem, index: number): string => `${poem.slug}:${index + 1}`;
 
 function meterBaselines(poems: readonly Poem[]): Map<string, number> {
@@ -139,6 +139,43 @@ function classical(poems: readonly Poem[]): { poems: Poem[]; baselines: Map<stri
   return { poems: kept, baselines: meterBaselines(kept) };
 }
 
+async function writeMeasureSample(dir: string, poems: readonly Poem[]): Promise<number> {
+  const byMeter = new Map<string, { poem: Poem; index: number; half: number }[]>();
+  const ordered = poems
+    .filter((each) => allClean(each))
+    .sort((a, b) => stableOrder(a.slug) - stableOrder(b.slug));
+  for (const poem of ordered) {
+    const half = typicalHalf(poem.rows);
+    if (half === undefined) continue;
+    const list = byMeter.get(poem.meter) ?? [];
+    if (list.length < MEASURE_SIZE) {
+      list.push({ poem, index: stableOrder(`${poem.slug}:row`) % poem.rows.length, half });
+    }
+    byMeter.set(poem.meter, list);
+  }
+  const measured: { poem: Poem; index: number; half: number }[] = [];
+  for (let round = 0; measured.length < MEASURE_SIZE && round < MEASURE_SIZE; round += 1) {
+    for (const list of byMeter.values()) {
+      const pick = list[round];
+      if (pick !== undefined && measured.length < MEASURE_SIZE) measured.push(pick);
+    }
+  }
+
+  const measureLines: string[] = [];
+  const keyLines: string[] = [];
+  for (const { poem, index, half } of measured) {
+    const [first = '', second = ''] = (poem.rows[index] ?? '').split('*');
+    const text = `${first.trim()} ${second.trim()}`;
+    const key = rowKey(poem, index);
+    measureLines.push(csvLine([key, poem.meter, String(half), numberedWords(text)]));
+    keyLines.push(csvLine([key, String(letters(first)), text]));
+  }
+
+  await writeBatches(dir, 'measure', 'key,meter,half,words', measureLines);
+  await Bun.write(join(dir, 'measure-key.csv'), `key,cut,text\n${keyLines.join('\n')}\n`);
+  return measured.length;
+}
+
 async function plan(corpusPath: string, dir: string): Promise<void> {
   const everything = readCorpus(await Bun.file(corpusPath).text());
   const { poems, baselines } = classical(everything);
@@ -173,7 +210,7 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
   );
   const copies = copyCuts(
     everything.flatMap((poem) =>
-      poem.rows.filter((row) => isCleanVerse(row) && wanted.has(foldKey(row)))
+      poem.rows.filter((row) => isFullVerse(row) && wanted.has(foldKey(row)))
     )
   );
 
@@ -190,37 +227,6 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
       copySplits.push({ key: candidate.key, row: repaired });
       bump('split: taken from a copy');
     }
-  }
-
-  const byMeter = new Map<string, { poem: Poem; index: number; half: number }[]>();
-  const ordered = poems
-    .filter((each) => allClean(each))
-    .sort((a, b) => stableOrder(a.slug) - stableOrder(b.slug));
-  for (const poem of ordered) {
-    const half = typicalHalf(poem.rows);
-    if (half === undefined) continue;
-    const list = byMeter.get(poem.meter) ?? [];
-    if (list.length < MEASURE_SIZE) {
-      list.push({ poem, index: stableOrder(`${poem.slug}:row`) % poem.rows.length, half });
-    }
-    byMeter.set(poem.meter, list);
-  }
-  const measured: { poem: Poem; index: number; half: number }[] = [];
-  for (let round = 0; measured.length < MEASURE_SIZE && round < MEASURE_SIZE; round += 1) {
-    for (const list of byMeter.values()) {
-      const pick = list[round];
-      if (pick !== undefined && measured.length < MEASURE_SIZE) measured.push(pick);
-    }
-  }
-
-  const measureLines: string[] = [];
-  const keyLines: string[] = [];
-  for (const { poem, index, half } of measured) {
-    const [first = '', second = ''] = (poem.rows[index] ?? '').split('*');
-    const text = `${first.trim()} ${second.trim()}`;
-    const key = rowKey(poem, index);
-    measureLines.push(csvLine([key, poem.meter, String(half), numberedWords(text)]));
-    keyLines.push(csvLine([key, String(letters(first)), text]));
   }
 
   const splitLines = queue.map((candidate) =>
@@ -242,8 +248,10 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
 
   const splitBatches = await writeBatches(dir, 'splits', 'key,meter,half,words', splitLines);
   const unclearBatches = await writeBatches(dir, 'unclear', 'slug,meter,rows,lines', unclearLines);
-  const measureBatches = await writeBatches(dir, 'measure', 'key,meter,half,words', measureLines);
-  await Bun.write(join(dir, 'measure-key.csv'), `key,cut,text\n${keyLines.join('\n')}\n`);
+  const keyFile = Bun.file(join(dir, 'measure-key.csv'));
+  const measureNote = (await keyFile.exists())
+    ? 'kept the existing measurement sample, which its answers refer to'
+    : `${await writeMeasureSample(dir, poems)} verses`;
 
   const auto: Auto = {
     merges,
@@ -261,7 +269,7 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, value]) => `- ${name}: ${value}`),
     '',
-    `Review batches: ${measureBatches} measure (${measured.length} verses), ${splitBatches} splits (${queue.length} rows), ${unclearBatches} unclear (${unclear.length} poems)`,
+    `Review batches: measure (${measureNote}), ${splitBatches} splits (${queue.length} rows), ${unclearBatches} unclear (${unclear.length} poems)`,
   ];
   await Bun.write(join(dir, 'summary.md'), `${summary.join('\n')}\n`);
   console.log(summary.join('\n'));
