@@ -141,7 +141,7 @@ async fn a_poem_detail_carries_verses_prosody_and_navigation_consistent_with_its
     assert!(
         verses
             .iter()
-            .all(|v| v.as_array().is_some_and(|pair| pair.len() == 2))
+            .all(|v| v.as_array().is_some_and(|entry| !entry.is_empty()))
     );
     assert_eq!(
         usize::try_from(poem["verseCount"].as_u64().expect("count")).expect("fits usize"),
@@ -156,6 +156,86 @@ async fn a_poem_detail_carries_verses_prosody_and_navigation_consistent_with_its
         assert_eq!(neighbor["prev"]["slug"], slug, "next.prev must point back");
     }
     assert_eq!(h.get("/v1/poems/zzzz").await.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_stored_rows_add_up_to_the_verse_counts_of_all_poems() {
+    let Some(h) = h().await else { return };
+    let matches = h
+        .flag(
+            "SELECT (SELECT coalesce(sum(verse_count), 0) FROM public.poems) = \
+         (SELECT count(*) FROM public.poem_verses) AS value",
+            &[],
+        )
+        .await;
+    assert!(matches);
+}
+
+#[tokio::test]
+async fn every_sampled_poem_returns_as_many_entries_as_its_verse_count() {
+    let Some(h) = h().await else { return };
+    let sample = h
+        .texts(
+            "SELECT slug || ':' || shape AS value FROM ( \
+           SELECT DISTINCT ON (t.id, s.shape) c.slug, c.id, s.shape FROM public.poem_types t \
+           CROSS JOIN LATERAL ( \
+             SELECT p.id, p.slug FROM public.poems p JOIN public.poets pt ON pt.id = p.poet_id \
+             WHERE p.poem_type_id = t.id AND NOT p.is_hidden AND NOT pt.is_hidden \
+             ORDER BY p.id LIMIT 300) c \
+           CROSS JOIN LATERAL ( \
+             SELECT CASE WHEN bool_or(v.content NOT LIKE '%*%') THEN 'lone' \
+                         WHEN bool_or(v.content LIKE '%*%*%') THEN 'more' \
+                         ELSE 'halves' END AS shape \
+             FROM public.poem_verses pv JOIN public.verses v ON v.id = pv.verse_id \
+             WHERE pv.poem_id = c.id) s \
+           WHERE s.shape IS NOT NULL ORDER BY t.id, s.shape, c.id) picked ORDER BY id",
+            &[],
+        )
+        .await;
+    let shapes: HashSet<&str> = sample
+        .iter()
+        .filter_map(|picked| picked.split_once(':').map(|(_, shape)| shape))
+        .collect();
+    assert!(
+        shapes.contains("lone") && shapes.contains("halves"),
+        "{sample:?}"
+    );
+    for picked in &sample {
+        let slug = picked
+            .split_once(':')
+            .map_or(picked.as_str(), |(slug, _)| slug);
+        let sent = h.get(&format!("/v1/poems/{slug}")).await;
+        assert_eq!(sent.status, StatusCode::OK, "{slug}: {}", sent.body);
+        let poem = sent.json()["data"].clone();
+        let entries: Vec<String> = poem["verses"]
+            .as_array()
+            .expect("verses")
+            .iter()
+            .map(|entry| {
+                entry
+                    .as_array()
+                    .expect("an entry")
+                    .iter()
+                    .map(|part| part.as_str().expect("a part"))
+                    .collect::<Vec<_>>()
+                    .join("*")
+            })
+            .collect();
+        let rows = h
+            .texts(
+                "SELECT v.content AS value FROM public.poem_verses pv \
+             JOIN public.verses v ON v.id = pv.verse_id JOIN public.poems p ON p.id = pv.poem_id \
+             WHERE p.slug = $1 ORDER BY pv.position",
+                &[slug],
+            )
+            .await;
+        assert_eq!(entries, rows, "{slug}");
+        assert_eq!(
+            poem["verseCount"].as_u64(),
+            u64::try_from(entries.len()).ok(),
+            "{slug}"
+        );
+    }
 }
 
 #[tokio::test]

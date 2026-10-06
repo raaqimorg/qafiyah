@@ -508,15 +508,12 @@ export interface components {
                 title: string;
                 /**
                  * Format: int32
-                 * @description Number of verses as stored, or lines for free verse. It can differ from the length of `verses`, which pairs the text by half-lines.
+                 * @description Number of stored lines, equal to the length of `verses`.
                  * @example 70
                  */
                 verseCount: number;
-                /** @description The text in order as pairs of half-lines (hemistichs), with diacritics as transmitted. A classical verse is one pair. Lines with no half-line break, as in free verse, are paired two at a time, and the last pair ends with an empty string when the parts are odd in number. */
-                verses: [
-                    string,
-                    string
-                ][];
+                /** @description The text in order, one entry per stored line, with diacritics as transmitted. An entry holds the two halves (hemistichs) of a classical verse, or one part for a single line (a free-verse line, a stanza's closing line, a half-line stored alone), or more parts where the source stored them so. */
+                verses: string[][];
             };
         };
         /** @description The requested item under `data`. */
@@ -860,15 +857,12 @@ export interface components {
             title: string;
             /**
              * Format: int32
-             * @description Number of verses as stored, or lines for free verse. It can differ from the length of `verses`, which pairs the text by half-lines.
+             * @description Number of stored lines, equal to the length of `verses`.
              * @example 70
              */
             verseCount: number;
-            /** @description The text in order as pairs of half-lines (hemistichs), with diacritics as transmitted. A classical verse is one pair. Lines with no half-line break, as in free verse, are paired two at a time, and the last pair ends with an empty string when the parts are odd in number. */
-            verses: [
-                string,
-                string
-            ][];
+            /** @description The text in order, one entry per stored line, with diacritics as transmitted. An entry holds the two halves (hemistichs) of a classical verse, or one part for a single line (a free-verse line, a stanza's closing line, a half-line stored alone), or more parts where the source stored them so. */
+            verses: string[][];
         };
         PoemFacets: {
             /** @description The poet's meters with poem counts under the rhyme and theme filters. */

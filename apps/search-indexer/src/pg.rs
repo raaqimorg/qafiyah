@@ -17,7 +17,7 @@ use crate::reindex::CorpusSource;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const QUERY_TIMEOUT: Duration = Duration::from_secs(60);
-const VERSE_SEPARATOR: &str = "*";
+const ROW_SEPARATOR: &str = "\n";
 
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = poems, check_for_backend(Pg))]
@@ -98,7 +98,7 @@ fn poem_sources(rows: Vec<PoemRow>, verses: Vec<(i32, String)>) -> Vec<PoemSourc
         .map(|row| PoemSource {
             content: contents
                 .remove(&row.id)
-                .map(|lines| lines.join(VERSE_SEPARATOR))
+                .map(|lines| lines.join(ROW_SEPARATOR))
                 .unwrap_or_default(),
             primary_id: row.recension_of_id.unwrap_or(row.id),
             is_primary: row.recension_of_id.is_none(),
@@ -273,9 +273,12 @@ mod tests {
     }
 
     #[test]
-    fn verses_join_in_the_order_they_are_read_and_keep_empty_ones() {
+    fn rows_join_with_a_newline_in_the_order_they_are_read_and_keep_empty_ones() {
         let verses = vec![(1, "a".into()), (1, String::new()), (1, "b".into())];
-        assert_eq!(poem_sources(vec![row(1, None)], verses)[0].content, "a**b");
+        assert_eq!(
+            poem_sources(vec![row(1, None)], verses)[0].content,
+            "a\n\nb"
+        );
     }
 
     #[test]
