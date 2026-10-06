@@ -136,11 +136,11 @@ services:
       SESSION_STATE_SECRET: ${SESSION_STATE_SECRET:-}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
     networks:
-      default:
       edge:
         aliases:
           - web-edge
       backend:
+      metrics:
     expose:
       - "8080"
 
@@ -332,6 +332,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      default:
+      metrics:
 
   prometheus:
     image: prom/prometheus:v3.15.0
@@ -365,6 +368,7 @@ services:
     networks:
       default:
       observability:
+      metrics:
 
   grafana:
     image: grafana/grafana:13.2.3
@@ -482,6 +486,7 @@ networks:
       config:
         - subnet: 172.27.0.0/24
   observability:
+  metrics:
 
 secrets:
   sentry_auth_token:
