@@ -133,13 +133,13 @@ async fn the_words_as_typed_in_a_poem_outrank_one_stemmed_word_in_another_title(
             1,
             "Aaaa",
             "سرى الطيف ليلا فاستهام فؤادي",
-            "سرى الطيف ليلا فاستهام فؤادي*وطال على طول البعاد سهادي*من لي لها والدار تنأى بأهلها*ومن لي بقلب لا يذوب ودادي",
+            "سرى الطيف ليلا فاستهام فؤادي*وطال على طول البعاد سهادي\nمن لي لها والدار تنأى بأهلها*ومن لي بقلب لا يذوب ودادي",
         ),
         poem(
             2,
             "Bbbb",
             "ما لي وللرقباء ما لي",
-            "ما لي وللرقباء ما لي*إذ لا اصطبار لها على*مرض وحال دون حال",
+            "ما لي وللرقباء ما لي\nإذ لا اصطبار لها على\nمرض وحال دون حال",
         ),
     ];
     docs.extend(filler());
@@ -259,7 +259,7 @@ async fn a_word_deep_in_a_long_poem_is_highlighted_from_stored_offsets_whatever_
     let Some(admin) = admin() else {
         return;
     };
-    let filler = "سرى الطيف في الظلام فاستهام فؤادي*وطال على طول البعاد سهادي*".repeat(20);
+    let filler = "سرى الطيف في الظلام فاستهام فؤادي*وطال على طول البعاد سهادي\n".repeat(20);
     let docs = [poem(
         1,
         "Long",
@@ -308,7 +308,7 @@ async fn a_ranked_search_for_a_quoted_line_shows_the_verse_holding_it_with_the_l
         1,
         "Dyar",
         "منازل",
-        "ذكرت عبلة والرماح نواهل*فهاج الشوق في قلبي*يا دار عبلة بالجواء تكلمي*وعمي صباحا واسلمي",
+        "ذكرت عبلة والرماح نواهل*فهاج الشوق في قلبي\nيا دار عبلة بالجواء تكلمي*وعمي صباحا واسلمي",
     )];
     admin
         .with_poems(&docs, |es, index| async move {
@@ -330,7 +330,7 @@ async fn a_ranked_search_marks_the_word_as_written_when_only_its_stem_matches() 
         1,
         "Lyll",
         "سهر",
-        &format!("{OPENING_VERSE}*سهرت والليل طويل*أعد النجوم"),
+        &format!("{OPENING_VERSE}\nسهرت والليل طويل*أعد النجوم"),
     )];
     admin
         .with_poems(&docs, |es, index| async move {
@@ -352,7 +352,7 @@ async fn a_search_made_only_of_stopwords_marks_them_in_the_verse_it_shows() {
         1,
         "Tayf",
         "طيف",
-        &format!("{OPENING_VERSE}*فقلت من أنت يا طيف*فقال أنا الهوى"),
+        &format!("{OPENING_VERSE}\nفقلت من أنت يا طيف*فقال أنا الهوى"),
     )];
     admin
         .with_poems(&docs, |es, index| async move {
@@ -374,7 +374,7 @@ async fn a_ranked_search_with_a_standalone_hamza_marks_the_word_as_typed_and_not
         1,
         "Nahr",
         "نهر",
-        &format!("{OPENING_VERSE}*شربت ماء النهر*ما كان لي عندها"),
+        &format!("{OPENING_VERSE}\nشربت ماء النهر*ما كان لي عندها"),
     )];
     admin
         .with_poems(&docs, |es, index| async move {
@@ -396,7 +396,7 @@ async fn a_poem_found_only_by_its_title_shows_its_opening_verse_unmarked() {
         1,
         "Ttle",
         "حنين المسافر",
-        &format!("أحن إلى بيت بعيد*وأمي تنتظر الغياب*{OPENING_VERSE}"),
+        &format!("أحن إلى بيت بعيد*وأمي تنتظر الغياب\n{OPENING_VERSE}"),
     )];
     admin
         .with_poems(&docs, |es, index| async move {
@@ -458,7 +458,7 @@ fn quoted_line() -> [Value; 3] {
             1,
             "Jahl",
             "لعمرك ما الأيام إلا معارة",
-            "لعمرك ما الأيام إلا معارة*فما اسطعت من معروفها فتزود*ستبدي لك الأيام ما كنت جاهلا*ويأتيك بالأخبار من لم تزود",
+            "لعمرك ما الأيام إلا معارة*فما اسطعت من معروفها فتزود\nستبدي لك الأيام ما كنت جاهلا*ويأتيك بالأخبار من لم تزود",
             "jahili",
         ),
         dated(
@@ -472,7 +472,7 @@ fn quoted_line() -> [Value; 3] {
             3,
             "Mmlk",
             "تعلم فإن الدهر فيه عجائب",
-            "تعلم فإن الدهر فيه عجائب*وقد قال من قبلي ستبدي لك الأيام ما كنت جاهلا*فخذها حكمة",
+            "تعلم فإن الدهر فيه عجائب*وقد قال من قبلي ستبدي لك الأيام ما كنت جاهلا\nفخذها حكمة",
             "mamluki",
         ),
     ]
@@ -616,7 +616,7 @@ async fn punctuation_in_the_query_keeps_the_exact_title_first() {
             2,
             "Rpts",
             "يا قلب يا قلب كم تصادر",
-            "يا قلب يا قلب كم تصادر*يا قلب يا قلب لا تحزن*يا قلب",
+            "يا قلب يا قلب كم تصادر*يا قلب يا قلب لا تحزن\nيا قلب",
         ),
     ];
     admin
@@ -736,16 +736,19 @@ async fn found(es: &Es, params: PoemSearchParams) -> (Vec<String>, u32) {
 fn browsing_docs() -> Vec<Value> {
     vec![
         shaped(
-            poem(1, "Jah1", "عنوان أول", "بيت أول*شطر ثان*بيت ثالث*شطر رابع"),
+            poem(1, "Jah1", "عنوان أول", "بيت أول*شطر ثان\nبيت ثالث*شطر رابع"),
             json!({ "eraSlug": "jahili" }),
         ),
-        poem(2, "Mod2", "عنوان ثان", "سطر أول*سطر ثان*سطر ثالث"),
+        poem(2, "Mod2", "عنوان ثان", "سطر أول\nسطر ثان\nسطر ثالث"),
         shaped(
             poem(3, "Abb3", "عنوان ثالث", "قول أول*قول ثان"),
             json!({ "eraSlug": "abbasi" }),
         ),
-        poem(4, "Mod4", "عنوان رابع", "كلام أول*كلام ثان*كلام ثالث"),
-        reading_of(4, poem(5, "Alt5", "عنوان رابع", "كلام أول*كلام ثان*كلام ثالث")),
+        poem(4, "Mod4", "عنوان رابع", "كلام أول\nكلام ثان\nكلام ثالث"),
+        reading_of(
+            4,
+            poem(5, "Alt5", "عنوان رابع", "كلام أول\nكلام ثان\nكلام ثالث"),
+        ),
     ]
 }
 
@@ -792,10 +795,7 @@ async fn browsing_one_era_lists_its_poems_newest_first_with_their_opening_verse(
                 .iter()
                 .map(|hit| (hit.slug.as_str(), hit.snippet.as_str()))
                 .collect();
-            assert_eq!(
-                shown,
-                [("Mod4", "كلام أول*كلام ثان"), ("Mod2", "سطر أول*سطر ثان")]
-            );
+            assert_eq!(shown, [("Mod4", "كلام أول"), ("Mod2", "سطر أول")]);
         })
         .await;
 }

@@ -241,8 +241,8 @@ mod tests {
         let found = poems_found(found(
             1,
             vec![poem_hit(
-                poem_source("TnKK", "a*b*c*d"),
-                Some("a*b <mark>x</mark>*c*d"),
+                poem_source("TnKK", "a*b\nc*d"),
+                Some("a*b <mark>x</mark>\nc*d"),
                 json!(3.5),
             )],
         ))
@@ -337,7 +337,11 @@ mod tests {
     async fn an_empty_highlight_shows_the_opening_verse() {
         let found = poems_found(found(
             1,
-            vec![poem_hit(poem_source("TnKK", "x*y*z"), Some(""), json!(1.0))],
+            vec![poem_hit(
+                poem_source("TnKK", "x*y\nz"),
+                Some(""),
+                json!(1.0),
+            )],
         ))
         .await;
         assert_eq!(found.hits[0].snippet, "x*y");

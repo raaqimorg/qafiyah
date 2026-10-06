@@ -8,12 +8,12 @@ fn one_poem_and_one_poet() -> serde_json::Value {
     json!({ "hits": { "total": { "value": 1 }, "hits": [ {
         "_score": 2.0,
         "_source": {
-            "slug": "TnKK", "title": "t", "titleDisplay": "T", "content": "a*b*c",
+            "slug": "TnKK", "title": "t", "titleDisplay": "T", "content": "a*b\nc",
             "poetNameDisplay": "P", "poetSlug": "yoFB", "poetHasAvatar": false,
             "poetIsAnonymous": false, "meterName": "m", "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi",
             "name": "n", "nameDisplay": "N", "poemsCount": 7
         },
-        "highlight": { "content": ["a*<mark>b</mark>*c"] }
+        "highlight": { "content": ["a*<mark>b</mark>\nc"] }
     } ] } })
 }
 
