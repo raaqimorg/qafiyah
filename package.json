@@ -20,6 +20,7 @@
     "ci": "bun scripts/ci.ts",
     "clean": "./scripts/dev/clean.sh",
     "corpus:apply-classical": "bun scripts/corpus/apply-verdicts.ts",
+    "corpus:repair-rows": "bun scripts/corpus/repair-rows.ts",
     "corpus:verify-classical": "bun scripts/corpus/verify-classical.ts",
     "db:schema": "bun scripts/db/diesel-schema.ts",
     "db:schema:check": "bun scripts/db/diesel-schema.ts --check",
