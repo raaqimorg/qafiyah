@@ -26,7 +26,7 @@ Base URL: {BASE}
 ## Poems
 
 - [GET /v1/poems]({BASE}/poems?poet=PAKT&meter=altawil): Poems, 30 a page in catalog order. Filters: `poet`, `era`, `meter`, `rhyme`, `theme`, `collection`. A slug that matches nothing gives an empty page.
-- [GET /v1/poems/{slug}]({BASE}/poems/gnNg): One poem: its verses as pairs of half-lines, poet, era, meter, rhyme, theme, verse form, the poet's previous and next poems, its other readings, and up to 10 related poems. A slug merged into another poem answers 301.
+- [GET /v1/poems/{slug}]({BASE}/poems/gnNg): One poem: its text as one entry per stored line (the two halves of a verse, or a single line), poet, era, meter, rhyme, theme, verse form, the poet's previous and next poems, its other readings, and up to 10 related poems. A slug merged into another poem answers 301.
 - [GET /v1/poems/random]({BASE}/poems/random): A random poem as plain text, never cached. The body is a poem slug, or with `?option=lines` one verse on two lines, a blank line, and the poet's name.
 - [GET /v1/poems/count]({BASE}/poems/count): The number of poems
 - [GET /v1/poems/facets]({BASE}/poems/facets?poet=PAKT): One poet's meters, rhymes, and themes with poem counts, for filtering their poems. Params: `poet` (required), then `meter`, `rhyme`, and `theme` as in GET /v1/poems.

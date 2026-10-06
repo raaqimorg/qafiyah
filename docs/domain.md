@@ -8,15 +8,18 @@ implementation detail, for the schema/module internals see `apps/api/AGENTS.md` 
 ## Poem
 
 The core content entity: `title`, `slug` (four mixed-case letters, e.g. `TnKK`), `verses`
-(ordered pairs of hemistichs), `verse_count`, a `sample` (first three hemistichs, used for
-previews), and `keywords`.
+(one entry per stored line, in order), `verse_count` (the number of stored lines, so always the
+length of `verses`), a `sample` (first three hemistichs, used for previews), and `keywords`.
 It does **not** have its own era: its era is its poet's, carried as a copy the database keeps in
 sync (see Era below).
 Every poem has exactly one poet, meter, theme, rhyme, and poem type; collection, form,
 register, genre, and rhyme majra are optional (see Poem type below).
 
-Raw poem content is stored with `*` as the hemistich delimiter and split into hemistichs, then
-paired into verses (`apps/api/src/domain/poems.rs`, `parse_poem_content`).
+A poem's content is its ordered rows (`poem_verses` to `verses`), one row per displayed line. A
+row holding a full verse separates its two hemistichs with `*`; a row with no `*` is a single line
+(a free-verse line, a stanza's closing line, a half-line stored alone). The API returns each row as
+one entry of its `*`-separated parts and never pairs a row with its neighbor
+(`apps/api/src/domain/poems.rs`, `parse_poem_rows`).
 
 For a عمودي poem the `title` is its first hemistich, with diacritics, tatweel, punctuation, digits
 and non-standard letter forms deleted (deleted, not replaced by a space) and whitespace collapsed.
@@ -28,12 +31,14 @@ enforces at read time.
 Not database entities, a structural detail of how a poem's content is shaped. A **verse** (بيت,
 the classical Arabic couplet/line) is a pair of **hemistichs** (شطر, half-lines): the first
 hemistich sets up the line, the second completes it, and the two together carry one metrical
-unit. A poem's `verses` field is an ordered list of these pairs.
+unit. A poem's `verses` field holds one entry per stored row: two hemistichs for a full verse, one
+part for a single line, and more parts only where the source stored them so.
 
 There is no separate "fragment" entity, that word shows up in the codebase only for the
-random-poem share excerpt: one verse plus the poet's name, capped at a max length for social
-sharing (`build_excerpt`, `apps/api/src/domain/poems.rs`). "Rejects a fragment with fewer than
-two hemistichs" just means a shareable excerpt needs a complete verse, not half of one.
+random-poem share excerpt: one stored row holding exactly two hemistichs, plus the poet's name,
+capped at a max length for social sharing (`build_excerpt`, `apps/api/src/domain/poems.rs`). A
+poem with no such row has no excerpt, so a shareable excerpt is always a complete verse, never half
+of one or halves of two.
 
 ## Poem type (نوع القصيدة, poem_type)
 
@@ -56,8 +61,10 @@ length and rhyme alone cannot separate it from a qasida.
 `poem_type` has no web listing page. The API lists it with counts (`GET /v1/poem-types`,
 from `poem_type_stats`), search filters poems by it (`poemTypeSlugs`), the poem detail endpoint
 returns it as `poemType` (`{ name, slug }`), and the web poem page reads it for layout: an `amudi` poem
-renders each bayt as two staggered lines, sadr against the right and ajuz against the left
-of a column sized in `em`, while every other type stays centered with its hemistichs stacked.
+renders each two-part entry as two staggered lines, sadr against the right and ajuz against the left
+of a column sized in `em`, while a single line, a longer entry, and every other type stay centered
+with their parts stacked. Free verse (`hurr`), and any poem whose entries are all single lines, is
+spaced line by line rather than verse by verse.
 
 ### Schema-only attributes
 

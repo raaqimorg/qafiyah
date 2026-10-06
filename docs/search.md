@@ -9,7 +9,8 @@ This doc is that missing commentary.
 
 ## Pipeline
 
-`apps/search-indexer` reads Postgres (poem content assembled as hemistichs joined by `*`), maps
+`apps/search-indexer` reads Postgres (poem content assembled as its stored rows joined by a newline, each full verse keeping the `*`
+between its hemistichs), maps
 rows to documents, bulk-writes them into a fresh versioned index (`poems_v<N>`, `poets_v<N>`),
 force-merges it to a single segment (the index is never written again, and one segment halves
 the query phase), then atomically swaps the `poems`/`poets` alias onto it. The API only ever queries the alias, so
@@ -263,19 +264,19 @@ to 1.08 GB). The three fields change together or not at all: when the fields one
 disagree, Elasticsearch refuses the whole search (`field 'content' was indexed without offsets,
 cannot highlight`), so every search that highlights fails.
 
-The API then picks one verse to show. It splits content on `*` and walks **two hemistichs at a
-time**, one verse per step, scoring each verse by its longest single `<mark>` run. Three details
-worth knowing:
+The API then picks one stored row to show. It splits content on the newline, so a snippet is
+always one full verse or one single line and never joins two rows, and scores each row by its
+longest single `<mark>` run. Three details worth knowing:
 
-- A phrase can be highlighted across the `*` (the tokenizer treats it as an ordinary separator),
-  so one `<mark>` may open in one hemistich and close in the next. Before scoring, the API closes
-  such a mark at the end of its hemistich and reopens it at the start of the next, so every
-  hemistich has balanced tags and each part of the mark counts for its own verse.
+- A phrase can be highlighted across a `*` or a newline (the tokenizer treats both as ordinary
+  separators), so one `<mark>` may open in one hemistich or row and close in the next. Before
+  scoring, the API closes such a mark at the end of its part and reopens it at the start of the
+  next, so every part has balanced tags and each part of the mark counts for its own row.
 - The run is measured in **UTF-16 code units**, for parity with the JavaScript client.
-- The comparison is strictly greater, so on a tie the **earlier** verse wins. That is what the
+- The comparison is strictly greater, so on a tie the **earlier** row wins. That is what the
   `keeps_the_first_of_two_equal_spans` test pins.
 
-With no highlight, it falls back to the opening verse.
+With no highlight, it falls back to the first row.
 
 ## What search deliberately does not do
 
