@@ -174,6 +174,19 @@ describe('cutAt', () => {
     expect(cutAt('بَكَى سَمِعَ', 2)).toEqual(['بَكَ', 'ى سَمِعَ']);
   });
 
+  it('keeps punctuation glued to the last word in the first half', () => {
+    expect(cutAt('سسس، صصص', 3)).toEqual(['سسس،', 'صصص']);
+  });
+
+  it('keeps standalone closing punctuation in the first half', () => {
+    expect(cutAt('سسس ... صصص', 3)).toEqual(['سسس ...', 'صصص']);
+    expect(cutAt('سسس . . صصص', 3)).toEqual(['سسس . .', 'صصص']);
+  });
+
+  it('leaves an opening quote with the second half', () => {
+    expect(cutAt('سسس « صصص »', 3)).toEqual(['سسس', '« صصص »']);
+  });
+
   it('cuts inside a word when the word straddles the halves', () => {
     expect(cutAt(`${half(4)} ${half(4)}`, 2)).toEqual(['سس', `سس ${half(4)}`]);
   });
