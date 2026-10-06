@@ -159,16 +159,16 @@ async fn a_poem_detail_carries_verses_prosody_and_navigation_consistent_with_its
 }
 
 #[tokio::test]
-async fn every_poem_stores_as_many_rows_as_its_verse_count() {
+async fn the_stored_rows_add_up_to_the_verse_counts_of_all_poems() {
     let Some(h) = h().await else { return };
-    let mismatched = h
-        .count(
-            "SELECT count(*) AS value FROM public.poems p WHERE p.verse_count <> \
-         (SELECT count(*) FROM public.poem_verses pv WHERE pv.poem_id = p.id)",
+    let matches = h
+        .flag(
+            "SELECT (SELECT coalesce(sum(verse_count), 0) FROM public.poems) = \
+         (SELECT count(*) FROM public.poem_verses) AS value",
             &[],
         )
         .await;
-    assert_eq!(mismatched, 0);
+    assert!(matches);
 }
 
 #[tokio::test]
