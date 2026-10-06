@@ -187,6 +187,15 @@ describe('cutAt', () => {
     expect(cutAt('سسس « صصص »', 3)).toEqual(['سسس', '« صصص »']);
   });
 
+  it('keeps punctuation glued between the halves in the first half', () => {
+    expect(cutAt('سسس؟صصص ططط', 3)).toEqual(['سسس؟', 'صصص ططط']);
+    expect(cutAt('سسس..._صصص', 3)).toEqual(['سسس..._', 'صصص']);
+  });
+
+  it('leaves a straight quote glued to the next word with the second half', () => {
+    expect(cutAt('سسس"صصص"', 3)).toEqual(['سسس', '"صصص"']);
+  });
+
   it('cuts inside a word when the word straddles the halves', () => {
     expect(cutAt(`${half(4)} ${half(4)}`, 2)).toEqual(['سس', `سس ${half(4)}`]);
   });
