@@ -3,7 +3,11 @@
 import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { formatArabicCount } from '@/lib/arabic';
-import { CLASSICAL_POEM_TYPE, VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
+import {
+  CLASSICAL_POEM_TYPE,
+  FREE_VERSE_POEM_TYPE,
+  VERSES_NOUN_FORMS,
+} from '@/lib/constants/taxonomy-data';
 import { buildHighlightRegex, highlightSegments, parseHighlightTerms } from '@/lib/highlight';
 import { useSettings } from '@/lib/settings/use-settings';
 import { poetsUrl, poetUrl } from '@/lib/urls';
@@ -79,6 +83,8 @@ export function PoemDisplay({
   poemType,
 }: PoemDisplayProps) {
   const isClassical = poemType.slug === CLASSICAL_POEM_TYPE;
+  const lineByLine =
+    poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
   const { poemFontScale } = useSettings();
   const highlightTerms = useHighlightTerms();
   const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
@@ -112,39 +118,41 @@ export function PoemDisplay({
           <div
             className={cn(
               'flex w-full flex-col text-verse font-normal',
-              VERSE_GAP,
+              lineByLine ? HEMISTICH_GAP : VERSE_GAP,
               isClassical ? 'max-w-[calc(16em*var(--poem-scale))]' : 'px-(--poem-gutter)'
             )}
             // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- CSS custom properties are not part of the CSSProperties type
             style={{ '--poem-scale': poemFontScale } as CSSProperties}
           >
-            {verses.map(([sadr = '', ajuz = '']) => (
-              <div
-                key={`${sadr}|${ajuz}`}
-                className={cn(
-                  'flex w-full flex-col items-center justify-center text-center',
-                  HEMISTICH_GAP,
-                  isClassical && 'items-stretch'
-                )}
-              >
-                <p
-                  style={{ fontSize: `${poemFontScale}em` }}
-                  lang="ar"
-                  dir="rtl"
-                  className={cn(isClassical && 'pe-12 text-right')}
+            {verses.map((entry, index) => {
+              const halves = isClassical && entry.length === 2;
+              return (
+                <div
+                  // oxlint-disable-next-line react/no-array-index-key -- rows keep their stored order and a refrain repeats the same text
+                  key={`${index}|${entry.join('|')}`}
+                  className={cn(
+                    'flex w-full flex-col items-center justify-center text-center',
+                    HEMISTICH_GAP,
+                    isClassical && 'items-stretch'
+                  )}
                 >
-                  {highlightRegex ? highlightVerse(sadr, highlightRegex) : sadr}
-                </p>
-                <p
-                  style={{ fontSize: `${poemFontScale}em` }}
-                  lang="ar"
-                  dir="rtl"
-                  className={cn(isClassical && 'ps-12 text-left')}
-                >
-                  {highlightRegex ? highlightVerse(ajuz, highlightRegex) : ajuz}
-                </p>
-              </div>
-            ))}
+                  {entry.map((part, partIndex) => (
+                    <p
+                      // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
+                      key={`${partIndex}|${part}`}
+                      style={{ fontSize: `${poemFontScale}em` }}
+                      lang="ar"
+                      dir="rtl"
+                      className={cn(
+                        halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
+                      )}
+                    >
+                      {highlightRegex ? highlightVerse(part, highlightRegex) : part}
+                    </p>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </article>
       </div>

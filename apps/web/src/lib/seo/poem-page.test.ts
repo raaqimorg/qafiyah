@@ -41,6 +41,26 @@ describe('buildPoemLayout', () => {
     expect(article.text).toBe('صَدْرٌ - عَجُزٌ\nصدر ثان - عجز ثان');
   });
 
+  it('puts each entry on its own line, joining the parts of an entry of one or three parts without empty separators', () => {
+    const poem = {
+      ...basePoem,
+      verses: [['أ', 'ب'], ['ج'], ['د', 'ه', 'و']],
+      verseCount: 3,
+    };
+    const [article] = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]).jsonLd;
+    expect(article.text).toBe('أ - ب\nج\nد - ه - و');
+  });
+
+  it('takes the opening from the first part of the first entry when that entry is a single line', () => {
+    const poem = {
+      ...basePoem,
+      verses: [['سَطْرٌ'], ['صدر', 'عجز']],
+      verseCount: 2,
+    };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description).toContain('مطلعها: سطر.');
+  });
+
   it('gives the article the same human description as the meta tag, not the poem body', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     const [article] = layout.jsonLd;
