@@ -2,9 +2,15 @@ import { describe, expect, it } from 'bun:test';
 
 import { lettersOnly } from './arabic-text';
 import {
+  acceptCouplets,
   acceptSplit,
   answerToLetters,
+  applySplits,
   buildApplySql,
+  csvLine,
+  parseAnswers,
+  planPoem,
+  scoreMeasure,
   classifyFlat,
   copyCuts,
   cutAt,
@@ -30,12 +36,24 @@ function half(letters: number): string {
 
 describe('typicalHalf', () => {
   it('is the median letter count of the halves of rows with one separator', () => {
-    const rows = [`${half(9)}*${half(10)}`, `${half(10)}*${half(11)}`, half(12)];
+    const rows = [
+      `${half(9)}*${half(10)}`,
+      `${half(10)}*${half(11)}`,
+      `${half(10)}*${half(10)}`,
+      `${half(9)}*${half(11)}`,
+      half(12),
+    ];
     expect(typicalHalf(rows)).toBe(10);
   });
 
-  it('falls back to the meter baseline when the poem has fewer than four halves', () => {
-    expect(typicalHalf([`${half(9)}*${half(10)}`, half(20)], 12)).toBe(12);
+  it('falls back to the meter baseline when fewer than four rows are full verses', () => {
+    const rows = [`${half(9)}*${half(9)}`, `${half(9)}*${half(9)}`, `${half(9)}*${half(9)}`];
+    expect(typicalHalf([...rows, half(19), half(20)], 19)).toBe(19);
+  });
+
+  it('does not count a row whose separator has no letters on one side', () => {
+    const notes = Array.from({ length: 4 }, () => `*${half(10)}`);
+    expect(typicalHalf([...notes, half(19), half(20)], 19)).toBe(19);
   });
 
   it('is undefined with neither enough halves nor a baseline', () => {
@@ -248,5 +266,106 @@ describe('buildApplySql', () => {
       buildApplySql([{ ...split, newRows: ['$qafiyah$'], oldRows: ['$qafiyah$'] }])
     ).toThrow('quote tag');
     expect(() => buildApplySql([{ ...split, newRows: [half(3)] }])).toThrow('letters changed');
+  });
+});
+
+describe('planPoem', () => {
+  const pairs = OTHERS.slice(0, 3).flatMap((other) => [line(10, other), line(10, RHYMING)]);
+
+  it('merges a poem of half-line pairs into couplets', () => {
+    expect(planPoem(pairs, 10)).toEqual({ kind: 'merge', newRows: mergePairs(pairs) });
+  });
+
+  it('queues a poem of unclear half-lines for review', () => {
+    expect(
+      planPoem(
+        OTHERS.map((other) => line(10, other)),
+        10
+      )
+    ).toEqual({ kind: 'unclear' });
+  });
+
+  it('leaves a poem of rhyming half-lines alone', () => {
+    expect(
+      planPoem(
+        Array.from({ length: 6 }, () => line(10, RHYMING)),
+        10
+      )
+    ).toEqual({ kind: 'none' });
+  });
+
+  it('lists the unsplit verse rows of a mixed poem by index', () => {
+    const rows = [`${half(10)}*${half(10)}`, half(20), `${half(10)}*${half(10)}`, half(11)];
+    expect(planPoem(rows, 10)).toEqual({ kind: 'splits', indexes: [1] });
+  });
+
+  it('lists every verse-long row of a flat poem as an unsplit verse', () => {
+    expect(planPoem([half(20), half(21), half(19)], 10)).toEqual({
+      kind: 'splits',
+      indexes: [0, 1, 2],
+    });
+  });
+
+  it('leaves a poem of full verses alone', () => {
+    expect(planPoem([`${half(10)}*${half(10)}`], 10)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('applySplits', () => {
+  it('replaces only the split rows and keeps the rest in order', () => {
+    const repaired = applySplits(['a', 'bc', 'd'], new Map([[1, 'b*c']]));
+    expect(repaired).toEqual(['a', 'b*c', 'd']);
+  });
+});
+
+describe('acceptCouplets', () => {
+  it('merges when the merged second halves rhyme', () => {
+    const rows = OTHERS.slice(0, 3).flatMap((other) => [line(10, other), line(10, RHYMING)]);
+    expect(acceptCouplets(rows)).toEqual(mergePairs(rows));
+  });
+
+  it('refuses when the merged second halves do not rhyme', () => {
+    expect(acceptCouplets(OTHERS.map((other) => line(10, other)))).toBeUndefined();
+  });
+});
+
+describe('parseAnswers', () => {
+  it('reads key,answer lines after the header and skips blank lines', () => {
+    expect([...parseAnswers('key,answer\nabcd:3,w4\n\nabcd:5,?\n')]).toEqual([
+      ['abcd:3', 'w4'],
+      ['abcd:5', '?'],
+    ]);
+  });
+});
+
+describe('scoreMeasure', () => {
+  it('counts exact cuts among answered verses and unsure answers apart', () => {
+    const rows = new Map([
+      ['a:1', `${half(3)} ${half(4)}`],
+      ['b:1', `${half(3)} ${half(4)}`],
+      ['c:1', `${half(3)} ${half(4)}`],
+    ]);
+    const truth = new Map([
+      ['a:1', 3],
+      ['b:1', 3],
+      ['c:1', 3],
+    ]);
+    const answers = new Map([
+      ['a:1', 'w2'],
+      ['b:1', 'w2+1'],
+      ['c:1', '?'],
+    ]);
+    expect(scoreMeasure(rows, truth, answers)).toEqual({
+      total: 3,
+      answered: 2,
+      exact: 1,
+      unsure: 1,
+    });
+  });
+});
+
+describe('csvLine', () => {
+  it('quotes a field that holds a comma, a quote, or a newline', () => {
+    expect(csvLine(['a', 'b,c', 'say "hi"'])).toBe('a,"b,c","say ""hi"""');
   });
 });
