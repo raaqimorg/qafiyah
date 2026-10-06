@@ -168,9 +168,9 @@ async fn a_poem_whose_verses_are_missing_is_a_parse_error_not_an_empty_poem() {
 }
 
 #[tokio::test]
-async fn a_found_poem_pairs_its_hemistichs_into_verses() {
+async fn a_found_poem_returns_one_entry_per_stored_row() {
     let (_es, state) = with_poems(Poems {
-        lines: Some(vec!["a".into(), "b".into(), "c".into()]),
+        lines: Some(vec!["a*b".into(), "c".into(), "d*e".into()]),
         ..Poems::default()
     })
     .await;
@@ -178,7 +178,7 @@ async fn a_found_poem_pairs_its_hemistichs_into_verses() {
     assert_eq!(sent.status, StatusCode::OK);
     assert_eq!(
         sent.json()["data"]["verses"],
-        serde_json::json!([["a", "b"], ["c", ""]])
+        serde_json::json!([["a", "b"], ["c"], ["d", "e"]])
     );
 }
 
