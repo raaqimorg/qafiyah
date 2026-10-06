@@ -87,13 +87,16 @@ const MARKS = /[ً-ٰٟۖ-ۭـ]/;
 const ANSWER = /^w(\d+)(?:\+(\d+))?$/;
 
 const CLOSING = /^[^\p{L}\p{N}([{«“]+$/u;
+const GLUED_CLOSING = /^[^\p{L}\p{N}\s"([{«“]*/u;
 const NEXT_TOKEN = /^\s+(\S+)/;
 
 const isLetter = (character: string): boolean => lettersOnly(character).length > 0;
 
 function closingEnd(row: string, end: number): number {
   const glued = /^\S*/.exec(row.slice(end))?.[0] ?? '';
-  if (glued.length > 0 && !CLOSING.test(glued)) return end;
+  if (glued.length > 0 && !CLOSING.test(glued)) {
+    return end + (GLUED_CLOSING.exec(glued)?.[0].length ?? 0);
+  }
   let next = end + glued.length;
   let token = NEXT_TOKEN.exec(row.slice(next));
   while (token !== null && CLOSING.test(token[1] ?? '')) {
