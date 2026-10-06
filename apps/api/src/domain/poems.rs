@@ -30,7 +30,7 @@ pub struct RecensionLink {
 pub struct Poem {
     pub title: String,
     pub slug: String,
-    pub verses: Vec<[String; 2]>,
+    pub verses: Vec<Vec<String>>,
     pub verse_count: i32,
     pub sample: String,
     pub keywords: String,
@@ -156,29 +156,26 @@ pub trait PoemRepository: Send + Sync {
 }
 
 pub struct ParsedContent {
-    pub verses: Vec<[String; 2]>,
+    pub verses: Vec<Vec<String>>,
     pub sample: String,
     pub keywords: String,
 }
 
-pub fn parse_poem_content(content: &str) -> ParsedContent {
-    let lines: Vec<&str> = content.split('*').collect();
+pub fn parse_poem_rows(rows: &[String]) -> ParsedContent {
+    let verses: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| row.split('*').map(str::to_string).collect())
+        .collect();
+    let parts: Vec<&str> = verses.iter().flatten().map(String::as_str).collect();
     ParsedContent {
-        verses: lines
-            .chunks(2)
-            .map(|pair| {
-                let first = pair.first().copied().unwrap_or_default();
-                let second = pair.get(1).copied().unwrap_or_default();
-                [first.to_string(), second.to_string()]
-            })
-            .collect(),
-        sample: lines
+        sample: parts
             .iter()
             .take(3)
             .copied()
             .collect::<Vec<&str>>()
             .join(" * "),
-        keywords: lines.join(" ").replace(' ', ","),
+        keywords: parts.join(" ").replace(' ', ","),
+        verses,
     }
 }
 
@@ -205,7 +202,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<Poem, PoemError> {
     if record.lines.is_empty() {
         return Err(PoemError::MissingVerses);
     }
-    let parsed = parse_poem_content(&record.lines.join("*"));
+    let parsed = parse_poem_rows(&record.lines);
 
     Ok(Poem {
         title: record.title,
@@ -324,21 +321,48 @@ pub async fn random(
 mod tests {
     use super::*;
 
-    #[test]
-    fn pairs_hemistichs_and_leaves_an_odd_one_half_empty() {
-        let parsed = parse_poem_content("a*b*c");
-        assert_eq!(parsed.verses, [["a", "b"], ["c", ""]]);
+    fn rows(items: &[&str]) -> Vec<String> {
+        items.iter().map(|row| (*row).to_string()).collect()
     }
 
     #[test]
-    fn samples_the_first_three_hemistichs() {
-        let parsed = parse_poem_content("a*b*c*d");
-        assert_eq!(parsed.sample, "a * b * c");
+    fn each_stored_row_is_one_entry_holding_its_parts() {
+        let parsed = parse_poem_rows(&rows(&["a*b", "c", "d*e"]));
+        assert_eq!(
+            parsed.verses,
+            vec![vec!["a", "b"], vec!["c"], vec!["d", "e"]]
+        );
+    }
+
+    #[test]
+    fn a_lone_line_never_shifts_the_verses_after_it() {
+        let parsed = parse_poem_rows(&rows(&["a1*a2", "c", "d1*d2", "e1*e2"]));
+        assert_eq!(parsed.verses[2], vec!["d1", "d2"]);
+        assert_eq!(parsed.verses[3], vec!["e1", "e2"]);
+    }
+
+    #[test]
+    fn a_row_with_extra_breaks_keeps_every_part() {
+        let parsed = parse_poem_rows(&rows(&["a*b*c"]));
+        assert_eq!(parsed.verses, vec![vec!["a", "b", "c"]]);
+    }
+
+    #[test]
+    fn an_empty_row_is_one_empty_line() {
+        let parsed = parse_poem_rows(&rows(&["a*b", "", "c*d"]));
+        assert_eq!(parsed.verses[1], vec![""]);
+    }
+
+    #[test]
+    fn the_sample_is_the_first_three_parts_and_keywords_are_every_word() {
+        let parsed = parse_poem_rows(&rows(&["one two*three", "four", "five*six"]));
+        assert_eq!(parsed.sample, "one two * three * four");
+        assert_eq!(parsed.keywords, "one,two,three,four,five,six");
     }
 
     #[test]
     fn turns_every_space_into_a_comma() {
-        let parsed = parse_poem_content("one two*three  four");
+        let parsed = parse_poem_rows(&rows(&["one two*three  four"]));
         assert_eq!(parsed.keywords, "one,two,three,,four");
     }
 
@@ -361,13 +385,6 @@ mod tests {
         assert_eq!(excerpt_start(6, 0.99), 4);
         assert_eq!(excerpt_start(4, 0.99), 2);
         assert_eq!(excerpt_start(2, 0.99), 0);
-    }
-
-    #[test]
-    fn empty_content_is_one_empty_verse() {
-        let parsed = parse_poem_content("");
-        assert_eq!(parsed.verses, [["", ""]]);
-        assert_eq!(parsed.sample, "");
     }
 
     fn random_poem(content: &str) -> RandomPoem {
@@ -399,18 +416,23 @@ mod tests {
     }
 
     #[test]
-    fn content_parsing_never_panics_and_keeps_every_hemistich() {
+    fn row_parsing_never_panics_and_keeps_every_part_in_its_row() {
         let mut rng = crate::test_support::Rng::new(3);
         let alphabet = ["*", "ا", "ب", " ", "**", "\n", "\u{00a0}", "😀"];
         for _ in 0..3_000 {
-            let len = rng.below(30);
-            let content: String = (0..len).map(|_| rng.pick(&alphabet)).collect();
-            let parsed = parse_poem_content(&content);
-            let hemistichs: Vec<&str> = content.split('*').collect();
-            assert_eq!(parsed.verses.len(), hemistichs.len().div_ceil(2));
+            let row_count = rng.below(6);
+            let stored: Vec<String> = (0..row_count)
+                .map(|_| (0..rng.below(12)).map(|_| rng.pick(&alphabet)).collect())
+                .collect();
+            let parsed = parse_poem_rows(&stored);
+            assert_eq!(parsed.verses.len(), stored.len());
+            for (entry, row) in parsed.verses.iter().zip(&stored) {
+                assert_eq!(entry.join("*"), *row);
+            }
+            let parts: Vec<&str> = stored.iter().flat_map(|row| row.split('*')).collect();
             assert_eq!(
                 parsed.sample,
-                hemistichs
+                parts
                     .iter()
                     .take(3)
                     .copied()
@@ -418,16 +440,13 @@ mod tests {
                     .join(" * ")
             );
             assert!(!parsed.keywords.contains(' '));
-            for (index, hemistich) in hemistichs.iter().enumerate() {
-                assert_eq!(parsed.verses[index / 2][index % 2], *hemistich);
-            }
         }
     }
 
     #[test]
-    fn consecutive_delimiters_produce_empty_hemistichs_rather_than_being_collapsed() {
-        let parsed = parse_poem_content("a**b");
-        assert_eq!(parsed.verses, [["a", ""], ["b", ""]]);
+    fn consecutive_delimiters_produce_empty_parts_rather_than_being_collapsed() {
+        let parsed = parse_poem_rows(&rows(&["a**b"]));
+        assert_eq!(parsed.verses, vec![vec!["a", "", "b"]]);
         assert_eq!(parsed.sample, "a *  * b");
     }
 

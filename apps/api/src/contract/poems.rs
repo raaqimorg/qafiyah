@@ -12,21 +12,21 @@ fn verse_list() -> utoipa::openapi::schema::Array {
 
     ArrayBuilder::new()
         .description(Some(
-            "The text in order as pairs of half-lines (hemistichs), with diacritics as transmitted. A classical verse is one pair. Lines with no half-line break, as in free verse, are paired two at a time, and the last pair ends with an empty string when the parts are odd in number.",
+            "The text in order, one entry per stored line, with diacritics as transmitted. An entry holds the two halves (hemistichs) of a classical verse, or one part for a single line (a free-verse line, a stanza's closing line, a half-line stored alone), or more parts where the source stored them so.",
         ))
-        .items(RefOr::T(Schema::Array(hemistich_pair())))
+        .items(RefOr::T(Schema::Array(verse_line())))
         .build()
 }
 
-fn hemistich_pair() -> utoipa::openapi::schema::Array {
-    use utoipa::openapi::schema::{ArrayBuilder, ArrayItems, ObjectBuilder, Type};
+fn verse_line() -> utoipa::openapi::schema::Array {
+    use utoipa::openapi::RefOr;
+    use utoipa::openapi::schema::{ArrayBuilder, ObjectBuilder, Type};
 
-    let hemistich = || Schema::Object(ObjectBuilder::new().schema_type(Type::String).build());
     ArrayBuilder::new()
-        .prefix_items([hemistich(), hemistich()])
-        .items(ArrayItems::False)
-        .min_items(Some(2))
-        .max_items(Some(2))
+        .items(RefOr::T(Schema::Object(
+            ObjectBuilder::new().schema_type(Type::String).build(),
+        )))
+        .min_items(Some(1))
         .build()
 }
 
@@ -83,8 +83,8 @@ pub struct PoemDetail {
     #[schema(pattern = "^[a-zA-Z]{4}$", example = "gnNg")]
     pub slug: String,
     #[schema(schema_with = verse_list)]
-    pub verses: Vec<[String; 2]>,
-    /// Number of verses as stored, or lines for free verse. It can differ from the length of `verses`, which pairs the text by half-lines.
+    pub verses: Vec<Vec<String>>,
+    /// Number of stored lines, equal to the length of `verses`.
     #[schema(example = 70)]
     pub verse_count: i32,
     /// The first three half-lines joined by ` * `.
