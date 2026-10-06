@@ -86,7 +86,22 @@ export function mergePairs(rows: readonly string[]): string[] {
 const MARKS = /[ً-ٰٟۖ-ۭـ]/;
 const ANSWER = /^w(\d+)(?:\+(\d+))?$/;
 
+const CLOSING = /^[^\p{L}\p{N}([{«“]+$/u;
+const NEXT_TOKEN = /^\s+(\S+)/;
+
 const isLetter = (character: string): boolean => lettersOnly(character).length > 0;
+
+function closingEnd(row: string, end: number): number {
+  const glued = /^\S*/.exec(row.slice(end))?.[0] ?? '';
+  if (glued.length > 0 && !CLOSING.test(glued)) return end;
+  let next = end + glued.length;
+  let token = NEXT_TOKEN.exec(row.slice(next));
+  while (token !== null && CLOSING.test(token[1] ?? '')) {
+    next += token[0].length;
+    token = NEXT_TOKEN.exec(row.slice(next));
+  }
+  return next;
+}
 
 export function numberedWords(row: string): string {
   return row
@@ -116,6 +131,7 @@ export function cutAt(row: string, lettersBefore: number): [string, string] | un
     if (seen === lettersBefore) {
       let end = index + 1;
       while (end < row.length && MARKS.test(row[end] ?? '')) end += 1;
+      end = closingEnd(row, end);
       const first = row.slice(0, end).trim();
       const second = row.slice(end).trim();
       return first.length > 0 && letters(second) > 0 ? [first, second] : undefined;
