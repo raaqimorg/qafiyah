@@ -103,7 +103,7 @@ impl PoemRepository for Poems {
             .pop_front()
             .map(|(slug, content)| RandomPoem {
                 poet_name: "Poet".into(),
-                content: content.into(),
+                lines: vec![content.into()],
                 slug: slug.into(),
             }))
     }

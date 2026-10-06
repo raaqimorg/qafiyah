@@ -123,7 +123,7 @@ pub struct PoemRecord {
 
 pub struct RandomPoem {
     pub poet_name: String,
-    pub content: String,
+    pub lines: Vec<String>,
     pub slug: String,
 }
 
@@ -259,39 +259,33 @@ pub enum RandomPoemOption {
 }
 
 #[expect(
-    clippy::arithmetic_side_effects,
-    reason = "excerpt math runs on a poem's small hemistich count"
-)]
-#[expect(
     clippy::as_conversions,
-    reason = "the float casts stay within the verse count, bounded by a short poem"
+    reason = "the float casts stay within a poem's row count, bounded by a short poem"
 )]
 #[expect(
     clippy::cast_possible_truncation,
-    reason = "the floored roll is at most the verse count"
+    reason = "the floored roll is at most the row count"
 )]
 #[expect(
     clippy::cast_sign_loss,
-    reason = "the verse count and roll are non-negative"
+    reason = "the row count and roll are non-negative"
 )]
-fn excerpt_start(line_count: usize, roll: f64) -> usize {
-    let max_start = line_count.saturating_sub(2);
-    let verse_count = max_start / 2 + 1;
-    (((roll * verse_count as f64).floor() as usize) * 2).min(max_start)
+fn roll_index(len: usize, roll: f64) -> Option<usize> {
+    let last = len.checked_sub(1)?;
+    Some(((roll * len as f64).floor() as usize).min(last))
 }
 
 fn build_excerpt(poem: &RandomPoem, roll: f64) -> Option<String> {
-    let lines: Vec<&str> = poem.content.split('*').collect();
-    if lines.len() < 2 {
-        return None;
-    }
-    let start = excerpt_start(lines.len(), roll);
-    let first = lines.get(start).copied().unwrap_or_default();
-    let second = lines
-        .get(start.saturating_add(1))
-        .copied()
-        .unwrap_or_default();
-    let excerpt = js::trim(&format!("{first}\n{second}\n\n{}", poem.poet_name)).to_string();
+    let verses: Vec<(&str, &str)> = poem
+        .lines
+        .iter()
+        .filter_map(|row| {
+            row.split_once('*')
+                .filter(|(_, second)| !second.contains('*'))
+        })
+        .collect();
+    let pick = verses.get(roll_index(verses.len(), roll)?)?;
+    let excerpt = js::trim(&format!("{}\n{}\n\n{}", pick.0, pick.1, poem.poet_name)).to_string();
     (excerpt.encode_utf16().count() <= MAX_TWEET_LENGTH).then_some(excerpt)
 }
 
@@ -366,53 +360,57 @@ mod tests {
         assert_eq!(parsed.keywords, "one,two,three,,four");
     }
 
-    #[test]
-    fn starts_an_excerpt_on_a_verse_boundary() {
-        for line_count in [2usize, 3, 4, 5, 6, 7, 20] {
-            let max_start = line_count - 2;
-            for step in 0..100 {
-                let start = excerpt_start(line_count, f64::from(step) / 100.0);
-                assert_eq!(start % 2, 0, "{line_count} hemistichs at step {step}");
-                assert!(start <= max_start, "{line_count} hemistichs at step {step}");
-            }
-        }
-    }
-
-    #[test]
-    fn reaches_every_verse_including_the_last() {
-        assert_eq!(excerpt_start(6, 0.0), 0);
-        assert_eq!(excerpt_start(6, 0.5), 2);
-        assert_eq!(excerpt_start(6, 0.99), 4);
-        assert_eq!(excerpt_start(4, 0.99), 2);
-        assert_eq!(excerpt_start(2, 0.99), 0);
-    }
-
-    fn random_poem(content: &str) -> RandomPoem {
+    fn random_poem(lines: &[&str]) -> RandomPoem {
         RandomPoem {
             poet_name: "poet".into(),
-            content: content.into(),
+            lines: rows(lines),
             slug: "slug".into(),
         }
     }
 
     #[test]
-    fn rejects_a_fragment_with_fewer_than_two_hemistichs() {
-        assert!(build_excerpt(&random_poem("one lone hemistich"), 0.0).is_none());
-        assert!(build_excerpt(&random_poem(""), 0.0).is_none());
+    fn an_excerpt_is_always_both_halves_of_one_stored_row() {
+        let poem = random_poem(&["a1*a2", "c", "d1*d2"]);
+        for roll in [0.0, 0.5, 0.99] {
+            let excerpt = build_excerpt(&poem, roll).expect("two rows have two halves");
+            assert!(
+                excerpt == "a1\na2\n\npoet" || excerpt == "d1\nd2\n\npoet",
+                "{excerpt}"
+            );
+        }
+        assert_eq!(
+            build_excerpt(&poem, 0.99).as_deref(),
+            Some("d1\nd2\n\npoet")
+        );
+    }
+
+    #[test]
+    fn a_poem_with_no_two_half_row_has_no_excerpt() {
+        assert!(build_excerpt(&random_poem(&["a", "b"]), 0.0).is_none());
+        assert!(build_excerpt(&random_poem(&["a*b*c"]), 0.0).is_none());
+        assert!(build_excerpt(&random_poem(&[]), 0.0).is_none());
+    }
+
+    #[test]
+    fn the_roll_reaches_every_row_including_the_last() {
+        assert_eq!(roll_index(0, 0.5), None);
+        assert_eq!(roll_index(3, 0.0), Some(0));
+        assert_eq!(roll_index(3, 0.5), Some(1));
+        assert_eq!(roll_index(3, 0.99), Some(2));
+        assert_eq!(roll_index(3, 1.0), Some(2));
+        for len in 1..20 {
+            for step in 0..100 {
+                let index = roll_index(len, f64::from(step) / 100.0);
+                assert!(index.is_some_and(|index| index < len), "{len} at {step}");
+            }
+        }
     }
 
     #[test]
     fn rejects_an_excerpt_longer_than_a_tweet() {
         let long_line = "a".repeat(MAX_TWEET_LENGTH);
-        let poem = random_poem(&format!("{long_line}*{long_line}"));
+        let poem = random_poem(&[&format!("{long_line}*{long_line}")]);
         assert!(build_excerpt(&poem, 0.0).is_none());
-    }
-
-    #[test]
-    fn builds_the_first_and_second_hemistich_with_the_poet_name() {
-        let poem = random_poem("first*second*third*fourth");
-        let excerpt = build_excerpt(&poem, 0.0).expect("well-formed poem builds an excerpt");
-        assert_eq!(excerpt, "first\nsecond\n\npoet");
     }
 
     #[test]
@@ -455,14 +453,14 @@ mod tests {
         let hemistich = "ا".repeat(138);
         let at_cap = RandomPoem {
             poet_name: "x".into(),
-            content: format!("{hemistich}*{hemistich}"),
+            lines: vec![format!("{hemistich}*{hemistich}")],
             slug: "TnKK".into(),
         };
         let excerpt = build_excerpt(&at_cap, 0.0).expect("exactly 280 units");
         assert_eq!(excerpt.encode_utf16().count(), MAX_TWEET_LENGTH);
         let over = RandomPoem {
             poet_name: "xy".into(),
-            content: format!("{hemistich}*{hemistich}"),
+            lines: vec![format!("{hemistich}*{hemistich}")],
             slug: "TnKK".into(),
         };
         assert!(build_excerpt(&over, 0.0).is_none());

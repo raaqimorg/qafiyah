@@ -545,7 +545,7 @@ extern "SQL" {
 #[derive(Deserialize)]
 struct RandomRow {
     poet_name: String,
-    content: String,
+    lines: Vec<String>,
     slug: String,
 }
 
@@ -748,7 +748,7 @@ impl PoemRepository for PgPoems {
                 serde_json::from_value::<RandomRow>(payload)
                     .map(|row| RandomPoem {
                         poet_name: row.poet_name,
-                        content: row.content,
+                        lines: row.lines,
                         slug: row.slug,
                     })
                     .map_err(|error| StoreError::Database(error.to_string()))
