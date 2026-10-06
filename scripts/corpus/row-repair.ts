@@ -3,8 +3,8 @@ import { rhymeScore } from './qafiya';
 
 const UNSPLIT_RATIO = 1.6;
 const HALF_LINE_RATIO = 1.3;
-const SPLIT_LOW = 0.7;
-const SPLIT_HIGH = 1.3;
+const MIN_SHARE = 0.35;
+const MAX_SHARE = 0.65;
 const RHYMES = 0.8;
 const DOES_NOT_RHYME = 0.6;
 const MIN_VERSES = 4;
@@ -140,14 +140,12 @@ export function cutAt(row: string, lettersBefore: number): [string, string] | un
   return undefined;
 }
 
-export function acceptSplit(row: string, lettersBefore: number, half: number): string | undefined {
+export function acceptSplit(row: string, lettersBefore: number): string | undefined {
   const halves = cutAt(row, lettersBefore);
   if (halves === undefined) return undefined;
   const [first, second] = halves;
-  const balanced = [first, second].every((part) => {
-    const ratio = letters(part) / half;
-    return ratio >= SPLIT_LOW && ratio <= SPLIT_HIGH;
-  });
+  const share = letters(first) / letters(row);
+  const balanced = share >= MIN_SHARE && share <= MAX_SHARE;
   const repaired = `${first}*${second}`;
   return balanced && lettersOnly(repaired) === lettersOnly(row) ? repaired : undefined;
 }

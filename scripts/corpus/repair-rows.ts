@@ -219,7 +219,7 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
   for (const candidate of candidates) {
     const row = candidate.poem.rows[candidate.index] ?? '';
     const cut = copies.get(foldKey(row));
-    const repaired = cut === undefined ? undefined : acceptSplit(row, cut, candidate.half);
+    const repaired = cut === undefined ? undefined : acceptSplit(row, cut);
     if (repaired === undefined) {
       queue.push(candidate);
       bump(cut === undefined ? 'split: no copy, queued' : 'split: copy failed the checks, queued');
@@ -299,7 +299,7 @@ async function score(dir: string): Promise<void> {
 }
 
 async function sql(corpusPath: string, dir: string): Promise<void> {
-  const { poems, baselines } = classical(readCorpus(await Bun.file(corpusPath).text()));
+  const { poems } = classical(readCorpus(await Bun.file(corpusPath).text()));
   const bySlug = new Map(poems.map((poem) => [poem.slug, poem]));
   const auto = (await Bun.file(join(dir, 'auto.json')).json()) as Auto;
   const splitAnswers = await readAnswers(dir, 'splits');
@@ -335,6 +335,7 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
       review.push(`- ${key}: not in the corpus export`);
       continue;
     }
+    if (answer === '-') continue;
     if (answer === 'x') {
       review.push(`- ${key}: not a verse (a note or heading stored as a row)`);
       continue;
@@ -343,9 +344,8 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
       review.push(`- ${key}: ${answer === undefined ? 'unanswered' : 'unsure'}`);
       continue;
     }
-    const half = typicalHalf(poem.rows, baselines.get(poem.meter)) ?? 0;
     const cut = answerToLetters(row, answer);
-    const repaired = cut === undefined ? undefined : acceptSplit(row, cut, half);
+    const repaired = cut === undefined ? undefined : acceptSplit(row, cut);
     if (repaired === undefined) review.push(`- ${key}: answer ${answer} failed the checks`);
     else addSplit(key, repaired);
   }
