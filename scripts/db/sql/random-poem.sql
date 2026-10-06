@@ -54,6 +54,12 @@ AS $function$
       JOIN public.verses v ON v.id = pv.verse_id
       WHERE pv.poem_id = p.id
     ),
+    'lines',     (
+      SELECT json_agg(v.content ORDER BY pv.position)
+      FROM public.poem_verses pv
+      JOIN public.verses v ON v.id = pv.verse_id
+      WHERE pv.poem_id = p.id
+    ),
     'slug',      p.slug
   )
   FROM public.poems p
