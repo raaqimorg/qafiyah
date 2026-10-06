@@ -4,6 +4,7 @@ import { lettersOnly } from './arabic-text';
 import {
   acceptSplit,
   answerToLetters,
+  buildApplySql,
   classifyFlat,
   copyCuts,
   cutAt,
@@ -197,5 +198,55 @@ describe('copyCuts', () => {
   it('keeps the first half length of every row with exactly one separator, by its folded letters', () => {
     const cuts = copyCuts([`${half(3)}*بببب`, half(5), 'ا*ب*ج']);
     expect([...cuts]).toEqual([[foldKey(`${half(3)}بببب`), 3]]);
+  });
+});
+
+describe('buildApplySql', () => {
+  const split = {
+    poemId: '42',
+    slug: 'abcd',
+    oldRows: [`${half(3)} ${half(4)}`, half(5)],
+    newRows: [`${half(3)}*${half(4)}`, half(5)],
+    reason: 'split',
+  };
+
+  it('replaces the rows of this poem only, inserting each text once by its hash, and sets its verse count', () => {
+    const lines = buildApplySql([split]).trim().split('\n');
+    expect(lines[0]).toBe('BEGIN;');
+    expect(lines[1]).toBe('DELETE FROM poem_verses WHERE poem_id = 42;');
+    expect(lines[2]).toBe(
+      `INSERT INTO verses (content, content_hash) VALUES ($qafiyah$${half(3)}*${half(4)}$qafiyah$, md5($qafiyah$${half(3)}*${half(4)}$qafiyah$)) ON CONFLICT (content_hash) DO NOTHING;`
+    );
+    expect(lines[3]).toBe(
+      `INSERT INTO poem_verses (poem_id, verse_id, position) SELECT 42, id, 1 FROM verses WHERE content_hash = md5($qafiyah$${half(3)}*${half(4)}$qafiyah$);`
+    );
+    expect(lines[5]).toContain('SELECT 42, id, 2 FROM verses');
+    expect(lines[6]).toBe('UPDATE poems SET verse_count = 2 WHERE id = 42;');
+  });
+
+  it('never edits or deletes a verse, which another poem may share', () => {
+    const sql = buildApplySql([split]);
+    expect(sql).not.toMatch(/UPDATE\s+verses|DELETE\s+FROM\s+verses/i);
+    expect(sql.match(/DELETE FROM poem_verses WHERE poem_id = (\d+);/g)).toEqual([
+      'DELETE FROM poem_verses WHERE poem_id = 42;',
+    ]);
+  });
+
+  it('runs as one transaction and refreshes the derived tables after it', () => {
+    const lines = buildApplySql([split]).trim().split('\n');
+    expect(lines.slice(-4)).toEqual([
+      'COMMIT;',
+      'SELECT refresh_poem_relations();',
+      'SELECT refresh_random_poem_pool();',
+      'SELECT refresh_taxonomy_stats();',
+    ]);
+  });
+
+  it('refuses a non-numeric poem id, text containing the quote tag, and any change to the letters', () => {
+    expect(() => buildApplySql([{ ...split, poemId: '42; DROP' }])).toThrow('non-numeric');
+    expect(() =>
+      buildApplySql([{ ...split, newRows: ['$qafiyah$'], oldRows: ['$qafiyah$'] }])
+    ).toThrow('quote tag');
+    expect(() => buildApplySql([{ ...split, newRows: [half(3)] }])).toThrow('letters changed');
   });
 });

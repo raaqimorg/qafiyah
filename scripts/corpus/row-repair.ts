@@ -141,3 +141,49 @@ export function copyCuts(rows: Iterable<string>): Map<string, number> {
   }
   return cuts;
 }
+
+export type Change = {
+  readonly poemId: string;
+  readonly slug: string;
+  readonly oldRows: readonly string[];
+  readonly newRows: readonly string[];
+  readonly reason: string;
+};
+
+const TAG = '$qafiyah$';
+const NUMERIC_ID = /^\d+$/;
+const REFRESHES = [
+  'SELECT refresh_poem_relations();',
+  'SELECT refresh_random_poem_pool();',
+  'SELECT refresh_taxonomy_stats();',
+];
+
+function quote(text: string): string {
+  if (text.includes(TAG)) throw new Error(`refusing a row containing the quote tag ${TAG}`);
+  return `${TAG}${text}${TAG}`;
+}
+
+export function buildApplySql(changes: readonly Change[]): string {
+  const lines = ['BEGIN;'];
+  for (const change of changes) {
+    if (!NUMERIC_ID.test(change.poemId)) {
+      throw new Error(`refusing a non-numeric poem id: ${change.poemId}`);
+    }
+    if (lettersOnly(change.newRows.join('')) !== lettersOnly(change.oldRows.join(''))) {
+      throw new Error(`refusing ${change.slug}: its letters changed`);
+    }
+    lines.push(`DELETE FROM poem_verses WHERE poem_id = ${change.poemId};`);
+    for (const [index, row] of change.newRows.entries()) {
+      const text = quote(row);
+      lines.push(
+        `INSERT INTO verses (content, content_hash) VALUES (${text}, md5(${text})) ON CONFLICT (content_hash) DO NOTHING;`,
+        `INSERT INTO poem_verses (poem_id, verse_id, position) SELECT ${change.poemId}, id, ${index + 1} FROM verses WHERE content_hash = md5(${text});`
+      );
+    }
+    lines.push(
+      `UPDATE poems SET verse_count = ${change.newRows.length} WHERE id = ${change.poemId};`
+    );
+  }
+  lines.push('COMMIT;', ...REFRESHES);
+  return `${lines.join('\n')}\n`;
+}
