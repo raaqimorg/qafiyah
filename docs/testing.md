@@ -1,5 +1,7 @@
 # Testing Conventions
 
-- Test behavior, one concept per test. Unit → pure fns; integration → side effects. Mock only boundaries (network/DB/time).
+- Test behavior, with one concept in each test.
+- Use unit tests for pure functions, and integration tests for side effects.
+- Mock only the boundaries: the network, the database, and time.
 
-Rust inline-test placement and naming: see `docs/rust-conventions.md`.
+For where Rust inline tests go and how to name them, see `docs/rust-conventions.md`.

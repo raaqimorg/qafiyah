@@ -1,266 +1,282 @@
 # Domain Model
 
-What a poem, poet, meter, rhyme, era, theme, and collection actually mean in Qafiyah, for a
-contributor who doesn't already know classical Arabic prosody. This is conceptual, not
-implementation detail, for the schema/module internals see `apps/api/AGENTS.md` and
-`apps/web/AGENTS.md`.
+This doc says what a poem, poet, meter, rhyme, era, theme, and collection mean in Qafiyah. It is for a contributor who does not already know classical Arabic prosody. It explains concepts, not implementation. For the internals of the schema and the modules, see `apps/api/AGENTS.md` and `apps/web/AGENTS.md`.
 
 ## Poem
 
-The core content entity: `title`, `slug` (four mixed-case letters, e.g. `TnKK`), `verses`
-(one entry per stored line, in order), `verse_count` (the number of stored lines, so always the
-length of `verses`), a `sample` (first three hemistichs, used for previews), and `keywords`.
-It does **not** have its own era: its era is its poet's, carried as a copy the database keeps in
-sync (see Era below).
-Every poem has exactly one poet, meter, theme, rhyme, and poem type; collection, form,
-register, genre, and rhyme majra are optional (see Poem type below).
+The poem is the core content entity. It has these fields:
 
-A poem's content is its ordered rows (`poem_verses` to `verses`), one row per displayed line. A
-row holding a full verse separates its two hemistichs with `*`; a row with no `*` is a single line
-(a free-verse line, a stanza's closing line, a half-line stored alone). The API returns each row as
-one entry of its `*`-separated parts and never pairs a row with its neighbor
-(`apps/api/src/domain/poems.rs`, `parse_poem_rows`).
+- `title`
+- `slug`: four mixed-case letters, for example `TnKK`
+- `verses`: one entry for each stored line, in order
+- `verse_count`: the number of stored lines, so always the length of `verses`
+- `sample`: the first three hemistichs, for previews
+- `keywords`
 
-For a عمودي poem the `title` is its first hemistich, with diacritics, tatweel, punctuation, digits
-and non-standard letter forms deleted (deleted, not replaced by a space) and whitespace collapsed.
-This is a data invariant maintained when dumps are produced, not something the application
-enforces at read time.
+A poem does **not** have its own era. Its era is its poet's era, and the database keeps a synchronized copy of it (see "Era" below).
+
+Every poem has exactly one poet, meter, theme, rhyme, and poem type. The collection, form, register, genre, and rhyme majra are optional (see "Poem type" below).
+
+A poem's content is its ordered rows (`poem_verses` to `verses`), one row for each displayed line.
+
+- A row that holds a full verse separates its two hemistichs with `*`.
+- A row with no `*` is a single line: a free-verse line, the closing line of a stanza, or a half-line stored alone.
+- The API returns each row as one entry of its `*`-separated parts. It never pairs a row with the next row (`apps/api/src/domain/poems.rs`, `parse_poem_rows`).
+
+For a عمودي poem, the `title` is its first hemistich, with these changes:
+
+- Diacritics, tatweel, punctuation, digits, and non-standard letter forms are deleted. They are not replaced by a space.
+- Runs of whitespace become one space.
+
+This is a data rule that the dump process keeps. The application does not enforce it when it reads.
 
 ## Verse and hemistich
 
-Not database entities, a structural detail of how a poem's content is shaped. A **verse** (بيت,
-the classical Arabic couplet/line) is a pair of **hemistichs** (شطر, half-lines): the first
-hemistich sets up the line, the second completes it, and the two together carry one metrical
-unit. A poem's `verses` field holds one entry per stored row: two hemistichs for a full verse, one
-part for a single line, and more parts only where the source stored them so.
+These are not database entities. They describe the shape of a poem's content.
 
-There is no separate "fragment" entity, that word shows up in the codebase only for the
-random-poem share excerpt: one stored row holding exactly two hemistichs, plus the poet's name,
-capped at a max length for social sharing (`build_excerpt`, `apps/api/src/domain/poems.rs`). A
-poem with no such row has no excerpt, so a shareable excerpt is always a complete verse, never half
-of one or halves of two.
+A **verse** (بيت, the classical Arabic couplet or line) is a pair of **hemistichs** (شطر, half-lines). The first hemistich starts the line, and the second completes it. Together, the two carry one metrical unit.
+
+A poem's `verses` field holds one entry for each stored row:
+
+- two hemistichs for a full verse
+- one part for a single line
+- more parts only where the source stored them that way
+
+There is no separate "fragment" entity. That word is in the codebase only for the share excerpt of the random poem. The excerpt is one stored row that holds exactly two hemistichs, plus the poet's name, with a maximum length for social sharing (`build_excerpt`, `apps/api/src/domain/poems.rs`). A poem with no such row has no excerpt. So a shareable excerpt is always a complete verse, never half of one, and never halves of two.
 
 ## Poem type (نوع القصيدة, poem_type)
 
-The poem's **form**: how its lines are built, as opposed to what it is about (Theme) or
-which pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, one of five:
+The poem type is the poem's **form**: how its lines are built. It is different from what the poem is about (Theme), and from the pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, and has one of five values:
 
-| slug         | Arabic | what it is                                                                                                                                                   |
-| ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `amudi`      | عمودي  | classical verse. Every line is a bayt of two hemistichs, one bahr and one rawi throughout. The overwhelming majority of the catalog.                         |
-| `hurr`       | حر     | free verse (شعر التفعيلة) and prose poetry. Lines of uneven length, no single rhyme.                                                                         |
-| `muwashshah` | موشح   | the Andalusi strophic form. Regular line lengths, but the rhyme deliberately changes between strophes, which is exactly what distinguishes it from a qasida. |
-| `muzdawij`   | مزدوج  | couplet form, usually rajaz, where the two hemistichs of each bayt rhyme with each other and the rhyme changes from bayt to bayt.                            |
-| `majhul`     | مجهول  | unknown, see "The unknown value" below.                                                                                                                      |
+| slug         | Arabic | what it is                                                                                                                                       |
+| ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `amudi`      | عمودي  | Classical verse. Every line is a bayt of two hemistichs, with one bahr and one rawi from start to end. Most of the catalog is this type.         |
+| `hurr`       | حر     | Free verse (شعر التفعيلة) and prose poetry. The lines have different lengths, and there is no single rhyme.                                      |
+| `muwashshah` | موشح   | The Andalusi strophic form. The line lengths are regular, but the rhyme changes between strophes on purpose. This is what makes it not a qasida. |
+| `muzdawij`   | مزدوج  | The couplet form, usually rajaz. The two hemistichs of each bayt rhyme with each other, and the rhyme changes from bayt to bayt.                 |
+| `majhul`     | مجهول  | Unknown. See "The unknown value" below.                                                                                                          |
 
-Distinguishing these is structural, not editorial: a qasida holds one bahr, so its hemistich
-lengths cluster tightly, and one rawi, so every ajuz ends on the same rhyme consonant. A
-muwashshah has the first property but not the second. A muzdawij has both, which is why
-length and rhyme alone cannot separate it from a qasida.
+The difference between these types is structural, not editorial:
 
-`poem_type` has no web listing page. The API lists it with counts (`GET /v1/poem-types`,
-from `poem_type_stats`), search filters poems by it (`poemTypeSlugs`), the poem detail endpoint
-returns it as `poemType` (`{ name, slug }`), and the web poem page reads it for layout: an `amudi` poem
-renders each two-part entry as two staggered lines, sadr against the right and ajuz against the left
-of a column sized in `em`, while a single line, a longer entry, and every other type stay centered
-with their parts stacked. Free verse (`hurr`), and any poem whose entries are all single lines, is
-spaced line by line rather than verse by verse.
+- A qasida holds one bahr, so its hemistich lengths are all close. It also holds one rawi, so every ajuz ends on the same rhyme consonant.
+- A muwashshah has the first property, but not the second.
+- A muzdawij has both. So length and rhyme alone cannot separate it from a qasida.
+
+`poem_type` has no listing page on the website. These parts use it:
+
+- The API lists it with counts (`GET /v1/poem-types`, from `poem_type_stats`).
+- Search filters poems by it (`poemTypeSlugs`).
+- The poem detail endpoint returns it as `poemType` (`{ name, slug }`).
+- The poem page on the website reads it for the layout.
+  - An `amudi` poem shows each two-part entry as two offset lines. The sadr is against the right, and the ajuz is against the left, of a column sized in `em`.
+  - A single line, a longer entry, and every other type stay centered, with their parts one above the other.
+  - Free verse (`hurr`), and any poem whose entries are all single lines, has spacing line by line, not verse by verse.
 
 ### Schema-only attributes
 
-These poem columns are read by nothing in `apps/api`, `apps/web`, or `apps/search-indexer`,
-unlike meter, rhyme, theme, era, and collection, which all have their own pages and counts.
-All are nullable:
+Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads these poem columns. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. All of these columns can be null:
 
-- `form_id` (`forms`): `qasida` قصيدة, `muqattaa` مقطعة, `abyatthaniya` ابيات ثانية, `baytmufrad` بيت مفرد, `shatrbayt` شطر بيت. How much of a poem survives, a full ode down to a single half-line.
+- `form_id` (`forms`): `qasida` قصيدة, `muqattaa` مقطعة, `abyatthaniya` ابيات ثانية, `baytmufrad` بيت مفرد, `shatrbayt` شطر بيت. It says how much of a poem survives, from a full ode down to a single half-line.
 - `register_id` (`registers`): `fasih` فصيح, `nabati` نبطي, `hadith` حديث.
 - `genre_id` (`genres`): `shir` شعر, `khatira` خاطرة.
-- `rhyme_majra_id` (`majras`): the vowel carried by the rawi, `fatha` فتحة, `damma` ضمة, `kasra` كسرة, their tanwin forms, and `sukun` سكون.
+- `rhyme_majra_id` (`majras`): the vowel on the rawi. The values are `fatha` فتحة, `damma` ضمة, `kasra` كسرة, their tanwin forms, and `sukun` سكون.
 
-Changing any of these therefore has no user-visible effect on the site today, and needs no
-reindex. Treat that as a fact about the current application surface, not a promise.
+So a change to any of these has no visible effect on the site today, and needs no reindex. This is a fact about the application as it is now, not a promise.
 
 ## Poet
 
-`name`, `slug`, an optional `nickname` and `bio`, one `era`, a precomputed `poems_count`,
-`has_avatar` (whether an image exists for them, served from R2, see `data/avatars/README.md`),
-`is_anonymous` (see "The unknown value" below), and `is_hidden` (see "Hidden poets" below). A poet has exactly one era; poems don't carry era
-independently.
+A poet has these fields:
 
-`nickname` holds whatever a poet is otherwise known by, a kunya (أبو سعيد), a laqab (سراج الهند),
-or a shuhra (الحياوي), with no column distinguishing which. Roughly a fifth of poets have one.
-A nickname that repeats the `name` outright carries no information and is stored as NULL; a
-nickname that is a _substring_ of the name (الحياوي for
-عبد الحسين الحياوي, about 1,353 poets) is still stored, and the web app renders a nickname only
-when it is not contained in the name (`pickAdditiveNickname`,
-`apps/web/src/lib/seo/poets-page.ts`).
+- `name` and `slug`
+- an optional `nickname` and `bio`
+- one `era`. Poems do not carry their own era.
+- `poems_count`, which is computed in advance
+- `has_avatar`: whether an image exists for the poet. R2 serves it (see `data/avatars/README.md`).
+- `is_anonymous` (see "The unknown value" below)
+- `is_hidden` (see "Hidden poets" below)
+
+`nickname` holds any other name that the poet is known by: a kunya (أبو سعيد), a laqab (سراج الهند), or a shuhra (الحياوي). No column says which kind it is. About a fifth of poets have one.
+
+- A nickname that repeats the `name` exactly adds no information, so it is stored as NULL.
+- A nickname that is a _part_ of the name is still stored. An example is الحياوي for عبد الحسين الحياوي. This is true for 1,353 poets in the 0039 snapshot.
+- The website shows a nickname only when the name does not contain it (`pickAdditiveNickname`, `apps/web/src/lib/seo/poets-page.ts`).
 
 ## Meter (بحر, bahr)
 
-The metrical pattern a poem is composed in (classical Arabic poetry is quantitative, built from
-fixed syllable-weight patterns), e.g. slug `altawil` for الطويل. Poem- and poet-facing (a meter
-page shows both counts): `apps/api/src/domain/taxonomy.rs`.
+The meter is the metrical pattern of a poem. Classical Arabic poetry is quantitative: it is built from fixed patterns of syllable weight. An example is the slug `altawil` for الطويل. Meters apply to poems and to poets, and a meter page shows both counts (`apps/api/src/domain/taxonomy.rs`).
 
 ## Rhyme (قافية, qafiyah)
 
-Classified by the **rhyme letter** (حرف الروي), the consonant every verse in the poem ends on,
-e.g. slug `meem` for م. The catalog's rhyme taxonomy spans the Arabic alphabet end to end
-(rhyme pages are ordered `id`, roughly hamza to ya). This is also where the project's name comes
-from, قافية (qafiyah) is the Arabic word for a poem's rhyme.
+The rhyme is classified by the **rhyme letter** (حرف الروي). This is the consonant that every verse of the poem ends on. An example is the slug `meem` for م.
+
+The rhyme taxonomy of the catalog covers the whole Arabic alphabet. The rhyme pages are ordered by `id`, roughly from hamza to ya. The project's name also comes from here: قافية (qafiyah) is the Arabic word for a poem's rhyme.
 
 ## Era (عصر, asr)
 
-A chronological period (e.g. pre-Islamic/جاهلي, Islamic, Umayyad, Abbasid, ...). Eras have a
-`sort_order`, so era listings render in actual chronological sequence, not alphabetically. Era
-is a **poet**-level attribute: every poem inherits its era through its poet. `poems.era_id` is a
-copy of it for filtering, kept equal to the poet's era by the composite foreign key
-`(poet_id, era_id) REFERENCES poets (id, era_id) ON UPDATE CASCADE`: a poem can't hold another
-era, and changing a poet's era moves their poems with it. The poems list filters on that copy
-through `(era_id, id)`, like every other facet.
+An era is a period of time, for example pre-Islamic (جاهلي), Islamic, Umayyad, or Abbasid. Eras have a `sort_order`, so era lists show the real chronological order, not the alphabetical order.
+
+The era is an attribute of the **poet**. Every poem gets its era from its poet.
+
+- `poems.era_id` is a copy of the poet's era, for filters.
+- The composite foreign key `(poet_id, era_id) REFERENCES poets (id, era_id) ON UPDATE CASCADE` keeps the copy equal to the poet's era. So a poem cannot hold another era, and a change to a poet's era moves their poems with it.
+- The poems list filters on that copy through `(era_id, id)`, like every other facet.
 
 ## Theme (غرض, gharad)
 
-The poem's genre or purpose, e.g. `alnasib` (النسيب), the amatory-prelude genre classical Arabic
-poems often open with. Poem-level only, poets don't have a theme.
+The theme is the poem's genre or purpose. An example is `alnasib` (النسيب), the love prelude that classical Arabic poems often start with. Themes apply only to poems. Poets do not have a theme.
 
 ## Collection (ديوان, diwan)
 
-A published, curated anthology a poem belongs to, a diwan or one of the classical foundational
-compilations (`apps/web/src/lib/seo/taxonomy-copy.ts` describes this taxonomy as "دواوين وأمهات
-الكتب", diwans and foundational anthologies). Poem-level only, like theme.
+A collection is a published, curated anthology that a poem belongs to. It can be a diwan, or one of the classical foundational compilations. `apps/web/src/lib/seo/taxonomy-copy.ts` describes this taxonomy as "دواوين وأمهات الكتب" (diwans and foundational anthologies). Like themes, collections apply only to poems.
 
 ## The "unknown" value
 
-Poet, meter and era have a real row for **unknown** (`غير معروف`), not a nullable foreign key. A
-poem or poet lands there when the classical sourcing doesn't record that attribute. Theme and
-rhyme have no such row: every poem carries a rhyme letter, and `المتفرقات` (miscellany) is an
-ordinary theme, the one most of the corpus falls under. Collection is simply optional
-(`poems.collection_id` is nullable).
+Poet, meter, and era each have a real row for **unknown** (`غير معروف`), not a foreign key that can be null. A poem or a poet goes there when the classical sources do not record that attribute.
 
-The slug is `ghayrmaruf` for meter and era; poets' slugs are always four random letters, so a
-`poets.slug = 'ghayrmaruf'` test silently matches nothing. The web matches the meter and era
-unknown rows on `name` (`UNKNOWN_ENTITY_NAME`, `apps/web/src/lib/seo/meta-text.ts`).
+Theme and rhyme have no such row:
 
-Poets have one anonymous poet per era instead of a single unknown row: `غير معروف` / `JJHE`
-holds the anonymous poems whose era is unknown too, and `مجهول (عباسي)` and its siblings hold
-those whose era is known, so each keeps its era. All of them have `poets.is_anonymous` set (the
-API sends it as `poet.isAnonymous`), and that flag is what code checks, never a poet's name or
-slug.
+- Every poem has a rhyme letter.
+- `المتفرقات` (miscellany) is an ordinary theme, and most of the corpus is in it.
 
-Poem type spells its unknown differently, `majhul` (مجهول), and it carries a second meaning
-as well. A poem is `majhul` either because the sourcing never said what form it was, or
-because a structural validation pass could not verify the form it claimed. The second case
-means "not verified", never "verified as something else": a poem that fails validation is
-demoted to `majhul`, never to `hurr`, and a poem too short or too irregular to test keeps
-whatever label it already had rather than being demoted on absent evidence. So `majhul` is
-a statement about what is known, not a claim that the poem is formless. It behaves like any other taxonomy value (it
-has its own listing page, its own count), but the web app deliberately filters it out of "top N"
-attribution lists and picks the first poem whose poet isn't anonymous when it needs a
-representative sample, so an anonymous poet's name never gets showcased as if it were a real
-byline (`apps/web/src/lib/seo/taxonomy-copy.ts`, `apps/web/src/lib/seo/meta-text.ts`).
+Collection is simply optional (`poems.collection_id` can be null).
+
+The slug of the unknown meter and the unknown era is `ghayrmaruf`. Poet slugs are always four random letters. So a test for `poets.slug = 'ghayrmaruf'` matches nothing, and gives no error. The website finds the unknown rows of meter and era by `name` (`UNKNOWN_ENTITY_NAME`, `apps/web/src/lib/seo/meta-text.ts`).
+
+Poets do not have a single unknown row. They have one anonymous poet for each era:
+
+- `غير معروف` (`JJHE`) holds the anonymous poems whose era is also unknown.
+- `مجهول (عباسي)` and the similar rows hold the anonymous poems whose era is known. So each poem keeps its era.
+- All of them have `poets.is_anonymous` set. The API sends it as `poet.isAnonymous`. Code checks this flag, never a poet's name or slug.
+
+The poem type spells its unknown value differently, `majhul` (مجهول), and it has a second meaning. A poem is `majhul` for one of two reasons:
+
+- The sources never said what form it is.
+- A structural validation pass could not confirm the form that the poem claimed.
+
+The second case means "not verified", never "verified as something else". A poem that fails validation becomes `majhul`, never `hurr`. A poem too short or too irregular to test keeps its label, because there is no evidence against it. So `majhul` says what is known. It does not say that the poem has no form.
+
+`majhul` behaves like any other taxonomy value: it has its own listing page and its own count. But the website removes it from the "top N" attribution lists on purpose. When the website needs a representative sample, it picks the first poem whose poet is not anonymous. So the site never shows an anonymous poet's name as if it were a real byline (`apps/web/src/lib/seo/taxonomy-copy.ts`, `apps/web/src/lib/seo/meta-text.ts`).
 
 ## Related poems
 
-Each poem has a precomputed list of up to 10 related poems (`poem_relations` table: `poem_id`,
-`related_id`, `rank`), refreshed by `refresh_poem_relations()` before every DB dump snapshot, see
-`data/db/MAINTAINERS_GUIDE.md`.
+Each poem has a list of up to 10 related poems, computed in advance (the `poem_relations` table: `poem_id`, `related_id`, `rank`). `refresh_poem_relations()` refreshes it before every database dump snapshot (see `data/db/MAINTAINERS_GUIDE.md`).
 
-Only a primary عمودي (`amudi`) poem with a known meter, a poet who isn't anonymous, and an era
-in the suggestion pool (jahili through mamluki) is ever _suggested_: the generator draws its
-candidates from a pool that holds only those (`tmp_pool` in
-`scripts/db/sql/refresh-poem-relations.sql`). A poem outside that pool still _gets_ a list of
-its own, just a shorter one, since any bucket pointing outside the pool contributes nothing: an
-Ottoman, modern,
-contemporary or unknown-era poem gets only classical poems that share its theme, meter or rhyme,
-and a poem of unknown meter gets no meter matches.
+The generator takes its candidates from a pool (`tmp_pool` in `scripts/db/sql/refresh-poem-relations.sql`). So a poem is _suggested_ only if it meets all of these conditions:
+
+- It is a primary عمودي (`amudi`) poem.
+- Its meter is known.
+- Its poet is not anonymous.
+- Its era is in the pool: from jahili to mamluki.
+
+A poem outside that pool still _gets_ its own list, but a shorter one, because a group that points outside the pool adds nothing.
+
+- An Ottoman, modern, contemporary, or unknown-era poem gets only classical poems that share its theme, meter, or rhyme.
+- A poem of unknown meter gets no matches by meter.
 
 ## Random poem
 
-`GET /v1/poems/random` (the site's random-poem button) picks a poet first and then one of their
-poems, so every eligible poet is equally likely however many poems they have. A poem is eligible
-when it is a primary, not hidden, by a named (not anonymous) poet of the jahili, islami, umawi or
-abbasi era, عمودي, at least four verses long, and of a known meter. The eligible set is
-precomputed into `random_poem_pool` (`poet_rank`, `poem_id`) by `refresh_random_poem_pool()`
-(`scripts/db/sql/random-poem.sql`), which runs on every restore, so a request is two index lookups
-(a random `poet_rank`, then a random poem of that poet) rather than a filter over the corpus.
-`?option=lines` then takes one verse of the poem, trying up to five poems until the verse and the
-poet's name fit in 280 characters.
+`GET /v1/poems/random` (the random poem button on the site) picks a poet first, then one of the poet's poems. So every eligible poet has the same chance, whatever the number of their poems.
 
-The pool is only as fresh as its last refresh. Deleting a poem cascades out of it, so a manual
-edit between refreshes (a `merge_poem` absorbing a poet's only eligible poem, for one) can leave a
-`poet_rank` with no poems, and a request that lands on it fails until the next refresh; hiding a
-poet in place likewise leaves their poems in the pool. Production never sees either, because data
-changes reach it only through a dump, and every restore refills the pool. After such an edit on a
-running database, run `SELECT public.refresh_random_poem_pool();`.
+A poem is eligible when it meets all of these conditions:
+
+- It is a primary, and it is not hidden.
+- Its poet is named (not anonymous), and is of the jahili, islami, umawi, or abbasi era.
+- It is عمودي, with at least four verses.
+- Its meter is known.
+
+`refresh_random_poem_pool()` (`scripts/db/sql/random-poem.sql`) computes the eligible set in advance, into `random_poem_pool` (`poet_rank`, `poem_id`). It runs on every restore. So a request is two index lookups (a random `poet_rank`, then a random poem of that poet), not a filter over the corpus.
+
+`?option=lines` then takes one verse of the poem. It tries up to five poems, until the verse and the poet's name fit in 280 characters.
+
+The pool is only as current as its last refresh.
+
+- When a poem is deleted, the delete cascades out of the pool. So a manual edit between refreshes can leave a `poet_rank` with no poems. An example is a `merge_poem` that absorbs the only eligible poem of a poet. A request that lands on that rank fails until the next refresh.
+- Hiding a poet in place also leaves their poems in the pool.
+- Production never sees either problem, because data changes reach it only through a dump, and every restore fills the pool again.
+
+After such an edit on a running database, run `SELECT public.refresh_random_poem_pool();`.
 
 ## Merged poems and aliases
 
-When two rows hold the same poem by the same poet, one survives and the other is merged into it
-with `merge_poem(keep, absorb)` (`scripts/db/sql/merge-poem.sql`): the survivor keeps its own
-text, fills any unknown meter, theme or poem type and any empty collection, form, register, genre
-or majra from the absorbed copy, and the absorbed row is deleted. Its slug becomes a row in
-`poem_aliases`, so `GET /v1/poems/<old slug>` answers `301` to the survivor and the web redirects
-the page the same way. Aliases always point at a live poem: merging a survivor later repoints its
-aliases, and a new poem never receives a slug an alias holds. `merge_poem` refuses two different
-poets, which is an attribution question rather than a duplicate. A poem in a collection (the
-curated Mu'allaqat) always survives and is always the primary; otherwise the survivor is the
-longest text, then the most vocalized, then the one with the most known fields, then the lowest id.
+When two rows hold the same poem by the same poet, one row survives, and `merge_poem(keep, absorb)` merges the other into it (`scripts/db/sql/merge-poem.sql`):
+
+- The survivor keeps its own text.
+- From the absorbed copy, it fills an unknown meter, theme, or poem type, and an empty collection, form, register, genre, or majra.
+- The absorbed row is deleted. Its slug becomes a row in `poem_aliases`. So `GET /v1/poems/<old slug>` answers `301` to the survivor, and the website redirects the page the same way.
+
+Aliases always point at a live poem. A later merge of a survivor points its aliases again, and a new poem never gets a slug that an alias holds.
+
+`merge_poem` refuses two different poets, because that is a question of attribution, not a duplicate.
+
+The rules for the survivor are these, in order:
+
+1. A poem in a collection (the curated Mu'allaqat) always survives, and is always the primary.
+2. Otherwise, the longest text survives.
+3. Then the text with the most vocalization.
+4. Then the poem with the most known fields.
+5. Then the lowest id.
 
 ## Merged poets and re-attribution
 
-A poem moves to another poet with `reattribute_poem(poem, poet)`
-(`scripts/db/sql/merge-poet.sql`), which moves a primary together with its recensions and gives
-them the new poet's era; a recension never moves alone. When two poet rows are one person,
-`merge_poet(keep, absorb)` moves all of the absorbed poet's poems, fills the survivor's empty
-fields (and an unknown era) from it, deletes it and records its slug in `poet_aliases`, so
-`GET /v1/poets/<old slug>` answers `301` to the survivor and the web redirects the page, keeping
-`?page`. It refuses anonymous poets, a pair with two different known eras, and absorbing the poet
-that holds the avatar (avatars are stored under the slug). A named poet beats an anonymous one: an
-anonymous copy of a poem a named poet has is moved to that poet and then merged or linked as a
-recension like any same-poet duplicate. A poem that the sources attribute to two poets stays under
-both.
+`reattribute_poem(poem, poet)` (`scripts/db/sql/merge-poet.sql`) moves a poem to another poet. It moves a primary together with its recensions, and gives them the era of the new poet. A recension never moves alone.
+
+When two poet rows are one person, `merge_poet(keep, absorb)` does these steps:
+
+1. It moves all of the absorbed poet's poems.
+2. It fills the survivor's empty fields (and an unknown era) from the absorbed poet.
+3. It deletes the absorbed poet, and records its slug in `poet_aliases`. So `GET /v1/poets/<old slug>` answers `301` to the survivor, and the website redirects the page, with its `?page`.
+
+It refuses these merges:
+
+- anonymous poets
+- a pair with two different known eras
+- an absorbed poet that holds the avatar, because avatars are stored under the slug
+
+A named poet wins over an anonymous one. If a named poet has a poem, the anonymous copy of that poem moves to that poet. Then it is merged, or linked as a recension, like any duplicate by the same poet. A poem that the sources attribute to two poets stays under both.
 
 ## Hidden poets
 
-A poet with `poets.is_hidden` set does not exist as far as the site is concerned: the poet and
-every one of their poems answer 404, their old slugs stop redirecting, and they are left out of
-every list, search result, sitemap, random poem, related-poems list and taxonomy count. The rows
-stay in the database, so unhiding brings everything back. Hiding is editorial; a removal request
-is a deletion, since the encrypted dumps are handed out on request.
+For the site, a poet with `poets.is_hidden` set does not exist:
 
-`poems.is_hidden` is a copy of the poet's flag, kept equal by the composite foreign key
-`(poet_id, is_hidden) REFERENCES poets (id, is_hidden) ON UPDATE CASCADE`, the same arrangement as
-`era_id`: `UPDATE poets SET is_hidden = true WHERE slug = '<slug>'` hides the poems in the same
-statement, and the primaries-only partial indexes (`recension_of_id IS NULL AND NOT is_hidden`)
-keep the list queries index-only. `reattribute_poem` gives a moved poem its new poet's flag, and
-`merge_poet` refuses to merge a hidden poet with a shown one. A change takes effect on the site
-with the next dump, whose snapshot steps refresh the counts and related poems and whose reseed
-rebuilds search.
+- The poet and every one of their poems answer 404.
+- Their old slugs stop redirecting.
+- They are not in any list, search result, sitemap, random poem, related-poems list, or taxonomy count.
+
+The rows stay in the database, so unhiding the poet brings everything back. Hiding is an editorial choice. A removal request needs a deletion, because the encrypted dumps go to anyone who asks.
+
+`poems.is_hidden` is a copy of the poet's flag. The composite foreign key `(poet_id, is_hidden) REFERENCES poets (id, is_hidden) ON UPDATE CASCADE` keeps it equal, the same arrangement as `era_id`.
+
+- So `UPDATE poets SET is_hidden = true WHERE slug = '<slug>'` hides the poems in the same statement.
+- The partial indexes on primaries only (`recension_of_id IS NULL AND NOT is_hidden`) keep the list queries index-only.
+- `reattribute_poem` gives a moved poem the flag of its new poet.
+- `merge_poet` refuses to merge a hidden poet with a shown one.
+
+A change takes effect on the site with the next dump. The snapshot steps refresh the counts and the related poems, and the reseed rebuilds search.
 
 ## Recension (رواية, riwaya)
 
-One poem is often transmitted in more than one reading: a word differs, a verse is missing or
-added, lines come in another order. The corpus keeps each reading as its own row and links them:
-the richest reading is the primary (`recension_of_id` NULL), every other reading has
-`recension_of_id` pointing at it, always a primary of the same poet. Lists, counts (live and
-`*_stats`), the sitemap, search browsing, the random poem and related poems show primaries only,
-and the facet indexes are partial on `recension_of_id IS NULL` so the list keeps its index-only
-scans. A text search matches every reading but shows each poem once, as its best-matching reading,
-preferring the primary (see `docs/search.md`). A
-recension keeps its own page and URL, names its primary, and its canonical URL is the primary's;
-the primary's page lists its other recensions. The Mu'allaqat, which classical sources carry in
-several recensions, are the model case for adding readings later. Merging a poem that has
-recensions moves them to the survivor (`merge_poem`).
+A poem often comes down in more than one reading. A word differs, a verse is missing or added, or the lines come in another order. The corpus keeps each reading as its own row, and links them:
+
+- The richest reading is the primary (`recension_of_id` is NULL).
+- Every other reading has a `recension_of_id` that points at the primary. The primary is always a poem of the same poet.
+
+These show primaries only: lists, counts (live and `*_stats`), the sitemap, search browsing, the random poem, and related poems. The facet indexes are partial on `recension_of_id IS NULL`, so the list keeps its index-only scans.
+
+A text search matches every reading, but shows each poem once. It shows the reading that matches best, and prefers the primary (see `docs/search.md`).
+
+A recension keeps its own page and URL, and names its primary. Its canonical URL is the URL of the primary. The page of the primary lists its other recensions.
+
+The Mu'allaqat, which classical sources carry in several recensions, are the model case for more readings later. A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
 
 ## Taxonomy counts
 
-The `*_stats` relations (`poet_stats`, `meter_stats`, `rhyme_stats`, `era_stats`, `theme_stats`,
-`collection_stats`, `poem_type_stats`, and the schema-only `form_stats`, `register_stats`,
-`genre_stats`, `majra_stats`, `nation_stats`, `gender_stats`) hold the per-term poem and poet
-counts the listing pages render. They are **tables**, not views: as views they re-aggregated the
-whole `poems` table on every request (hundreds of milliseconds per taxonomy index page). They are
-rebuilt by `refresh_taxonomy_stats()` (`scripts/db/sql/refresh-taxonomy-stats.sql`, ~3s for the
-full corpus), which runs alongside `refresh_poem_relations()` before every dump and again on
-restore in `scripts/db/init.sh`. Anything that changes a poem's or poet's taxonomy assignment
-leaves them stale until that runs. `GET /v1/poems` also reads its total from them when the filter
-is a single term (one value of one facet), so a stale table skews that list's pagination too.
+The `*_stats` relations hold the poem and poet counts for each term, which the listing pages show:
+
+- `poet_stats`, `meter_stats`, `rhyme_stats`, `era_stats`, `theme_stats`, `collection_stats`, `poem_type_stats`
+- the schema-only `form_stats`, `register_stats`, `genre_stats`, `majra_stats`, `nation_stats`, `gender_stats`
+
+They are **tables**, not views. As views, they counted the whole `poems` table again on every request, which took hundreds of milliseconds for each taxonomy index page.
+
+`refresh_taxonomy_stats()` (`scripts/db/sql/refresh-taxonomy-stats.sql`) rebuilds them in about 3 seconds for the full corpus. It runs with `refresh_poem_relations()` before every dump, and again on restore in `scripts/db/init.sh`. Until it runs, any change to a poem's or a poet's taxonomy leaves the tables out of date.
+
+`GET /v1/poems` also reads its total from these tables when the filter is a single term (one value of one facet). So an out-of-date table also makes the pagination of that list wrong.
