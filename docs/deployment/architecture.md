@@ -35,7 +35,7 @@ Canonical service definitions, pinned image versions, and ports live in `docker-
 
 The last eight are the private observability stack (`apps/observability/AGENTS.md`): open it with `bun run observe`, an SSH port forward over the existing tunnel.
 
-- **DB self-seeds** on first boot from the newest dump in `data/db/` (only when the data volume is empty). Whichever script forces a restore (`bun run db:reseed` in prod, which reruns the same restore script inside the running container, or `bun run db:reset` in dev) renames the running container afterward to `<container>-<dump-number>` (e.g. `qafiyah-db-0019`), so `docker ps` shows which dump is live. `container_name` in the compose files is unaffected, Compose keeps tracking the container by its own labels.
+- **DB self-seeds** on first boot from the newest dump in `data/db/` (only when the data volume is empty). Whichever script forces a restore (`bun run db:reseed` in prod, which recreates the database container from the synced checkout and reruns the same restore script inside it, or `bun run db:reset` in dev) renames the running container afterward to `<container>-<dump-number>` (e.g. `qafiyah-db-0019`), so `docker ps` shows which dump is live. `container_name` in the compose files is unaffected, Compose keeps tracking the container by its own labels.
 - **`search-indexer`** is a one-shot init job, see `apps/search-indexer/AGENTS.md` and `docs/deployment/services.md` for how to force a reindex.
 
 ### Prod vs dev isolation (both on one host)
