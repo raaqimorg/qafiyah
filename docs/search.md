@@ -199,6 +199,18 @@ Elasticsearch groups `cross_fields` fields by analyzer, which is why the two rea
 Prefixes start at two letters, so a trailing one-letter word (`نزار ق`) admits no one, and words the
 analyzers drop, like punctuation, are ignored.
 
+A ranked poet search multiplies the ladder score by the poet's poem count, damped: a `function_score`
+with `field_value_factor` on `poemsCount` (`modifier: log2p`, `factor: 0.01`, `POET_POPULARITY_FACTOR`),
+so a poet with 104 poems scores about 1.6 times one with a single poem and one with 2,000 about 5 times.
+It settles near-ties in favor of the poets readers look for: `زهير` matched poets whose whole nickname
+is that word above Zuhayr ibn Abi Sulma (26th), because a one-word field outscores the same word in a
+four-word name. Measured on the full index (#185) over 42 famous poets' common names: 33 first and
+Zuhayr off page 1 before, 39 first and all on page 1 after (Zuhayr 5th, behind other poets of that
+name with more poems), while 300 minor poets searched by their whole name and 40 by a nickname no one
+else has all stayed first. A factor of 0.02 already put two minor poets' exact names second, so the
+exact tier still wins only while the factor stays this small. Exact (`exact=true`) poet searches and
+browsing are not multiplied.
+
 ## Poems and poets are queried separately
 
 Two independent ES requests, issued concurrently with `tokio::try_join!` and **never merged**.
