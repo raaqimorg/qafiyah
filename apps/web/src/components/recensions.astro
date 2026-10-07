@@ -21,7 +21,12 @@ const { recensions } = Astro.props;
       {recensions.map((item) => (
         <ListCard
           title={item.title}
-          subtitle={formatArabicCount({ count: item.verseCount, nounForms: VERSES_NOUN_FORMS })}
+          subtitle={[
+            formatArabicCount({ count: item.verseCount, nounForms: VERSES_NOUN_FORMS }),
+            item.source,
+          ]
+            .filter(Boolean)
+            .join('، ')}
           href={poemUrl(item.slug)}
           headingTag="h4"
         />

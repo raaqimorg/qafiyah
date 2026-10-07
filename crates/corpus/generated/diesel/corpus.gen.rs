@@ -121,6 +121,8 @@ diesel::table! {
         flags -> Array<Nullable<Text>>,
         recension_of_id -> Nullable<Int4>,
         is_hidden -> Bool,
+        source -> Nullable<Text>,
+        has_tashkeel -> Bool,
     }
 }
 

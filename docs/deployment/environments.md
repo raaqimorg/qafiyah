@@ -1,183 +1,136 @@
-# Environments & Configuration
+# Environments and Configuration
 
 ## Prerequisites (VPS)
 
-1. **Docker + Docker Compose**, repo at `/opt/qafiyah`.
-2. **sops + age and the VPS age key**, see `docs/deployment/secrets.md`. The root `.env` (which Compose auto-loads for `${VAR}`) is generated from `secrets/prod.enc.env` on every deploy; never edit it on the box.
+1. **Docker and Docker Compose**, with the repo at `/opt/qafiyah`.
+2. **sops, age, and the VPS age key.** See `docs/deployment/secrets.md`. Every deploy generates the root `.env` from `secrets/prod.enc.env`. Compose loads that file automatically for `${VAR}`. Never edit it on the server.
+3. **A Cloudflare Tunnel** (or an equivalent) for ingress and TLS. It reaches the gateway over loopback: both hosts go to `127.0.0.1:80`, and nginx routes by `Host`.
 
-`DATABASE_URL` is composed from `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`. (Local dev needs no `.env`; `scripts/dev/compose.sh` defaults the dev passwords, see `docs/development.md`.)
+The API's `DATABASE_URL` uses the read-only role `qafiyah_api`, with `PG_READER_PASSWORD` and `POSTGRES_DB`. Its `DATABASE_URL_ACCOUNTS` uses the role `qafiyah_accounts`, with `PG_ACCOUNTS_PASSWORD`. Local development needs no `.env`: `scripts/dev/compose.sh` sets default dev passwords (see `docs/development.md`).
 
-3. **Cloudflare Tunnel** (or equivalent) for ingress/TLS, reaching the gateway over loopback: both hosts → `127.0.0.1:80` (nginx routes by `Host`).
-
-## Bring up the stack & seeding
+## Starting the stack and seeding
 
 ```bash
 docker compose up -d --build   # or, from a dev machine: bun run deploy
 ```
 
-Builds and starts all six, gated by dependency conditions: `db`/`es` healthy → `search-indexer` runs to completion → `api` (waits for search-indexer exit 0) → `api` healthy → `web` healthy → `edge-gateway`.
+This builds and starts every service. Dependency conditions set the order:
 
-**First boot only:** on an empty data volume, Postgres auto-restores the newest dump from `data/db/` via `scripts/db/init.sh` (a few minutes; `db` healthcheck `start_period` is 300s), and the `db` container gets renamed to `<container>-<dump-number>` (e.g. `qafiyah-db-0019`) so `docker ps` shows which dump it's running. Later boots reuse the volume, so the name doesn't change again until the next real restore. Wipe and re-seed locally with `bun run db:reset`.
+1. `db` and `elasticsearch` become healthy.
+2. `search-indexer` runs to completion.
+3. `api` starts after the indexer exits with 0, and becomes healthy.
+4. `web` starts and becomes healthy.
+5. `edge-gateway` starts.
 
-Shipping a new Postgres/ES dump to production is an ordered action (`bun run db:reseed`), see `.claude/skills/deploy/SKILL.md`. A major-version bump of `postgres`/`elasticsearch` needs a volume wipe, see `docs/deployment/troubleshooting.md`.
+The observability containers follow their own conditions. `db-monitor-role` runs once after `db` is healthy, and `postgres-exporter` waits for it. `elasticsearch-exporter` waits for the indexer. `grafana` waits for a healthy `prometheus`, and `alloy` waits for `loki`.
+
+**First boot only:** on an empty data volume, Postgres restores the newest dump from `data/db/` through `scripts/db/init.sh`. This takes a few minutes. The `start_period` of the `db` healthcheck is 300 seconds. The `db` container is then renamed to `<container>-<dump-number>` (for example, `qafiyah-db-0019`), so `docker ps` shows which dump it runs. Later starts use the same volume, so the name stays until the next real restore. To wipe and seed again locally, run `bun run db:reset`.
+
+To ship a new Postgres or Elasticsearch dump to production, follow the ordered steps (`bun run db:reseed`) in `.claude/skills/deploy/SKILL.md`. A major version upgrade of `postgres` or `elasticsearch` needs a volume wipe; see `docs/deployment/troubleshooting.md`.
 
 ## Secrets
 
-Production secrets live encrypted in `secrets/prod.enc.env` and reach the VPS as a generated `/opt/qafiyah/.env` (mode `600`, gitignored). Change them with `bun run secrets:edit prod`, never on the box and never by pasting values into a doc. See `docs/deployment/secrets.md`.
+The production secrets are encrypted in `secrets/prod.enc.env`. They reach the VPS as a generated `/opt/qafiyah/.env`, with mode `600` and ignored by git. To change them, run `bun run secrets:edit prod`. Never change them on the server, and never paste values into a doc. See `docs/deployment/secrets.md`.
 
 ## Rate limiting and API keys
 
-The API serves **identical response bodies to every caller**. There is no capped
-data, no scope, and no `Vary: x-api-key`. The only thing that varies is how many
-requests per hour a caller gets, carried in each response's `X-RateLimit-*`
-headers. That is why JSON reads are `Cache-Control: private, max-age=300`: the
-caller's own browser may reuse a response for five minutes, but no shared cache
-(Cloudflare, nginx) may store one, since it would hand one caller's counters to
-the next and let cached hits skip the count.
-The website's `/api/v1/search` proxy drops those headers, so every visitor gets
-the same response; it sets its own `public` policy on successful searches, and
-the website's nginx caches them for five minutes.
+The API serves **the same response body to every caller**. There is no capped data, no scope, and no `Vary: x-api-key`. Only the number of requests an hour changes from caller to caller, and each response's `X-RateLimit-*` headers report it.
 
-Anonymous callers share a per-IP hourly bucket. An IPv6 caller is bucketed by
-its /64, the block one subscriber is usually handed, so rotating addresses
-inside it earns no extra allowance, and its /48 shares a second bucket of ten
-times the anonymous limit, so rotating across /64s stops there. Website
-visitors never reach either, since the site calls the API with
-`API_KEY_INTERNAL`; a visitor's search through the site gets its own
-buckets instead (below). Keyed callers get their own bucket and
-their own number. Exceeding either returns `429` as
-`application/problem+json` with `Retry-After`, and every response carries
-`x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
+That is why JSON reads are `Cache-Control: private, max-age=300`. The caller's own browser can use a response again for five minutes. No shared cache (Cloudflare, nginx) can store one, because it would give one caller's counters to the next caller, and cached hits would skip the count.
+
+The website's `/api/v1/search` proxy removes those headers, so every visitor gets the same response. The proxy sets its own `public` policy on successful searches (`max-age=300, stale-while-revalidate=86400`). The website's nginx serves a cached search as fresh for five minutes. After that it serves the stored answer and refreshes it in the background, so an entry lives until a day passes without a request for it (`inactive=24h`). A deploy clears the cache. The stack smoke run checks that a repeated search is a cache hit.
+
+Anonymous callers share an hourly bucket for each address:
+
+- An IPv6 caller is counted by its /64, which is the block that one subscriber usually gets. So rotating addresses inside it gives no extra allowance.
+- Its /48 shares a second bucket of ten times the anonymous limit. So rotating across /64s stops there.
+
+Website visitors never reach those buckets, because the site calls the API with `API_KEY_INTERNAL`. A visitor's search through the site gets its own buckets instead (below). Each caller with a key gets its own bucket and its own number. A caller over the limit gets `429` as `application/problem+json`, with `Retry-After`. Every response carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`.
 
 ### Where requests are limited
 
-Three layers, outermost first:
+There are three layers, outermost first.
 
-- **Cloudflare**, one rate limiting rule set in the dashboard (the Free plan
-  allows only one): a client IP that sends more than 100 requests in 10
-  seconds, to any path on the zone, is blocked for 10 seconds with
-  Cloudflare's own `429` (error 1015). Verified bots are exempt, and counts are
-  kept per Cloudflare data center. It is a flood guard far above what a visitor
-  sends, and a full `bun run smoke:prod` from one address can trip it. It
-  counts each IPv6 address on its own, not by /64, so it does nothing against
-  rotation inside a block: on 2026-09-28, 182 requests from two addresses in
-  one /64 through one data center passed, while 180 from one address were
-  blocked after about 110. A client's new connections can also land on
-  different data centers, which splits its count.
-- **The web nginx**, `limit_req` in `apps/web/nginx.conf`: 60 requests a
-  minute per address with a burst of 30, on `/api/v1/`, `/account`, `/api/me`,
-  and `/auth/`. It keys on the exact address, so an IPv6 client rotating inside
-  its /64 gets a fresh allowance each time.
-  It also holds each address to 10 requests in flight at once (`limit_conn`)
-  on `/api/v1/` and on `api.qafiyah.com`, which has no `limit_req`, so one
-  address cannot hold more than half of the API's 20 Postgres connections;
-  the excess gets the same 429.
-- **The API**, the hourly buckets above, for callers of `api.qafiyah.com`. The
-  website's server-side calls carry `API_KEY_INTERNAL` and skip them. The
-  website's browser proxy (`/api/v1/search`, `/api/v1/poems/random`, and,
-  for a request naming exactly one poet, `/api/v1/poems` and
-  `/api/v1/poems/facets`) also sends the visitor's
-  address, from the `X-Real-IP` nginx sets, as
-  `CF-Connecting-IP`. The API counts those requests per visitor:
-  `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour per /64 or IPv4
-  address and ten times that per /48, in buckets separate from anonymous
-  callers. Only an address forwarded by the web container counts, so page
-  renders, which forward none, stay unlimited. Locally, `bun run dev` has no
-  nginx to set the address, so its proxy stays unlimited; in the Docker stack
-  every local request reaches nginx as one address, which nginx already holds
-  to 60 a minute, the same 3,600 an hour. A refused search is a `429`
-  marked `no-store`, which the proxy passes through and nginx does not cache.
+**Cloudflare** has one rate limiting rule, set in the dashboard. The Free plan allows only one.
 
-### Environment keys (bypass the limiter)
+- A client address that sends more than 100 requests in 10 seconds, to any path on the zone, is blocked for 10 seconds with Cloudflare's own `429` (error 1015).
+- Verified bots are exempt, and each Cloudflare data center keeps its own count.
+- It is a flood guard far above what a visitor sends. A full `bun run smoke:prod` from one address can trip it.
+- It counts each IPv6 address alone, not by /64, so it does nothing against rotation inside a block. On 2026-09-28, 182 requests from two addresses in one /64 through one data center passed. 180 requests from one address were blocked after about 110.
+- A client's new connections can also reach different data centers, which splits its count.
 
-Two values, each generated with `openssl rand -hex 32`, live in the API's
-environment and are checked before the accounts database is consulted:
+**The web nginx** applies `limit_req` from `apps/web/nginx.conf`:
 
-- `API_KEY_INTERNAL` (secret): unlimited, and the only key that opens
-  `/account`. The web SSR server and the same-origin search proxy present it;
-  a proxied request that carries a visitor's address counts against that
-  visitor (above).
-- `API_KEY_FULL` (secret): unlimited on `/v1` only, for trusted server clients,
-  smoke tests, and admin tooling. It does **not** open `/account`, so a leak
-  costs corpus reads and never account administration.
+- 60 requests a minute for each address, with a burst of 30, on `/api/v1/`, `/account`, `/api/me`, and `/auth/`.
+- It counts the exact address, so an IPv6 client that rotates inside its /64 gets a new allowance each time.
+- It also holds each address to 10 requests in flight at once (`limit_conn`), on `/api/v1/` and on `api.qafiyah.com` (which has no `limit_req`). So one address cannot hold more than half of the API's 20 Postgres connections. The extra requests get the same 429.
 
-They deliberately do not touch `qafiyah_accounts`, so an accounts-database
-outage degrades the developer portal and never the website.
+**The API** applies the hourly buckets above to callers of `api.qafiyah.com`:
 
-**The web service's `INTERNAL_API_KEY` is `API_KEY_INTERNAL`.** Compose (and
-`bun run dev`) feed it from that one variable, so the two cannot drift; never
-add `INTERNAL_API_KEY` to a secrets file (`secrets:check` rejects it). It is
-server-only, read at SSR time, and never reaches the
-browser. No key of any kind ships in the browser bundle: the browser calls
-`/api/v1/search`, `/api/v1/poems/random`, `/api/v1/poems`, and
-`/api/v1/poems/facets` on its own origin, and
-`apps/web/src/lib/api/proxy-allowlist.ts` refuses every other path, and a
-`poems` or `poems/facets` request that does not name exactly one poet.
+- The website's server-side calls carry `API_KEY_INTERNAL` and skip the buckets.
+- The website's browser proxy also sends the visitor's address as `CF-Connecting-IP`, from the `X-Real-IP` that nginx sets. This covers `/api/v1/search`, `/api/v1/poems/random`, and, for a request that names exactly one poet, `/api/v1/poems` and `/api/v1/poems/facets`.
+- The API counts those requests for each visitor: `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour for each /64 or IPv4 address, and ten times that for each /48. These buckets are separate from those of anonymous callers.
+- Only an address that the web container forwards counts. Page renders forward none, so they stay unlimited.
+- Locally, `bun run dev` has no nginx to set the address, so its proxy stays unlimited. In the Docker stack, every local request reaches nginx as one address. nginx already holds that address to 60 a minute, which is the same 3,600 an hour.
+- A refused search is a `429` marked `no-store`. The proxy passes it through, and nginx does not cache it.
+
+### Environment keys (they skip the limiter)
+
+The API's environment holds two keys, each generated with `openssl rand -hex 32`. The API checks them before it reads the accounts database:
+
+- `API_KEY_INTERNAL` (secret): unlimited, and the only key that opens `/account`. The web server-side renderer and the same-origin search proxy send it. A proxied request that carries a visitor's address counts against that visitor (above).
+- `API_KEY_FULL` (secret): unlimited on `/v1` only. It is for trusted server clients, smoke tests, and admin tooling. It does **not** open `/account`, so a leak costs corpus reads, never account administration.
+
+These keys do not touch `qafiyah_accounts` on purpose. So an outage of the accounts database harms only the developer portal, never the website.
+
+**The web service's `INTERNAL_API_KEY` is `API_KEY_INTERNAL`.** Compose and `bun run dev` both take it from that one variable, so the two cannot differ. Never add `INTERNAL_API_KEY` to a secrets file; `secrets:check` refuses it.
+
+The key is server-only: the renderer reads it, and it never reaches the browser. No key of any kind ships in the browser bundle. The browser calls `/api/v1/search`, `/api/v1/poems/random`, `/api/v1/poems`, and `/api/v1/poems/facets` on its own origin. `apps/web/src/lib/api/proxy-allowlist.ts` refuses every other path, and every `poems` or `poems/facets` request that does not name exactly one poet.
 
 ### The anonymous limit
 
-`ANON_REQUESTS` sets the per-address bucket for unkeyed callers, over
-`WINDOW_SECONDS` (one hour). **Leave it unset in production.** Unset, the API
-picks 60 when `ENVIRONMENT=production` and an effectively unlimited value
-everywhere else (`apps/api/src/config.rs::anon_requests`), because outside
-production there is no Cloudflare in front and every caller resolves to the same
-bucket.
+`ANON_REQUESTS` sets the bucket for callers without a key, for each address, over `WINDOW_SECONDS` (one hour). **Leave it unset in production.** When it is unset, the API uses 60 if `ENVIRONMENT=production`, and an unlimited value everywhere else (`apps/api/src/config.rs::anon_requests`). Outside production, there is no Cloudflare in front, and every caller falls into the same bucket.
 
 ### Plans
 
-Keyed callers get their ceilings from the `plans` table in `qafiyah_accounts`,
-not from the environment. Three limits apply and all must pass: the plan's
-`requests` per `WINDOW_SECONDS` bucketed on the user, the plan's `burst` per
-`BURST_WINDOW_SECONDS` bucketed on the user, and the plan's `ip_ceiling`
-bucketed on the client address. Only plans carrying an `ip_ceiling` are address
-bucketed, and only `free` does, so a paying customer is never throttled for
-sharing an office address with free accounts.
+Callers with a key get their limits from the `plans` table in `qafiyah_accounts`, not from the environment. Three limits apply, and a request must pass all three:
 
-Change a plan with `update plans set requests = 1000 where slug = 'free';` and
-move a user with `update users set plan = 'premium' where email = '...';`.
-Either takes up to 60 seconds to apply, because `accounts/cache.rs` holds
-resolved keys for `API_KEY_CACHE_TTL_SECONDS`.
+- the plan's `requests` for each `WINDOW_SECONDS`, counted for each user
+- the plan's `burst` for each `BURST_WINDOW_SECONDS`, counted for each user
+- the plan's `ip_ceiling`, counted for each client address
 
-This is why `ENVIRONMENT` matters more than it looks: if it is ever not exactly
-`production`, the limiter silently becomes a no-op. `secrets:check` requires it
-to be exactly `production` in `secrets/prod.enc.env`. An empty internal key
-would drop the site's own SSR into the 60/hour anonymous bucket, so in
-production the API refuses to start without `API_KEY_INTERNAL` and
-`API_KEY_FULL`, and the web container refuses to start without
-`INTERNAL_API_KEY` and `SESSION_STATE_SECRET`.
+Only a plan with an `ip_ceiling` counts by address, and only `free` has one. So a paying customer is never limited for sharing an office address with free accounts.
 
-Client IP comes from `X-Forwarded-For`, where Cloudflare appends the visitor
-as the last entry (see `services.md`), which the web container's nginx
-resolves and re-sends as
-`CF-Connecting-IP` over the dedicated `backend` network. The API honors that
-header only from the `backend` subnet (`client_ip.rs`), so a lateral container on
-the default bridge is bucketed on its own address rather than a spoofed header.
+To change a plan, run `update plans set requests = 1000 where slug = 'free';`. To move a user, run `update users set plan = 'premium' where email = '...';`. Each change takes up to 60 seconds to apply, because `accounts/cache.rs` keeps resolved keys for `API_KEY_CACHE_TTL_SECONDS`.
+
+`ENVIRONMENT` matters more than it seems. If it is ever not exactly `production`, the limiter stops working without a message. So `secrets:check` requires it to be exactly `production` in `secrets/prod.enc.env`. An empty internal key would put the site's own server-side renderer in the anonymous bucket of 60 an hour. So in production, the API does not start without `API_KEY_INTERNAL` and `API_KEY_FULL`, and the web container does not start without `INTERNAL_API_KEY` and `SESSION_STATE_SECRET`.
+
+The client address comes from `X-Forwarded-For`, where Cloudflare adds the visitor as the last entry (see `services.md`). The web container's nginx reads it and sends it again as `CF-Connecting-IP` over the dedicated `backend` network. The API accepts that header only from the `backend` subnet (`client_ip.rs`). So a container on the default bridge is counted by its own address, not by a forged header.
 
 ### Issued keys
 
-Everything else is a row in the `qafiyah_accounts` database: a SHA-256 hash of
-the key and a `prefix` for display. The key carries no allowance of its own; the
-ceilings come from the owner's plan, so raising one developer's limit means
-moving them to another plan rather than editing their key.
+Every other key is a row in the `qafiyah_accounts` database: a SHA-256 hash of the key, and a `prefix` for display. A key has no allowance of its own. The limits come from the owner's plan. So to raise one developer's limit, move them to another plan. Do not edit their key.
 
-Issue a key with:
+To issue a key, run:
 
 ```bash
 DATABASE_URL_ACCOUNTS=... cargo run -p qafiyah-api --bin issue-key -- <email> [label]
 ```
 
-It goes through the same library calls as the account API: the email is normalized, the user is created if it is new, and a user who already holds `MAX_ACTIVE_KEYS_PER_USER` active keys is refused until one is revoked. The raw key is printed once and never recoverable; only its hash is stored.
+It uses the same library calls as the account API:
 
-Two consistency windows are deliberate and worth knowing before debugging
-either: a revoked key keeps working for up to 60 seconds
-(`API_KEY_CACHE_TTL_SECONDS`, no cross-process invalidation), and `usage_hourly`
-lags by up to a minute because counters flush in batches rather than on the
-request path.
+- It normalizes the email, and creates the user if the user is new.
+- It refuses a user who already holds `MAX_ACTIVE_KEYS_PER_USER` active keys, until one is revoked.
+- It prints the raw key once. Only its hash is stored, so nobody can recover the key later.
+
+Two delays are deliberate. Know them before you debug either one:
+
+- A revoked key keeps working for up to 60 seconds (`API_KEY_CACHE_TTL_SECONDS`), because other processes get no signal to clear their cache.
+- `usage_hourly` is up to a minute behind, because the counters are written in batches, not on the request path.
 
 ### OAuth for the account portal
 
-Sign-in lives on `qafiyah.com`, not on the API, so these five belong to the
-**web** service:
+Sign-in is on `qafiyah.com`, not on the API. So these five variables belong to the **web** service:
 
 ```
 OAUTH_GOOGLE_CLIENT_ID
@@ -187,86 +140,58 @@ OAUTH_GITHUB_CLIENT_SECRET
 SESSION_STATE_SECRET
 ```
 
-Register these exact redirect URIs with each provider, or the callback is
-rejected before it reaches us:
+Register these exact redirect URIs with each provider. Otherwise, the provider refuses the callback before it reaches us:
 
 ```
 https://qafiyah.com/auth/callback/google
 https://qafiyah.com/auth/callback/github
 ```
 
-Scopes are fixed in `apps/web/src/lib/server/oauth/providers.ts`:
-`openid email profile` for Google, `read:user user:email` for GitHub. GitHub's
-`user:email` is not optional; without it `/user/emails` returns 403 and the
-verified-email check that prevents account takeover cannot run.
+`apps/web/src/lib/server/oauth/providers.ts` fixes the scopes: `openid email profile` for Google, and `read:user user:email` for GitHub. GitHub's `user:email` is required. Without it, `/user/emails` returns 403, and the verified-email check that prevents account takeover cannot run.
 
-`SESSION_STATE_SECRET` is `openssl rand -hex 32`. It protects only the
-short-lived OAuth state cookie, so rotating it invalidates in-flight logins and
-nothing else. Sessions themselves are rows in `qafiyah_accounts.sessions` and
-are unaffected.
+`SESSION_STATE_SECRET` is `openssl rand -hex 32`. It protects only the short-lived OAuth state cookie. So a new value cancels the sign-ins in progress, and nothing else. Sessions are rows in `qafiyah_accounts.sessions`, and a new value does not affect them.
 
-The web service's `INTERNAL_API_KEY` comes from `API_KEY_INTERNAL`. Beyond SSR, the account portal now depends on it: `account-client.ts`
-presents it to reach `/account/*`, and if it is empty every visitor appears
-signed out no matter what.
+The account portal also depends on `INTERNAL_API_KEY`: `account-client.ts` sends it to reach `/account/*`. If it is empty, every visitor appears signed out.
 
-For local development these, plus `INTERNAL_API_KEY`, must also be listed in `turbo.json` under
-`dev.passThroughEnv`, or Turborepo withholds them from `astro dev` and the
-portal behaves as if no provider were configured.
+For local development, these variables and `INTERNAL_API_KEY` must also be in `turbo.json` under `dev.passThroughEnv`. Otherwise, Turborepo hides them from `astro dev`, and the portal acts as if no provider were set up.
 
-## Accounts database on an existing production volume (one-time)
+## The accounts database
 
-The accounts work shipped with everything the code needs and nothing the host
-needs. These steps are **manual, once, on the VPS**, and the deploy will fail
-without the first two.
+On an empty data volume, `scripts/db/accounts-init.sh` creates the `qafiyah_accounts` role and database on the first boot. The API then runs its Diesel migrations (`apps/api/migrations/`) against that database at startup, so the tables create themselves.
 
-1. **Set `PG_ACCOUNTS_PASSWORD` in `secrets/prod.enc.env`.** Generate with
-   `openssl rand -hex 32`. Both the `db` and `api` services guard it with `:?`,
-   so `docker compose` refuses to start without it. It must not equal
-   `PG_READER_PASSWORD`.
+These steps set up its password and backups on a new server:
 
-2. **Create the database and role by hand.** `scripts/db/accounts-init.sh` is
-   mounted into the Postgres initdb directory, which only runs on an **empty**
-   data volume. Production's volume is not empty, so the script will never fire
-   there. Run its SQL once against the live container:
+1. **Set `PG_ACCOUNTS_PASSWORD` in `secrets/prod.enc.env`.** Generate it with `openssl rand -hex 32`. Both the `db` and `api` services guard it with `:?`, so `docker compose` does not start without it. It must not equal `PG_READER_PASSWORD`.
+2. **Create a private R2 bucket for backups, and a token that only it accepts.**
+   - Do not use `qafiyah-assets`, which is public at `cdn.qafiyah.com`. The new bucket gets no public binding and no custom domain.
+   - Add a lifecycle rule that deletes `accounts/` objects after 30 days.
+   - Create an R2 API token with object read and write on that bucket only, not the deploy token. Then a compromised VPS cannot reach the public asset bucket. The token gives an access key ID, a secret access key, and the S3 endpoint.
+3. **Set the `ACCOUNTS_BACKUP_*` values in `secrets/prod.enc.env`, then install the timer.** See "Accounts database backups" in `docs/deployment/services.md`. It lists the variables, the two install commands, and how to restore.
 
-   ```bash
-   docker compose exec db psql -v ON_ERROR_STOP=1 -v accounts_pw="$PG_ACCOUNTS_PASSWORD" \
-     -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-   SELECT 'CREATE ROLE qafiyah_accounts LOGIN'
-   WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'qafiyah_accounts')
-   \gexec
-   ALTER ROLE qafiyah_accounts WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD :'accounts_pw';
-   SQL
+If a volume already holds data but has no accounts database, the initdb script never runs. This happens because Postgres runs `/docker-entrypoint-initdb.d` only on an **empty** volume. In that case, run its SQL once against the live container:
 
-   docker compose exec db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-   SELECT 'CREATE DATABASE qafiyah_accounts OWNER qafiyah_accounts'
-   WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'qafiyah_accounts')
-   \gexec
-   SQL
-   ```
+```bash
+docker compose exec db psql -v ON_ERROR_STOP=1 -v accounts_pw="$PG_ACCOUNTS_PASSWORD" \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+SELECT 'CREATE ROLE qafiyah_accounts LOGIN'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'qafiyah_accounts')
+\gexec
+ALTER ROLE qafiyah_accounts WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD :'accounts_pw';
+SQL
 
-   The API runs its Diesel migrations (`apps/api/migrations/`) against that database
-   at startup, so the tables create themselves on the first boot after this. Verify with
-   `docker compose exec db psql -U "$POSTGRES_USER" -d qafiyah_accounts -c '\dt'`.
+docker compose exec db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+SELECT 'CREATE DATABASE qafiyah_accounts OWNER qafiyah_accounts'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'qafiyah_accounts')
+\gexec
+SQL
+```
 
-3. **Create a private R2 bucket for backups and a token scoped to it.** Not
-   `qafiyah-assets`, which is served publicly at `cdn.qafiyah.com`. The new
-   bucket gets no public binding and no custom domain. Add a lifecycle rule that
-   deletes `accounts/` objects after 30 days. Then create an R2 API token with
-   object read and write on that bucket only, not the deploy token, so a
-   compromised VPS cannot reach the public asset bucket. It gives an access key
-   ID, a secret access key, and the S3 endpoint.
+To check the tables after the next API start, run `docker compose exec db psql -U "$POSTGRES_USER" -d qafiyah_accounts -c '\dt'`.
 
-4. **Set the `ACCOUNTS_BACKUP_*` values in `secrets/prod.enc.env`, then install
-   the timer.** See the accounts backup section in `docs/deployment/services.md`
-   for the variables, the two install commands, how to restore, and what a lost
-   volume actually costs.
-
-A quick check that the whole path works, after deploying:
+To check that the whole path works after a deploy, run:
 
 ```bash
 curl -si https://api.qafiyah.com/v1/meters | grep -i x-ratelimit
 ```
 
-Expect `x-ratelimit-limit: 60`. If it shows something enormous, `ENVIRONMENT` is
-not `production`.
+Expect `x-ratelimit-limit: 60`. If it shows a very large number, `ENVIRONMENT` is not `production`.

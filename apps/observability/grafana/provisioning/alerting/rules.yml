@@ -1,0 +1,321 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: availability
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: api-down
+        title: API down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max(probe_success{service="api"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: The API health probe has failed for 1 minute.
+
+      - uid: web-down
+        title: Website down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max(probe_success{service="web"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, service: web }
+        annotations:
+          summary: The website health probe has failed for 1 minute.
+
+      - uid: postgres-down
+        title: Postgres down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max(pg_up)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, service: postgres }
+        annotations:
+          summary: postgres_exporter cannot reach Postgres.
+
+      - uid: elasticsearch-unhealthy
+        title: Elasticsearch unhealthy
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: min(elasticsearch_clusterinfo_up) * (1 - max(elasticsearch_cluster_health_status{color="red"}))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, service: elasticsearch }
+        annotations:
+          summary: Elasticsearch is unreachable, or its cluster is red.
+
+      - uid: pipeline-down
+        title: Metrics pipeline down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: min by (job) (up{job=~"containers|host|loki|health|postgres|elasticsearch"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: Prometheus cannot scrape a part of the monitoring pipeline, so other alerts can stay silent.
+
+  - orgId: 1
+    name: errors
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: error-rate
+        title: Error rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                label_replace(
+                (histogram_count(sum by (job) (rate(http_server_request_duration_seconds{http_route!="/healthz", http_response_status_code=~"5.."}[5m])))
+                / histogram_count(sum by (job) (rate(http_server_request_duration_seconds{http_route!="/healthz"}[5m]))))
+                and on (job) (histogram_count(sum by (job) (increase(http_server_request_duration_seconds{http_route!="/healthz"}[5m]))) >= 20),
+                "service", "$1", "job", "(.*)")
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical }
+        annotations:
+          summary: More than 5% of requests answered 5xx over the last 5 minutes.
+
+  - orgId: 1
+    name: resources
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: container-memory
+        title: Container memory
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max by (name) (container_memory_working_set_bytes{name!=""}) / max by (name) (container_spec_memory_limit_bytes{name!=""} > 0)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.9] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: A container uses more than 90% of its memory limit.
+
+      - uid: disk
+        title: Disk
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max by (device) (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.85] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: A host filesystem is more than 85% full.
+
+  - orgId: 1
+    name: latency
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: latency-api
+        title: API latency burn
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="api", http_route!~"/healthz|/v1/search"}[1h])))) > 0.144
+                and (1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="api", http_route!~"/healthz|/v1/search"}[5m])))) > 0.144
+                and histogram_count(sum(increase(http_server_request_duration_seconds{job="api", http_route!~"/healthz|/v1/search"}[1h]))) >= 100
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: Over 14.4% of API requests outside search took longer than 300 ms, over both the last hour and the last 5 minutes.
+
+      - uid: latency-search
+        title: Search latency burn
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (1 - histogram_fraction(0, 1, sum(rate(http_server_request_duration_seconds{job="api", http_route="/v1/search"}[1h])))) > 0.144
+                and (1 - histogram_fraction(0, 1, sum(rate(http_server_request_duration_seconds{job="api", http_route="/v1/search"}[5m])))) > 0.144
+                and histogram_count(sum(increase(http_server_request_duration_seconds{job="api", http_route="/v1/search"}[1h]))) >= 100
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: Over 14.4% of searches took longer than 1 s, over both the last hour and the last 5 minutes.
+
+      - uid: latency-web
+        title: Website latency burn
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (1 - histogram_fraction(0, 1, sum(rate(http_server_request_duration_seconds{job="web", http_route!="/healthz"}[1h])))) > 0.144
+                and (1 - histogram_fraction(0, 1, sum(rate(http_server_request_duration_seconds{job="web", http_route!="/healthz"}[5m])))) > 0.144
+                and histogram_count(sum(increase(http_server_request_duration_seconds{job="web", http_route!="/healthz"}[1h]))) >= 100
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: web }
+        annotations:
+          summary: Over 14.4% of website requests took longer than 1 s, over both the last hour and the last 5 minutes.

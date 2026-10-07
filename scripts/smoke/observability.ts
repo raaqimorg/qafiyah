@@ -10,6 +10,19 @@ const UIDS = [
   'resources',
   'slow-queries',
 ] as const;
+const RULE_UIDS = [
+  'api-down',
+  'container-memory',
+  'disk',
+  'elasticsearch-unhealthy',
+  'error-rate',
+  'latency-api',
+  'latency-search',
+  'latency-web',
+  'pipeline-down',
+  'postgres-down',
+  'web-down',
+] as const;
 const WAIT_MS = 90_000;
 const POLL_MS = 3_000;
 
@@ -63,6 +76,25 @@ function panelQueries(panels: unknown): DashboardQuery[] {
 
 export function dashboardQueries(dashboard: unknown): DashboardQuery[] {
   return isRecord(dashboard) ? panelQueries(dashboard['panels']) : [];
+}
+
+export type RuleQuery = { readonly uid: string; readonly expr: string };
+
+export function ruleQueries(rules: unknown): RuleQuery[] {
+  if (!Array.isArray(rules)) return [];
+  return rules.flatMap((rule: unknown) => {
+    if (!isRecord(rule) || typeof rule['uid'] !== 'string' || !Array.isArray(rule['data'])) {
+      return [];
+    }
+    const uid = rule['uid'];
+    return rule['data'].flatMap((step: unknown) => {
+      if (!isRecord(step) || step['datasourceUid'] !== 'prometheus' || !isRecord(step['model'])) {
+        return [];
+      }
+      const expr = step['model']['expr'];
+      return typeof expr === 'string' ? [{ uid, expr }] : [];
+    });
+  });
 }
 
 export function substituteVariables(expr: string): string {
@@ -183,6 +215,28 @@ async function dashboardsProvisioned(grafana: Grafana): Promise<string | null> {
   return UIDS.every((uid) => found.includes(uid)) ? null : `found ${found.join(', ')}`;
 }
 
+async function everyAlertRuleEvaluates(grafana: Grafana): Promise<ObservabilityResult> {
+  const started = performance.now();
+  const response = await fetch(`${grafana.url}/api/v1/provisioning/alert-rules`, {
+    headers: grafana.headers,
+  });
+  const queries = ruleQueries(await response.json());
+  const found = queries.map((rule) => rule.uid).sort();
+  const errors: string[] = RULE_UIDS.every((uid) => found.includes(uid))
+    ? []
+    : [`found rules ${found.join(', ')}`];
+  for (const { uid, expr } of queries) {
+    const { error } = await query(grafana, expr);
+    if (error !== null) errors.push(`${uid}: ${error}`);
+  }
+  return {
+    note: 'every alert rule is provisioned and its query evaluates',
+    url: '/api/v1/provisioning/alert-rules',
+    ms: performance.now() - started,
+    failure: errors.length === 0 ? null : errors.join('\n'),
+  };
+}
+
 async function everyQueryEvaluates(grafana: Grafana, file: string): Promise<ObservabilityResult> {
   const started = performance.now();
   const dashboard: unknown = JSON.parse(await Bun.file(`${DASHBOARD_DIR}/${file}`).text());
@@ -260,6 +314,7 @@ export async function observabilityChecks(
       'sum(count_over_time({service="web"} |= `"source":"nginx"` | json | __error__="" | request_time >= 0 [1h]))',
       'loki'
     ),
+    await everyAlertRuleEvaluates(grafana),
   ];
   for await (const file of new Glob('*.json').scan(DASHBOARD_DIR)) {
     results.push(await everyQueryEvaluates(grafana, file));

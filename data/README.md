@@ -1,30 +1,26 @@
 # Data
 
-Versioned binary snapshots, split by kind into subdirectories:
+This directory holds versioned binary snapshots, with one subdirectory for each kind:
 
-- `db/`: PostgreSQL dumps. Automated (`bun run db:*`, encrypted, self-seeding on `bun run dev`). See `db/README.md` and `db/MAINTAINERS_GUIDE.md`.
-- `avatars/`: poet avatar image zips, mirrored in R2/`cdn.qafiyah.com` for serving. Manual today, same directory-naming and encryption pattern as `db/`. See `avatars/README.md`.
+- `db/`: PostgreSQL dumps. Scripts handle them (`bun run db:reset`, `bun run db:reseed`). They are encrypted, and `bun run dev` seeds itself from them. See `db/README.md` and `db/MAINTAINERS_GUIDE.md`.
+- `avatars/`: zips of the poet avatar images. R2 serves a copy at `cdn.qafiyah.com`. They are manual today, with the same directory names and encryption as `db/`. See `avatars/README.md`.
 
-Both follow the same layout: `{category}/{sequence}_{DD}_{MM}_{YYYY}/`, encrypted `.enc` files committed, plaintext gitignored.
+Both use the same layout: `{category}/{sequence}_{DD}_{MM}_{YYYY}/`. The encrypted `.enc` files are committed, and git ignores the plaintext.
 
-Everything in here is public and dedicated to the public domain under [CC0 1.0](LICENSE),
-unlike the MIT-licensed code in the rest of the repo. The `.enc` files are encrypted, not
-restricted. Why encrypt something that is open? Because a public
-git history cannot be edited after the fact. Once a plaintext copy is pushed, every fork, clone,
-and mirror keeps it for good, and nothing the maintainers do afterwards can take it back. If a
-record ever has to come out, for whatever reason, it must be possible to remove it everywhere it
-went. Encryption keeps that possible: the plaintext copies are the ones handed out on request, so
-there is always a way to reach whoever holds one.
+Everything here is public, and dedicated to the public domain under [CC0 1.0](LICENSE). This is different from the code in the rest of the repo, which is under MIT. The `.enc` files are encrypted, not restricted.
 
-Getting a passphrase is quick. Email dumps@qafiyah.com for a `db/` snapshot or
-avatars@qafiyah.com for an `avatars/` one, and say what you need it for, whether that is your own
-use or a contribution you are planning. You get the passphrase right away. There is no vetting,
-and nobody has to qualify. Each subdirectory's README says the same in full.
+Why encrypt something that is open? Because nobody can edit a public git history after it is pushed.
 
-## Moving or renaming anything in here
+- After a plaintext copy is pushed, every fork, clone, and mirror keeps it for good. Nothing that the maintainers do after that can take it back.
+- If a record must come out, for any reason, it must be possible to remove it everywhere that it went.
+- Encryption keeps that possible. The plaintext copies are the ones given out on request. So there is always a way to reach each person who holds one.
 
-Push that commit with `git -c pack.useSparse=false push`. Git's sparse pack algorithm (on by
-default) re-packs every blob under a renamed path, so a directory rename in here builds a
-multi-GB pack that GitHub rejects with `pack exceeds maximum allowed size (2.00 GiB)` even though
-the real diff is a few KB (the `dumps/` to `data/db/` move produced a 2.6GB pack with sparse on
-and 14KB with it off). Only the push carrying the rename is affected.
+A passphrase is quick to get. Email dumps@qafiyah.com for a `db/` snapshot, or avatars@qafiyah.com for an `avatars/` snapshot. Say what you need it for: your own use, or a contribution that you plan. You get the passphrase at once. There is no vetting, and nobody has to qualify. The README of each subdirectory says the same, in full.
+
+## Moving or renaming anything here
+
+Push that commit with `git -c pack.useSparse=false push`.
+
+Git's sparse pack algorithm is on by default. It packs every blob under a renamed path again. So a directory rename here builds a pack of several GB, even when the real diff is a few KB. GitHub refuses it with `pack exceeds maximum allowed size (2.00 GiB)`. For example, the move from `dumps/` to `data/db/` made a 2.6 GB pack with the sparse algorithm on, and a 14 KB pack with it off.
+
+Only the push that carries the rename has this problem.

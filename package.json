@@ -20,6 +20,7 @@
     "ci": "bun scripts/ci.ts",
     "clean": "./scripts/dev/clean.sh",
     "corpus:apply-classical": "bun scripts/corpus/apply-verdicts.ts",
+    "corpus:promote-reading": "bun scripts/corpus/promote-reading.ts",
     "corpus:repair-rows": "bun scripts/corpus/repair-rows.ts",
     "corpus:verify-classical": "bun scripts/corpus/verify-classical.ts",
     "db:schema": "bun scripts/db/diesel-schema.ts",
@@ -124,7 +125,8 @@
     "shell-quote": "^1.9.0",
     "svgo": "^4.1.0",
     "@xmldom/xmldom": "^0.9.12",
-    "devalue": "^5.9.4"
+    "devalue": "^5.9.4",
+    "sharp": "^0.35.5"
   },
   "trustedDependencies": [
     "esbuild",

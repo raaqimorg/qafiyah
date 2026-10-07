@@ -99,7 +99,7 @@ async fn a_search_query_reaches_elasticsearch_normalized_and_is_echoed_that_way(
     assert_eq!(sent.json()["q"], "عنترة بن شداد");
     let asked = es.requests().await;
     assert_eq!(
-        asked[0].1["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
+        asked[0].1["query"]["function_score"]["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
         "عنترة بن شداد"
     );
 }
@@ -112,7 +112,7 @@ async fn the_poets_list_normalizes_its_query_the_same_way() {
     assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
     let asked = es.requests().await;
     assert_eq!(
-        asked[0].1["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
+        asked[0].1["query"]["function_score"]["query"]["bool"]["should"][0]["term"]["name.exact"]["value"],
         "عنترة بن شداد"
     );
 }

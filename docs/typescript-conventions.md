@@ -1,11 +1,11 @@
 # TypeScript Conventions
 
-- `type` > `interface`; no `enum`/`any`; `readonly` everywhere; named exports only. `erasableSyntaxOnly` bans `enum`, `namespace`, and parameter properties.
-- One primary export per file (4+ → split). Co-locate until shared 2+, then `types/`|`utils/`.
-- Enums → `as const` + derived union. Discriminated unions > flags. Branded types for IDs.
-- Narrow via `unknown` + guards, no casts. Exhaustive `switch` + `never`, or `ts-pattern`'s `match(...).exhaustive()`. `satisfies` > annotations.
-- Boolean checks are explicit: no truthiness on a nullable string, number, or boolean (`strict-boolean-expressions`). Returned promises are always `return await`'d.
-- Invalid states unrepresentable. Lookup tables > `if/else`.
-- `lowercase-kebab.ts` filenames, kebab-case segments.
+- Use `type`, not `interface`. Do not use `enum` or `any`. Use `readonly` everywhere, and only named exports. `erasableSyntaxOnly` refuses `enum`, `namespace`, and parameter properties.
+- Give each file one primary export. At 4 or more, split the file. Keep code next to its user until 2 or more places share it. Then move it to `types/` or `utils/`.
+- In place of an enum, use `as const` and a derived union. Use discriminated unions, not flags. Use branded types for IDs.
+- Narrow types through `unknown` and type guards, not casts. Make a `switch` exhaustive with `never`, or use `ts-pattern`'s `match(...).exhaustive()`. Use `satisfies`, not annotations.
+- Make boolean checks explicit. Do not test a nullable string, number, or boolean for truthiness (`strict-boolean-expressions`). Always `return await` a returned promise.
+- Make invalid states impossible to represent. Use lookup tables, not `if`/`else` chains.
+- Name files in `lowercase-kebab.ts`, with kebab-case segments.
 
-The lint gate (`bun run lint`, `oxlint --type-aware`) enforces this on production code. Tests and config/scripts relax the type-assertion and boolean rules in `.oxlintrc.json`, because mocks and generated configs are inherently loose.
+The lint gate (`bun run lint:check`, which runs `oxlint --type-aware`) enforces these rules on production code. `bun run lint` runs the same rules, and fixes what it can. In `.oxlintrc.json`, tests and configuration files turn off the type-assertion and boolean rules, because mocks and generated configurations are loose by nature.

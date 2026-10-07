@@ -196,7 +196,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A random poem, as plain text that is never cached. By default, or with `option=slug`, the body is the poem's slug, for `GET /poems/{slug}`. With `option=lines` it is one verse of the poem, its two half-lines on two lines, then a blank line and the poet's name, at most 280 characters. A poet is picked at random first and then one of their poems, so every poet is equally likely. A poem is eligible when it is a primary reading by a named poet of the jahili, islami, umawi, or abbasi era, in the amudi form, at least four verses long, and of a known meter. */
+        /** @description A random poem, as plain text that is never cached. By default, or with `option=slug`, the body is the poem's slug, for `GET /poems/{slug}`. With `option=lines` it is one verse of the poem, its two half-lines on two lines, then a blank line and the poet's name, at most 280 characters. A poet is picked at random first and then one of their poems, so every poet is equally likely. A poem is eligible when it is a primary reading by a named poet of the jahili, islami, umawi, or abbasi era, in the amudi form, at least four verses long, of a known meter, vocalized (at least 0.3 harakat for each letter), and has at least one stored row with two half-lines. */
         get: operations["poems.random"];
         put?: never;
         post?: never;
@@ -499,6 +499,11 @@ export interface components {
                  * @example gnNg
                  */
                 slug: string;
+                /**
+                 * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+                 * @example رواية الأنباري، بضبط فيصل المنصور
+                 */
+                source?: string;
                 /** @description The poem's theme. */
                 theme: components["schemas"]["ThemeRef"];
                 /**
@@ -848,6 +853,11 @@ export interface components {
              * @example gnNg
              */
             slug: string;
+            /**
+             * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+             * @example رواية الأنباري، بضبط فيصل المنصور
+             */
+            source?: string;
             /** @description The poem's theme. */
             theme: components["schemas"]["ThemeRef"];
             /**
@@ -910,6 +920,11 @@ export interface components {
              * @example wOvI
              */
             slug: string;
+            /**
+             * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+             * @example رواية الأنباري، بضبط فيصل المنصور
+             */
+            source?: string;
             /**
              * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
              * @example أمن أم أوفى دمنة لم تكلم
