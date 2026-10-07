@@ -1,39 +1,47 @@
 # Code Conventions
 
-Cross-language engineering conventions (not TypeScript- or Rust-specific, see `docs/typescript-conventions.md` / `docs/rust-conventions.md` for those).
+These conventions apply to every language in the repo. For rules that apply to one language only, see `docs/typescript-conventions.md` and `docs/rust-conventions.md`.
 
 ## Architecture
 
-- Pure core, mutations at edges. Inject deps as args; no globals/singletons. Compute derived, don't store it.
-- Abstract only at 3x repeat, hard to test, invalid states possible, or painful immutable updates. Delete dead code.
-- Validate at entry, trust types downstream, fail loudly at boundaries. Deps flow inward.
-- One concern per file, co-located until 2+ places share it. TypeScript and Rust draw the file boundary differently, see their conventions.
-- Design interfaces for the caller; hide internals. Push (events/callbacks) > pull.
+- Keep the core pure and put mutations at the edges. Pass dependencies as arguments; use no globals or singletons. Compute derived values instead of storing them.
+- Add an abstraction only when the code repeats three times, is hard to test, allows invalid states, or makes immutable updates painful. Delete dead code.
+- Validate input where it enters, trust the types after that, and fail loudly at boundaries. Dependencies point inward.
+- Put one concern in each file, and keep it next to its only user until two or more places share it. TypeScript and Rust draw the file boundary differently; see their conventions.
+- Design an interface for its caller, and hide the internals. Prefer push (events, callbacks) to pull.
 
 ## Naming
 
-- Reveal intent; domain vocabulary; consistent across boundaries. Skip abstractions that resist naming.
-- Booleans `is/has/can`; fns verb+noun; React handlers `handle`, props `on`. Abbreviations only: `req`/`res`/`id`, framework idioms (`ref`, `props`, `ctx`), `ok`/`err`, loop `i`.
+- A name shows intent and uses the domain vocabulary. Use the same name on both sides of a boundary. If an abstraction is hard to name, do not add it.
+- Booleans start with `is`, `has`, or `can`. Functions are a verb and a noun. React handlers start with `handle`, and their props with `on`.
+- Use only these abbreviations: `req`, `res`, `id`, framework idioms (`ref`, `props`, `ctx`), `ok` and `err`, and `i` for a loop.
 
 ## Errors
 
-- `Result<T,E>` for fallible logic (`neverthrow` in TS, `thiserror` in Rust); `throw`/`panic!` only for the unexpected.
+- Fallible logic returns `Result<T, E>` (`neverthrow` in TypeScript, `thiserror` in Rust). Use `throw` or `panic!` only for the unexpected.
 
 ## Generated files
 
-- Anything mechanically produced by a script from another source of truth (not hand-authored) lives under a `generated/` directory, never flat alongside hand-written source: `apps/web/src/lib/generated/` for the web app, `apps/api/generated/` for the API crate.
-- One subdirectory per kind of generated artifact, named for what it's generated from, e.g. `generated/openapi/`, `generated/well-known/`, `generated/es/`. Files never sit directly under `generated/` itself. That just recreates the flat dumping-ground problem one level down.
-- Keep the `.gen.<ext>` suffix (or, for a non-code artifact like a committed JSON snapshot, a `// Do not edit` / commit-message-documented header where the format allows comments) so a generated file is unambiguous even outside its folder.
-- The generating script owns the exact output path as a constant; when moving a generated file, update that constant (and any header text embedding the old path) and rerun the generator rather than hand-editing the moved file.
+- A script that produces a file from another source of truth writes it under a `generated/` directory, never next to hand-written source. The web app uses `apps/web/src/lib/generated/`, and the API crate uses `apps/api/generated/`.
+- Each kind of generated file gets its own subdirectory, named for its source: `generated/openapi/`, `generated/well-known/`, `generated/es/`. Never put a file directly in `generated/`, because that makes the same flat dumping ground one level down.
+- Keep the `.gen.<ext>` suffix, so a generated file is clear even outside its folder. A file format with no comments, such as a committed JSON snapshot, is the exception: its commit message and its generator document it instead.
+- The generating script holds the exact output path as a constant. To move a generated file, change that constant and any header text that contains the old path, then run the generator again. Do not edit the moved file by hand.
 
 ## Comments
 
-- Code carries no comments. Intent lives in names, types, tests named as full sentences, and the nearest `AGENTS.md`. A module's non-obvious "why" belongs in `docs/exceptions.md`, not in a doc comment (`//!` and JSDoc are not used, and `///` only as the next point allows).
-- One kind of doc comment is allowed: `///` on the fields of the API's public response types (`apps/api/src/contract/`, `apps/api/src/envelope.rs`, `ProblemDetail` in `apps/api/src/openapi.rs`, and response types declared in `apps/api/src/routes/`), and on the fields of the request params structs (`#[derive(utoipa::IntoParams)]` in `apps/api/src/routes/` and `apps/api/src/params.rs`). utoipa offers no other way to describe a field, so these lines are the published API documentation rather than notes about the code: they say what the field means to a caller, follow the writing rules for docs, and change the committed OpenAPI document, so the drift test catches them.
-- Two exceptions in code, both single-line: a lint directive (`// oxlint-disable-next-line ...`) with its reason on the same line, and a WHY that names a constraint outside the code (a query planner rule, a Postgres restriction, a runtime quirk) that a reader could not recover from names, tests, or docs. If it needs a second line, it is documentation and goes in `AGENTS.md`.
-- Configuration with no types or tests to carry intent (`nginx*.conf`, `docker-entrypoint.sh`, the Compose files, Dockerfiles, shell scripts) may carry short comments on non-obvious directives, and a one-line header pointing at the doc that explains the file is preferred over re-explaining. A comment that describes a plan or a past state is a bug: fix it the moment the code moves on.
+- Code has no comments. Names, types, tests named as full sentences, and the nearest `AGENTS.md` carry the intent. A module's non-obvious "why" goes in `docs/exceptions.md`, not in a doc comment. Do not use `//!` or JSDoc, and use `///` only as the next point allows.
+- One kind of doc comment is allowed: `///` on the fields of the API's public types. These are the response types in `apps/api/src/contract/`, `apps/api/src/envelope.rs`, and `apps/api/src/routes/`, and `ProblemDetail` in `apps/api/src/openapi.rs`. They are also the request parameter structs (`#[derive(utoipa::IntoParams)]`) in `apps/api/src/routes/` and `apps/api/src/params.rs`. utoipa has no other way to describe a field, so these lines are the published API documentation, not notes about the code. They say what the field means to a caller and follow the "Writing" rules below. They also change the committed OpenAPI document, so the drift test catches every change.
+- Code may have two other kinds of comment, each on one line. The first is a lint directive (`// oxlint-disable-next-line ...`) with its reason on the same line. The second is a "why" that names a constraint outside the code, such as a query planner rule, a Postgres restriction, or a runtime quirk. Use it only when a reader cannot find that constraint in the names, tests, or docs. If it needs a second line, it is documentation and goes in `AGENTS.md`.
+- Configuration that has no types or tests to carry intent may have short comments on directives that are not obvious. This applies to `nginx*.conf`, `docker-entrypoint.sh`, the Compose files, Dockerfiles, and shell scripts. Prefer a one-line header that points to the doc that explains the file. A comment that describes a plan or a past state is a bug: fix it when the code changes.
 - Generated files keep their generator header.
 
-## Style
+## Writing
 
-- No em-dashes; use a period, comma, or parentheses.
+These rules apply to docs, `AGENTS.md` files, issues, pull requests, commit messages, and the `///` field descriptions. They go about 80% of the way to [ASD-STE100](https://www.asd-ste100.org) (Simplified Technical English), not the full specification. Many readers of this repo read Arabic first and English second.
+
+- Write an instruction in 20 words or fewer, and a description in 25 words or fewer.
+- Put one instruction in each sentence, and write it as a command: "Run `bun run dev`."
+- Use the active voice.
+- Use one word for one meaning, and use the same word every time. The terms in `docs/domain.md` are the names for the domain.
+- Keep one topic in each paragraph, and use six sentences or fewer.
+- Do not use em-dashes. Use a period, a comma, or parentheses.
