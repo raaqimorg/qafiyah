@@ -183,10 +183,12 @@ A poem is eligible when it meets all of these conditions:
 - Its poet is named (not anonymous), and is of the jahili, islami, umawi, or abbasi era.
 - It is عمودي, with at least four verses.
 - Its meter is known.
+- It has tashkeel (`has_tashkeel`, see "Tashkeel").
+- It has at least one stored row with exactly two halves, so it has an excerpt.
 
 `refresh_random_poem_pool()` (`scripts/db/sql/random-poem.sql`) computes the eligible set in advance, into `random_poem_pool` (`poet_rank`, `poem_id`). It runs on every restore. So a request is two index lookups (a random `poet_rank`, then a random poem of that poet), not a filter over the corpus.
 
-`?option=lines` then takes one verse of the poem. It tries up to five poems, until the verse and the poet's name fit in 280 characters.
+`?option=lines` then takes one verse of the poem. It tries up to five poems, until the verse and the poet's name fit in 280 characters. `random_poem_json()` returns the poem's rows as `lines`.
 
 The pool is only as current as its last refresh.
 
