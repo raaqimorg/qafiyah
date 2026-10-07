@@ -6,6 +6,10 @@ disable-model-invocation: true
 
 Full architecture and "why" live in `docs/deployment/`. This is only the ordered steps. Link out rather than re-explaining.
 
+## 0. Release the version into `main` first
+
+A deploy ships `main`, and `main` changes only when a version is released or an urgent fix is merged into it directly (then deploy it and merge `main` into the open version branch, per `docs/pull-requests.md`). Otherwise, before deploying, release the open version (`vN`) by the steps in `docs/pull-requests.md` ("Versions and releases"): write `docs/changelog/vN.md`, merge the release pull request into `main` with a merge commit, and let CI pass. After the deploy, delete `vN` and open `v<N+1>` from `main`.
+
 ## 1. Deploy the VPS stack (api, web, search-indexer, db, es, edge-gateway)
 
 From a dev machine with the repo checked out and SSH access:
@@ -40,7 +44,7 @@ Replaces the corpus database (`qafiyah`) only; `qafiyah_accounts` is untouched. 
 
 **A new dump together with code changes**, in this order:
 
-1. Push the snapshot and the code, and let CI pass.
+1. Release the version holding the snapshot and the code into `main` (step 0), and let CI pass.
 2. `bun run db:reseed`. The API it starts is already the new build, so a schema change the old API cannot read, or a new API that needs the new schema, is safe.
 3. `bun run deploy` to roll out `web` (it also replaces `api` with the same build). No separate reindex: the reseed already rebuilt search with the new indexer.
 4. Verify: `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump on their own.

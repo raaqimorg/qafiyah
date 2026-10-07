@@ -10,7 +10,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 - `packages/tsconfig/`: the TypeScript config bases (`base`, `astro`, `bun`).
 - `config.ts` (root): constants shared by every TypeScript app and script, imported as `@qafiyah/config` through each `tsconfig.json`'s `paths`. `scripts/check/constants.ts` keeps the Rust side in sync.
 - `scripts/`: repo tooling and CI checks, one `bun run` name per entry point (see `scripts/AGENTS.md`).
-- `docs/`: everything that is not a component guide: `development.md`, `topology.md`, `identity.md`, the conventions files, `domain.md`, `search.md`, `exceptions.md`, `architecture/` (the C4 model `workspace.dsl` and the diagrams `bun run docs:diagrams` renders from it), and `deployment/` (entry point `docs/deployment/README.md`).
+- `docs/`: everything that is not a component guide: `development.md`, `topology.md`, `identity.md`, the conventions files, `domain.md`, `search.md`, `exceptions.md`, `architecture/` (the C4 model `workspace.dsl` and the diagrams `bun run docs:diagrams` renders from it), `deployment/` (entry point `docs/deployment/README.md`), and `changelog/` (one file per released version, `v1.md`, `v2.md`, and so on).
 - `data/`: versioned encrypted snapshots (DB dumps, avatar images), see `data/README.md`.
 - `well-known/`: templates for `robots.txt`, `llms.txt`, and `security.txt`. `llms.api.md`, `robots.api.txt`, and `security.txt` are embedded by the API (`apps/api/src/routes/site.rs`); `llms.web.md`, `robots.web.txt`, and `security.txt` are rendered into `apps/web/src/lib/generated/well-known/` by `bun run well-known:generate`.
 - `secrets/`: SOPS-encrypted env files, see `docs/deployment/secrets.md`.
@@ -40,6 +40,7 @@ Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgre
 ## Agent workflow
 
 - Hard rule: never spawn subagents, workflows, or any other multi-agent tooling unless the user explicitly asks for it in that request. Do the work yourself in the current session.
+- Work goes on the open version branch (`v2`, `v3`, and so on): branch off it and open pull requests into it, never into `main`. `main` changes only when a version is released, or for an urgent production fix the user asks to ship on its own (`docs/pull-requests.md`, "Versions and releases").
 - Hard rule: never deploy unless the user explicitly asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
 - When executing a written implementation plan, prefer `superpowers:executing-plans` (inline, batch execution with checkpoints in the current session) over `superpowers:subagent-driven-development` (fresh subagent per task), unless the user asks for the latter.
 - When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`): one light sanity pass done yourself in the current session, never a subagent, workflow, `/code-review`, or `superpowers:requesting-code-review` unless the user names them.
