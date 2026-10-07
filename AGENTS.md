@@ -1,46 +1,61 @@
 # Qafiyah Agent Guidelines
 
-Monorepo for qafiyah.com, an Arabic poetry catalog: a Rust/axum API over Postgres + Elasticsearch, and an Astro/React web frontend, built with Turborepo across TypeScript and Rust workspaces.
+This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum API over Postgres and Elasticsearch, and an Astro/React web frontend. Turborepo builds the TypeScript and Rust workspaces.
 
 ## Layout
 
-- `apps/`: deployable services, each with its own `AGENTS.md`: `api` (Rust), `web` (Astro/React), `search-indexer` (Rust), `edge-gateway` (nginx config only), `observability` (Prometheus and Grafana config only), `telemetry-proxy` (Cloudflare Worker), `inspector` (TypeScript, dev-only).
-- `crates/elasticsearch/`: the Elasticsearch schema and client shared by `api` and `search-indexer` (see its `AGENTS.md`).
-- `crates/corpus/`: the corpus database's Diesel schema shared by `api` and `search-indexer` (see its `AGENTS.md`).
-- `packages/tsconfig/`: the TypeScript config bases (`base`, `astro`, `bun`).
-- `config.ts` (root): constants shared by every TypeScript app and script, imported as `@qafiyah/config` through each `tsconfig.json`'s `paths`. `scripts/check/constants.ts` keeps the Rust side in sync.
-- `scripts/`: repo tooling and CI checks, one `bun run` name per entry point (see `scripts/AGENTS.md`).
-- `docs/`: everything that is not a component guide: `development.md`, `topology.md`, `identity.md`, the conventions files, `domain.md`, `search.md`, `exceptions.md`, `architecture/` (the C4 model `workspace.dsl` and the diagrams `bun run docs:diagrams` renders from it), `deployment/` (entry point `docs/deployment/README.md`), and `changelog/` (one file per released version, `v1.md`, `v2.md`, and so on).
-- `data/`: versioned encrypted snapshots (DB dumps, avatar images), see `data/README.md`.
-- `well-known/`: templates for `robots.txt`, `llms.txt`, and `security.txt`. `llms.api.md`, `robots.api.txt`, and `security.txt` are embedded by the API (`apps/api/src/routes/site.rs`); `llms.web.md`, `robots.web.txt`, and `security.txt` are rendered into `apps/web/src/lib/generated/well-known/` by `bun run well-known:generate`.
-- `secrets/`: SOPS-encrypted env files, see `docs/deployment/secrets.md`.
+- `apps/`: the deployable services. Each one has its own `AGENTS.md`:
+  - `api` (Rust)
+  - `web` (Astro/React)
+  - `search-indexer` (Rust)
+  - `edge-gateway` (nginx configuration only)
+  - `observability` (Prometheus, Loki, Alloy, and Grafana configuration only)
+  - `telemetry-proxy` (Cloudflare Worker)
+  - `inspector` (TypeScript, for development only)
+- `crates/elasticsearch/`: the Elasticsearch schema and client that `api` and `search-indexer` share. See its `AGENTS.md`.
+- `crates/corpus/`: the corpus database's Diesel schema that `api` and `search-indexer` share. See its `AGENTS.md`.
+- `packages/tsconfig/`: the TypeScript configuration bases (`base`, `astro`, `bun`).
+- `config.ts` (root): constants that every TypeScript app and script shares. Each `tsconfig.json` imports it as `@qafiyah/config` through `paths`. `scripts/check/constants.ts` keeps the Rust side in sync.
+- `scripts/`: repo tooling and CI checks, with one `bun run` name for each entry point. See `scripts/AGENTS.md`.
+- `docs/`: every document that is not a component guide:
+  - `development.md`, `topology.md`, `identity.md`, `domain.md`, `search.md`, and `exceptions.md`
+  - the conventions files
+  - `architecture/`: the C4 model `workspace.dsl` and the diagrams that `bun run docs:diagrams` renders from it
+  - `deployment/`: start at `docs/deployment/README.md`
+  - `changelog/`: one file for each released version (`v1.md`, `v2.md`, and so on)
+- `data/`: versioned, encrypted snapshots (database dumps and avatar images). See `data/README.md`.
+- `well-known/`: templates for `robots.txt`, `llms.txt`, and `security.txt`. The API embeds `llms.api.md`, `robots.api.txt`, and `security.txt` (`apps/api/src/routes/site.rs`). `bun run well-known:generate` renders `llms.web.md`, `robots.web.txt`, and `security.txt` into `apps/web/src/lib/generated/well-known/`.
+- `secrets/`: SOPS-encrypted environment files. See `docs/deployment/secrets.md`.
 
 ## Style
 
-- No code comments beyond the two single-line exceptions in `docs/code-conventions.md` ("Comments"). No em-dashes anywhere: code, docs, commit messages, PR descriptions, or chat responses. Use a period, comma, or parentheses instead.
+- Code has no comments, except the two single-line kinds in `docs/code-conventions.md` ("Comments").
+- Write docs, `AGENTS.md` files, issues, pull requests, and commit messages by the rules in `docs/code-conventions.md` ("Writing"). In short: use short sentences, commands for instructions, the active voice, and one word for one meaning.
+- Do not use em-dashes anywhere: not in code, docs, commit messages, pull request descriptions, or chat responses. Use a period, a comma, or parentheses.
 
 ## Keep it boring
 
-- This is a standard data app: read from a database, present the data. Code should look like what an experienced developer expects in any similar app. Treat anything unusual as a warning sign: custom solutions to solved problems, needless abstraction, tight coupling, clever tricks, non-standard patterns, homemade versions of what a common library or framework provides, or UI that behaves differently from what users expect.
-- If a request would introduce unusual code, do not build it yet. Say plainly that it is unusual and why, show how apps like ours normally do it, and wait for the user's decision.
-- Check `docs/exceptions.md` before building. Anything not listed there should be standard; point out unlisted unusual code you find. When an unusual approach is approved, add its entry there in the same change.
+- This is a standard data app: it reads from a database and presents the data. Code must look like what an experienced developer expects in any similar app.
+- Treat anything unusual as a warning sign. This includes custom solutions to solved problems, needless abstraction, tight coupling, clever tricks, and non-standard patterns. It also includes homemade versions of what a common library or framework provides, and UI that behaves differently from what users expect.
+- If a request would add unusual code, do not build it yet. Say plainly that it is unusual and why, and show how apps like ours normally do it. Then wait for the user's decision.
+- Read `docs/exceptions.md` before you build. Anything that it does not list must be standard. Point out any unlisted unusual code that you find. When the user approves an unusual approach, add its entry to `docs/exceptions.md` in the same change.
 
 ## References
 
-- Topology: see `docs/topology.md` for a diagram-first map of the whole system, code and production.
-- Domain: see `docs/domain.md` for what a poem, poet, meter, rhyme, era, theme, and collection mean.
-- Search: see `docs/search.md` for Arabic text handling, relevance tiers, and snippet selection.
-- TypeScript: see `docs/typescript-conventions.md`, read before writing or changing TypeScript code.
-- Rust: see `docs/rust-conventions.md`, read before writing or changing Rust code.
-- Code conventions (architecture, naming, errors, style): see `docs/code-conventions.md`, read before structuring or reviewing any code.
-- Testing: see `docs/testing.md`, read before writing or changing tests.
-- Pull requests: see `docs/pull-requests.md`, read before filing an issue, opening a PR, or finishing a feature.
-- Deployment: when changing CI/CD, infrastructure, or environment config, read `docs/deployment/`.
+- Topology: `docs/topology.md` is a diagram-first map of the whole system, both code and production.
+- Domain: `docs/domain.md` says what a poem, poet, meter, rhyme, era, theme, and collection mean.
+- Search: `docs/search.md` covers Arabic text handling, relevance tiers, and snippet selection.
+- TypeScript: read `docs/typescript-conventions.md` before you write or change TypeScript code.
+- Rust: read `docs/rust-conventions.md` before you write or change Rust code.
+- Code conventions (architecture, naming, errors, comments, writing): read `docs/code-conventions.md` before you structure or review code, and before you write docs.
+- Testing: read `docs/testing.md` before you write or change tests.
+- Pull requests and releases: read `docs/pull-requests.md` before you file an issue, open a pull request, or finish a feature.
+- Deployment: read `docs/deployment/` before you change CI/CD, infrastructure, or environment configuration.
 
 ## Agent workflow
 
-- Hard rule: never spawn subagents, workflows, or any other multi-agent tooling unless the user explicitly asks for it in that request. Do the work yourself in the current session.
-- Work goes on the open version branch (`v2`, `v3`, and so on): branch off it and open pull requests into it, never into `main`. `main` changes only when a version is released, or for an urgent production fix the user asks to ship on its own (`docs/pull-requests.md`, "Versions and releases").
-- Hard rule: never deploy unless the user explicitly asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
-- When executing a written implementation plan, prefer `superpowers:executing-plans` (inline, batch execution with checkpoints in the current session) over `superpowers:subagent-driven-development` (fresh subagent per task), unless the user asks for the latter.
-- When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`): one light sanity pass done yourself in the current session, never a subagent, workflow, `/code-review`, or `superpowers:requesting-code-review` unless the user names them.
+- Hard rule: never start subagents, workflows, or any other multi-agent tooling unless the user asks for it in that request. Do the work yourself in the current session.
+- Work goes on the open version branch (`v2`, `v3`, and so on). Branch off it and open pull requests into it, never into `main`. `main` changes only when a version is released, or for an urgent production fix that the user asks to ship on its own. See `docs/pull-requests.md` ("Versions and releases").
+- Hard rule: never deploy unless the user asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
+- To carry out a written implementation plan, prefer `superpowers:executing-plans`. It works inline, in batches with checkpoints, in the current session. Use `superpowers:subagent-driven-development` (a new subagent for each task) only if the user asks for it.
+- When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`). It is one light sanity pass that you do yourself in the current session. Never use a subagent, a workflow, `/code-review`, or `superpowers:requesting-code-review` for it, unless the user names them.
