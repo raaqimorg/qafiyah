@@ -31,7 +31,7 @@ separate issues and pull requests.
 
 ## Making changes
 
-1. Fork the repo and create a branch off `main`.
+1. Fork the repo and create a branch off the open version branch, not `main`. There is one at a time, named `v` and a number (`v2`, `v3`, and so on); `git ls-remote --heads origin 'v*'` shows it. Changes reach `main`, and the live site, when that version is released ([`pull-requests.md`](../docs/pull-requests.md), "Versions and releases").
 2. Follow the conventions in `docs/`: [`code-conventions.md`](../docs/code-conventions.md),
    [`typescript-conventions.md`](../docs/typescript-conventions.md),
    [`rust-conventions.md`](../docs/rust-conventions.md), and
@@ -40,7 +40,7 @@ separate issues and pull requests.
 4. Run `bun run ci` before opening a PR. It is the full gate; GitHub Actions runs the same gate on every push and PR, skipping the Docker phases a change doesn't touch.
 5. Follow [`pull-requests.md`](../docs/pull-requests.md) for commit message and PR conventions.
 6. `README.md`'s "Documentation map" lists where everything is documented; update the doc that describes what you changed.
-7. Open the pull request with `Closes #<issue>` in its description, and fill in the template.
+7. Open the pull request into the open version branch with `Closes #<issue>` in its description, and fill in the template. The issue closes when the version is released, not when your pull request merges.
 
 ## Working with an AI agent
 

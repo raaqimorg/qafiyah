@@ -1,6 +1,6 @@
 Closes #
 
-<!-- The issue this PR resolves. Open one first if it does not exist, see CONTRIBUTING.md. -->
+<!-- The issue this PR resolves. Open one first if it does not exist, see CONTRIBUTING.md. Open the PR into the open version branch (v2, v3, ...), not main. -->
 
 ## What changed
 

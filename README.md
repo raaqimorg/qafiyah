@@ -108,7 +108,7 @@ Production is one VPS running fourteen containers (the site, its data stores, an
 
 ## Contributing
 
-Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/issues). To change code, open an issue first, then fork the repo, branch off `main`, run `bun run ci`, and open a pull request linked to the issue; [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) walks through it. Good places to start are the web app, search relevance, and the repo tooling. Every component has an `AGENTS.md` describing its shape, and [`docs/exceptions.md`](docs/exceptions.md) lists where the code departs from the usual approach, and why.
+Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/issues). To change code, open an issue first, then fork the repo, branch off the open version branch (`v` and a number, such as `v2`), run `bun run ci`, and open a pull request into that branch linked to the issue; [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) walks through it. Good places to start are the web app, search relevance, and the repo tooling. Every component has an `AGENTS.md` describing its shape, and [`docs/exceptions.md`](docs/exceptions.md) lists where the code departs from the usual approach, and why.
 
 <details>
 <summary><b>What <code>bun run ci</code> checks</b></summary>
@@ -125,6 +125,7 @@ Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/is
 - [`docs/development.md`](docs/development.md): running the stack locally, everyday commands, worktrees, committing.
 - [`docs/topology.md`](docs/topology.md): a diagram-first map of the whole system, code and production, drawn from the C4 model in [`docs/architecture/workspace.dsl`](docs/architecture/workspace.dsl).
 - [`docs/deployment/README.md`](docs/deployment/README.md): the production entry point.
+- [`docs/changelog/`](docs/changelog/): what each released version changed, one file per version.
 - [`docs/domain.md`](docs/domain.md): what a poem, poet, meter, rhyme, era, theme, and collection mean.
 - [`docs/search.md`](docs/search.md): Arabic text handling, relevance tiers, snippet selection.
 - [`docs/code-conventions.md`](docs/code-conventions.md) and the TypeScript, Rust, testing, and pull-request files next to it: how code, tests, and commits are written.
