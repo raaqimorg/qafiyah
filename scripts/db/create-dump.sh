@@ -11,6 +11,10 @@ host="$1"
 user="${POSTGRES_USER:-qafiyah}"
 db="${POSTGRES_DB:-qafiyah}"
 
+echo "[create-dump] refreshing poems.has_tashkeel on ${host}..."
+psql -v ON_ERROR_STOP=1 -h "${host}" -U "${user}" -d "${db}" \
+  -c 'SELECT public.refresh_poem_tashkeel();'
+
 echo "[create-dump] refreshing poem_relations on ${host}..."
 psql -v ON_ERROR_STOP=1 -h "${host}" -U "${user}" -d "${db}" \
   -c 'SELECT public.refresh_poem_relations();'

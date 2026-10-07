@@ -196,6 +196,12 @@ The pool is only as current as its last refresh.
 
 After such an edit on a running database, run `SELECT public.refresh_random_poem_pool();`.
 
+## Tashkeel
+
+`poems.has_tashkeel` says that a poem is vocalized. It is true when the poem's verses hold at least 0.3 harakat (U+064B to U+0652) for each Arabic letter (U+0621 to U+064A). A careful selective vocalization measures about 0.4, and a full one about 0.8.
+
+`refresh_poem_tashkeel()` (`scripts/db/sql/poem-tashkeel.sql`) sets it when a dump is made. A restore keeps the stored values. After a manual edit of verses, run `SELECT public.refresh_poem_tashkeel();`.
+
 ## Merged poems and aliases
 
 When two rows hold the same poem by the same poet, one row survives, and `merge_poem(keep, absorb)` merges the other into it (`scripts/db/sql/merge-poem.sql`):

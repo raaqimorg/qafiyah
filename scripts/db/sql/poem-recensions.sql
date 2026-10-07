@@ -1,4 +1,5 @@
 ALTER TABLE public.poems ADD COLUMN IF NOT EXISTS recension_of_id integer;
+ALTER TABLE public.poems ADD COLUMN IF NOT EXISTS source text;
 
 DO $$
 BEGIN

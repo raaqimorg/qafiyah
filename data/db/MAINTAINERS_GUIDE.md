@@ -19,15 +19,16 @@ Create one when any of these is true:
 
 ## Create the dump
 
-Two sets of derived rows must be current before `pg_dump`. `docs/domain.md` explains both.
+Three sets of derived rows must be current before `pg_dump`. `docs/domain.md` explains all three.
 
+- `poems.has_tashkeel`, from `refresh_poem_tashkeel()`, in about two minutes on the full corpus. It writes only the rows whose value changes.
 - `poem_relations`, from `refresh_poem_relations()`. It does a TRUNCATE and an INSERT, in under a minute on the full corpus. It drops the two foreign keys of the table around the insert, and adds them again. That locks `poems` against reads for the last 15 seconds or so. So on a live database, it briefly stops every poem query.
 - the `*_stats` count tables, from `refresh_taxonomy_stats()`, in a few seconds.
 
 There are two paths:
 
-- **From the local dev database.** This is the usual path after a manual edit. `.claude/skills/local-db-edit/SKILL.md` is the ordered runbook. It refreshes both sets, dumps inside the `db` container directly into the new directory, and records a `CHANGES.md` diff of the tables that you changed.
-- **From a Postgres reachable over the network** (for example, production over an SSH tunnel). `scripts/db/create-dump.sh <host>` refreshes both sets, and dumps into the current directory. Move the file into the new directory. It needs `psql` and `pg_dump` with a major version at least as new as the server's.
+- **From the local dev database.** This is the usual path after a manual edit. `.claude/skills/local-db-edit/SKILL.md` is the ordered runbook. It refreshes all three sets, dumps inside the `db` container directly into the new directory, and records a `CHANGES.md` diff of the tables that you changed.
+- **From a Postgres reachable over the network** (for example, production over an SSH tunnel). `scripts/db/create-dump.sh <host>` refreshes all three sets, and dumps into the current directory. Move the file into the new directory. It needs `psql` and `pg_dump` with a major version at least as new as the server's.
 
 ## Split large dumps
 

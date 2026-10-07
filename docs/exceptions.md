@@ -863,8 +863,9 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 ### Restores apply schema SQL instead of migrations
 
 - **What:** `scripts/db/init.sh` runs idempotent SQL files on every restore, beside the existing `refresh-poem-relations.sql` and `refresh-taxonomy-stats.sql`:
-  - `poem-aliases.sql`, `merge-poem.sql`, `hidden-poets.sql`, `random-poem.sql`, `poem-recensions.sql`, `poet-aliases.sql`, and `merge-poet.sql`.
-  - If they are missing, these create the `poem_aliases` and `poet_aliases` tables, the `poets.is_hidden`, `poems.is_hidden`, and `poems.recension_of_id` columns, their constraints, and the partial indexes on primaries only.
+  - `poem-aliases.sql`, `merge-poem.sql`, `hidden-poets.sql`, `random-poem.sql`, `poem-recensions.sql`, `poet-aliases.sql`, `merge-poet.sql`, and `poem-tashkeel.sql`.
+  - If they are missing, these create the `poem_aliases` and `poet_aliases` tables, the `poets.is_hidden`, `poems.is_hidden`, `poems.recension_of_id`, `poems.source`, and `poems.has_tashkeel` columns, their constraints, and the partial indexes on primaries only.
+  - `poem-tashkeel.sql` fills `has_tashkeel` once, when it adds the column. A dump that has the column keeps its values, because the fill takes about two minutes.
   - They drop the indexes that those replace, including a primaries-only index that does not have the `is_hidden` predicate.
   - They create the `random_poem_pool` table, and fill it again after the restore.
   - They replace `random_poem_json()` and the maintenance functions.
