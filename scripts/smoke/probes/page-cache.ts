@@ -16,6 +16,13 @@ export const sharedEntries: readonly SharedEntry[] = [
   },
 ];
 
+export const repeatedEntries: readonly SharedEntry[] = [
+  {
+    note: 'a repeated website search is answered from the nginx cache',
+    url: `${WEB}/api/v1/search?q=${encodeURIComponent('قفا نبك')}&types=poems`,
+  },
+];
+
 export const searchBursts: readonly Burst[] = [
   {
     note: 'rapid poet searches from one visitor are limited with Retry-After, never 5xx',
