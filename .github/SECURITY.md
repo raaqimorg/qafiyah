@@ -2,16 +2,17 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public GitHub issue for security vulnerabilities.
+Do not open a public GitHub issue for a security vulnerability.
 
-Email security@qafiyah.com with details and steps to reproduce. We'll acknowledge your report
-and work with you to understand and address the issue before any public disclosure.
+Report it privately, in one of these ways:
 
-This is also published as a machine-readable [`security.txt`](../well-known/security.txt)
-(RFC 9116) at `qafiyah.com/.well-known/security.txt`.
+- Email security@qafiyah.com, with the details and the steps to reproduce it.
+- Use GitHub's private vulnerability reporting: on the repository's **Security** tab, select **Report a vulnerability**.
+
+We will acknowledge your report. We will work with you to understand and fix the problem before any public disclosure.
+
+This policy is also published as a machine-readable [`security.txt`](../well-known/security.txt) (RFC 9116), at `qafiyah.com/.well-known/security.txt`.
 
 ## Scope
 
-This repo runs a single production deployment at [qafiyah.com](https://qafiyah.com); there are
-no separately supported versions or releases. Reports about the live site and about this
-codebase are both in scope.
+This repo runs a single production deployment, at [qafiyah.com](https://qafiyah.com). Only the version that runs there is supported. There are no older supported versions. Reports about the live site and about this codebase are both in scope.

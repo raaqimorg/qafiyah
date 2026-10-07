@@ -1,14 +1,31 @@
 # Observability Agent Guide
 
-Config only: the Prometheus, Loki, Alloy, and Grafana setup behind the private views of #137. The services themselves are defined in `docker-compose.yml`; nothing here builds.
+This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana setup behind the private views of #137. `docker-compose.yml` defines the services. Nothing here builds.
 
 ## Shape
 
-- `prometheus.yml`: every 15 s, scrapes every API replica on its metrics port (`dns_sd_configs` on `api:9464`, native histograms on), postgres_exporter, elasticsearch_exporter, blackbox_exporter's `/healthz` probes of `api` and `web`, Alloy's container (cAdvisor) and host (node exporter) components, Loki, and itself. The website is not scraped: it pushes over OTLP to the receiver Prometheus enables with `--web.enable-otlp-receiver`. `--enable-feature=created-timestamp-zero-ingestion` stores each series' start time as a zero sample, so a burst that creates a series (a route's first errors) is counted. Retention is 15 days or 1 GB, whichever comes first.
-- `loki.yml`: Loki as one binary on its own volume, filesystem storage, logs kept 7 days (the compactor deletes older ones). It flushes what it holds in memory to disk when it stops (`flush_on_shutdown`): Loki's write-ahead log alone loses the newest lines of any stream that was flushed and recreated since its last checkpoint, which completes about 10 minutes after a start, so without the flush a restart (a deploy that changes Loki, a reboot) could drop recent logs. The write-ahead log still covers a crash.
-- `alloy/config.alloy`: Grafana Alloy reads every container of this compose project (`COMPOSE_PROJECT`, so a dev stack on the same host is not shipped twice) through the Docker socket (it looks for new containers every 5 s and reads each one from its first line, so a container that lives about 10 s or longer is kept whole; a shorter one-shot, such as `db-monitor-role` under `compose run --rm`, only prints to the terminal) and pushes the logs to Loki with `service` and `container` labels, at most 10 lines a second per service beyond a burst of 2,000 (`stage.limit` by `service`). Loki has no size-based retention, so this rate is what bounds its disk: a sustained flood on three services stores about 130 MB a day, under 1 GB over the 7 days, at the measured 6.6x compression. Dropped lines are counted per service (`loki_process_dropped_lines_by_label_total`, shown on the Health dashboard); the metrics keep counting every request. It also runs cAdvisor (CPU and memory only, against each container's limits) and the node exporter (host CPU, memory, disk), which Prometheus scrapes from `alloy:12345/api/v0/component/...`.
-- `grafana/provisioning/`: the Prometheus (uid `prometheus`) and Loki (uid `loki`) datasources (served by the plugins bundled in the pinned Grafana image: `GF_PLUGINS_PREINSTALL_DISABLED` stops Grafana installing plugins from grafana.com after it starts, which re-registered these two and made their queries fail with 404 for seconds, #198), and one dashboard provider that loads `grafana/dashboards/` into the `Qafiyah` folder on every start.
-- `grafana/dashboards/`: `latency.json`, `slow-queries.json`, `elasticsearch.json`, `health.json` (the home dashboard), `resources.json`, `edge.json`, `logs.json`. Each opens with a text panel saying what it measures and how to read it.
+- `prometheus.yml`: Prometheus scrapes every 15 seconds.
+  - It scrapes every API replica on its metrics port (`dns_sd_configs` on `api:9464`, with native histograms on).
+  - It also scrapes postgres_exporter, elasticsearch_exporter, the `/healthz` probes of `api` and `web` from blackbox_exporter, Alloy's container (cAdvisor) and host (node exporter) components, Loki, and itself.
+  - It does not scrape the website. The website pushes over OTLP to the receiver that `--web.enable-otlp-receiver` turns on.
+  - `--enable-feature=created-timestamp-zero-ingestion` stores the start time of each series as a zero sample. So a burst that creates a series (the first errors of a route) is counted.
+  - Retention is 15 days or 1 GB, whichever comes first.
+- `loki.yml`: Loki runs as one binary, on its own volume, with filesystem storage.
+  - It keeps logs for 7 days. The compactor deletes older ones.
+  - When it stops, it flushes what it holds in memory to disk (`flush_on_shutdown`). Without this, a restart (a deploy that changes Loki, or a reboot) could lose recent logs. Loki's write-ahead log alone loses the newest lines of any stream that was flushed and created again since its last checkpoint. That checkpoint completes about 10 minutes after a start.
+  - The write-ahead log still covers a crash.
+- `alloy/config.alloy`: Grafana Alloy reads every container of this Compose project through the Docker socket.
+  - It filters on `COMPOSE_PROJECT`, so it does not ship a dev stack on the same host a second time.
+  - It looks for new containers every 5 seconds, and reads each one from its first line. So it keeps a container that lives about 10 seconds or longer complete. A shorter one-shot, such as `db-monitor-role` under `compose run --rm`, only prints to the terminal.
+  - It pushes the logs to Loki with `service` and `container` labels. It sends at most 10 lines a second for each service, beyond a burst of 2,000 (`stage.limit` by `service`).
+  - Loki has no retention by size, so this rate limits its disk. A continuous flood on three services stores about 130 MB a day, which is under 1 GB over the 7 days, at the measured compression of 6.6 times.
+  - It counts dropped lines for each service (`loki_process_dropped_lines_by_label_total`, on the Health dashboard). The metrics still count every request.
+  - It also runs cAdvisor (CPU and memory only, against the limits of each container) and the node exporter (host CPU, memory, and disk). Prometheus scrapes them from `alloy:12345/api/v0/component/...`.
+- `grafana/provisioning/` holds the datasources and one dashboard provider.
+  - The datasources are Prometheus (uid `prometheus`) and Loki (uid `loki`). The plugins in the pinned Grafana image serve them.
+  - `GF_PLUGINS_PREINSTALL_DISABLED` stops Grafana from installing plugins from grafana.com after it starts. Those installs registered these two plugins again, and their queries failed with 404 for some seconds (#198).
+  - The dashboard provider loads `grafana/dashboards/` into the `Qafiyah` folder on every start.
+- `grafana/dashboards/`: `latency.json`, `slow-queries.json`, `elasticsearch.json`, `health.json` (the home dashboard), `resources.json`, `edge.json`, and `logs.json`. Each one starts with a text panel that says what it measures and how to read it.
 
 ## Where the numbers come from
 
@@ -25,35 +42,49 @@ Config only: the Prometheus, Loki, Alloy, and Grafana setup behind the private v
 | `{service="web"}` nginx lines                     | the website's nginx (`apps/web/nginx.conf`, `log_format json`) via Alloy into Loki | one JSON line per request nginx answered: host, uri, status, `request_time`, `upstream_time`, `cache`                                                                                                                                                              |
 | `{service="api"}` lines                           | `apps/api/src/log.rs` via Alloy into Loki                                          | `tracing` JSON; in production only `error` and `warn` lines (a 5xx, a request over 2 s, a failed query or search) and `info` "found nothing" lines, each with its request span (`span_route`, `span_request_id`, `span_query_text`, and the other recorded fields) |
 
-The Postgres role is ensured by the one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) on every `up`, the Elasticsearch user by the search-indexer on every run, so a fresh volume, the existing production volume, and a reseed all end up the same with no manual step.
+The one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) makes sure that the Postgres role exists, on every `up`. The search indexer does the same for the Elasticsearch user, on every run. So a new volume, the existing production volume, and a reseed all get the same result, with no manual step.
 
 ## Rules the dashboards follow
 
-- Latency is only ever a percentile, never an average and never an average of percentiles: from merged histograms (`sum by` first, then `histogram_quantile`) for the API and Astro, from the raw logged `request_time` values (`quantile_over_time`) for nginx.
-- Every percentile has its request count beside it. p95 is shown only with at least 100 requests in the window and p99 with at least 500, so at least five requests sit beyond it; otherwise the cell is empty.
-- `/healthz` is left out of every latency and error view: the health probe and Docker call it every few seconds.
-- `pg_stat_statements` and Elasticsearch node totals are costs and are labeled "time spent", never latency.
-- No data shows as "unknown", never as up. The health dashboard's freshness panel tells a broken pipe from no traffic, and shows whether Loki and Alloy are up.
+- Latency is always a percentile. It is never an average, and never an average of percentiles.
+  - For the API and Astro, it comes from merged histograms: `sum by` first, then `histogram_quantile`.
+  - For nginx, it comes from the raw logged `request_time` values (`quantile_over_time`).
+- Every percentile has its request count next to it. p95 shows only with at least 100 requests in the window, and p99 only with at least 500. So at least five requests are beyond it. Otherwise, the cell is empty.
+- Every latency and error view leaves out `/healthz`, because the health probe and Docker call it every few seconds.
+- `pg_stat_statements` and the Elasticsearch node totals are costs. They are labeled "time spent", never latency.
+- No data shows as "unknown", never as up. The freshness panel of the health dashboard tells a broken pipeline from no traffic, and shows whether Loki and Alloy are up.
 
 ## Reading it
 
-- **Local:** the full Docker stack (`bun run smoke:stack` brings it up, or `./scripts/dev/compose.sh up -d --build --wait` with the stack environment the smoke runner sets) serves Grafana on `http://127.0.0.1:3300` (`DEV_GRAFANA_PORT`), user `admin`, password `GRAFANA_ADMIN_PASSWORD` (dev default in `scripts/dev/compose.sh`). `bun run dev` runs the API and website on the host without `METRICS_PORT` or an OTLP endpoint, so it records nothing.
-- **Production:** `bun run observe` forwards `127.0.0.1:3301` to Grafana on the VPS over the existing SSH tunnel and prints how to read the password from `secrets/prod.enc.env`. Explore searches every container's logs.
-- **Changing a dashboard:** edit it in the UI, export the JSON, and commit it here. Provisioned dashboards cannot be saved over from the UI, so git stays the only copy. Use only the variables `$route` and `$status` and Grafana's `$__range`, `$__rate_interval`, and `$__auto`: the stack smoke check substitutes exactly those when it runs every query against its own datasource.
+- **Local:** the full Docker stack serves Grafana on `http://127.0.0.1:3300` (`DEV_GRAFANA_PORT`). Sign in as `admin`, with the password `GRAFANA_ADMIN_PASSWORD` (the dev default is in `scripts/dev/compose.sh`).
+  - `bun run smoke:stack` starts the stack. You can also run `./scripts/dev/compose.sh up -d --build --wait`, with the stack environment that the smoke runner sets.
+  - `bun run dev` runs the API and the website on the host, without `METRICS_PORT` or an OTLP endpoint. So it records nothing.
+- **Production:** `bun run observe` forwards `127.0.0.1:3301` to Grafana on the VPS, over the existing SSH tunnel. It prints how to read the password from `secrets/prod.enc.env`. Explore searches the logs of every container.
+- **To change a dashboard:** edit it in the UI, export the JSON, and commit it here.
+  - The UI cannot save over a provisioned dashboard, so git stays the only copy.
+  - Use only the variables `$route` and `$status`, and Grafana's `$__range`, `$__rate_interval`, and `$__auto`. The stack smoke check replaces exactly those when it runs every query against its own datasource.
 
 ## Tests
 
-`scripts/smoke/observability.ts` runs in the `stack` CI phase after the other suites: every dashboard is provisioned, every Prometheus target is up, the API and website histograms have observations, the exporters report, both health probes succeed, container and host metrics arrive, the website's JSON access log reaches Loki, and every query in every dashboard evaluates against Prometheus or Loki.
+`scripts/smoke/observability.ts` runs in the `stack` CI phase, after the other suites. It checks these things:
+
+- Every dashboard is provisioned.
+- Every Prometheus target is up.
+- The API and website histograms have observations.
+- The exporters report, and both health probes succeed.
+- Container and host metrics arrive.
+- The website's JSON access log reaches Loki.
+- Every query in every dashboard evaluates against Prometheus or Loki.
 
 ## Security and privacy
 
-- Alloy mounts the Docker socket (read-only) and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker` read-only, and joins the host's cgroup namespace: that is how it reads every container's logs and stats. A compromised Alloy would be root-equivalent on the host. It publishes no port and sits only on the `observability` network.
-- Loki keeps visitor addresses, request URIs, and search text for 7 days (Docker's own rotation keeps them only until 30 MB of lines per container). Grafana is reached only through the tunnel, behind its login.
+- Alloy mounts the Docker socket and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker`, all read-only. It also joins the host's cgroup namespace. This is how it reads the logs and stats of every container. So an attacker who takes over Alloy would have the equivalent of root on the host. Alloy publishes no port, and is only on the `observability` network.
+- Loki keeps visitor addresses, request URIs, and search text for 7 days. Docker's own rotation keeps them only up to 30 MB of lines for each container. Grafana is reachable only through the tunnel, behind its sign-in.
 
 ## Known limits
 
-- The Latency dashboard's website numbers exclude pages nginx answers from its cache and static files, which never reach Astro; the Edge dashboard covers every request nginx answered. Neither includes the edge gateway's own time or Cloudflare.
-- nginx times to the millisecond, so a cache hit often reads 0.
-- Counts over a window are Prometheus `increase()` and Loki `count_over_time` estimates; `increase()` extrapolates to the window's edges, so a short burst can read a few percent high.
-- `created-timestamp-zero-ingestion` is still marked experimental in Prometheus 3.15.
-- Grafana keeps no volume: its datasources and dashboards are provisioned on every start, and a recreated container (a deploy that changes Grafana's image or config) asks for the login again; a plain restart or an unchanged deploy keeps the session.
+- The website numbers on the Latency dashboard do not include pages that nginx answers from its cache, or static files. Those never reach Astro. The Edge dashboard covers every request that nginx answered. Neither includes the time of the edge gateway or of Cloudflare.
+- nginx measures time in milliseconds, so a cache hit often reads 0.
+- Counts over a window are estimates, from Prometheus `increase()` and Loki `count_over_time`. `increase()` extrapolates to the edges of the window, so a short burst can read a few percent high.
+- Prometheus 3.15 still marks `created-timestamp-zero-ingestion` as experimental.
+- Grafana keeps no volume. It provisions its datasources and dashboards on every start. A recreated container (a deploy that changes Grafana's image or configuration) asks for the sign-in again. A plain restart, or a deploy with no change to Grafana, keeps the session.
