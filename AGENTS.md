@@ -10,7 +10,6 @@ This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum AP
   - `search-indexer` (Rust)
   - `edge-gateway` (nginx configuration only)
   - `observability` (Prometheus, Loki, Alloy, and Grafana configuration only)
-  - `telemetry-proxy` (Cloudflare Worker)
   - `inspector` (TypeScript, for development only)
 - `crates/elasticsearch/`: the Elasticsearch schema and client that `api` and `search-indexer` share. See its `AGENTS.md`.
 - `crates/corpus/`: the corpus database's Diesel schema that `api` and `search-indexer` share. See its `AGENTS.md`.

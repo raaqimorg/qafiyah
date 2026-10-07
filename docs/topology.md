@@ -10,13 +10,13 @@ The diagrams follow the [C4 model](https://c4model.com). They all come from one 
 
 ![System context: readers, API developers, and the maintainer, and the external systems Qafiyah depends on](architecture/generated/structurizr/context.gen.svg)
 
-Readers and API developers reach Qafiyah through Cloudflare. Two kinds of traffic go directly to the two parts of Qafiyah that Cloudflare hosts: poet avatars (`cdn.qafiyah.com`) and browser error reports (`t.qafiyah.com`). Page views go to PostHog through its managed proxy (`ix.qafiyah.com`). Developers sign in with Google or GitHub.
+Readers and API developers reach Qafiyah through Cloudflare. Poet avatars come directly from the part of Qafiyah that Cloudflare hosts (`cdn.qafiyah.com`). Browser error reports go directly to Sentry. Page views go to PostHog through its managed proxy (`ix.qafiyah.com`). Developers sign in with Google or GitHub.
 
 ## Containers
 
-![Containers: the edge gateway, website, API, databases, search index, search indexer, telemetry proxy, and avatar store](architecture/generated/structurizr/containers.gen.svg)
+![Containers: the edge gateway, website, API, databases, search index, search indexer, and avatar store](architecture/generated/structurizr/containers.gen.svg)
 
-Everything except the avatar store and the telemetry proxy runs in one `docker compose` project on the VPS. The project has five networks:
+Everything except the avatar store runs in one `docker compose` project on the VPS. The project has five networks:
 
 - `edge`: the edge gateway and the website.
 - `backend`: the website and the API.
@@ -30,7 +30,6 @@ Three hosts never touch the VPS, the WAF, or the Compose stack:
 
 - `cdn.qafiyah.com` serves poet avatar images directly from R2 (`poets/<slug>/avatar.webp`). See `data/avatars/README.md`.
 - `ix.qafiyah.com` is PostHog's own managed reverse proxy, set up on the Cloudflare side. This repo has no code for it.
-- `t.qafiyah.com` is `apps/telemetry-proxy`, a first-party Worker. It forwards browser error and session telemetry to Sentry. See `apps/telemetry-proxy/AGENTS.md`.
 
 ## Production deployment
 
@@ -100,15 +99,14 @@ There are three independent stores, with different roles:
 
 ## Codebase topology
 
-| Package                | Language                                    | Uses                                    |
-| ---------------------- | ------------------------------------------- | --------------------------------------- |
-| `apps/api`             | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
-| `apps/search-indexer`  | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
-| `apps/web`             | TypeScript (Astro + React)                  | `packages/tsconfig`, `config.ts`        |
-| `apps/inspector`       | TypeScript, dev-only                        | `packages/tsconfig`, `config.ts`        |
-| `apps/telemetry-proxy` | TypeScript (Cloudflare Worker)              | `packages/tsconfig`                     |
-| `apps/edge-gateway`    | nginx config                                | nothing                                 |
-| `apps/observability`   | Prometheus, Loki, Alloy, and Grafana config | nothing                                 |
+| Package               | Language                                    | Uses                                    |
+| --------------------- | ------------------------------------------- | --------------------------------------- |
+| `apps/api`            | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
+| `apps/search-indexer` | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
+| `apps/web`            | TypeScript (Astro + React)                  | `packages/tsconfig`, `config.ts`        |
+| `apps/inspector`      | TypeScript, dev-only                        | `packages/tsconfig`, `config.ts`        |
+| `apps/edge-gateway`   | nginx config                                | nothing                                 |
+| `apps/observability`  | Prometheus, Loki, Alloy, and Grafana config | nothing                                 |
 
 - Turborepo runs the TypeScript workspace (`apps/*` and `packages/*`).
 - A separate Cargo workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `crates/elasticsearch`, `crates/corpus`).
@@ -144,13 +142,13 @@ Two other workflows run on pull requests:
 
 ## External services
 
-| Service    | Role                                                                                 | Reached via                                                 |
-| ---------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), Workers, cache and rate limit rules | all subdomains, `cdn.`, `t.`                                |
-| Sentry     | Error and session tracking for the API and the website                               | directly from the servers; `t.qafiyah.com` from the browser |
-| PostHog    | Product analytics                                                                    | `ix.qafiyah.com` (Cloudflare-managed)                       |
-| GitHub     | Source hosting, Actions CI, secret scanning, developer sign-in                       | `.github/workflows/`; OAuth from the website                |
-| Google     | Developer sign-in                                                                    | OAuth from the website                                      |
+| Service    | Role                                                                        | Reached via                                  |
+| ---------- | --------------------------------------------------------------------------- | -------------------------------------------- |
+| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), cache and rate limit rules | all subdomains, `cdn.`                       |
+| Sentry     | Error and session tracking for the API and the website                      | directly from the servers and the browser    |
+| PostHog    | Product analytics                                                           | `ix.qafiyah.com` (Cloudflare-managed)        |
+| GitHub     | Source hosting, Actions CI, secret scanning, developer sign-in              | `.github/workflows/`; OAuth from the website |
+| Google     | Developer sign-in                                                           | OAuth from the website                       |
 
 ## See also
 

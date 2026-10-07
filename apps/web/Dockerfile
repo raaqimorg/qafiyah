@@ -8,7 +8,6 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-COPY apps/telemetry-proxy/package.json apps/telemetry-proxy/package.json
 COPY apps/inspector/package.json apps/inspector/package.json
 RUN bun install --frozen-lockfile
 
@@ -30,7 +29,6 @@ FROM base AS prod-deps
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-COPY apps/telemetry-proxy/package.json apps/telemetry-proxy/package.json
 COPY apps/inspector/package.json apps/inspector/package.json
 RUN bun install --frozen-lockfile --production --ignore-scripts --linker hoisted --filter @qafiyah/web
 COPY packages ./packages

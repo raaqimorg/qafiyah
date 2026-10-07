@@ -26,7 +26,6 @@ export const PROD_DOMAIN = 'qafiyah.com';
 export const PROD_SITE_URL = `https://${PROD_DOMAIN}`;
 export const PROD_API_URL = 'https://api.qafiyah.com';
 export const POSTHOG_PROXY_URL = `https://ix.${PROD_DOMAIN}`;
-export const TELEMETRY_PROXY_URL = `https://t.${PROD_DOMAIN}`;
 export const CDN_URL = `https://cdn.${PROD_DOMAIN}`;
 
 export const X_INTENT_TWEET_URL = 'https://x.com/intent/tweet';

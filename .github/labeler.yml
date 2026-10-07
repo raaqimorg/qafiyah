@@ -19,7 +19,6 @@
   - changed-files:
       - any-glob-to-any-file:
           - apps/edge-gateway/**
-          - apps/telemetry-proxy/**
           - docker-compose.yml
           - docs/deployment/**
           - scripts/deploy/**

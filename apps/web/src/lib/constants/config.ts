@@ -5,7 +5,6 @@ import {
   PROD_API_URL,
   PROD_DOMAIN,
   SUPPORT_EMAIL,
-  TELEMETRY_PROXY_URL,
 } from '@qafiyah/config';
 
 export const REACT_QUERY_STALE_TIME_MS = 2 * 24 * 60 * 60 * 1000;
@@ -24,7 +23,7 @@ export const POSTHOG_KEY = 'phc_m925vSZaBCkXApwManQBMvCvtU6tHJVErNJiRr5ier8L';
 export const POSTHOG_HOST = POSTHOG_PROXY_URL;
 export const POSTHOG_UI_HOST = 'https://us.posthog.com';
 
-export { TELEMETRY_PROXY_URL, SUPPORT_EMAIL };
+export { SUPPORT_EMAIL };
 
 const DEV_WEB_URL = `http://localhost:${DEV_WEB_PORT}`;
 
