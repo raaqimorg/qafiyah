@@ -2100,108 +2100,119 @@
       "body": {
         "from": 0,
         "query": {
-          "bool": {
-            "filter": [
-              {
-                "bool": {
-                  "minimum_should_match": 1,
-                  "should": [
-                    {
-                      "multi_match": {
-                        "fields": [
-                          "name.autocomplete",
-                          "name.stemmed",
-                          "nickname.autocomplete",
-                          "nickname.stemmed"
-                        ],
-                        "operator": "and",
-                        "query": "أحمد",
-                        "type": "cross_fields"
-                      }
-                    },
-                    {
-                      "match": {
-                        "name": {
-                          "fuzziness": "AUTO:4,7",
-                          "operator": "and",
-                          "prefix_length": 1,
-                          "query": "أحمد"
+          "function_score": {
+            "boost_mode": "multiply",
+            "field_value_factor": {
+              "factor": 0.01,
+              "field": "poemsCount",
+              "missing": 0,
+              "modifier": "log2p"
+            },
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "multi_match": {
+                            "fields": [
+                              "name.autocomplete",
+                              "name.stemmed",
+                              "nickname.autocomplete",
+                              "nickname.stemmed"
+                            ],
+                            "operator": "and",
+                            "query": "أحمد",
+                            "type": "cross_fields"
+                          }
+                        },
+                        {
+                          "match": {
+                            "name": {
+                              "fuzziness": "AUTO:4,7",
+                              "operator": "and",
+                              "prefix_length": 1,
+                              "query": "أحمد"
+                            }
+                          }
                         }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": 1,
+                "should": [
+                  {
+                    "term": {
+                      "name.exact": {
+                        "boost": 12,
+                        "value": "أحمد"
                       }
                     }
-                  ]
-                }
+                  },
+                  {
+                    "match_phrase": {
+                      "name": {
+                        "boost": 6,
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.autocomplete": {
+                        "boost": 2,
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.stemmed": {
+                        "boost": 3,
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name": {
+                        "boost": 1,
+                        "fuzziness": "AUTO:4,7",
+                        "fuzzy_rewrite": "top_terms_boost_50",
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "nickname": {
+                        "boost": 6,
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.autocomplete": {
+                        "boost": 2,
+                        "query": "أحمد"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.stemmed": {
+                        "boost": 3,
+                        "query": "أحمد"
+                      }
+                    }
+                  }
+                ]
               }
-            ],
-            "minimum_should_match": 1,
-            "should": [
-              {
-                "term": {
-                  "name.exact": {
-                    "boost": 12,
-                    "value": "أحمد"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "name": {
-                    "boost": 6,
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.autocomplete": {
-                    "boost": 2,
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.stemmed": {
-                    "boost": 3,
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name": {
-                    "boost": 1,
-                    "fuzziness": "AUTO:4,7",
-                    "fuzzy_rewrite": "top_terms_boost_50",
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "nickname": {
-                    "boost": 6,
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.autocomplete": {
-                    "boost": 2,
-                    "query": "أحمد"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.stemmed": {
-                    "boost": 3,
-                    "query": "أحمد"
-                  }
-                }
-              }
-            ]
+            }
           }
         },
         "size": 20,
@@ -2297,115 +2308,126 @@
       "body": {
         "from": 60,
         "query": {
-          "bool": {
-            "filter": [
-              {
-                "terms": {
-                  "eraSlug": [
-                    "abbasi"
-                  ]
-                }
-              },
-              {
-                "bool": {
-                  "minimum_should_match": 1,
-                  "should": [
-                    {
-                      "multi_match": {
-                        "fields": [
-                          "name.autocomplete",
-                          "name.stemmed",
-                          "nickname.autocomplete",
-                          "nickname.stemmed"
-                        ],
-                        "operator": "and",
-                        "query": "المتنبي",
-                        "type": "cross_fields"
-                      }
-                    },
-                    {
-                      "match": {
-                        "name": {
-                          "fuzziness": "AUTO:4,7",
-                          "operator": "and",
-                          "prefix_length": 1,
-                          "query": "المتنبي"
+          "function_score": {
+            "boost_mode": "multiply",
+            "field_value_factor": {
+              "factor": 0.01,
+              "field": "poemsCount",
+              "missing": 0,
+              "modifier": "log2p"
+            },
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "terms": {
+                      "eraSlug": [
+                        "abbasi"
+                      ]
+                    }
+                  },
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "multi_match": {
+                            "fields": [
+                              "name.autocomplete",
+                              "name.stemmed",
+                              "nickname.autocomplete",
+                              "nickname.stemmed"
+                            ],
+                            "operator": "and",
+                            "query": "المتنبي",
+                            "type": "cross_fields"
+                          }
+                        },
+                        {
+                          "match": {
+                            "name": {
+                              "fuzziness": "AUTO:4,7",
+                              "operator": "and",
+                              "prefix_length": 1,
+                              "query": "المتنبي"
+                            }
+                          }
                         }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": 1,
+                "should": [
+                  {
+                    "term": {
+                      "name.exact": {
+                        "boost": 12,
+                        "value": "المتنبي"
                       }
                     }
-                  ]
-                }
+                  },
+                  {
+                    "match_phrase": {
+                      "name": {
+                        "boost": 6,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.autocomplete": {
+                        "boost": 2,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.stemmed": {
+                        "boost": 3,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name": {
+                        "boost": 1,
+                        "fuzziness": "AUTO:4,7",
+                        "fuzzy_rewrite": "top_terms_boost_50",
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "nickname": {
+                        "boost": 6,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.autocomplete": {
+                        "boost": 2,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.stemmed": {
+                        "boost": 3,
+                        "query": "المتنبي"
+                      }
+                    }
+                  }
+                ]
               }
-            ],
-            "minimum_should_match": 1,
-            "should": [
-              {
-                "term": {
-                  "name.exact": {
-                    "boost": 12,
-                    "value": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "name": {
-                    "boost": 6,
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.autocomplete": {
-                    "boost": 2,
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.stemmed": {
-                    "boost": 3,
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name": {
-                    "boost": 1,
-                    "fuzziness": "AUTO:4,7",
-                    "fuzzy_rewrite": "top_terms_boost_50",
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "nickname": {
-                    "boost": 6,
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.autocomplete": {
-                    "boost": 2,
-                    "query": "المتنبي"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.stemmed": {
-                    "boost": 3,
-                    "query": "المتنبي"
-                  }
-                }
-              }
-            ]
+            }
           }
         },
         "size": 30,
@@ -2486,108 +2508,119 @@
       "body": {
         "from": 20,
         "query": {
-          "bool": {
-            "filter": [
-              {
-                "bool": {
-                  "minimum_should_match": 1,
-                  "should": [
-                    {
-                      "multi_match": {
-                        "fields": [
-                          "name.autocomplete",
-                          "name.stemmed",
-                          "nickname.autocomplete",
-                          "nickname.stemmed"
-                        ],
-                        "operator": "and",
-                        "query": "حب",
-                        "type": "cross_fields"
-                      }
-                    },
-                    {
-                      "match": {
-                        "name": {
-                          "fuzziness": "AUTO:4,7",
-                          "operator": "and",
-                          "prefix_length": 1,
-                          "query": "حب"
+          "function_score": {
+            "boost_mode": "multiply",
+            "field_value_factor": {
+              "factor": 0.01,
+              "field": "poemsCount",
+              "missing": 0,
+              "modifier": "log2p"
+            },
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "multi_match": {
+                            "fields": [
+                              "name.autocomplete",
+                              "name.stemmed",
+                              "nickname.autocomplete",
+                              "nickname.stemmed"
+                            ],
+                            "operator": "and",
+                            "query": "حب",
+                            "type": "cross_fields"
+                          }
+                        },
+                        {
+                          "match": {
+                            "name": {
+                              "fuzziness": "AUTO:4,7",
+                              "operator": "and",
+                              "prefix_length": 1,
+                              "query": "حب"
+                            }
+                          }
                         }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": 1,
+                "should": [
+                  {
+                    "term": {
+                      "name.exact": {
+                        "boost": 12,
+                        "value": "حب"
                       }
                     }
-                  ]
-                }
+                  },
+                  {
+                    "match_phrase": {
+                      "name": {
+                        "boost": 6,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.autocomplete": {
+                        "boost": 2,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.stemmed": {
+                        "boost": 3,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name": {
+                        "boost": 1,
+                        "fuzziness": "AUTO:4,7",
+                        "fuzzy_rewrite": "top_terms_boost_50",
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "nickname": {
+                        "boost": 6,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.autocomplete": {
+                        "boost": 2,
+                        "query": "حب"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.stemmed": {
+                        "boost": 3,
+                        "query": "حب"
+                      }
+                    }
+                  }
+                ]
               }
-            ],
-            "minimum_should_match": 1,
-            "should": [
-              {
-                "term": {
-                  "name.exact": {
-                    "boost": 12,
-                    "value": "حب"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "name": {
-                    "boost": 6,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.autocomplete": {
-                    "boost": 2,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name.stemmed": {
-                    "boost": 3,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "name": {
-                    "boost": 1,
-                    "fuzziness": "AUTO:4,7",
-                    "fuzzy_rewrite": "top_terms_boost_50",
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match_phrase": {
-                  "nickname": {
-                    "boost": 6,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.autocomplete": {
-                    "boost": 2,
-                    "query": "حب"
-                  }
-                }
-              },
-              {
-                "match": {
-                  "nickname.stemmed": {
-                    "boost": 3,
-                    "query": "حب"
-                  }
-                }
-              }
-            ]
+            }
           }
         },
         "size": 20,

@@ -1067,6 +1067,60 @@ async fn poets_matching_an_exact_name_equally_are_ordered_like_the_poets_list() 
         .await;
 }
 
+async fn first_poets(es: &Es, q: &str) -> Vec<String> {
+    es.search_poets(&PoetSearchParams {
+        q: q.into(),
+        ..PoetSearchParams::default()
+    })
+    .await
+    .expect("a search")
+    .hits
+    .into_iter()
+    .map(|poet| poet.slug)
+    .collect()
+}
+
+#[tokio::test]
+async fn a_poet_with_far_more_poems_outranks_a_slightly_closer_match_on_the_same_word() {
+    let Some(admin) = admin() else { return };
+    let docs = [
+        poet(1, "Zhyr", "زهير بن أبي سلمى", "زهير بن ابي سلمى", "", 104),
+        poet(2, "Hlby", "زهير الحلبي", "زهير الحلبي", "", 2),
+    ];
+    admin
+        .with_poets(&docs, |es, index| async move {
+            let es = searching_poets(es, index);
+            assert_eq!(first_poets(&es, "زهير").await, ["Zhyr", "Hlby"]);
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn a_minor_poet_searched_by_his_whole_name_still_ranks_above_a_more_popular_poet_sharing_it()
+{
+    let Some(admin) = admin() else { return };
+    let mut docs = vec![
+        poet(1, "Hdhl", "أبو ذؤيب الهذلي", "ابو ذؤيب الهذلي", "", 30),
+        poet(2, "Mnor", "أبو ذؤيب", "ابو ذؤيب", "", 1),
+    ];
+    for i in 0..100 {
+        let name = format!("شاعر{i} بن فلان");
+        docs.push(poet(10 + i, &format!("F{i:03}"), &name, &name, "", 5));
+    }
+    admin
+        .with_poets(&docs, |es, index| async move {
+            let es = searching_poets(es, index);
+            assert_eq!(
+                first_poets(&es, "أبو ذؤيب")
+                    .await
+                    .first()
+                    .map(String::as_str),
+                Some("Mnor")
+            );
+        })
+        .await;
+}
+
 #[tokio::test]
 async fn a_poet_is_found_by_nickname_and_every_word_must_reach_the_same_poet() {
     let Some(admin) = admin() else { return };
