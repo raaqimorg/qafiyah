@@ -24,6 +24,7 @@ The worst case is about 30, so no external pooler is needed while one API proces
 - `idle_in_transaction_session_timeout=30s`: a transaction left open between statements (a forgotten one in TablePlus, say) is ended after 30 s instead of holding its locks. The app's transactions last milliseconds, and `pg_dump` and restores turn it off for their own sessions.
 - `tcp_keepalives_idle=60`, `tcp_keepalives_interval=10`, `tcp_keepalives_count=3`: a client that vanished without closing its socket is noticed within 90 s, not the kernel's 2 hours.
 - `client_connection_check_interval=10s`: a running query whose client disconnected is cancelled within 10 s.
+- `max_parallel_workers_per_gather=0`: no parallel query plans. The container has one CPU (`cpus: 1.0`), so a leader and its workers would share it, and a parallel hash aggregate over `poem_verses` ran for minutes where the same query alone takes under 2 s (#205).
 
 `idle_session_timeout` stays off, because it would close the API's pooled connections in quiet periods. To see who holds connections, run against production:
 
