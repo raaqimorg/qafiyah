@@ -1,19 +1,16 @@
 # Development
 
-Local development workflow for this monorepo. For architecture and per-app internals, see
-`README.md` and each app's `AGENTS.md`. For production, see `docs/deployment/README.md`.
+This is the local development workflow for the monorepo. For the architecture and the internals of each app, see `README.md` and each app's `AGENTS.md`. For production, see `docs/deployment/README.md`.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1
-- A Docker Engine (Postgres, Elasticsearch, and the app containers run through Compose), such as
-  [OrbStack](https://orbstack.dev) or Docker Desktop on a Mac. The API reaches both databases
-  through their published `localhost` ports, never through OrbStack's `*.orb.local` container
-  DNS: a multi-megabyte search response took 78 ms on a kept-alive connection there against 23 ms
-  through the published port.
-- Rust (`rust-toolchain.toml` pins the version; `bun run check:rust-toolchain` verifies it matches)
-- [ShellCheck](https://www.shellcheck.net), [actionlint](https://github.com/rhysd/actionlint), and [hadolint](https://github.com/hadolint/hadolint) for the static phase of the gate (`brew install shellcheck actionlint hadolint`)
-- Optional: the [GitHub CLI](https://cli.github.com) (`gh`, then `gh auth login`). Recommended when working with an AI agent, so it can read and file issues and open pull requests itself (`.github/CONTRIBUTING.md`, "Working with an AI agent").
+- [Bun](https://bun.sh) 1 or later.
+- A Docker engine, such as [OrbStack](https://orbstack.dev) or Docker Desktop on a Mac. Postgres, Elasticsearch, and the app containers run through Compose.
+  - The API reaches both databases through their published `localhost` ports. It never uses OrbStack's `*.orb.local` container DNS.
+  - The reason is speed: a large search response took 78 ms there on a kept-alive connection, and 23 ms through the published port.
+- Rust. `rust-toolchain.toml` pins the version, and `bun run check:rust-toolchain` checks that it matches.
+- [ShellCheck](https://www.shellcheck.net), [actionlint](https://github.com/rhysd/actionlint), and [hadolint](https://github.com/hadolint/hadolint), for the static phase of the gate. Install them with `brew install shellcheck actionlint hadolint`.
+- Optional: the [GitHub CLI](https://cli.github.com). Install `gh`, then run `gh auth login`. It lets an AI agent read and file issues and open pull requests itself (`.github/CONTRIBUTING.md`, "Working with an AI agent").
 
 ## Getting started
 
@@ -22,31 +19,31 @@ bun install
 bun run dev
 ```
 
-`bun run dev` (`scripts/dev/run.ts`) does the following, in order:
+`bun run dev` (`scripts/dev/run.ts`) does these steps, in order:
 
-1. Checks Docker is running.
-2. Resolves and decrypts a database dump (`scripts/db/resolve-dump.sh`); falls back to the
-   bundled `data/db/0000_default/` sample (100 poems) if no passphrase is set. See
-   `data/db/README.md`.
-3. Brings up Postgres + Elasticsearch via Docker Compose and restores the dump on a fresh volume.
-4. Runs the search indexer once to populate Elasticsearch.
-5. Creates `apps/web/.env` (just `PUBLIC_API_URL`, pointing at the local API) if it doesn't exist yet.
-6. Builds and starts the API (`cargo build -p qafiyah-api`), then the web app, each prefixed and
-   color-coded in the combined log output. Pass `--inspector` to also start the inspector after
-   the web app reports ready.
+1. It checks that Docker is running.
+2. It resolves and decrypts a database dump (`scripts/db/resolve-dump.sh`). If no passphrase is set, it uses the bundled `data/db/0000_default/` sample of 100 poems. See `data/db/README.md`.
+3. It starts Postgres and Elasticsearch with Docker Compose, and restores the dump on a new volume.
+4. It runs the search indexer once to fill Elasticsearch.
+5. It creates `apps/web/.env` if that file does not exist. The file holds only `PUBLIC_API_URL`, which points at the local API.
+6. It builds and starts the API (`cargo build -p qafiyah-api`), then the web app. The combined log gives each one a prefix and a color. To also start the inspector after the web app is ready, pass `--inspector`.
 
-In a terminal, every step shows a live line with its elapsed time while it runs, plus what it is
-doing where there is something to report: each container's state and the database's restore phase,
-the indexer's image build step and then the poems and poets written so far, and the crate cargo is
-compiling with a count. Piped output keeps the plain one-line-per-step form.
+In a terminal, each step shows a live line with its elapsed time. Where there is something to report, the line also shows it:
 
-The first run is the slow one. On an Apple silicon laptop with a full dump (0037, about 349,000
-poems) it took about seven and a half minutes to "web ready": about 1m45s to restore the dump into
-a fresh volume, about 4m45s for the indexer (building its image, then indexing every poem), and
-about 50s to compile the API, plus downloading the Postgres and Elasticsearch images the very first
-time. With the 100-poem sample, the restore and the indexing take seconds, so the two compiles are
-most of it. Later runs keep the volumes, the indexer image, and `target/`, so they skip the restore
-and the indexing and take about a minute, most of it waiting for Elasticsearch to report healthy.
+- each container's state, and the restore phase of the database
+- the build step of the indexer image, then the poems and poets written so far
+- the crate that cargo compiles, with a count
+
+When you pipe the output, each step prints one plain line.
+
+The first run is the slow one. On an Apple silicon laptop with a full dump (0037, about 349,000 poems), it took about seven and a half minutes to "web ready":
+
+- about 1 minute 45 seconds to restore the dump into a new volume
+- about 4 minutes 45 seconds for the indexer, which builds its image and then indexes every poem
+- about 50 seconds to compile the API
+- the download of the Postgres and Elasticsearch images, on the very first run only
+
+With the 100-poem sample, the restore and the indexing take seconds, so the two compiles take most of the time. Later runs keep the volumes, the indexer image, and `target/`. So they skip the restore and the indexing, and take about a minute. Most of that minute is the wait for Elasticsearch to report healthy.
 
 Default URLs:
 
@@ -58,80 +55,71 @@ Default URLs:
 | Postgres      | localhost:5434        |
 | Elasticsearch | localhost:9201        |
 
-Ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_INSPECTOR_PORT`,
-`DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`) and can be overridden via the matching env
-vars (`PORT`, `WEB_PORT`, `INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, ...).
+The ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`). Each app also reads its port from an environment variable: `PORT` for the API, `WEB_PORT`, `INSPECTOR_PORT`, and `DEV_POSTGRES_PORT`. `--worktree` sets these variables with an offset (see "Working in a git worktree").
 
-`Ctrl-C` stops all running processes (SIGTERM, then SIGKILL after a 5s grace period).
+To stop every running process, press `Ctrl-C`. The runner sends SIGTERM, then SIGKILL after 5 seconds.
 
 ## Everyday commands
 
 ```bash
-bun run dev:preflight   # check dev ports are free before starting (runs automatically in dev)
-bun run db:up           # start just Postgres + Elasticsearch (docker compose up -d --wait)
-bun run db:reset        # wipe the local Postgres volume, restore the dump fresh
+bun run dev:preflight   # check that the dev ports are free (bun run dev runs it for you)
+bun run db:up           # start only Postgres and Elasticsearch (docker compose up -d --wait)
+bun run db:reset        # wipe the local Postgres volume and restore the dump again
 bun run down            # stop the Docker Compose stack
-bun run clean           # kill stray astro/qafiyah-api processes from a previous run
-bun run reindex         # rebuild the indexer image, then force-rebuild the Elasticsearch indices from Postgres
+bun run clean           # stop leftover astro and qafiyah-api processes from an earlier run
+bun run reindex         # rebuild the indexer image, then rebuild the Elasticsearch indices from Postgres
 ```
 
-`bun run dev` records no metrics (the API and website run on the host without `METRICS_PORT` or an OTLP endpoint). To see the observability dashboards locally, run the full Docker stack (`bun run smoke:stack` leaves nothing running when it ends; for a stack that stays up, see `apps/observability/AGENTS.md`) and open Grafana on `http://127.0.0.1:3300` as `admin` with `GRAFANA_ADMIN_PASSWORD`.
+`bun run dev` records no metrics, because the API and the website run on the host without `METRICS_PORT` or an OTLP endpoint. To see the observability dashboards locally, run the full Docker stack:
 
-The sample dataset needs no credentials: `scripts/dev/compose.sh` and `scripts/dev/run.ts` default every dev database and Elasticsearch password, so a fresh clone has no `.env` at all. Two things change that:
+- `bun run smoke:stack` runs it, and leaves nothing running at the end.
+- For a stack that stays up, see `apps/observability/AGENTS.md`.
+- Open Grafana at `http://127.0.0.1:3300`, and sign in as `admin` with `GRAFANA_ADMIN_PASSWORD`.
 
-- **A real dump.** Email dumps@qafiyah.com for a passphrase (`data/db/README.md`), then put `DUMP_KEY__<dump-dir>=<passphrase>` in a root `.env` (gitignored). `bun run db:reset` restores that dump instead of the sample. `bun run dump:key:check` verifies a passphrase without restoring.
-- **The maintainers' age key.** With it, `.env` is generated from `secrets/dev.enc.env` by `bun run secrets:pull` and dump passphrases are stored with `bun run dump:key:set`; never edit `.env` by hand on such a machine. See `docs/deployment/secrets.md`. Without the key, none of the `secrets:*` commands apply and `.env` is yours to write.
+The sample dataset needs no credentials. `scripts/dev/compose.sh` and `scripts/dev/run.ts` set a default for every dev database and Elasticsearch password, so a new clone has no `.env` file at all. Two things change this:
+
+- **A real dump.** Email dumps@qafiyah.com for a passphrase (`data/db/README.md`). Then put `DUMP_KEY__<dump-dir>=<passphrase>` in a root `.env` file, which git ignores. `bun run db:reset` then restores that dump instead of the sample. To check a passphrase without a restore, run `bun run dump:key:check`.
+- **The maintainers' age key.** With this key, `bun run secrets:pull` generates `.env` from `secrets/dev.enc.env`, and `bun run dump:key:set` stores dump passphrases. On such a machine, never edit `.env` by hand. See `docs/deployment/secrets.md`. Without the key, the `secrets:*` commands do not apply, and you write `.env` yourself.
 
 ## Quality gates
 
 ```bash
-bun run lint              # oxlint, type-aware, --fix
-bun run lint:check        # oxlint, type-aware, read-only, warnings fail (what the gate runs)
-bun run format            # oxfmt, then prettier on .astro files, writes
-bun run format:check      # the same two, read-only (what the gate runs)
+bun run lint              # oxlint, type-aware, fixes what it can
+bun run lint:check        # oxlint, type-aware, read-only, warnings fail (the gate runs this)
+bun run format            # oxfmt, then prettier on .astro files, writes the files
+bun run format:check      # the same two, read-only (the gate runs this)
 bun run check:shell       # ShellCheck on every tracked shell script, warnings fail
 bun run check:workflows   # actionlint on .github/workflows
 bun run check:dockerfiles # hadolint on every Dockerfile, warnings fail
-bun run check:sql         # PostgreSQL 18 parser on every .sql file, squawk on migrations
-bun run types             # turbo run types (TypeScript, per app/package)
-bun run test              # turbo run test (TypeScript, per app/package)
+bun run check:sql         # the PostgreSQL 18 parser on every .sql file, and squawk on the migrations
+bun run types             # turbo run types (TypeScript, for each app and package)
+bun run test              # turbo run test (TypeScript, for each app and package)
 bun run rust:fmt          # cargo fmt --check
-bun run rust:lint         # cargo clippy, workspace, -D warnings; cargo's own warnings fail too
-bun run rust:test         # cargo test, workspace
-bun run rust:test:db      # database-backed API and indexer tests against the dev stack (needs Docker)
-bun run smoke:dev         # black-box HTTP probes against a locally-managed dev server
-bun run docs:diagrams     # render docs/architecture/workspace.dsl to the C4 SVGs (needs Docker); docs:diagrams:check compares
-bun run ci                # the full gate (GitHub Actions runs it scoped to the change); --no-docker skips the diagrams, db, and smoke phases, --docker-only runs just those
+bun run rust:lint         # cargo clippy on the workspace with -D warnings; cargo's own warnings also fail
+bun run rust:test         # cargo test on the workspace
+bun run rust:test:db      # the database-backed API and indexer tests against the dev stack (needs Docker)
+bun run smoke:dev         # black-box HTTP probes against a dev server that the run manages
+bun run docs:diagrams     # render docs/architecture/workspace.dsl to the C4 SVGs (needs Docker); docs:diagrams:check compares them
+bun run ci                # the full gate; --no-docker skips the diagram, db, and smoke phases, --docker-only runs only those
 ```
 
-Deliberate, non-obvious behavior of the static checks is in the Static checks section of `docs/exceptions.md`.
+The "Static checks" section of `docs/exceptions.md` explains the deliberate, non-obvious behavior of the static checks.
 
-`smoke:dev` ends with `bun run api:conformance`, which sends every documented API example to the dev API through Schemathesis in Docker.
+`smoke:dev` ends with `bun run api:conformance`. This sends every documented API example to the dev API through Schemathesis in Docker.
 
-The smoke runs leave your dev environment as they found it. `smoke:dev` starts its own `bun run dev`
-and stops it afterwards, unless the dev web and API already answer, in which case it reuses them and
-leaves them running. The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode
-stack in the same Compose project and removes it at the end, then starts again whichever of the dev
-`db` and `elasticsearch` containers were running before it. When a check fails or you press Ctrl-C,
-`bun run ci` stops only the tasks it started (each runs in its own process group), so a running
-`bun run dev`, here or in another worktree, keeps running.
+The smoke runs leave your dev environment as they found it:
 
-`rust:test:db` brings up the dev Postgres and Elasticsearch, runs the one-shot indexer, and runs
-`apps/api/tests/db.rs` and then the indexer's tests with the same connection strings `bun run dev`
-uses. Without the `QAFIYAH_TEST_*` variables the database-backed tests skip themselves, which is why
-plain `cargo test` stays pure.
+- `smoke:dev` starts its own `bun run dev`, and stops it at the end. If the dev web and API already answer, it uses them, and leaves them running.
+- The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode stack in the same Compose project, and removes it at the end. It then starts again the dev `db` and `elasticsearch` containers that were running before.
+- When a check fails or you press Ctrl-C, `bun run ci` stops only the tasks that it started, because each task runs in its own process group. So a running `bun run dev`, here or in another worktree, keeps running.
 
-Run `bun run ci` before opening a PR; it's the full gate. GitHub Actions runs the same gate, skipping a Docker
-phase when the change touches nothing it uses (`docs/topology.md`, "CI/CD topology"). `bun run ci --no-docker`
-skips the Docker-dependent steps (the diagram check, the database-backed tests, and both smokes) if Docker isn't
-available, and `bun run ci --docker-only` runs only those. The stack smoke builds the three images
-through `compose up --build`, so a full run still proves every image builds.
+`rust:test:db` starts the dev Postgres and Elasticsearch, and runs the one-shot indexer. It then runs `apps/api/tests/db.rs` and the indexer's tests, with the same connection strings that `bun run dev` uses. Without the `QAFIYAH_TEST_*` variables, the database-backed tests skip themselves. That is why plain `cargo test` needs no infrastructure.
+
+Run `bun run ci` before you open a pull request, because it is the full gate. GitHub Actions runs the same gate, and skips a Docker phase when the change touches nothing that the phase uses (`docs/topology.md`, "CI/CD topology"). If Docker is not available, `bun run ci --no-docker` skips the Docker steps: the diagram check, the database-backed tests, and both smoke runs. `bun run ci --docker-only` runs only those steps. The stack smoke builds the three images through `compose up --build`, so a full run also proves that every image builds.
 
 ## Working in a git worktree
 
-If you're working out of a git worktree (not the primary checkout, e.g. under `.worktrees/`) and
-want it fully isolated from a dev stack already running in the primary checkout, **pass
-`--worktree` to `dev`, `db:reset`, and `reindex`**:
+You may work in a git worktree, not the primary checkout (for example, under `.worktrees/`). To isolate it from a dev stack that already runs in the primary checkout, **pass `--worktree` to `dev`, `db:reset`, and `reindex`**:
 
 ```bash
 bun run dev --worktree
@@ -140,33 +128,35 @@ bun run dev --worktree
 bun run smoke:dev --worktree     # against a --worktree dev server
 ```
 
-Without `--worktree`, a worktree checkout shares the same Docker Compose project name and ports
-as the primary checkout, so running `dev` in both at once collides. With `--worktree`, the
-Compose project name and every port (Postgres, Elasticsearch, edge gateway, API, web, inspector)
-get a per-worktree offset derived from the worktree's directory name, so multiple worktrees can
-run their own dev stacks side by side without clashing.
+Without `--worktree`, a worktree uses the same Docker Compose project name and ports as the primary checkout. So if you run `dev` in both at the same time, they collide. With `--worktree`, the Compose project name and every port get an offset that comes from the worktree's directory name. This covers Postgres, Elasticsearch, the edge gateway, the API, the web app, and the inspector. Several worktrees can then run their own dev stacks side by side.
 
-Do not assume `--worktree` is implied by being in a worktree, it is not: `scripts/dev/worktree.ts`
-only _detects_ whether you're in a worktree; nothing isolates ports or the Compose project unless
-you pass the flag explicitly. Passing `--worktree` from the primary checkout is a hard error
-("nothing to isolate against").
+Being in a worktree does not turn on `--worktree`. `scripts/dev/worktree.ts` only _detects_ a worktree. Nothing isolates the ports or the Compose project unless you pass the flag. If you pass `--worktree` in the primary checkout, the command fails with "nothing to isolate against".
 
-A worktree's root `.env` is copied from the primary checkout's `.env` automatically on first
-`bun run dev --worktree` if it doesn't already have one (`apps/web/.env` is generated with the
-worktree's own API port, handled automatically).
+On the first `bun run dev --worktree`, the worktree gets a copy of the primary checkout's root `.env`, unless it already has one. `apps/web/.env` is generated with the worktree's own API port.
 
 ## Committing
 
-Commit messages follow `docs/pull-requests.md` (one subject line, nothing else). The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only (oxlint, oxfmt, prettier for `.astro`, rustfmt, and ShellCheck, per the `lint-staged` block in `package.json`), in about a second. The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, about 30 seconds. GitHub Actions runs the gate on every push and PR to `main`, and each Docker phase when the change touches what it uses; `bun run deploy` refuses a commit whose CI run did not pass (a skipped phase does not count as a failure). `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook when you have already run the gate.
+Commit messages follow `docs/pull-requests.md`: one subject line, and nothing else.
 
-Both hooks first run `scripts/check/commit-identity.sh`, an optional guard against committing with the wrong email. It does nothing until you opt in, per clone, with `git config --local qafiyah.allowedEmail "$(git config --local user.email)"`; the address stays in `.git/config`, which is never committed. From then on a commit is refused unless its author and committer use that address, and a push is refused if any commit that isn't already on a remote has an author, committer, or `*-by:` trailer (such as `Co-authored-by:`) with another one (commits already on a remote, such as main's GitHub-made squash merges after you merge main into a branch, are public already and not checked). It reads the key with `git config --local`, so `git -c` overrides cannot satisfy it, but `--no-verify` or `HUSKY=0` skip it like any hook; GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account on the server side.
+- The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only, in about a second. It runs oxlint, oxfmt, prettier for `.astro` files, rustfmt, and ShellCheck, as the `lint-staged` block in `package.json` sets.
+- The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, usually in less than a minute.
+- GitHub Actions runs the gate on every push and pull request to `main` or a version branch. It runs each Docker phase only when the change touches what that phase uses.
+- `bun run deploy` refuses a commit whose CI run did not pass. A skipped phase is not a failure.
+- If you already ran the gate, `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook.
 
-`AGENTS.md` is the per-directory guide; `CLAUDE.md` and `GEMINI.md` next to each one are committed symlinks to it, so every agent harness reads the same file. `bun run agents:link` recreates them after adding an `AGENTS.md`. On Windows, check out with `git config core.symlinks true` from a Developer Mode or admin shell, or the links appear as one-line text files.
+Both hooks first run `scripts/check/commit-identity.sh`. It is an optional guard against commits with the wrong email:
+
+- It does nothing until you turn it on for a clone: `git config --local qafiyah.allowedEmail "$(git config --local user.email)"`. The address stays in `.git/config`, which is never committed.
+- After that, it refuses a commit unless its author and committer use that address.
+- It refuses a push if a commit that is not yet on a remote has another address as author, committer, or `*-by:` trailer (such as `Co-authored-by:`).
+- It does not check commits that are already on a remote, because they are already public. An example is a squash merge that GitHub made on `main`, after you merge `main` into a branch.
+- It reads the key with `git config --local`, so a `git -c` override cannot satisfy it. `--no-verify` and `HUSKY=0` skip it, as they skip every hook.
+- On the server side, GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account.
+
+`AGENTS.md` is the guide for its directory. The `CLAUDE.md` and `GEMINI.md` files next to each one are committed symlinks to it, so every agent harness reads the same file. After you add an `AGENTS.md`, run `bun run agents:link` to create the links. On Windows, check out with `git config core.symlinks true` from a Developer Mode or admin shell. Otherwise, the links appear as one-line text files.
 
 ## Troubleshooting
 
-- **Port already in use**: `bun run clean` kills stray `astro`/`qafiyah-api` processes from a
-  previous run, then retry.
-- **Docker not running**: start Docker Desktop/OrbStack; `dev` and `ci` both check for this
-  up front and fail fast with a clear message.
-- **Postgres unreachable warning during preflight**: run `bun run db:up`.
+- **Port already in use:** run `bun run clean` to stop leftover `astro` and `qafiyah-api` processes from an earlier run, then try again.
+- **Docker not running:** start Docker Desktop or OrbStack. `dev` and `ci` both check for Docker first, and stop with a clear message if it is not running.
+- **"Postgres unreachable" warning during preflight:** run `bun run db:up`.
