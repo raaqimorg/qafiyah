@@ -36,12 +36,14 @@ use qafiyah_api::metrics::Metrics;
 use qafiyah_api::state::AppState;
 
 pub const INTERNAL: &str = "internal-test-key";
+const CHECK_STATEMENT_TIMEOUT: &str = "SET statement_timeout = '60s'";
 pub const FULL: &str = "full-test-key";
 
 #[derive(Clone)]
 pub struct Harness {
     pub app: Router,
     pub pg: qafiyah_api::db::PgPool,
+    pub checks: qafiyah_api::db::PgPool,
     pub accounts: qafiyah_api::db::PgPool,
     pub state: AppState,
 }
@@ -78,6 +80,13 @@ pub async fn harness() -> Option<Harness> {
         qafiyah_api::db::corpus_setup(),
     )
     .expect("the corpus database");
+    let checks = qafiyah_api::db::pool(
+        &pg_url,
+        4,
+        Duration::from_secs(10),
+        CHECK_STATEMENT_TIMEOUT.to_string(),
+    )
+    .expect("the corpus database for checks");
     static MIGRATED: OnceCell<()> = OnceCell::const_new();
     MIGRATED
         .get_or_init(async || {
@@ -105,6 +114,7 @@ pub async fn harness() -> Option<Harness> {
     Some(Harness {
         app: qafiyah_api::app(state.clone()),
         pg,
+        checks,
         accounts,
         state,
     })
@@ -146,7 +156,7 @@ fn bound(sql: &str, binds: &[&str]) -> BoxedSqlQuery<'static, Pg, SqlQuery> {
 
 impl Harness {
     pub async fn texts(&self, sql: &str, binds: &[&str]) -> Vec<String> {
-        let mut conn = self.pg.get().await.expect("a corpus connection");
+        let mut conn = self.checks.get().await.expect("a corpus connection");
         bound(sql, binds)
             .load::<TextRow>(&mut conn)
             .await
@@ -157,7 +167,7 @@ impl Harness {
     }
 
     pub async fn text(&self, sql: &str, binds: &[&str]) -> Option<String> {
-        let mut conn = self.pg.get().await.expect("a corpus connection");
+        let mut conn = self.checks.get().await.expect("a corpus connection");
         bound(sql, binds)
             .get_result::<TextRow>(&mut conn)
             .await
@@ -167,7 +177,7 @@ impl Harness {
     }
 
     pub async fn pair(&self, sql: &str, binds: &[&str]) -> Option<(String, String)> {
-        let mut conn = self.pg.get().await.expect("a corpus connection");
+        let mut conn = self.checks.get().await.expect("a corpus connection");
         bound(sql, binds)
             .get_result::<PairRow>(&mut conn)
             .await
@@ -177,7 +187,7 @@ impl Harness {
     }
 
     pub async fn count(&self, sql: &str, binds: &[&str]) -> i64 {
-        let mut conn = self.pg.get().await.expect("a corpus connection");
+        let mut conn = self.checks.get().await.expect("a corpus connection");
         bound(sql, binds)
             .get_result::<CountRow>(&mut conn)
             .await
@@ -186,7 +196,7 @@ impl Harness {
     }
 
     pub async fn flag(&self, sql: &str, binds: &[&str]) -> bool {
-        let mut conn = self.pg.get().await.expect("a corpus connection");
+        let mut conn = self.checks.get().await.expect("a corpus connection");
         bound(sql, binds)
             .get_result::<FlagRow>(&mut conn)
             .await
