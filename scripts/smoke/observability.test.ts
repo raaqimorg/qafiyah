@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { dashboardQueries, substituteVariables } from './observability';
+import { dashboardQueries, ruleQueries, substituteVariables } from './observability';
 
 describe('dashboardQueries', () => {
   test('collects every target with its datasource, rows included, and skips text panels', () => {
@@ -50,5 +50,25 @@ describe('substituteVariables', () => {
         'rate(x{a=~"$route", b=~"$status"}[$__rate_interval]) + increase(y[$__range]) + rate(z[$__auto])'
       )
     ).toBe('rate(x{a=~".+", b=~".+"}[1m]) + increase(y[1h]) + rate(z[1m])');
+  });
+});
+
+describe('ruleQueries', () => {
+  test("collects each alert rule's Prometheus query by uid and skips expression steps", () => {
+    const rules = [
+      {
+        uid: 'api-down',
+        data: [
+          { refId: 'A', datasourceUid: 'prometheus', model: { expr: 'max(probe_success)' } },
+          { refId: 'C', datasourceUid: '__expr__', model: { type: 'threshold', expression: 'A' } },
+        ],
+      },
+    ];
+    expect(ruleQueries(rules)).toEqual([{ uid: 'api-down', expr: 'max(probe_success)' }]);
+  });
+
+  test('returns nothing for a value that is not a list of rules', () => {
+    expect(ruleQueries(null)).toEqual([]);
+    expect(ruleQueries([{ uid: 'x', data: 'no' }])).toEqual([]);
   });
 });

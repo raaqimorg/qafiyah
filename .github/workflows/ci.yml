@@ -4,11 +4,11 @@ on:
   pull_request:
     branches:
       - main
-      - "v*"
+      - "v[0-9]*"
   push:
     branches:
       - main
-      - "v*"
+      - "v[0-9]*"
   workflow_dispatch:
 
 permissions:
@@ -93,19 +93,16 @@ jobs:
                 - "!scripts/docs/**"
               - "!apps/web/**"
               - "!apps/inspector/**"
-              - "!apps/telemetry-proxy/**"
               - "!apps/edge-gateway/**"
               - "!apps/observability/**"
               - "!scripts/smoke/**"
             origin:
               - *outside-every-docker-phase
               - "!apps/inspector/**"
-              - "!apps/telemetry-proxy/**"
               - "!apps/observability/**"
             stack:
               - *outside-every-docker-phase
               - "!apps/inspector/**"
-              - "!apps/telemetry-proxy/**"
             diagrams:
               - "docs/architecture/**"
               - "scripts/docs/**"

@@ -23,6 +23,7 @@ export type KeySpec = {
 const devOptional = { dev: 'optional', prod: 'optional' } as const;
 const prodRequired = { dev: 'optional', prod: 'required' } as const;
 const devOnly = { dev: 'optional', prod: 'forbidden' } as const;
+const prodOnly = { dev: 'forbidden', prod: 'required' } as const;
 
 export const DUMP_KEY_PATTERN = /^DUMP_KEY__(\d{4}_\d{2}_\d{2}_\d{4})$/;
 
@@ -39,11 +40,7 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   PG_MONITOR_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
   ES_MONITOR_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
   GRAFANA_ADMIN_PASSWORD: { presence: prodRequired, format: 'password', isSecret: true },
-  ENVIRONMENT: {
-    presence: { dev: 'forbidden', prod: 'required' },
-    format: 'production',
-    isSecret: false,
-  },
+  ENVIRONMENT: { presence: prodOnly, format: 'production', isSecret: false },
   API_KEY_INTERNAL: { presence: prodRequired, format: 'hex64', isSecret: true },
   API_KEY_FULL: { presence: prodRequired, format: 'hex64', isSecret: true },
   ANON_REQUESTS: { presence: devOnly, format: 'positive-int', isSecret: false },
@@ -66,6 +63,8 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   CLOUDFLARE_ZONE_ID: { presence: prodRequired, format: 'text', isSecret: false },
   CLOUDFLARE_CACHE_PURGE_TOKEN: { presence: prodRequired, format: 'text', isSecret: true },
   CLOUDFLARE_API_TOKEN: { presence: devOptional, format: 'text', isSecret: true },
+  TELEGRAM_BOT_TOKEN: { presence: prodOnly, format: 'text', isSecret: true },
+  TELEGRAM_CHAT_ID: { presence: prodOnly, format: 'text', isSecret: false },
 };
 
 export const PAIRED_KEYS: readonly (readonly [string, string])[] = [

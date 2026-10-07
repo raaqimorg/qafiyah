@@ -53,6 +53,7 @@ const layout = buildPoemLayout(detail, slug as PoemSlug);
           </a>
         </p>
       )}
+      {poem.source && <p class="text-text-subtle">{poem.source}</p>}
     </div>
     <div class="my-14 flex w-full flex-col items-center gap-10 xs:my-20 lg:my-28">
       <div class="flex w-full max-w-5xl flex-col items-center gap-10">

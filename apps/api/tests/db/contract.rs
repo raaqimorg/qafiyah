@@ -605,8 +605,7 @@ async fn the_random_poem_answers_in_both_shapes() {
 }
 
 #[tokio::test]
-async fn every_random_poem_is_a_named_classical_amudi_poem_of_four_verses_or_more_with_a_known_meter()
- {
+async fn every_random_poem_is_a_vocalized_named_classical_amudi_poem_with_an_excerpt() {
     let Some(h) = h().await else { return };
     for _ in 0..25 {
         let slug = h.get("/v1/poems/random").await;
@@ -615,7 +614,9 @@ async fn every_random_poem_is_a_named_classical_amudi_poem_of_four_verses_or_mor
             .flag(
                 "SELECT (p.recension_of_id IS NOT NULL OR p.is_hidden OR po.is_anonymous \
              OR e.slug NOT IN ('jahili', 'islami', 'umawi', 'abbasi') OR ty.slug <> 'amudi' \
-             OR p.verse_count < 4 OR m.slug = 'ghayrmaruf') AS value \
+             OR p.verse_count < 4 OR m.slug = 'ghayrmaruf' OR NOT p.has_tashkeel \
+             OR NOT EXISTS (SELECT 1 FROM public.poem_verses pv JOIN public.verses v ON v.id = pv.verse_id \
+             WHERE pv.poem_id = p.id AND v.content ~ '^[^*]*\\*[^*]*$')) AS value \
              FROM public.poems p JOIN public.poets po ON po.id = p.poet_id \
              JOIN public.eras e ON e.id = po.era_id \
              JOIN public.poem_types ty ON ty.id = p.poem_type_id \
@@ -625,6 +626,13 @@ async fn every_random_poem_is_a_named_classical_amudi_poem_of_four_verses_or_mor
             .await;
         assert!(!breaks_a_rule, "{} breaks a random poem rule", slug.body);
     }
+    let has_content = h
+        .flag(
+            "SELECT (public.random_poem_json()::jsonb ? 'content') AS value",
+            &[],
+        )
+        .await;
+    assert!(!has_content, "random_poem_json no longer returns content");
 }
 
 #[tokio::test]
@@ -813,6 +821,23 @@ async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primar
 }
 
 #[tokio::test]
+async fn a_poem_without_a_source_has_no_source_field() {
+    let Some(h) = h().await else { return };
+    let Some(slug) = h
+        .text(
+            "SELECT slug AS value FROM public.poems WHERE source IS NULL AND NOT is_hidden ORDER BY id LIMIT 1",
+            &[],
+        )
+        .await
+    else {
+        return;
+    };
+    let body = h.get(&format!("/v1/poems/{slug}")).await.json();
+    assert!(body["data"]["title"].is_string(), "{body}");
+    assert!(body["data"].get("source").is_none());
+}
+
+#[tokio::test]
 async fn a_recension_names_its_primary_and_the_primary_lists_it() {
     let Some(h) = h().await else { return };
     let pair: Option<(String, String)> = h
@@ -938,6 +963,33 @@ async fn a_pooled_connection_carries_the_statement_timeout() {
     .await
     .expect("the setting");
     assert_eq!(setting.statement_timeout, "5s");
+}
+
+#[tokio::test]
+async fn the_harness_checks_give_a_full_corpus_scan_a_minute() {
+    let Some(h) = h().await else { return };
+    let checks = h
+        .text("SELECT current_setting('statement_timeout') AS value", &[])
+        .await;
+    assert_eq!(checks.as_deref(), Some("1min"));
+}
+
+#[tokio::test]
+async fn the_database_plans_no_parallel_workers_on_its_one_cpu() {
+    let Some(h) = h().await else { return };
+    #[derive(diesel::QueryableByName)]
+    struct Setting {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        max_parallel_workers_per_gather: String,
+    }
+    let mut conn = h.pg.get().await.expect("a connection");
+    let setting = diesel_async::RunQueryDsl::get_result::<Setting>(
+        diesel::sql_query("SHOW max_parallel_workers_per_gather"),
+        &mut conn,
+    )
+    .await
+    .expect("the setting");
+    assert_eq!(setting.max_parallel_workers_per_gather, "0");
 }
 
 const SHOWN: &str = "recension_of_id IS NULL AND NOT is_hidden";

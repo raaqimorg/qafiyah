@@ -30,6 +30,8 @@ mod tier {
     pub(super) const STEM_SOME: i64 = 1;
 }
 
+const POET_POPULARITY_FACTOR: f64 = 0.01;
+
 mod poet_boost {
     pub(super) const EXACT: i64 = 12;
     pub(super) const PHRASE: i64 = 6;
@@ -381,24 +383,33 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
             ],
             "minimum_should_match": 1,
         } }));
-        json!({ "bool": {
-            "should": [
-                { "term": { "name.exact": { "value": params.q, "boost": poet_boost::EXACT } } },
-                { "match_phrase": { "name": { "query": params.q, "boost": poet_boost::PHRASE } } },
-                { "match": { "name.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
-                { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
-                { "match": { "name": {
-                    "query": params.q,
-                    "fuzziness": NAME_FUZZINESS,
-                    "fuzzy_rewrite": SIMILARITY_ONLY_REWRITE,
-                    "boost": poet_boost::FUZZY,
-                } } },
-                { "match_phrase": { "nickname": { "query": params.q, "boost": poet_boost::PHRASE } } },
-                { "match": { "nickname.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
-                { "match": { "nickname.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
-            ],
-            "minimum_should_match": 1,
-            "filter": gate,
+        json!({ "function_score": {
+            "query": { "bool": {
+                "should": [
+                    { "term": { "name.exact": { "value": params.q, "boost": poet_boost::EXACT } } },
+                    { "match_phrase": { "name": { "query": params.q, "boost": poet_boost::PHRASE } } },
+                    { "match": { "name.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
+                    { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
+                    { "match": { "name": {
+                        "query": params.q,
+                        "fuzziness": NAME_FUZZINESS,
+                        "fuzzy_rewrite": SIMILARITY_ONLY_REWRITE,
+                        "boost": poet_boost::FUZZY,
+                    } } },
+                    { "match_phrase": { "nickname": { "query": params.q, "boost": poet_boost::PHRASE } } },
+                    { "match": { "nickname.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
+                    { "match": { "nickname.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
+                ],
+                "minimum_should_match": 1,
+                "filter": gate,
+            } },
+            "field_value_factor": {
+                "field": "poemsCount",
+                "modifier": "log2p",
+                "factor": POET_POPULARITY_FACTOR,
+                "missing": 0,
+            },
+            "boost_mode": "multiply",
         } })
     };
 

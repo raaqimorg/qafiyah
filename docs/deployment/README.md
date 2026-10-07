@@ -1,21 +1,28 @@
 # Deployment
 
-> **Canonical & in-repo.** Every deploy refreshes the host copy at `/opt/qafiyah` (`git reset --hard origin/main`), edit here, commit, deploy. Nothing to sync by hand.
+> **The repo is the source.** Every deploy resets the host copy at `/opt/qafiyah` to `origin/main` (`git reset --hard origin/main`). So edit here, commit, release, and deploy. Nothing needs a manual sync.
 >
-> **Keep this doc set secret-free.** No credentials, tokens, real IPs, or Cloudflare Tunnel IDs (clones, CI logs, and future contributors see it). Document _where_ secrets live (the gitignored `.env`), never their values; read host-specific identifiers off the live box (e.g. `cloudflared tunnel list`).
+> **Keep this doc set free of secrets.** Clones, CI logs, and future contributors can read it. So never write credentials, tokens, real IP addresses, or Cloudflare Tunnel IDs here. Say _where_ a secret is (the gitignored `.env` file), never its value. Read host-specific identifiers from the live server, for example with `cloudflared tunnel list`.
 
-Production deploy + on-box operator runbook for **api, search-indexer, web** (Docker Compose on a single VPS, fronted by Cloudflare) and the **telemetry-proxy** Cloudflare Worker. For local dev use `bun run dev`.
+These docs are the production deploy guide and the operator runbook for the server. They cover the Docker Compose stack on one VPS behind Cloudflare: the site (`web`, `api`, `search-indexer`), its data stores, the edge gateway, and the observability stack. For local development, use `bun run dev`.
 
-Pick the part you need:
+Pick the part that you need:
 
-- **Deploying, releasing, or rolling back?** Run the `deploy` skill (`.claude/skills/deploy/SKILL.md`), it's the ordered runbook: VPS deploy, rollback, shipping a new DB/ES dump, reindexing, a major Postgres/ES version bump, the WAF DetectionOnly→On rollout, and the telemetry-proxy Worker deploy. It's manual-only (`disable-model-invocation: true`), so ask for it or invoke it explicitly.
-- **Understanding how the system is built?** `docs/deployment/architecture.md`: Cloudflare Tunnel/edge-gateway traffic flow, the container stack, prod/dev isolation, security posture, and what a deploy automates internally.
-- **Setting up or configuring an environment?** `docs/deployment/environments.md`: VPS prerequisites, first-boot seeding, secrets, and the API key gating env vars.
-- **Working on a specific service?** `docs/deployment/services.md`: api, web (caching/nginx/TLS), the telemetry-proxy, the edge-gateway/WAF, and the search-indexer.
-- **Managing secrets, or setting up a machine to decrypt them?** `docs/deployment/secrets.md`: SOPS + age, the schema every key must pass, and what each machine needs.
-- **Something broken, or doing an ops task?** `docs/deployment/troubleshooting.md`: common host commands, gotchas, and the major-version-bump recovery.
+- **To deploy, release, or roll back:** follow the `deploy` skill (`.claude/skills/deploy/SKILL.md`). It is the ordered runbook for these tasks:
+  - a VPS deploy, and a rollback
+  - a new database or Elasticsearch dump, and a reindex
+  - a major Postgres or Elasticsearch version upgrade
+  - the WAF change from DetectionOnly to On
+
+  The skill is manual only (`disable-model-invocation: true`), so ask for it by name or start it yourself.
+
+- **To understand how the system is built:** read `docs/deployment/architecture.md`. It covers the traffic flow through the Cloudflare Tunnel and the edge gateway, the container stack, the isolation of production from dev, the security posture, and what a deploy does internally.
+- **To set up or configure an environment:** read `docs/deployment/environments.md`. It covers the VPS prerequisites, the first-boot seeding, the secrets, and the environment variables that gate API keys.
+- **To work on one service:** read `docs/deployment/services.md`. It covers the API, the web app (caching, nginx, TLS), the edge gateway and its WAF, and the search indexer.
+- **To manage secrets, or to set up a machine that decrypts them:** read `docs/deployment/secrets.md`. It covers SOPS and age, the schema that every key must pass, and what each machine needs.
+- **When something is broken, or for an operations task:** read `docs/deployment/troubleshooting.md`. It covers common host commands, known problems, and the recovery after a major version upgrade.
 
 ## See also
 
-- `docs/topology.md`: diagram-first map of the whole system, code and production
-- `data/db/MAINTAINERS_GUIDE.md`: database dump workflow
+- `docs/topology.md`: a diagram-first map of the whole system, both code and production.
+- `data/db/MAINTAINERS_GUIDE.md`: how to make and ship a database dump.

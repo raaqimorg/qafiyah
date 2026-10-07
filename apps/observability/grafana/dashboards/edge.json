@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Every request the website's nginx answered**: pages served from its cache, pages Astro rendered, static files, and API requests through the website, timed by nginx from receiving the request to sending the last byte (`request_time`, to the millisecond, so a cache hit often reads 0). The edge gateway's own time and Cloudflare are not included. **Cache status** is nginx's page cache: HIT, MISS, EXPIRED, STALE, BYPASS, or none when the response is not cacheable. Percentiles come from the raw logged times over the range, with the same thresholds as the latency dashboard (p95 needs 100 requests, p99 needs 500). The data is the website's access log in Loki, kept 7 days. During a flood Alloy keeps at most 10 lines a second per service (beyond a burst of 2,000), so these numbers become a sample; the Health dashboard shows how many lines were dropped, and the Latency dashboard still counts every rendered page."
+        "content": "**Every request the website's nginx answered**: pages served from its cache, pages Astro rendered, static files, and API requests through the website, timed by nginx from receiving the request to sending the last byte (`request_time`, to the millisecond, so a cache hit often reads 0). The edge gateway's own time and Cloudflare are not included. **Cache status** is nginx's page cache: HIT, MISS, EXPIRED, STALE, BYPASS, or none when the response is not cacheable. **Search cache hit ratio** is the same ratio for the website's search proxy (`/api/v1/search`) alone. Percentiles come from the raw logged times over the range, with the same thresholds as the latency dashboard (p95 needs 100 requests, p99 needs 500). The data is the website's access log in Loki, kept 7 days. During a flood Alloy keeps at most 10 lines a second per service (beyond a burst of 2,000), so these numbers become a sample; the Health dashboard shows how many lines were dropped, and the Latency dashboard still counts every rendered page."
       }
     },
     {
@@ -54,7 +54,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 5
       },
@@ -103,6 +103,62 @@
     },
     {
       "type": "stat",
+      "title": "Search cache hit ratio",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service=\"web\"} |= `\"source\":\"nginx\"` | json | __error__=\"\" | uri=~\"/api/v1/search.*\" | cache=~\"HIT|STALE|UPDATING|REVALIDATED\" [$__range])) / sum(count_over_time({service=\"web\"} |= `\"source\":\"nginx\"` | json | __error__=\"\" | uri=~\"/api/v1/search.*\" | cache!=\"\" [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "noValue": "unknown",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
       "title": "Requests nginx answered in the range",
       "datasource": {
         "type": "loki",
@@ -110,8 +166,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 5
       },
       "targets": [
