@@ -37,6 +37,8 @@ services:
         "tcp_keepalives_count=3",
         "-c",
         "client_connection_check_interval=10s",
+        "-c",
+        "max_parallel_workers_per_gather=0",
       ]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-qafiyah}
