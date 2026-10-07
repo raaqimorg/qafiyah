@@ -37,6 +37,7 @@ export SENTRY_RELEASE
 docker compose build api search-indexer
 trap 'echo "✗ restore failed, the API is still stopped: fix the cause and rerun bun run db:reseed" >&2' ERR
 docker compose stop api
+docker compose up -d --force-recreate --no-deps --wait db
 docker compose exec -T db bash /docker-entrypoint-initdb.d/10-restore.sh
 docker compose run --rm --no-deps db-monitor-role
 docker compose up -d --no-deps --wait api
