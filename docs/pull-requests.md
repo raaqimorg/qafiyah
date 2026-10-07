@@ -8,7 +8,7 @@
 
 Versions are whole numbers: 1, 2, 3, and so on. Version 1 is the release of 2026-10-07. There are no tags and no GitHub Releases; a version is a branch while it is open and a file in `docs/changelog/` once it is released.
 
-- One version is open at a time, on a branch named `v` and its number (`v2`). It is cut from `main` right after the previous release. `git ls-remote --heads origin 'v*'` shows it.
+- One version is open at a time, on a branch named `v` and its number (`v2`). It is cut from `main` right after the previous release. `git ls-remote --heads origin 'refs/heads/v[0-9]*'` shows it.
 - Branch off the open version branch and open pull requests into it (`gh pr create --base v2`). They are squash-merged as usual. Only release pull requests (below), urgent fixes, and security advisories go into `main`.
 - `Closes #<number>` in a pull request into a version branch does not close the issue, because GitHub closes issues only on merges into the default branch. The issue closes when the version is released.
 - Dependabot opens its pull requests against `main`. Retarget each one to the open version branch before merging: `gh pr edit <number> --base v2`.

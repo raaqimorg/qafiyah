@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - main
-      - "v*"
+      - "v[0-9]*"
   pull_request:
     branches:
       - main
-      - "v*"
+      - "v[0-9]*"
   workflow_dispatch:
 
 permissions:

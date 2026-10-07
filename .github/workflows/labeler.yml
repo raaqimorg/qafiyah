@@ -4,7 +4,7 @@ on:
   pull_request_target:
     branches:
       - main
-      - "v*"
+      - "v[0-9]*"
 
 permissions:
   contents: read
