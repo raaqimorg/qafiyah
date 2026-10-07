@@ -940,6 +940,24 @@ async fn a_pooled_connection_carries_the_statement_timeout() {
     assert_eq!(setting.statement_timeout, "5s");
 }
 
+#[tokio::test]
+async fn the_database_plans_no_parallel_workers_on_its_one_cpu() {
+    let Some(h) = h().await else { return };
+    #[derive(diesel::QueryableByName)]
+    struct Setting {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        max_parallel_workers_per_gather: String,
+    }
+    let mut conn = h.pg.get().await.expect("a connection");
+    let setting = diesel_async::RunQueryDsl::get_result::<Setting>(
+        diesel::sql_query("SHOW max_parallel_workers_per_gather"),
+        &mut conn,
+    )
+    .await
+    .expect("the setting");
+    assert_eq!(setting.max_parallel_workers_per_gather, "0");
+}
+
 const SHOWN: &str = "recension_of_id IS NULL AND NOT is_hidden";
 
 #[expect(clippy::expect_used, reason = "a missing page is a failed test")]
