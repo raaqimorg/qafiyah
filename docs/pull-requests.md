@@ -9,6 +9,7 @@
 Versions are whole numbers: 1, 2, 3, and so on. Version 1 is the release of 2026-10-07. There are no tags and no GitHub Releases; a version is a branch while it is open and a file in `docs/changelog/` once it is released.
 
 - One version is open at a time, on a branch named `v` and its number (`v2`). It is cut from `main` right after the previous release. `git ls-remote --heads origin 'refs/heads/v[0-9]*'` shows it.
+- Every open version has a draft release pull request from `vN` into `main`, titled `release: version N`, opened with the version's first change (GitHub refuses a pull request between two identical branches): `gh pr create --base main --head vN --draft --title "release: version N"`. When a pull request merges into `vN`, add its `Closes #<number>` line and a one-line summary to the release pull request's description.
 - Branch off the open version branch and open pull requests into it (`gh pr create --base v2`). They are squash-merged as usual. Only release pull requests (below), urgent fixes, and security advisories go into `main`.
 - `Closes #<number>` in a pull request into a version branch does not close the issue, because GitHub closes issues only on merges into the default branch. The issue closes when the version is released.
 - Dependabot opens its pull requests against `main`. Retarget each one to the open version branch before merging: `gh pr edit <number> --base v2`.
@@ -19,10 +20,10 @@ Versions are whole numbers: 1, 2, 3, and so on. Version 1 is the release of 2026
 Releasing version N:
 
 1. On `vN`, write `docs/changelog/vN.md` and commit it. Start from `git log --oneline main..vN`.
-2. Open a pull request from `vN` into `main` titled `release: version N`, whose description has `Closes #<number>` for every issue the version fixed.
+2. Check that the release pull request's description has `Closes #<number>` for every issue the version fixed, then mark it ready: `gh pr ready <number>`.
 3. When CI passes, merge it with a merge commit, not a squash, so each change keeps its own commit on `main`: `gh pr merge <number> --merge --subject "release: version N (#<number>)" --body ""`.
 4. Deploy `main` with the deploy runbook (`.claude/skills/deploy/SKILL.md`).
-5. Delete `vN` (`git push origin --delete vN`) and open the next version from `main` (`git push origin main:refs/heads/v<N+1>`).
+5. Delete `vN` (`git push origin --delete vN`) and open the next version from `main` (`git push origin main:refs/heads/v<N+1>`). Its draft release pull request is opened with its first change.
 
 `docs/changelog/vN.md` holds, in this order: the title `# Version N`, the release date and the commit that was deployed, `## Changes` with one line per merged pull request (what changed, then its pull request and issue numbers), `## Release steps` with anything the release needed beyond a plain deploy (a dump restore, a reindex) or "A plain deploy.", and `## Follow-ups` with the issues the release opened.
 
