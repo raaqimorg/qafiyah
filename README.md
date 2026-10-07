@@ -88,8 +88,7 @@ flowchart LR
     api --> es[("Elasticsearch")]
     indexer["search-indexer<br/>one-shot job"] --> db
     indexer --> es
-    browser -->|"t.qafiyah.com"| telemetry["telemetry-proxy<br/>Cloudflare Worker"]
-    telemetry --> sentry[("Sentry")]
+    browser -->|"browser errors"| sentry[("Sentry")]
 ```
 
 | Part                                                     | Role                                                                                | Built with                                |
@@ -100,7 +99,6 @@ flowchart LR
 | [`crates/elasticsearch`](crates/elasticsearch/AGENTS.md) | Index schema, Arabic analyzers, and client shared by the two above                  | Rust                                      |
 | [`crates/corpus`](crates/corpus/AGENTS.md)               | Diesel schema of the corpus database, shared by the API and the indexer             | Rust, Diesel                              |
 | [`apps/edge-gateway`](apps/edge-gateway/AGENTS.md)       | Web application firewall in front of everything, configuration only                 | nginx, OWASP ModSecurity CRS              |
-| [`apps/telemetry-proxy`](apps/telemetry-proxy/AGENTS.md) | Forwards browser error reports to Sentry from a first-party hostname                | Cloudflare Workers                        |
 | [`apps/inspector`](apps/inspector/AGENTS.md)             | Dev-only report of the metadata on every page type                                  | TypeScript                                |
 | [`scripts/`](scripts/AGENTS.md)                          | Repo tooling and the CI gate, one `bun run` name per entry point                    | Bun, Turborepo, oxlint, oxfmt, vitest     |
 

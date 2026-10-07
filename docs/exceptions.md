@@ -285,14 +285,6 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** link to the external URL directly from one web constant.
 - **Status:** Needs review
 
-### Browser telemetry goes through a separate Worker and domain
-
-- **What:** the browser DSN host is changed to `t.qafiyah.com`. There, a Cloudflare Worker forwards events to Sentry. It has a hard-coded ingest host and project id, its own CORS, and its own deploy.
-- **Where:** `apps/telemetry-proxy/`, `apps/web/sentry.client.config.js`, `apps/web/sentry.server.config.js`, `apps/web/nginx-csp.conf`, `apps/web/nginx-csp-api.conf`, `docs/topology.md`
-- **Why it's unusual:** changing the Sentry project touches three files and two deploys. `docs/topology.md` says API and web telemetry go through `t.qafiyah.com`, but `sentry.server.config.js` posts straight to the ingest host.
-- **Normal approach:** `Sentry.init({ tunnel: '/monitoring' })` with a same-origin route shipped with web.
-- **Status:** Needs review
-
 ### Branded slug types are never validated
 
 - **What:** seven valibot brand schemas exist, six are used only to derive types, and routes cast `Astro.params` to the brand.
@@ -440,7 +432,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 ### Operational runbooks live in agent skill files
 
 - **What:** human-facing docs point to `.claude/skills/deploy/SKILL.md` and `.claude/skills/local-db-edit/SKILL.md` as the ordered runbook for deploy, rollback, reseed, and dump creation.
-- **Where:** `.claude/skills/`, `data/db/MAINTAINERS_GUIDE.md`, `docs/deployment/README.md`, `docs/topology.md`, `apps/telemetry-proxy/AGENTS.md`
+- **Where:** `.claude/skills/`, `data/db/MAINTAINERS_GUIDE.md`, `docs/deployment/README.md`, `docs/topology.md`
 - **Why it's unusual:** a maintainer has to find procedures inside a tool-specific directory that `.gitignore` otherwise excludes.
 - **Normal approach:** keep runbooks in `docs/deployment/` and have the skill point to them.
 - **Status:** Needs review

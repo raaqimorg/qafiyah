@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deploy, release data or index changes to, or roll back the qafiyah production VPS stack or the telemetry-proxy Cloudflare Worker. Use when the user asks to deploy, ship to prod, release, or roll back.
+description: Deploy, release data or index changes to, or roll back the qafiyah production VPS stack. Use when the user asks to deploy, ship to prod, release, or roll back.
 disable-model-invocation: true
 ---
 
@@ -119,14 +119,3 @@ If a legitimate request keeps tripping a rule after that, exclude that rule id (
 **Rollback:** set `MODSEC_RULE_ENGINE: DetectionOnly` again, merge it into `main` as an urgent fix, and deploy. The gateway then blocks nothing, and the tunnel configuration needs no change.
 
 Removing the gateway from the path is not a quick rollback. The deploy script names `edge-gateway`, and its rolling replace scales `web` to two replicas. A host port on `web` allows only one replica. So that change also needs changes to `scripts/deploy/vps.sh`.
-
-## 7. Deploy the telemetry proxy (Cloudflare Worker, separate from the VPS stack)
-
-First run `bunx wrangler login`, or set `CLOUDFLARE_API_TOKEN`. Then run:
-
-```bash
-cd apps/telemetry-proxy
-bun run deploy        # wrangler deploy
-```
-
-This step is separate from step 1. A change to the Worker itself (`apps/telemetry-proxy/`) needs this step. A change to how the web app _calls_ the Worker needs step 1 instead. For details, see `apps/telemetry-proxy/AGENTS.md`.
