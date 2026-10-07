@@ -96,6 +96,8 @@ CRS can false-positive on **Arabic search input** (unusual encodings/punctuation
 
 Search is served from Elasticsearch, populated from Postgres by `apps/search-indexer`, both in the same Compose stack, loopback-only. The indexer is a one-shot init job that `api` waits on; what it does and when it reindexes: `apps/search-indexer/AGENTS.md`. Fix drift on a populated index with `bun run reindex:prod` (full rebuild + alias swap; bare `bun run reindex` targets dev). The ordered command is in `.claude/skills/deploy/SKILL.md`.
 
+Elasticsearch has one CPU (`cpus: 1.0`), so its search thread pool has 2 threads and concurrent searches queue: measured on the dev stack with the full index, a burst of 16 searches takes 1.3 to 1.9 s when warm and 2.8 to 3.5 s in the first one after a restart, while a single search right after a restart takes about 0.45 s. Ordinary traffic after a restart is therefore served normally; only a burst on a cold node comes near the API's 5 s search deadline (#208).
+
 ## Observability (`apps/observability`)
 
 Prometheus, Loki, Alloy, Grafana, postgres_exporter, elasticsearch_exporter, blackbox_exporter, and the one-shot `db-monitor-role` job run in the same Compose stack; `bun run deploy` converges them with `db` and `elasticsearch`. What each dashboard shows and how to read it: `apps/observability/AGENTS.md`.

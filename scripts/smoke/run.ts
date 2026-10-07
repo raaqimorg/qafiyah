@@ -199,6 +199,19 @@ function smokeInit(url: string): RequestInit | undefined {
   return Object.keys(headers).length > 0 ? { headers } : undefined;
 }
 
+const WARM_SEARCHES = [
+  'q=سلام&types=poems',
+  'q=المتنبي&types=poets',
+  'q=بحر&types=poems&exact=true',
+];
+
+async function warmSearch(): Promise<void> {
+  for (const query of WARM_SEARCHES) {
+    const url = `${SEARCH}?${encodeURI(query)}`;
+    await fetchWire(url, REQUEST_TIMEOUT_MS, smokeInit(url));
+  }
+}
+
 async function runDifferential(diff: (typeof differentials)[number]): Promise<Outcome> {
   const url = `${diff.a}  ⟂  ${diff.b}`;
   const started = performance.now();
@@ -498,6 +511,8 @@ async function main() {
     if (apiReady.isErr()) return await bail(` ${describeUnready('api', apiReady.error)}`);
     process.stdout.write(' running...\n');
   }
+
+  if (SURFACE.manageServer) await warmSearch();
 
   const outcomes: Outcome[] = [];
   const record = (o: Outcome) => {
