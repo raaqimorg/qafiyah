@@ -68,6 +68,7 @@ scripts/db/diff-state.sh "$BEFORE" "$AFTER" data/db/{new-dir}/CHANGES.md
 `diff-state.sh` creates `data/db/{new-dir}/` if it does not exist. Then refresh the derived rows (`data/db/MAINTAINERS_GUIDE.md`, "Create the dump"), and write the real dump directly into that directory:
 
 ```bash
+./scripts/dev/compose.sh exec -T db psql -U qafiyah -d qafiyah -v ON_ERROR_STOP=1 -c 'SELECT public.refresh_poem_tashkeel();'
 ./scripts/dev/compose.sh exec -T db psql -U qafiyah -d qafiyah -v ON_ERROR_STOP=1 -c 'SELECT public.refresh_poem_relations();'
 ./scripts/dev/compose.sh exec -T db psql -U qafiyah -d qafiyah -v ON_ERROR_STOP=1 -c 'SELECT public.refresh_taxonomy_stats();'
 ./scripts/dev/compose.sh exec -T db pg_dump -U qafiyah -d qafiyah --schema=public --no-owner --no-privileges --no-tablespaces -Fc >data/db/{new-dir}/qafiyah_public_$(date +%Y%m%d_%H%M%S).dump

@@ -25,7 +25,15 @@ BEGIN
     AND e.slug IN ('jahili', 'islami', 'umawi', 'abbasi')
     AND ty.slug = 'amudi'
     AND p.verse_count >= 4
-    AND m.slug <> 'ghayrmaruf';
+    AND m.slug <> 'ghayrmaruf'
+    AND p.has_tashkeel
+    AND EXISTS (
+      SELECT 1
+      FROM public.poem_verses pv
+      JOIN public.verses v ON v.id = pv.verse_id
+      WHERE pv.poem_id = p.id
+        AND v.content ~ '^[^*]*\*[^*]*$'
+    );
 
   ANALYZE public.random_poem_pool;
 END;
@@ -48,12 +56,6 @@ AS $function$
   SELECT json_build_object(
     'poem_id',   p.id,
     'poet_name', pt.name,
-    'content',   (
-      SELECT string_agg(v.content, '*' ORDER BY pv.position)
-      FROM public.poem_verses pv
-      JOIN public.verses v ON v.id = pv.verse_id
-      WHERE pv.poem_id = p.id
-    ),
     'lines',     (
       SELECT json_agg(v.content ORDER BY pv.position)
       FROM public.poem_verses pv

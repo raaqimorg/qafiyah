@@ -68,6 +68,10 @@ echo "[db-init] ensuring merge_poet() exists..."
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
   -f /docker-entrypoint-initdb.d/sql/merge-poet.sql
 
+echo "[db-init] ensuring poems.has_tashkeel exists (filled once when added)..."
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
+  -f /docker-entrypoint-initdb.d/sql/poem-tashkeel.sql
+
 echo "[db-init] ensuring the taxonomy stats tables exist and match the restored data..."
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" \
   -f /docker-entrypoint-initdb.d/sql/refresh-taxonomy-stats.sql

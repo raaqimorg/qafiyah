@@ -183,10 +183,12 @@ A poem is eligible when it meets all of these conditions:
 - Its poet is named (not anonymous), and is of the jahili, islami, umawi, or abbasi era.
 - It is عمودي, with at least four verses.
 - Its meter is known.
+- It has tashkeel (`has_tashkeel`, see "Tashkeel").
+- It has at least one stored row with exactly two halves, so it has an excerpt.
 
 `refresh_random_poem_pool()` (`scripts/db/sql/random-poem.sql`) computes the eligible set in advance, into `random_poem_pool` (`poet_rank`, `poem_id`). It runs on every restore. So a request is two index lookups (a random `poet_rank`, then a random poem of that poet), not a filter over the corpus.
 
-`?option=lines` then takes one verse of the poem. It tries up to five poems, until the verse and the poet's name fit in 280 characters.
+`?option=lines` then takes one verse of the poem. It tries up to five poems, until the verse and the poet's name fit in 280 characters. `random_poem_json()` returns the poem's rows as `lines`.
 
 The pool is only as current as its last refresh.
 
@@ -195,6 +197,12 @@ The pool is only as current as its last refresh.
 - Production never sees either problem, because data changes reach it only through a dump, and every restore fills the pool again.
 
 After such an edit on a running database, run `SELECT public.refresh_random_poem_pool();`.
+
+## Tashkeel
+
+`poems.has_tashkeel` says that a poem is vocalized. It is true when the poem's verses hold at least 0.3 harakat (U+064B to U+0652) for each Arabic letter (U+0621 to U+064A). A careful selective vocalization measures about 0.4, and a full one about 0.8.
+
+`refresh_poem_tashkeel()` (`scripts/db/sql/poem-tashkeel.sql`) sets it when a dump is made. A restore keeps the stored values. After a manual edit of verses, run `SELECT public.refresh_poem_tashkeel();`.
 
 ## Merged poems and aliases
 
@@ -257,8 +265,10 @@ A change takes effect on the site with the next dump. The snapshot steps refresh
 
 A poem often comes down in more than one reading. A word differs, a verse is missing or added, or the lines come in another order. The corpus keeps each reading as its own row, and links them:
 
-- The richest reading is the primary (`recension_of_id` is NULL).
+- The primary (`recension_of_id` is NULL) is the reading that the site shows as the main one.
 - Every other reading has a `recension_of_id` that points at the primary. The primary is always a poem of the same poet.
+
+A reading can name its `source`: who narrated it, edited it, or vocalized it. It is free text, and NULL when it is not known.
 
 These show primaries only: lists, counts (live and `*_stats`), the sitemap, search browsing, the random poem, and related poems. The facet indexes are partial on `recension_of_id IS NULL`, so the list keeps its index-only scans.
 
@@ -266,7 +276,9 @@ A text search matches every reading, but shows each poem once. It shows the read
 
 A recension keeps its own page and URL, and names its primary. Its canonical URL is the URL of the primary. The page of the primary lists its other recensions.
 
-The Mu'allaqat, which classical sources carry in several recensions, are the model case for more readings later. A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
+The Mu'allaqat, which classical sources carry in several recensions, are the model case for more readings later. Seven of them have Faisal Al-Mansour's vocalized edition of al-Anbari's recension as their primary (dump 0040). Their older primaries became recensions. The primaries kept their URLs, so the old texts moved to new URLs (`corpus:promote-reading`).
+
+A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
 
 ## Taxonomy counts
 

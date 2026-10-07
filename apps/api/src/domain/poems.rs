@@ -25,6 +25,7 @@ pub struct RecensionLink {
     pub title: String,
     pub slug: String,
     pub verse_count: i32,
+    pub source: Option<String>,
 }
 
 pub struct Poem {
@@ -40,6 +41,7 @@ pub struct Poem {
     pub theme: Term,
     pub rhyme: Term,
     pub poem_type: Term,
+    pub source: Option<String>,
     pub prev: Option<PoemLink>,
     pub next: Option<PoemLink>,
     pub recension_of: Option<PoemLink>,
@@ -102,11 +104,13 @@ pub struct Recension {
     pub title: String,
     pub slug: String,
     pub verse_count: i32,
+    pub source: Option<String>,
 }
 
 pub struct PoemRecord {
     pub title: String,
     pub verse_count: i32,
+    pub source: Option<String>,
     pub recension_of_id: Option<i32>,
     pub poet: PoetBrief,
     pub era: Term,
@@ -197,6 +201,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<Poem, PoemError> {
             title: relative.title,
             slug: relative.slug,
             verse_count: relative.verse_count,
+            source: relative.source,
         })
         .collect();
     if record.lines.is_empty() {
@@ -217,6 +222,7 @@ fn detail(slug: &str, record: PoemRecord) -> Result<Poem, PoemError> {
         theme: record.theme,
         rhyme: record.rhyme,
         poem_type: record.poem_type,
+        source: record.source,
         prev: record.prev,
         next: record.next,
         recension_of,
@@ -317,6 +323,54 @@ mod tests {
 
     fn rows(items: &[&str]) -> Vec<String> {
         items.iter().map(|row| (*row).to_string()).collect()
+    }
+
+    fn term() -> Term {
+        Term {
+            name: "Name".into(),
+            slug: "name".into(),
+        }
+    }
+
+    fn sample_record(lines: Vec<String>) -> PoemRecord {
+        PoemRecord {
+            title: "Title".into(),
+            verse_count: 1,
+            source: None,
+            recension_of_id: None,
+            poet: PoetBrief {
+                name: "Name".into(),
+                slug: "name".into(),
+                has_avatar: false,
+                is_anonymous: false,
+            },
+            era: term(),
+            meter: term(),
+            theme: term(),
+            rhyme: term(),
+            poem_type: term(),
+            lines,
+            prev: None,
+            next: None,
+            family: Vec::new(),
+            related: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_poem_and_its_readings_carry_their_sources() {
+        let mut poem = sample_record(rows(&["a*b"]));
+        poem.source = Some("مصدر".into());
+        poem.family = vec![Recension {
+            id: 2,
+            title: "Title".into(),
+            slug: "abcd".into(),
+            verse_count: 1,
+            source: None,
+        }];
+        let detail = detail("wxyz", poem).expect("a poem");
+        assert_eq!(detail.source.as_deref(), Some("مصدر"));
+        assert_eq!(detail.recensions[0].source, None);
     }
 
     #[test]
