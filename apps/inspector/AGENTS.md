@@ -1,17 +1,24 @@
 # Inspector Agent Guide
 
-Dev-only Bun app. Renders a single HTML report showing metadata for one live example of every distinct page type on `apps/web`. Not deployed, not for production use.
+This is a dev-only Bun app. It renders a single HTML report with the metadata of one live example of every distinct page type on `apps/web`. It is not deployed, and it is not for production use.
 
 ## Shape
 
-- `src/route-discovery.ts`: scans `apps/web/src/pages/` (plain filesystem read, not a module import) and turns Astro's file-based routing conventions into "route shapes", the ground truth of every distinct page type that should exist. Self-updating: add, remove, or rename a page in `apps/web` and Inspector's report reflects it on the next load with no changes here.
-- `src/site-crawl.ts`: resolves one live URL per shape. Static shapes are fetched directly; dynamic shapes (`[slug]` routes) are resolved with a small bounded same-origin crawl, following `href`s found on already-fetched pages until every shape has a sample or a 30-fetch budget runs out. A shape that stays unresolved is a real signal, not a bug: it means the live site currently has no reachable example of that page type.
-- `src/inspector.ts`: the extension point, a plain `Inspector` interface (`id`, `title`, `inspect(subject)`). Every report type conforms to it.
-- `src/inspectors/`: one file per report type. `page-metadata.ts` is the only one so far, checking the same OG/Twitter/canonical/JSON-LD/title thresholds as the smoke `seo` suite (`scripts/smoke/suites/seo.ts`, deliberately duplicated in two small independent places rather than shared). Add a new report type by dropping in a new file here exporting an `Inspector` and appending it to the `INSPECTORS` registry array in `src/index.ts`; nothing else in the pipeline changes.
-- `src/render.ts`: builds the final report page, plain HTML/CSS, no client JS.
-- `src/index.ts`: `Bun.serve()` entrypoint; every request re-runs discovery, crawl, inspection, and rendering from scratch, so the report always reflects the live `apps/web` dev server, never a stale snapshot.
-- Runs on `DEV_INSPECTOR_PORT` (from the root `config.ts`, imported as `@qafiyah/config`, default 4322) and targets `WEB_BASE_URL` (default `http://localhost:${DEV_WEB_PORT}`). Auto-started by `scripts/dev/run.ts` after the web app reports ready, only when `bun run dev --inspector` is passed.
+- `src/route-discovery.ts` scans `apps/web/src/pages/` with a plain filesystem read, not a module import. It changes Astro's file-based routing conventions into "route shapes". These are the ground truth of every distinct page type that must exist.
+  - It updates itself. Add, remove, or rename a page in `apps/web`, and the next load of the report shows the change, with no change here.
+- `src/site-crawl.ts` finds one live URL for each shape.
+  - It fetches static shapes directly.
+  - It finds dynamic shapes (`[slug]` routes) with a small, bounded crawl on the same origin. It follows the `href`s on pages that it already fetched, until every shape has a sample or it reaches its budget of 30 fetches.
+  - A shape with no URL at the end is a real signal, not a bug. It means that the live site has no reachable example of that page type now.
+- `src/inspector.ts` is the extension point: a plain `Inspector` interface (`id`, `title`, `inspect(subject)`). Every report type conforms to it.
+- `src/inspectors/` has one file for each report type.
+  - `page-metadata.ts` is the only one now. It checks the same OG, Twitter, canonical, JSON-LD, and title thresholds as the smoke `seo` suite (`scripts/smoke/suites/seo.ts`). The two copies are small and independent, and are not shared, on purpose.
+  - To add a report type, add a file here that exports an `Inspector`, and add it to the `INSPECTORS` array in `src/index.ts`. Nothing else in the pipeline changes.
+- `src/render.ts` builds the final report page, in plain HTML and CSS, with no client JavaScript.
+- `src/index.ts` is the `Bun.serve()` entry point. Every request runs discovery, crawl, inspection, and rendering again from the start. So the report always shows the live `apps/web` dev server, never an old snapshot.
+- It runs on `DEV_INSPECTOR_PORT` (from the root `config.ts`, imported as `@qafiyah/config`; the default is 4322). It targets `WEB_BASE_URL` (the default is `http://localhost:${DEV_WEB_PORT}`).
+- `scripts/dev/run.ts` starts it after the web app reports ready, only when you pass `bun run dev --inspector`.
 
 ## Deliberate, non-obvious behavior
 
-See the Inspector section of `docs/exceptions.md`.
+See the "Inspector" section of `docs/exceptions.md`.

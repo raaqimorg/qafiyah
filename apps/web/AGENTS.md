@@ -1,23 +1,40 @@
 # Web Agent Guide
 
-Astro (SSR, `output: 'server'`) + React-island frontend for the qafiyah.com Arabic poetry catalog. Pages fetch from `apps/api` through a typed OpenAPI client; a handful of components hydrate client-side for interactivity (search, random poem, settings).
+This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, and settings.
 
 ## Shape
 
-- `pages/`: file-based routes. `.astro` files render HTML; `.xml.ts`/`.txt.ts` files generate sitemaps/robots/llms.txt. List/detail pages fetch through `lib/server/*` and `Astro.rewrite('/404')` when that resolves to "not found."
-- `lib/server/`: SSR-only. `client.ts` (`apiServer`, internal API URL). `unwrap.ts`: `safeCall`/`unwrap`/`getOrNull`, the retry+not-found+throw pattern every fetcher below is built from. `cache.ts`: Cache-Control builders. `types.ts`: `Ok<'/path'>` derives a resource's type straight from the generated schema; don't hand-declare a DTO that already exists there. One file per resource: `poems`, `poets`, `taxonomies`, `collections`, `sitemap`, plus `search-filter-options`, which builds the home page's search filters from the taxonomy lists at render time (the page is not cached when it fails).
-- `lib/api/`: the client shared by server and browser: `browser-client.ts` (`apiBrowser`) is the keyless, same-origin client the islands use instead of `lib/server/client.ts`. `proxy-allowlist.ts` and `proxy-handler.ts` back the `/api/v1/[...path]` route it calls.
-- `lib/generated/`: nothing here is hand-authored (see `docs/code-conventions.md`'s "Generated files" rule); one subfolder per source: `openapi/schema.gen.ts` (from `apps/api/generated/openapi/openapi.json`), `well-known/well-known.gen.ts` (from `well-known/*` templates). Don't hand-edit; regenerate via the matching `bun run <name>:generate` script and commit the diff.
-- `components/ui/`: design-system primitives. `ui-extended/`: composed pieces built from them. `search/`: the search island (React Query + `nuqs` URL state). `layout/`: page chrome, including the `is:inline` scripts that run before hydration (see below).
-- `lib/settings/`: client-only theme/font-scale persistence (localStorage, versioned, every field parsed defensively so one bad value never discards the rest).
-- `lib/observability/`: Sentry reporting, the transient-network-error check that drives the SSR retry in `lib/server/unwrap.ts`, and request timing: `src/middleware.ts` times every request that reaches Astro to the end of its body (`request-timing.ts`) and records it by method, route pattern, and status into an OpenTelemetry exponential histogram (`request-metrics.ts`) pushed every 15 s to `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Only compose sets that variable, so `bun run dev` and tests record nothing. What reads it: `apps/observability/AGENTS.md`.
-- `lib/arabic.ts`: Arabic-specific text helpers: digit conversion, singular/dual/plural noun agreement, input sanitization.
-- `lib/seo/`: per-route-type metadata and JSON-LD builders.
+- `pages/` holds the file-based routes.
+  - `.astro` files render HTML. `.xml.ts` and `.txt.ts` files generate the sitemaps, `robots.txt`, and `llms.txt`.
+  - List and detail pages fetch through `lib/server/*`. When the result is "not found", they call `Astro.rewrite('/404')`.
+- `lib/server/` is for the server only.
+  - `client.ts` is `apiServer`, with the internal API URL.
+  - `unwrap.ts` holds `safeCall`, `unwrap`, and `getOrNull`. Every fetcher below is built from this pattern: retry, not found, or throw.
+  - `cache.ts` holds the Cache-Control builders.
+  - `types.ts`: `Ok<'/path'>` takes the type of a resource directly from the generated schema. Do not declare a DTO by hand when the schema already has it.
+  - There is one file for each resource: `poems`, `poets`, `taxonomies`, `collections`, and `sitemap`. `search-filter-options` builds the search filters of the home page from the taxonomy lists, at render time. When it fails, the page is not cached.
+- `lib/api/` holds the client that the server and the browser share.
+  - `browser-client.ts` (`apiBrowser`) is the same-origin client without a key. The islands use it in place of `lib/server/client.ts`.
+  - `proxy-allowlist.ts` and `proxy-handler.ts` are behind the `/api/v1/[...path]` route that it calls.
+- `lib/generated/`: nothing here is written by hand (see "Generated files" in `docs/code-conventions.md`). There is one subfolder for each source:
+  - `openapi/schema.gen.ts`, from `apps/api/generated/openapi/openapi.json`. Generate it again with `bun run openapi:types`.
+  - `well-known/well-known.gen.ts`, from the `well-known/*` templates. Generate it again with `bun run well-known:generate`.
+
+  Do not edit these files. Run the script, and commit the diff.
+
+- `components/ui/` holds the design-system primitives. `ui-extended/` holds composed pieces built from them. `search/` is the search island (React Query, with URL state in `nuqs`). `layout/` is the page frame, with the `is:inline` scripts that run before hydration (see the "Web" section of `docs/exceptions.md`).
+- `lib/settings/` stores the theme and the font scale in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
+- `lib/observability/` holds these parts:
+  - the Sentry reporting
+  - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
+  - the request timing. `src/middleware.ts` times every request that reaches Astro, to the end of its body (`request-timing.ts`). It records the time by method, route pattern, and status, into an OpenTelemetry exponential histogram (`request-metrics.ts`). The histogram is pushed every 15 seconds to `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Only compose sets that variable, so `bun run dev` and the tests record nothing. What reads it is in `apps/observability/AGENTS.md`.
+- `lib/arabic.ts` holds text helpers for Arabic: digit conversion, the agreement of singular, dual, and plural nouns, and input sanitization.
+- `lib/seo/` holds the metadata and JSON-LD builders for each route type.
 
 ## Deliberate, non-obvious behavior
 
-See the Web section of `docs/exceptions.md`.
+See the "Web" section of `docs/exceptions.md`.
 
 ## Everything else
 
-Nav, footer, PostHog wiring, sitemap/robots/llms.txt generation, Tailwind design tokens (`lib/constants/design-tokens.ts`): ordinary Astro/React plumbing, one file each, no surprises.
+The navigation, the footer, the PostHog setup, the generation of the sitemaps, `robots.txt`, and `llms.txt`, and the Tailwind design tokens (`lib/constants/design-tokens.ts`) are ordinary Astro and React plumbing. Each has one file, and nothing in them is unexpected.

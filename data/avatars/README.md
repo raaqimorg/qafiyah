@@ -1,42 +1,36 @@
 # Avatar Snapshots
 
-Versioned zip snapshots of poet avatar images, mirroring the `data/db/` directory pattern.
+These are versioned zip snapshots of the poet avatar images. They use the same directory pattern as `data/db/`.
 
 ## Open, passphrase on request
 
-These snapshots are public and dedicated to the public domain under [CC0 1.0](../LICENSE), and
-every image in them is already served in the clear at `cdn.qafiyah.com/poets/<slug>/avatar.webp`.
-Nothing here is withheld; the zips are encrypted, not restricted.
+These snapshots are public, and dedicated to the public domain under [CC0 1.0](../LICENSE). Every image in them is already served as plaintext at `cdn.qafiyah.com/poets/<slug>/avatar.webp`. Nothing here is withheld. The zips are encrypted, not restricted.
 
-Why encrypt something that is open? Because a public git history cannot be edited after the fact.
-Once a plaintext zip of every avatar is pushed, every fork, clone, and mirror keeps it for good, and
-nothing the maintainers do afterwards can take it back. If an image ever has to come out, for
-whatever reason, it must be possible to remove it everywhere it went. Encryption keeps that
-possible: the plaintext copies are the ones handed out on request, so there is always a way to
-reach whoever holds one. Same reasoning as `data/db/`.
+Why encrypt something that is open? Because nobody can edit a public git history after it is pushed. The reason is the same as for `data/db/`:
 
-Getting a passphrase is quick. Email avatars@qafiyah.com and say what you need the snapshot for,
-whether that is your own use or a contribution you are planning. You get the passphrase right away.
-There is no vetting, and nobody has to qualify.
+- After a plaintext zip of every avatar is pushed, every fork, clone, and mirror keeps it for good. Nothing that the maintainers do after that can take it back.
+- If an image must come out, for any reason, it must be possible to remove it everywhere that it went.
+- Encryption keeps that possible. The plaintext copies are the ones given out on request. So there is always a way to reach each person who holds one.
+
+A passphrase is quick to get. Email avatars@qafiyah.com, and say what you need the snapshot for: your own use, or a contribution that you plan. You get the passphrase at once. There is no vetting, and nobody has to qualify.
 
 ## Directory naming
 
-Each snapshot lives in `{sequence}_{DD}_{MM}_{YYYY}`, the same scheme as `data/db/`. E.g. `0000_19_09_2026` is the first snapshot, from 19 September 2026.
+Each snapshot is in `{sequence}_{DD}_{MM}_{YYYY}`, the same scheme as `data/db/`. For example, `0000_19_09_2026` is the first snapshot, from 19 September 2026.
 
 ## Contents
 
-Each snapshot is `avatars.zip`, split and encrypted the same way DB dumps are (below). Unzipped, it contains one folder per poet:
+Each snapshot is `avatars.zip`, split and encrypted in the same way as the database dumps (below). When you unzip it, it has one folder for each poet:
 
 ```
 poets/<slug>/avatar.webp
 ```
 
-matching the object keys already live in R2 (bucket `qafiyah-assets`, served publicly at `cdn.qafiyah.com/poets/<slug>/avatar.webp`). This directory is a backup/archival copy, not the serving path, the app reads avatars from R2/`cdn.qafiyah.com`, never from here.
+These paths match the object keys that are already live in R2 (the bucket `qafiyah-assets`, served publicly at `cdn.qafiyah.com/poets/<slug>/avatar.webp`). This directory is a backup and archive copy, not the serving path. The app reads avatars from R2 at `cdn.qafiyah.com`, never from here.
 
 ## Uploading a batch to R2
 
-The dashboard caps drag-and-drop at 100 files, so a real batch needs the CLI. There is no script
-for this yet, the last run (6,631 avatars) was a shell loop over `wrangler r2 object put`:
+The dashboard allows only 100 files for each drag and drop, so a real batch needs the CLI. There is no script for this yet. The last run (6,631 avatars) was a shell loop over `wrangler r2 object put`:
 
 ```bash
 find <src-dir> -maxdepth 1 -type f -name '*.webp' -print0 \
@@ -47,28 +41,22 @@ find <src-dir> -maxdepth 1 -type f -name '*.webp' -print0 \
     ' _ {}
 ```
 
-Two things that will bite you:
+Know these two problems:
 
-- **Cloudflare rate-limits this.** At 16-way parallelism, 224 of 6,631 uploads came back `429`.
-  Collect the failures, then retry them at ~4-way with a short sleep and a couple of attempts
-  each, that cleared all 224.
-- **`wrangler r2 bucket info` lies right after a bulk upload.** Its `object_count` is a lagging
-  billing/analytics stat and read `1` while thousands of objects were already live. Verify with
-  real requests instead: `curl -sI https://cdn.qafiyah.com/poets/<slug>/avatar.webp` should give
-  `200` and `content-type: image/webp`.
+- **Cloudflare limits the rate of uploads.** With 16 uploads in parallel, 224 of 6,631 uploads came back with `429`. Collect the failures, then try them again, 4 at a time, with a short sleep and two or three attempts each. That cleared all 224.
+- **`wrangler r2 bucket info` is wrong right after a bulk upload.** Its `object_count` is a billing and analytics statistic that updates late. It read `1` while thousands of objects were already live. Verify with real requests instead: `curl -sI https://cdn.qafiyah.com/poets/<slug>/avatar.webp` must give `200` and `content-type: image/webp`.
 
-Set `poet.has_avatar` in Postgres for the poets you uploaded, that flag is what makes the web app
-render the image.
+Then set `poet.has_avatar` in Postgres for the poets that you uploaded. That flag makes the web app show the image.
 
 ## Split and encryption
 
-`avatars.zip` over ~45MB is split into `avatars.zip.part-aa`, `.part-ab`, … with `scripts/db/split-dump.sh` (it isn't avatar-specific, it works on any file, just point it at `avatars.zip`), then each part is encrypted with the same recipe as DB dumps:
+If `avatars.zip` is over about 45 MB, split it into `avatars.zip.part-aa`, `.part-ab`, and so on, with `scripts/db/split-dump.sh`. That script works on any file, not only dumps, so give it `avatars.zip`. Then encrypt each part with the same recipe as the database dumps:
 
 ```bash
 openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass "pass:<passphrase>" -in "$part" -out "$part.enc"
 ```
 
-## Restore / decrypt
+## Restore and decrypt
 
 ```bash
 DIR=data/avatars/0000_19_09_2026   # or the newest snapshot
@@ -81,4 +69,11 @@ unzip /tmp/avatars.zip -d /tmp/avatars
 
 ## No automated tooling yet
 
-Unlike `data/db/`, this directory has none of the DB-dump automation: no dedicated encrypt/resolve scripts, no `keys.manifest` entry, no `DUMP_KEY__*` `.env` variable, no restore-on-boot flow. Everything here was created manually. If avatar snapshots become a regular thing, generalize `scripts/db/encrypt-dump.sh` (its `*.dump`/`*.dump.part-*` file-matching pattern is the only part that's DB-specific) rather than writing new scripts from scratch.
+This directory has none of the automation of `data/db/`:
+
+- no dedicated scripts to encrypt or resolve
+- no entry in `keys.manifest`
+- no `DUMP_KEY__*` variable in `.env`
+- no restore on boot
+
+Everything here was created by hand. If avatar snapshots become regular, make `scripts/db/encrypt-dump.sh` general, and do not write new scripts. Its file pattern (`*.dump` and `*.dump.part-*`) is the only part that is specific to dumps.
