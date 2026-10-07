@@ -40,7 +40,7 @@ A normal deploy preserves the data volume, so a new dump in `data/db/` is ignore
 bun run db:reseed     # push-button: syncs to origin/main, builds api and search-indexer, restores the newest dump, starts the new api, rebuilds es
 ```
 
-Replaces the corpus database (`qafiyah`) only; `qafiyah_accounts` is untouched. It builds `api` and `search-indexer` from `origin/main` while the old stack serves, stops the API for the restore (a few minutes, nginx keeps serving cached pages), starts the freshly built API on the restored data, then rebuilds Elasticsearch with the freshly built indexer and an alias swap while the API serves. It ends with the same public health check as the deploy. It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env` and refuses to start without it. Prompts for confirmation unless run with `-y`. Details: `docs/deployment/environments.md`.
+Replaces the corpus database (`qafiyah`) only; `qafiyah_accounts` is untouched. It builds `api` and `search-indexer` from `origin/main` while the old stack serves, stops the API for the restore (a few minutes, nginx keeps serving cached pages), recreates the database container so the restore runs the scripts of the synced checkout rather than the ones the container started with (#209), starts the freshly built API on the restored data, then rebuilds Elasticsearch with the freshly built indexer and an alias swap while the API serves. It ends with the same public health check as the deploy. It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env` and refuses to start without it. Prompts for confirmation unless run with `-y`. Details: `docs/deployment/environments.md`.
 
 **A new dump together with code changes**, in this order:
 
