@@ -265,8 +265,10 @@ A change takes effect on the site with the next dump. The snapshot steps refresh
 
 A poem often comes down in more than one reading. A word differs, a verse is missing or added, or the lines come in another order. The corpus keeps each reading as its own row, and links them:
 
-- The richest reading is the primary (`recension_of_id` is NULL).
+- The primary (`recension_of_id` is NULL) is the reading that the site shows as the main one.
 - Every other reading has a `recension_of_id` that points at the primary. The primary is always a poem of the same poet.
+
+A reading can name its `source`: who narrated it, edited it, or vocalized it. It is free text, and NULL when it is not known.
 
 These show primaries only: lists, counts (live and `*_stats`), the sitemap, search browsing, the random poem, and related poems. The facet indexes are partial on `recension_of_id IS NULL`, so the list keeps its index-only scans.
 
@@ -274,7 +276,9 @@ A text search matches every reading, but shows each poem once. It shows the read
 
 A recension keeps its own page and URL, and names its primary. Its canonical URL is the URL of the primary. The page of the primary lists its other recensions.
 
-The Mu'allaqat, which classical sources carry in several recensions, are the model case for more readings later. A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
+The Mu'allaqat, which classical sources carry in several recensions, are the model case for more readings later. Seven of them have Faisal Al-Mansour's vocalized edition of al-Anbari's recension as their primary (dump 0040). Their older primaries became recensions. The primaries kept their URLs, so the old texts moved to new URLs (`corpus:promote-reading`).
+
+A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
 
 ## Taxonomy counts
 
