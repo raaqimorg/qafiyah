@@ -120,6 +120,7 @@ type DetailRow = (
     String,
     String,
     String,
+    Option<String>,
 );
 
 fn total_of<T: Into<i64>>(counts: Vec<Option<T>>) -> Result<i32, StoreError> {
@@ -500,12 +501,18 @@ async fn recensions_of(
     mut conn: &AsyncPgConnection,
     id: i32,
     root: i32,
-) -> QueryResult<Vec<(i32, String, String, i32)>> {
+) -> QueryResult<Vec<(i32, String, String, i32, Option<String>)>> {
     poems::table
         .filter(poems::id.ne(id))
         .filter(poems::id.eq(root).or(poems::recension_of_id.eq(root)))
         .order((poems::recension_of_id.is_not_null().asc(), poems::id.asc()))
-        .select((poems::id, poems::title, poems::slug, poems::verse_count))
+        .select((
+            poems::id,
+            poems::title,
+            poems::slug,
+            poems::verse_count,
+            poems::source,
+        ))
         .load(&mut conn)
         .await
 }
@@ -646,6 +653,7 @@ impl PoemRepository for PgPoems {
                 rhymes::slug,
                 poem_types::name,
                 poem_types::slug,
+                poems::source,
             ))
             .first::<DetailRow>(&mut main)
             .await
@@ -673,6 +681,7 @@ impl PoemRepository for PgPoems {
             rhyme_slug,
             poem_type_name,
             poem_type_slug,
+            source,
         ) = row;
 
         let (lines, (prev, next), family, related) = tokio::try_join!(
@@ -684,6 +693,7 @@ impl PoemRepository for PgPoems {
         Ok(Some(PoemRecord {
             title,
             verse_count,
+            source,
             recension_of_id,
             poet: PoetBrief {
                 name: poet_name,
@@ -716,11 +726,12 @@ impl PoemRepository for PgPoems {
             next,
             family: family
                 .into_iter()
-                .map(|(id, title, slug, verse_count)| Recension {
+                .map(|(id, title, slug, verse_count, source)| Recension {
                     id,
                     title,
                     slug,
                     verse_count,
+                    source,
                 })
                 .collect(),
             related,

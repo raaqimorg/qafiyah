@@ -35,6 +35,7 @@ fn record(lines: Vec<String>) -> PoemRecord {
     PoemRecord {
         title: "Title".into(),
         verse_count: 1,
+        source: None,
         recension_of_id: None,
         poet: PoetBrief {
             name: name.clone(),
