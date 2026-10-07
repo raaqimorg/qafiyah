@@ -1,0 +1,16 @@
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: telegram
+    receivers:
+      - uid: telegram
+        type: telegram
+        disableResolveMessage: false
+        settings:
+          bottoken: ${TELEGRAM_BOT_TOKEN}
+          chatid: ${TELEGRAM_CHAT_ID}
+          parse_mode: None
+          message: |-
+            {{ range .Alerts }}{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }}: {{ .Labels.alertname }}{{ if .Labels.service }} ({{ .Labels.service }}){{ end }}{{ if .Labels.name }} ({{ .Labels.name }}){{ end }}
+            {{ .Annotations.summary }}
+            {{ end }}

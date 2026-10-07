@@ -81,9 +81,10 @@ It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env`, and refu
 **For a new dump together with code changes**, do these steps in this order:
 
 1. Release the version that holds the snapshot and the code into `main` (step 0), and let CI pass.
-2. Run `bun run db:reseed`. The API that it starts is already the new build. So this is safe if the old API cannot read the new schema, or if the new API needs the new schema.
-3. Run `bun run deploy` to roll out `web`. It also replaces `api` with the same build. No separate reindex is necessary, because the reseed already rebuilt search with the new indexer.
-4. Verify with `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump automatically.
+2. Silence the alerts for 30 minutes (`apps/observability/AGENTS.md`, "Alerts"), because the restore stops the API.
+3. Run `bun run db:reseed`. The API that it starts is already the new build. So this is safe if the old API cannot read the new schema, or if the new API needs the new schema.
+4. Run `bun run deploy` to roll out `web`. It also replaces `api` with the same build. No separate reindex is necessary, because the reseed already rebuilt search with the new indexer.
+5. Verify with `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump automatically.
 
 ## 4. Rebuild only the search index (fix Elasticsearch differences, no data change)
 

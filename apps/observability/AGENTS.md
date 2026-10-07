@@ -25,6 +25,7 @@ This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana s
   - The datasources are Prometheus (uid `prometheus`) and Loki (uid `loki`). The plugins in the pinned Grafana image serve them.
   - `GF_PLUGINS_PREINSTALL_DISABLED` stops Grafana from installing plugins from grafana.com after it starts. Those installs registered these two plugins again, and their queries failed with 404 for some seconds (#198).
   - The dashboard provider loads `grafana/dashboards/` into the `Qafiyah` folder on every start.
+  - `alerting/` holds the alert rules, the Telegram contact point, and the notification policy (see "Alerts").
 - `grafana/dashboards/`: `latency.json`, `slow-queries.json`, `elasticsearch.json`, `health.json` (the home dashboard), `resources.json`, `edge.json`, and `logs.json`. Each one starts with a text panel that says what it measures and how to read it.
 
 ## Where the numbers come from
@@ -64,6 +65,27 @@ The one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) makes sure tha
   - The UI cannot save over a provisioned dashboard, so git stays the only copy.
   - Use only the variables `$route` and `$status`, and Grafana's `$__range`, `$__rate_interval`, and `$__auto`. The stack smoke check replaces exactly those when it runs every query against its own datasource.
 
+## Alerts
+
+Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", through the bot `@vigorousJJa_bot`. It sends a message when an alert fires, again every 4 hours while it keeps firing, and once when it resolves. Grafana evaluates the rules every 20 seconds.
+
+| Alert                                 | Fires when                                                                                                                                    | After |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| API down, Website down                | the `/healthz` probe fails                                                                                                                    | 1 min |
+| Postgres down                         | `pg_up` is 0                                                                                                                                  | 1 min |
+| Elasticsearch unhealthy               | the cluster is unreachable or red                                                                                                             | 1 min |
+| Metrics pipeline down                 | Prometheus cannot scrape Alloy, Loki, the probes, or an exporter                                                                              | 1 min |
+| Error rate                            | more than 5% of API or website requests answer 5xx over 5 minutes, with at least 20 requests                                                  | 2 min |
+| Container memory                      | a container uses more than 90% of its memory limit                                                                                            | 2 min |
+| Disk                                  | a host filesystem is more than 85% full                                                                                                       | 2 min |
+| API, Search, and Website latency burn | more than 14.4% of requests are slower than the target over both the last hour and the last 5 minutes, with at least 100 requests in the hour | 2 min |
+
+- The latency targets are first guesses: 300 ms for the API outside `/v1/search`, 1 s for `/v1/search`, and 1 s for the website. Tune them in `grafana/provisioning/alerting/rules.yml` after some weeks of production data.
+- A rule whose query returns no data stays quiet. "Metrics pipeline down" is the alert for missing data.
+- **Credentials:** `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` exist only in `secrets/prod.enc.env`. The schema refuses them in dev. Without them, `docker-compose.yml` passes placeholders, so a dev or CI stack evaluates the rules but every send fails. Grafana logs Telegram's answer, never the token.
+- **Before a reseed:** the reseed stops the API for a few minutes, so silence the alerts first. Open Grafana (`bun run observe`), go to Alerting, then Silences, and add a silence on `severity =~ .+` for 30 minutes. Grafana keeps no volume, so a deploy that recreates it also drops its silences.
+- **If the group changes:** Telegram gives a group a new chat ID when it becomes a supergroup (for example, when topics are turned on). Alerts then stop. Read the new ID from the bot's `getUpdates`, and update `TELEGRAM_CHAT_ID` with `bun run secrets:edit prod`.
+
 ## Tests
 
 `scripts/smoke/observability.ts` runs in the `stack` CI phase, after the other suites. It checks these things:
@@ -75,6 +97,7 @@ The one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) makes sure tha
 - Container and host metrics arrive.
 - The website's JSON access log reaches Loki.
 - Every query in every dashboard evaluates against Prometheus or Loki.
+- Every alert rule is provisioned, and its query evaluates against Prometheus.
 
 ## Security and privacy
 
