@@ -40,7 +40,6 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
             accountsDb = container "Accounts database" "Users, sessions, API keys, and usage." "PostgreSQL" "Database"
             search = container "Search index" "Poems and poets for full-text search, rebuilt from the corpus." "Elasticsearch" "Database"
             indexer = container "Search indexer" "Rebuilds the search index from the corpus database." "Rust, one-shot job"
-            telemetryProxy = container "Telemetry proxy" "Forwards browser errors and sessions to Sentry from t.qafiyah.com." "Cloudflare Worker"
             avatars = container "Avatar store" "Poet avatar images at cdn.qafiyah.com." "Cloudflare R2" "Database"
 
             prometheus = container "Prometheus" "Scrapes and stores metrics, and receives the website's OTLP push." "Prometheus" "Observability"
@@ -54,13 +53,14 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         }
 
         reader -> cloudflare "Reads poems on qafiyah.com through" "HTTPS"
-        reader -> qafiyah "Loads poet avatars from, and sends browser errors to" "HTTPS, cdn. and t.qafiyah.com"
+        reader -> qafiyah "Loads poet avatars from" "HTTPS, cdn.qafiyah.com"
+        reader -> sentry "Sends browser errors and sessions to" "HTTPS"
         reader -> posthog "Sends page views to" "HTTPS, ix.qafiyah.com"
         developer -> cloudflare "Calls api.qafiyah.com and manages keys on qafiyah.com through" "HTTPS"
         maintainer -> github "Pushes code to" "git over HTTPS"
         maintainer -> qafiyah "Deploys, reseeds, reindexes, and opens Grafana over" "SSH through the Cloudflare Tunnel"
         cloudflare -> qafiyah "Forwards qafiyah.com and api.qafiyah.com to" "HTTP over the Cloudflare Tunnel"
-        qafiyah -> sentry "Reports errors and browser sessions to" "HTTPS"
+        qafiyah -> sentry "Reports server errors to" "HTTPS"
         qafiyah -> google "Signs developers in with" "OAuth 2.0"
         qafiyah -> github "Signs developers in with" "OAuth 2.0"
         qafiyah -> github "Fetches main from, at each deploy" "git over HTTPS"
@@ -74,8 +74,6 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         qafiyah.indexer -> qafiyah.corpus "Streams poems and poets from" "SQL, default network"
         qafiyah.indexer -> qafiyah.search "Writes a new versioned index and swaps the alias in" "HTTP/JSON, default network"
         reader -> qafiyah.avatars "Loads poet avatars from" "HTTPS, cdn.qafiyah.com"
-        reader -> qafiyah.telemetryProxy "Sends browser errors and sessions to" "HTTPS, t.qafiyah.com"
-        qafiyah.telemetryProxy -> sentry "Forwards browser events to" "HTTPS"
         qafiyah.web -> sentry "Reports server errors to" "HTTPS"
         qafiyah.api -> sentry "Reports errors to" "HTTPS"
         qafiyah.web -> google "Signs developers in with" "OAuth 2.0"
@@ -137,9 +135,6 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         production = deploymentEnvironment "Production" {
             cf = deploymentNode "Cloudflare" "The global network in front of every qafiyah.com host." "Cloudflare" {
                 cloudflareEdge = infrastructureNode "Edge" "TLS, the page cache, rate limit rules, and the tunnel's public end." "Cloudflare"
-                deploymentNode "Workers" "" "Cloudflare Workers" {
-                    containerInstance qafiyah.telemetryProxy
-                }
                 deploymentNode "R2" "" "Cloudflare R2" {
                     containerInstance qafiyah.avatars
                 }

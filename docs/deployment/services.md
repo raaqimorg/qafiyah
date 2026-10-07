@@ -156,12 +156,6 @@ TLS ends at Cloudflare. So the configuration is plain HTTP by design, and `$sche
   - nginx gives the address to Astro as `X-Real-IP`, and overwrites any value from the client. The search proxy sends it on to the API.
 - The access log is one JSON line for each request (`log_format json`, `"source":"nginx"`). It has the visitor address, host, method, URI, status, bytes, `request_time`, `upstream_time`, and the page cache status. Alloy ships it to Loki, and the Edge dashboard reads the cache-hit ratio and the latency from it.
 
-## Telemetry proxy (`apps/telemetry-proxy`, Cloudflare Worker)
-
-This is a first-party Worker on `t.qafiyah.com`. It forwards browser Sentry envelopes, so telemetry gets past tracker blockers and never touches the VPS or the WAF. Its routes, CORS, and deploy command are in `apps/telemetry-proxy/AGENTS.md`.
-
-It runs on Cloudflare's edge, and is **not** part of `docker compose`. Its deploy is step 7 of `.claude/skills/deploy/SKILL.md`, separate from the VPS deploy. Do not confuse it with `apps/search-indexer`, the job from Postgres to Elasticsearch that runs on the server.
-
 ## Web Application Firewall (`edge-gateway`)
 
 The edge gateway is the [OWASP ModSecurity CRS image](https://github.com/coreruleset/modsecurity-crs-docker) (`owasp/modsecurity-crs:*-nginx-alpine`). `docker-compose.yml` pins it by its exact CRS and date tag. It is ModSecurity v3 with the **OWASP Core Rule Set**, which has signatures for SQL injection, XSS, remote code execution, scanners, file inclusion, and more.
