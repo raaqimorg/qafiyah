@@ -31,7 +31,7 @@ separate issues and pull requests.
 
 ## Making changes
 
-1. Fork the repo and create a branch off the open version branch, not `main`. There is one at a time, named `v` and a number (`v2`, `v3`, and so on); `git ls-remote --heads origin 'v*'` shows it. Changes reach `main`, and the live site, when that version is released ([`pull-requests.md`](../docs/pull-requests.md), "Versions and releases").
+1. Fork the repo and create a branch off the open version branch, not `main`. There is one at a time, named `v` and a number (`v2`, `v3`, and so on); `git ls-remote --heads origin 'refs/heads/v[0-9]*'` shows it. Changes reach `main`, and the live site, when that version is released ([`pull-requests.md`](../docs/pull-requests.md), "Versions and releases").
 2. Follow the conventions in `docs/`: [`code-conventions.md`](../docs/code-conventions.md),
    [`typescript-conventions.md`](../docs/typescript-conventions.md),
    [`rust-conventions.md`](../docs/rust-conventions.md), and
