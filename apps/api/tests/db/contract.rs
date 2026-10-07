@@ -966,6 +966,15 @@ async fn a_pooled_connection_carries_the_statement_timeout() {
 }
 
 #[tokio::test]
+async fn the_harness_checks_give_a_full_corpus_scan_a_minute() {
+    let Some(h) = h().await else { return };
+    let checks = h
+        .text("SELECT current_setting('statement_timeout') AS value", &[])
+        .await;
+    assert_eq!(checks.as_deref(), Some("1min"));
+}
+
+#[tokio::test]
 async fn the_database_plans_no_parallel_workers_on_its_one_cpu() {
     let Some(h) = h().await else { return };
     #[derive(diesel::QueryableByName)]
