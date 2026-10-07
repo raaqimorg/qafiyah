@@ -211,6 +211,7 @@ So the node serves normal traffic normally after a restart. Only a burst on a co
 Prometheus, Loki, Alloy, Grafana, postgres_exporter, elasticsearch_exporter, blackbox_exporter, and the one-shot `db-monitor-role` job run in the same Compose stack. `bun run deploy` updates them together with `db` and `elasticsearch`. What each dashboard shows, and how to read it, is in `apps/observability/AGENTS.md`.
 
 - **To open it:** run `bun run observe` on your laptop. It forwards `127.0.0.1:3301` to Grafana's `127.0.0.1:3000` on the VPS. Sign in as `admin` with `GRAFANA_ADMIN_PASSWORD`; the script prints the `sops` command that reads it. Grafana keeps no volume. So a deploy that recreates it (a new image or a changed configuration) asks for the sign-in again. Other deploys leave it running.
+- **Alerts:** Grafana sends alerts to the Telegram group "Qafiyah Alerts". `apps/observability/AGENTS.md` ("Alerts") lists them, and says how to silence them before a reseed.
 - **To restart it:** run `docker compose restart prometheus loki alloy grafana`. Neither the API nor the website waits for them. If Prometheus or Loki is down, there are only gaps in the graphs and the log views. Docker keeps writing its own rotated log files in either case.
 - **Monitor credentials:**
   - `db-monitor-role` sets `PG_MONITOR_PASSWORD` on the `qafiyah_monitor` Postgres role on every `up`. `bun run db:reseed` also sets it right after its restore, which recreates the `public` schema and its grants.

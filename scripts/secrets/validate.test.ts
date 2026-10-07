@@ -31,6 +31,8 @@ const VALID_PROD = [
   'ACCOUNTS_BACKUP_R2_SECRET_ACCESS_KEY=r2-secret-access-key-08',
   'CLOUDFLARE_ZONE_ID=0123456789abcdef0123456789abcdef',
   'CLOUDFLARE_CACHE_PURGE_TOKEN=cloudflare-purge-token-09',
+  'TELEGRAM_BOT_TOKEN=123456:telegram-bot-token',
+  'TELEGRAM_CHAT_ID=-1000000000',
 ].join('\n');
 
 function withLine(base: string, key: string, value: string | undefined): string {
@@ -46,7 +48,7 @@ describe('checkDecryptedValues', () => {
   test('a key set twice is reported with both lines', () => {
     const text = `${VALID_PROD}\nAPI_KEY_FULL=${HEX_B}`;
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'API_KEY_FULL is set 2 times (lines 11, 24)'
+      'API_KEY_FULL is set 2 times (lines 11, 26)'
     );
   });
 
@@ -73,6 +75,19 @@ describe('checkDecryptedValues', () => {
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
       'ANON_REQUESTS must not be set in prod'
     );
+  });
+
+  test('the Telegram alert keys are required in prod', () => {
+    const text = withLine(VALID_PROD, 'TELEGRAM_CHAT_ID', undefined);
+    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+      'TELEGRAM_CHAT_ID is required in prod'
+    );
+  });
+
+  test('the Telegram alert keys are refused in dev, so a dev stack never sends alerts', () => {
+    expect(
+      checkDecryptedValues('dev', 'TELEGRAM_BOT_TOKEN=123456:telegram-bot-token', DUMP_DIRS)
+    ).toContain('TELEGRAM_BOT_TOKEN must not be set in dev');
   });
 
   test('ENVIRONMENT must be exactly production in prod', () => {

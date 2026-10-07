@@ -396,9 +396,12 @@ services:
       GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/health.json
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-unset}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-0}
     volumes:
       - ./apps/observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./apps/observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./apps/observability/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./apps/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "127.0.0.1:3000:3000"
