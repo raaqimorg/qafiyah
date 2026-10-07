@@ -5642,6 +5642,11 @@
                 "example": "gnNg",
                 "pattern": "^[a-zA-Z]{4}$"
               },
+              "source": {
+                "type": "string",
+                "description": "Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.",
+                "example": "رواية الأنباري، بضبط فيصل المنصور"
+              },
               "theme": {
                 "$ref": "#/components/schemas/ThemeRef",
                 "description": "The poem's theme."
@@ -6335,6 +6340,11 @@
             "example": "gnNg",
             "pattern": "^[a-zA-Z]{4}$"
           },
+          "source": {
+            "type": "string",
+            "description": "Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.",
+            "example": "رواية الأنباري، بضبط فيصل المنصور"
+          },
           "theme": {
             "$ref": "#/components/schemas/ThemeRef",
             "description": "The poem's theme."
@@ -6467,6 +6477,11 @@
             "description": "The poem's four-letter, case-sensitive slug, for `GET /poems/{slug}`.",
             "example": "wOvI",
             "pattern": "^[a-zA-Z]{4}$"
+          },
+          "source": {
+            "type": "string",
+            "description": "Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.",
+            "example": "رواية الأنباري، بضبط فيصل المنصور"
           },
           "title": {
             "type": "string",

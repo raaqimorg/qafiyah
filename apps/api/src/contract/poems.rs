@@ -71,6 +71,10 @@ pub struct PoemRecensionRef {
     /// Number of verses as stored in this reading, counted like `verseCount` on a poem.
     #[schema(example = 68)]
     pub verse_count: i32,
+    /// Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false, example = "رواية الأنباري، بضبط فيصل المنصور")]
+    pub source: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -103,6 +107,10 @@ pub struct PoemDetail {
     pub rhyme: RhymeRef,
     /// The poem's verse form.
     pub poem_type: PoemTypeRef,
+    /// Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false, example = "رواية الأنباري، بضبط فيصل المنصور")]
+    pub source: Option<String>,
     /// The poet's previous poem in the order of `GET /poems?poet=`, primary readings only. Left out for the poet's first poem.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
@@ -165,6 +173,7 @@ impl From<RecensionLink> for PoemRecensionRef {
             title: poem.title,
             slug: poem.slug,
             verse_count: poem.verse_count,
+            source: poem.source,
         }
     }
 }
@@ -184,6 +193,7 @@ impl From<Poem> for PoemDetail {
             theme: poem.theme.into(),
             rhyme: poem.rhyme.into(),
             poem_type: poem.poem_type.into(),
+            source: poem.source,
             prev: poem.prev.map(Into::into),
             next: poem.next.map(Into::into),
             recension_of: poem.recension_of.map(Into::into),
@@ -200,5 +210,30 @@ impl From<FacetCounts> for PoemFacets {
             rhymes: counts.rhymes.into_iter().map(Into::into).collect(),
             themes: counts.themes.into_iter().map(Into::into).collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reading(source: Option<&str>) -> serde_json::Value {
+        serde_json::to_value(PoemRecensionRef::from(RecensionLink {
+            title: "Title".into(),
+            slug: "abcd".into(),
+            verse_count: 1,
+            source: source.map(String::from),
+        }))
+        .expect("json")
+    }
+
+    #[test]
+    fn a_reading_without_a_source_leaves_the_field_out() {
+        assert!(reading(None).get("source").is_none());
+    }
+
+    #[test]
+    fn a_reading_with_a_source_names_it() {
+        assert_eq!(reading(Some("مصدر"))["source"], "مصدر");
     }
 }

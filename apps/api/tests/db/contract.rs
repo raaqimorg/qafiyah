@@ -821,6 +821,23 @@ async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primar
 }
 
 #[tokio::test]
+async fn a_poem_without_a_source_has_no_source_field() {
+    let Some(h) = h().await else { return };
+    let Some(slug) = h
+        .text(
+            "SELECT slug AS value FROM public.poems WHERE source IS NULL AND NOT is_hidden ORDER BY id LIMIT 1",
+            &[],
+        )
+        .await
+    else {
+        return;
+    };
+    let body = h.get(&format!("/v1/poems/{slug}")).await.json();
+    assert!(body["data"]["title"].is_string(), "{body}");
+    assert!(body["data"].get("source").is_none());
+}
+
+#[tokio::test]
 async fn a_recension_names_its_primary_and_the_primary_lists_it() {
     let Some(h) = h().await else { return };
     let pair: Option<(String, String)> = h

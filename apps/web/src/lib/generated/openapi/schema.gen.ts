@@ -499,6 +499,11 @@ export interface components {
                  * @example gnNg
                  */
                 slug: string;
+                /**
+                 * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+                 * @example رواية الأنباري، بضبط فيصل المنصور
+                 */
+                source?: string;
                 /** @description The poem's theme. */
                 theme: components["schemas"]["ThemeRef"];
                 /**
@@ -848,6 +853,11 @@ export interface components {
              * @example gnNg
              */
             slug: string;
+            /**
+             * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+             * @example رواية الأنباري، بضبط فيصل المنصور
+             */
+            source?: string;
             /** @description The poem's theme. */
             theme: components["schemas"]["ThemeRef"];
             /**
@@ -910,6 +920,11 @@ export interface components {
              * @example wOvI
              */
             slug: string;
+            /**
+             * @description Where this reading comes from: its narration, edition, or vocalizer. Left out when it is not known.
+             * @example رواية الأنباري، بضبط فيصل المنصور
+             */
+            source?: string;
             /**
              * @description The poem's title, without diacritics. Most poems are titled by their opening half-line.
              * @example أمن أم أوفى دمنة لم تكلم
