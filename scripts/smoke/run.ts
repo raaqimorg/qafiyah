@@ -17,7 +17,7 @@ import {
 } from './http';
 import { observabilityChecks } from './observability';
 import { conditionals, differentials } from './probes/http-shape';
-import { searchBursts, sharedEntries } from './probes/page-cache';
+import { repeatedEntries, searchBursts, sharedEntries } from './probes/page-cache';
 import { hammers } from './probes/rate-limit';
 import { SUITES } from './suites';
 import { latencyTargets } from './suites/latency';
@@ -256,39 +256,29 @@ async function runConditional(c: (typeof conditionals)[number]): Promise<Outcome
 
 const SERVED_FROM_CACHE = new Set(['HIT', 'STALE', 'UPDATING', 'REVALIDATED']);
 
-async function runSharedEntry(entry: (typeof sharedEntries)[number]): Promise<Outcome> {
+async function runServedFromCache(note: string, url: string, then: string): Promise<Outcome> {
   const started = performance.now();
-  const warm = await fetchWireResilient(entry.url, REQUEST_TIMEOUT_MS, smokeInit(entry.url));
+  const warm = await fetchWireResilient(url, REQUEST_TIMEOUT_MS, smokeInit(url));
   if (warm.isErr())
-    return fail(
-      entry.note,
-      entry.url,
-      performance.now() - started,
-      `warm-up ${warm.error.message}`
-    );
+    return fail(note, url, performance.now() - started, `warm-up ${warm.error.message}`);
   if (warm.value.status !== 200)
-    return fail(
-      entry.note,
-      entry.url,
-      performance.now() - started,
-      `warm-up returned ${warm.value.status}`
-    );
-  const variant = `${entry.url}?smoke=${crypto.randomUUID()}`;
-  const second = await fetchWireResilient(variant, REQUEST_TIMEOUT_MS, smokeInit(variant));
+    return fail(note, url, performance.now() - started, `warm-up returned ${warm.value.status}`);
+  const second = await fetchWireResilient(then, REQUEST_TIMEOUT_MS, smokeInit(then));
   const ms = performance.now() - started;
-  if (second.isErr())
-    return fail(entry.note, variant, ms, `${second.error.kind}: ${second.error.message}`);
-  if (second.value.status !== 200)
-    return fail(entry.note, variant, ms, `returned ${second.value.status}`);
+  if (second.isErr()) return fail(note, then, ms, `${second.error.kind}: ${second.error.message}`);
+  if (second.value.status !== 200) return fail(note, then, ms, `returned ${second.value.status}`);
   const cache = second.value.res.headers.get('x-cache-status');
   if (cache === null || !SERVED_FROM_CACHE.has(cache))
-    return fail(
-      entry.note,
-      variant,
-      ms,
-      `x-cache-status ${cache ?? 'missing'}, expected the cached entry`
-    );
-  return pass(entry.note, variant, ms);
+    return fail(note, then, ms, `x-cache-status ${cache ?? 'missing'}, expected the cached entry`);
+  return pass(note, then, ms);
+}
+
+function runSharedEntry(entry: (typeof sharedEntries)[number]): Promise<Outcome> {
+  return runServedFromCache(entry.note, entry.url, `${entry.url}?smoke=${crypto.randomUUID()}`);
+}
+
+function runRepeatedEntry(entry: (typeof repeatedEntries)[number]): Promise<Outcome> {
+  return runServedFromCache(entry.note, entry.url, entry.url);
 }
 
 async function runBurst(burst: (typeof searchBursts)[number]): Promise<Outcome> {
@@ -561,10 +551,12 @@ async function main() {
       `\n${cyan('[')} ${bold('page cache (a stray query string shares the entry)')} ${cyan(']')}`
     );
     for (const entry of sharedEntries) record(await runSharedEntry(entry));
+    console.log(`\n${cyan('[')} ${bold('search cache (a repeated search is a hit)')} ${cyan(']')}`);
+    for (const entry of repeatedEntries) record(await runRepeatedEntry(entry));
     console.log(`\n${cyan('[')} ${bold('poet search limit (burst)')} ${cyan(']')}`);
     for (const burst of searchBursts) record(await runBurst(burst));
   } else {
-    for (const entry of sharedEntries)
+    for (const entry of [...sharedEntries, ...repeatedEntries])
       record(skip(entry.note, entry.url, 'stack-only; it reads the origin nginx cache status'));
     for (const burst of searchBursts)
       record(skip(burst.note, burst.url, 'stack-only; never burst a live site'));

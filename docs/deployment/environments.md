@@ -38,7 +38,7 @@ The API serves **the same response body to every caller**. There is no capped da
 
 That is why JSON reads are `Cache-Control: private, max-age=300`. The caller's own browser can use a response again for five minutes. No shared cache (Cloudflare, nginx) can store one, because it would give one caller's counters to the next caller, and cached hits would skip the count.
 
-The website's `/api/v1/search` proxy removes those headers, so every visitor gets the same response. The proxy sets its own `public` policy on successful searches, and the website's nginx caches them for five minutes.
+The website's `/api/v1/search` proxy removes those headers, so every visitor gets the same response. The proxy sets its own `public` policy on successful searches (`max-age=300, stale-while-revalidate=86400`). The website's nginx serves a cached search as fresh for five minutes. After that it serves the stored answer and refreshes it in the background, so an entry lives until a day passes without a request for it (`inactive=24h`). A deploy clears the cache. The stack smoke run checks that a repeated search is a cache hit.
 
 Anonymous callers share an hourly bucket for each address:
 
