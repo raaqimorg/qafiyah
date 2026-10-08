@@ -39,6 +39,7 @@ export default defineConfig({
       org: 'qafiyah',
       project: 'javascript-astro',
       authToken: sentryAuthToken,
+      autoInstrumentation: { requestHandler: false },
       sourcemaps: { disable: !sentryAuthToken },
       errorHandler: sentryAuthToken
         ? (error) => {
@@ -49,7 +50,7 @@ export default defineConfig({
   ],
   trailingSlash: 'never',
   vite: {
-    build: { target: ['chrome91', 'edge91', 'firefox90', 'safari15'] },
+    build: { target: ['chrome93', 'edge93', 'firefox92', 'safari15.4'] },
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: ['@tanstack/react-query', 'nuqs', 'nuqs/adapters/react'],

@@ -28,6 +28,7 @@
     "neverthrow": "^8.2.0",
     "nuqs": "^2.10.1",
     "openapi-fetch": "0.17.0",
+    "posthog-js": "^1.438.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^3.7.0",

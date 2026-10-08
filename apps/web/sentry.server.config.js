@@ -6,24 +6,8 @@ Sentry.init({
   environment: import.meta.env.DEV ? 'development' : 'production',
   tracesSampleRate: 0.1,
   dataCollection: {
-    userInfo: true,
     cookies: false,
-    httpHeaders: { request: true, response: true },
-    httpBodies: ['incomingRequest', 'outgoingRequest', 'incomingResponse', 'outgoingResponse'],
     urlQueryParams: false,
-    graphQL: { document: true, variables: true },
-    genAI: { inputs: true, outputs: true },
-    databaseQueryData: true,
-    stackFrameVariables: true,
     frameContextLines: 7,
-  },
-  beforeSend: (event) => {
-    if (event.request) {
-      delete event.request.cookies;
-      if (event.request.headers) {
-        delete event.request.headers.cookie;
-      }
-    }
-    return event;
   },
 });

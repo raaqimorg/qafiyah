@@ -798,6 +798,14 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** links and a form that load the filtered page from the server, as every other list page does.
 - **Date:** 2026-10-01
 
+### Sentry's trace tags are stripped from cached pages
+
+- **What:** a middleware removes the `sentry-trace` and `baggage` meta tags from every HTML response with a `public` Cache-Control. Sentry's request handler is added by hand (`autoInstrumentation.requestHandler: false`), so the strip runs after it.
+- **Where:** `middleware.ts`, `lib/observability/strip-cached-trace-tags.ts`, `astro.config.mjs`
+- **Why:** nginx and Cloudflare cache pages for up to a day, and each cached copy carries the tags of the render that filled it. So every visitor of a copy continued one old trace, and the browser followed that render's sampling decision (#245). Sentry documents the fix: strip the tags before the response is cached. `@sentry/astro` has no option to leave them out, so we strip them. The browser then starts its own trace and samples 10% of page loads.
+- **Normal approach:** let the integration inject the tags, on a site that does not cache its HTML.
+- **Date:** 2026-10-08
+
 ## Search indexer (`apps/search-indexer`)
 
 ### A Compose init job that reindexes only empty aliases
@@ -891,14 +899,6 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Why:** TypeScript 7 is the native compiler and no longer ships the JavaScript API that `astro check` (`@astrojs/language-server` 2.16.10) calls, so `bun run types` crashes with `Cannot read properties of undefined (reading 'fileExists')`. Lift the ignore once Astro's checker supports 7.
 - **Normal approach:** track the latest version.
 - **Date:** 2026-09-25
-
-### `posthog.astro` stays minified
-
-- **What:** the vendor snippet is kept minified; `.prettierignore` skips it and oxlint ignores it too.
-- **Where:** `apps/web/src/components/layout/posthog.astro`, `.prettierignore`
-- **Why:** it is a vendor snippet, kept as shipped.
-- **Normal approach:** format and lint it like the rest of the code.
-- **Date:** 2026-09-24
 
 ### `prettier-plugin-astro` can add whitespace inside a nested element
 
