@@ -10,6 +10,7 @@ import { sanitizeArabicInput, stripInputNoise } from '@/lib/arabic';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
 import { createCsvFilterSetter, splitCsvIds, validateText } from '@/lib/search/csv-filters';
 
+import { useSearchCompletedEvent } from './search-completed-event';
 import { deriveSearchStatus, deriveSectionStatus } from './search-status';
 
 import type { PoemSearchResult, PoetSearchResult, SearchResponse } from '@/lib/api/result-types';
@@ -180,6 +181,19 @@ export function useSearch() {
     { status: poemsStatus, total: poemsTotal },
     { status: poetsStatus, total: poetsTotal },
   ]);
+
+  useSearchCompletedEvent(searchStatus.kind === 'results' || searchStatus.kind === 'empty', {
+    query,
+    exact,
+    eras: selectedEras,
+    meters: selectedMeters,
+    rhymes: selectedRhymes,
+    themes: selectedThemes,
+    poemTypes: selectedPoemTypes,
+    collections: selectedCollections,
+    poemResults: poemsTotal,
+    poetResults: poetsTotal,
+  });
 
   const { loadMoreRef: poetsLoadMoreRef } = useInfiniteScroll(
     poetsInfiniteQuery.fetchNextPage,
