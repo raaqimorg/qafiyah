@@ -31,4 +31,13 @@ docker run --rm \
   --env RCLONE_CONFIG_R2_SECRET_ACCESS_KEY \
   rclone/rclone:1.75.1 copyto "/backup/${name}" "r2:${ACCOUNTS_BACKUP_BUCKET}/accounts/${name}"
 
+metrics_dir=".metrics"
+mkdir -p "${metrics_dir}"
+cat > "${metrics_dir}/accounts-backup.prom.tmp" <<EOF
+# HELP qafiyah_accounts_backup_last_success_timestamp_seconds Unix time of the last successful accounts backup.
+# TYPE qafiyah_accounts_backup_last_success_timestamp_seconds gauge
+qafiyah_accounts_backup_last_success_timestamp_seconds $(date -u +%s)
+EOF
+mv -f "${metrics_dir}/accounts-backup.prom.tmp" "${metrics_dir}/accounts-backup.prom"
+
 echo "[accounts-backup] done"

@@ -319,3 +319,34 @@ groups:
         labels: { severity: warning, service: web }
         annotations:
           summary: Over 14.4% of website requests took longer than 1 s, over both the last hour and the last 5 minutes.
+
+  - orgId: 1
+    name: backups
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: accounts-backup
+        title: Accounts backup stale
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: time() - max(qafiyah_accounts_backup_last_success_timestamp_seconds)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [93600] }
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: accounts-backup }
+        annotations:
+          summary: The accounts database has had no successful backup for more than 26 hours.
