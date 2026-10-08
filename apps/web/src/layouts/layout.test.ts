@@ -8,6 +8,8 @@ beforeEach(() => {
   vi.doUnmock('@/lib/constants/config');
 });
 
+const POSTHOG_SCRIPT = /<script[^>]+src="[^"]*posthog[^"]*"/;
+
 async function renderLayout(isRelease: boolean): Promise<string> {
   vi.doMock('@/lib/constants/config', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/constants/config')>()),
@@ -22,10 +24,10 @@ async function renderLayout(isRelease: boolean): Promise<string> {
 
 describe('Layout', () => {
   it('loads PostHog in a release build', async () => {
-    expect(await renderLayout(true)).toContain('posthog.init');
+    expect(await renderLayout(true)).toMatch(POSTHOG_SCRIPT);
   });
 
   it('leaves PostHog out of a build without a release', async () => {
-    expect(await renderLayout(false)).not.toContain('posthog.init');
+    expect(await renderLayout(false)).not.toMatch(POSTHOG_SCRIPT);
   });
 });
