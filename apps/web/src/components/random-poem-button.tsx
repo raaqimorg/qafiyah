@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { match } from 'ts-pattern';
 
+import { captureEvent } from '@/lib/analytics/capture-event';
 import { fetchRandomPoemSlugWithRetry } from '@/lib/api/random-poem';
 import { WEB_API_PROXY_PREFIX } from '@/lib/constants/config';
 import { reportError } from '@/lib/observability/report-error';
@@ -35,6 +36,7 @@ export function RandomPoemButton() {
     }
     event.preventDefault();
     if (status.kind === 'loading') return;
+    captureEvent('random_poem_requested');
     setStatus({ kind: 'loading' });
     const result = await fetchRandomPoemSlugWithRetry(WEB_API_PROXY_PREFIX);
     if (result.isErr()) {

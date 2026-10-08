@@ -28,6 +28,10 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
   - the Sentry reporting
   - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
   - the request timing. `src/middleware.ts` times every request that reaches Astro, to the end of its body (`request-timing.ts`). It records the time by method, route pattern, and status, into an OpenTelemetry exponential histogram (`request-metrics.ts`). The histogram is pushed every 15 seconds to `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Only compose sets that variable, so `bun run dev` and the tests record nothing. What reads it is in `apps/observability/AGENTS.md`.
+- `lib/analytics/capture-event.ts` sends a PostHog event. It does nothing until PostHog starts, which happens only in release builds (`components/layout/posthog.astro`).
+  - `search_completed`: once for each search, with the result counts and the filter counts. It carries the search text only when the search finds nothing.
+  - `random_poem_requested`: a press on the random poem button.
+  - `setting_changed`: a change of the theme or the poem font size.
 - `lib/arabic.ts` holds text helpers for Arabic: digit conversion, the agreement of singular, dual, and plural nouns, and input sanitization.
 - `lib/seo/` holds the metadata and JSON-LD builders for each route type.
 
