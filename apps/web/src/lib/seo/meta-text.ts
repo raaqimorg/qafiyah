@@ -1,3 +1,4 @@
+import { toArabicDigits } from '@/lib/arabic';
 import { SITE_NAME_AR } from '@/lib/constants/site-meta';
 
 const META_DESCRIPTION_OPTIMAL_LENGTH = 300;
@@ -25,4 +26,8 @@ export function excerptAtWordBoundary(value: string, maxLength: number): string 
 
 export function withBrand(lead: string): string {
   return `${lead} | ${SITE_NAME_AR}`;
+}
+
+export function withPageNumber(lead: string, page: number): string {
+  return page > 1 ? `${lead}، الصفحة ${toArabicDigits(page)}` : lead;
 }

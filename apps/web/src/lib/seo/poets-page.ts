@@ -20,6 +20,7 @@ import {
   sanitizeMetaText,
   UNKNOWN_ENTITY_NAME,
   withBrand,
+  withPageNumber,
 } from '@/lib/seo/meta-text';
 import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
@@ -81,7 +82,7 @@ export function buildPoetsIndexView(input: {
 
   const emptyText = isFiltered ? 'لا يوجد شعراء مطابقون' : 'لا يوجد المزيد من الشعراء';
 
-  const title = withBrand('شعراء العرب ودواوينهم');
+  const title = withBrand(withPageNumber('شعراء العرب ودواوينهم', pageNumber));
   const description = `صفحة الشعراء على ${SITE_NAME_AR}. تصفح دواوين الشعراء من العصر الجاهلي إلى المعاصر.`;
 
   const collectionJsonLd = collectionPageNode({
@@ -174,6 +175,24 @@ function buildWorksJsonLd(poet: Poet, listedPoems: readonly PoemRow[]) {
   );
 }
 
+function describePoetWithoutBio(
+  lead: string,
+  summary: string,
+  poemsCount: number,
+  poems: readonly PoemRow[]
+): string {
+  const titles = poems.slice(0, 2).map((poem) => `«${sanitizeMetaText(poem.title)}»`);
+  const candidates = [titles, titles.slice(0, 1), []].map((shown) => {
+    const samplesLead = poemsCount <= shown.length ? ': ' : '، منها ';
+    const samples = shown.length === 0 ? '' : `${samplesLead}${shown.join(' و')}`;
+    return `${lead} ${summary}${samples}.`;
+  });
+  const fitting = candidates.find((text) => text.length <= POET_DESCRIPTION_TARGET_LENGTH);
+  return (
+    fitting ?? excerptAtWordBoundary(candidates.at(-1) ?? lead, POET_DESCRIPTION_TARGET_LENGTH)
+  );
+}
+
 export function buildPoetLayout(input: {
   readonly poet: Poet;
   readonly poems: readonly PoemRow[];
@@ -186,7 +205,7 @@ export function buildPoetLayout(input: {
 
   const poemsLabel = formatArabicCount({ count: poet.poemsCount, nounForms: POEMS_NOUN_FORMS });
 
-  const title = withBrand(`ديوان ${poet.name}`);
+  const title = withBrand(withPageNumber(`ديوان ${poet.name}`, pagination.page));
   const knownEra = poet.era.name === UNKNOWN_ENTITY_NAME ? undefined : poet.era.name;
   const subtitle = [poemsLabel, knownEra, pickAdditiveNickname(poet)]
     .filter((part): part is string => part !== undefined)
@@ -198,13 +217,11 @@ export function buildPoetLayout(input: {
   const bio = bioText === undefined ? undefined : buildBioView(bioText);
   const metaBio = bioText === undefined ? undefined : sanitizeMetaText(bioText);
   const eraClause = knownEra === undefined ? '' : `من العصر ال${knownEra}، `;
-  const fallback = `شاعر ${eraClause}له ${poemsLabel}.`;
-  const description = excerptAtWordBoundary(
+  const lead = `ديوان ${poet.name} على ${SITE_NAME_AR}.`;
+  const description =
     metaBio === undefined
-      ? `ديوان ${poet.name} على ${SITE_NAME_AR}. ${fallback}`
-      : `ديوان ${poet.name} على ${SITE_NAME_AR}. ${metaBio}`,
-    POET_DESCRIPTION_TARGET_LENGTH
-  );
+      ? describePoetWithoutBio(lead, `شاعر ${eraClause}له ${poemsLabel}`, poet.poemsCount, poems)
+      : excerptAtWordBoundary(`${lead} ${metaBio}`, POET_DESCRIPTION_TARGET_LENGTH);
 
   const personJsonLd = personNode({
     name: poet.name,
