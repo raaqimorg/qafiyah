@@ -81,7 +81,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "bun.lock, .npmrc, turbo.json, tsconfig*.json, .oxlintrc.json, .oxfmtrc.json, knip.json, .dependency-cruiser.*, wrangler.jsonc, .hadolint.yaml, .prettierignore, .mcp.json, .prettierrc.json, .squawk.toml",
+    "package.json": "bun.lock, .npmrc, turbo.json, tsconfig*.json, .oxlintrc.json, .oxfmtrc.json, knip.json, .dependency-cruiser.*, wrangler.jsonc, .hadolint.yaml, .mcp.json, .prettierrc.json, .squawk.toml",
     "Cargo.toml": "Cargo.lock, rust-toolchain.toml, arabic-text.vectors.json, clippy.toml",
     "Dockerfile": "docker-entrypoint.sh, nginx.conf, nginx-security-headers.conf, nginx-csp.conf, nginx-csp-api.conf, nginx-bad-bots.conf",
     "docker-compose.yml": "docker-compose.*.yml, .dockerignore",

@@ -11,6 +11,7 @@ const UIDS = [
   'slow-queries',
 ] as const;
 const RULE_UIDS = [
+  'accounts-backup',
   'api-down',
   'container-memory',
   'disk',

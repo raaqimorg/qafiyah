@@ -51,3 +51,4 @@ title-review.sqlite
 .title-fix/
 title-review-output.sqlite
 NOTES.txt
+.metrics/

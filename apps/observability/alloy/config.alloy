@@ -60,4 +60,8 @@ prometheus.exporter.unix "host" {
 	sysfs_path     = "/host/sys"
 	rootfs_path    = "/host/root"
 	udev_data_path = "/host/root/run/udev/data"
+
+	textfile {
+		directory = "/var/lib/alloy/textfile"
+	}
 }

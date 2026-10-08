@@ -28,6 +28,7 @@ export { SUPPORT_EMAIL };
 const DEV_WEB_URL = `http://localhost:${DEV_WEB_PORT}`;
 
 export const isDev = env.DEV;
+export const isRelease = (env.PUBLIC_SENTRY_RELEASE ?? '') !== '';
 export const API_URL = env.PUBLIC_API_URL ?? PROD_API_URL;
 
 export const WEB_API_PROXY_PREFIX = '/api';
