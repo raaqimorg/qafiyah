@@ -892,14 +892,6 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** track the latest version.
 - **Date:** 2026-09-25
 
-### `posthog.astro` stays minified
-
-- **What:** the vendor snippet is kept minified; `.prettierignore` skips it and oxlint ignores it too.
-- **Where:** `apps/web/src/components/layout/posthog.astro`, `.prettierignore`
-- **Why:** it is a vendor snippet, kept as shipped.
-- **Normal approach:** format and lint it like the rest of the code.
-- **Date:** 2026-09-24
-
 ### `prettier-plugin-astro` can add whitespace inside a nested element
 
 - **What:** when it wraps a long line, an element nested in a `{...}` expression can gain whitespace. For example, `<span>text</span>` becomes the tag, the text, and the closing tag, on three lines.
