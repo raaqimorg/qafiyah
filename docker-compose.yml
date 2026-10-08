@@ -460,6 +460,7 @@ services:
     volumes:
       - ./apps/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - alloy_data:/var/lib/alloy/data
+      - ./.metrics:/var/lib/alloy/textfile:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/host/root:ro
       - /proc:/host/proc:ro

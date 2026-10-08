@@ -224,6 +224,8 @@ Prometheus, Loki, Alloy, Grafana, postgres_exporter, elasticsearch_exporter, bla
   - It runs `pg_dump` in the `db` container, and encrypts the dump with `age` to `ACCOUNTS_BACKUP_RECIPIENT`.
   - It uploads the result with rclone (run from its image) to a private R2 bucket, under `accounts/`.
   - A failed dump uploads nothing.
+  - After a successful upload, it writes the time to `.metrics/accounts-backup.prom` in the checkout. Alloy reads that file (`apps/observability/AGENTS.md`).
+  - Grafana alerts the Telegram group when the last success is more than 26 hours old. The metric exists only after the first successful run, so run one backup by hand after you install the timer.
 - The recipient is an age public key whose private half is never on the VPS. It is a maintainer's key, never the VPS's own sops key. So the VPS can write backups, but cannot read them.
 - An R2 lifecycle rule on the bucket controls retention (it deletes `accounts/` objects after 30 days). The script does not.
 - The bucket is **not** `qafiyah-assets`, which is public at `cdn.qafiyah.com`. The backup bucket has no public binding and no custom domain.
