@@ -64,6 +64,12 @@
             ]
         },
         {
+            "slug": "EQZJ",
+            "poems": [
+                "cQWS"
+            ]
+        },
+        {
             "slug": "EgPB",
             "poems": [
                 "EFoV"
@@ -94,6 +100,12 @@
             ]
         },
         {
+            "slug": "HEVF",
+            "poems": [
+                "loYC"
+            ]
+        },
+        {
             "slug": "HSId",
             "poems": [
                 "ZHdF"
@@ -102,13 +114,7 @@
         {
             "slug": "HYTv",
             "poems": [
-                "wRuF"
-            ]
-        },
-        {
-            "slug": "IBDU",
-            "poems": [
-                "ROgG"
+                "bJIa"
             ]
         },
         {
@@ -181,6 +187,12 @@
             "slug": "LxmQ",
             "poems": [
                 "gvKj"
+            ]
+        },
+        {
+            "slug": "MFKH",
+            "poems": [
+                "mSpB"
             ]
         },
         {
@@ -286,12 +298,6 @@
             ]
         },
         {
-            "slug": "VrQh",
-            "poems": [
-                "bJIa"
-            ]
-        },
-        {
             "slug": "WMfP",
             "poems": [
                 "ZYgM"
@@ -301,12 +307,6 @@
             "slug": "WQqQ",
             "poems": [
                 "YHZs"
-            ]
-        },
-        {
-            "slug": "WoZm",
-            "poems": [
-                "lRGa"
             ]
         },
         {
@@ -337,12 +337,6 @@
             "slug": "aRaN",
             "poems": [
                 "JKiT"
-            ]
-        },
-        {
-            "slug": "alYL",
-            "poems": [
-                "amUn"
             ]
         },
         {
@@ -490,6 +484,12 @@
             ]
         },
         {
+            "slug": "mPDG",
+            "poems": [
+                "Itgw"
+            ]
+        },
+        {
             "slug": "nCjD",
             "poems": [
                 "hqxQ"
@@ -584,5 +584,5 @@
             ]
         }
     ],
-    "source": "0040_07_10_2026"
+    "source": "0041_08_10_2026"
 }
