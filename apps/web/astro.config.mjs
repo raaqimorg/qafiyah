@@ -39,6 +39,7 @@ export default defineConfig({
       org: 'qafiyah',
       project: 'javascript-astro',
       authToken: sentryAuthToken,
+      autoInstrumentation: { requestHandler: false },
       sourcemaps: { disable: !sentryAuthToken },
       errorHandler: sentryAuthToken
         ? (error) => {

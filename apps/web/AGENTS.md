@@ -25,7 +25,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
 - `components/ui/` holds the design-system primitives. `ui-extended/` holds composed pieces built from them. `search/` is the search island (React Query, with URL state in `nuqs`). `layout/` is the page frame, with the `is:inline` scripts that run before hydration (see the "Web" section of `docs/exceptions.md`).
 - `lib/settings/` stores the theme and the font scale in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
 - `lib/observability/` holds these parts:
-  - the Sentry reporting
+  - the Sentry reporting. `src/middleware.ts` runs three middlewares in order: the strip of Sentry's trace tags from cached pages (see `docs/exceptions.md`), Sentry's request handler, and the request timing.
   - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
   - the request timing. `src/middleware.ts` times every request that reaches Astro, to the end of its body (`request-timing.ts`). It records the time by method, route pattern, and status, into an OpenTelemetry exponential histogram (`request-metrics.ts`). The histogram is pushed every 15 seconds to `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Only compose sets that variable, so `bun run dev` and the tests record nothing. What reads it is in `apps/observability/AGENTS.md`.
 - `lib/analytics/capture-event.ts` sends a PostHog event. It does nothing until PostHog starts, which happens only in release builds (`components/layout/posthog.astro`).
