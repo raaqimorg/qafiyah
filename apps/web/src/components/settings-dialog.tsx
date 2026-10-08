@@ -4,6 +4,7 @@ import { Minus, Plus, X } from 'lucide-react';
 import { type RefObject, useEffect, useRef } from 'react';
 
 import { IconButton } from '@/components/ui/icon-button';
+import { captureEvent } from '@/lib/analytics/capture-event';
 import { SETTINGS_TEXTS } from '@/lib/constants/copy';
 import {
   clampFontScale,
@@ -25,8 +26,21 @@ const THEME_OPTIONS: readonly { readonly value: Theme; readonly label: string }[
 
 const TRACK = 'bg-surface-sunken flex gap-1 rounded-lg p-1';
 
+function changeTheme(theme: Theme): void {
+  const isChange = getSettings().theme !== theme;
+  updateSettings({ theme });
+  if (isChange) captureEvent('setting_changed', { setting: 'theme', value: theme });
+}
+
+function changeFontScale(poemFontScale: number): void {
+  const isChange = getSettings().poemFontScale !== poemFontScale;
+  updateSettings({ poemFontScale });
+  if (isChange)
+    captureEvent('setting_changed', { setting: 'poem_font_scale', value: poemFontScale });
+}
+
 function stepScale(delta: number) {
-  updateSettings({ poemFontScale: clampFontScale(getSettings().poemFontScale + delta) });
+  changeFontScale(clampFontScale(getSettings().poemFontScale + delta));
 }
 
 function useLightDismiss(dialogRef: RefObject<HTMLDialogElement | null>): void {
@@ -95,7 +109,7 @@ export function SettingsDialog({ className }: { readonly className?: string }) {
                   key={option.value}
                   type="button"
                   aria-pressed={settings.theme === option.value}
-                  onClick={() => updateSettings({ theme: option.value })}
+                  onClick={() => changeTheme(option.value)}
                   className={cn(
                     'h-9 flex-1 rounded-md text-sm focus-ring transition-colors',
                     settings.theme === option.value
@@ -115,7 +129,7 @@ export function SettingsDialog({ className }: { readonly className?: string }) {
               {settings.poemFontScale !== DEFAULT_SETTINGS.poemFontScale && (
                 <button
                   type="button"
-                  onClick={() => updateSettings({ poemFontScale: DEFAULT_SETTINGS.poemFontScale })}
+                  onClick={() => changeFontScale(DEFAULT_SETTINGS.poemFontScale)}
                   className="rounded-sm text-xs text-text-subtle focus-ring transition-colors hover:text-text"
                 >
                   {SETTINGS_TEXTS.reset}
