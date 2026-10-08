@@ -144,19 +144,6 @@ describe('buildPoemLayout', () => {
     expect(layout.description).not.toContain('غير معروف');
   });
 
-  it('leaves the brand off a title too long to show in full', () => {
-    const poem = { ...basePoem, title: 'في هذه الأيام كم من شاب وشابة يحمل ملفه بعد التخرج' };
-    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
-    expect(layout.title).toBe('في هذه الأيام كم من شاب وشابة يحمل ملفه بعد التخرج - المتنبي');
-  });
-
-  it('links the poem only to pages that search engines may index', () => {
-    const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
-    const [article] = layout.jsonLd;
-    const urls = article.isPartOf.map((part) => part.url);
-    expect(urls.some((url) => url.includes('?era='))).toBe(false);
-  });
-
   it('ends the description with one period when the opening line ends in punctuation', () => {
     const poem = { ...basePoem, verses: [['ولسان حاله يقول:', 'عجز']] };
     const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);

@@ -54,13 +54,6 @@ export function Footer({ className }: { className?: string }) {
           >
             للمطورين
           </a>
-          <Separator className="hidden lg:inline" />
-          <a
-            href="/privacy"
-            className="hidden min-h-11 items-center rounded-md px-1 transition-colors hover:text-text focus-visible:ring-1 focus-visible:ring-text focus-visible:outline-none md:px-2 lg:inline-flex"
-          >
-            الخصوصية
-          </a>
           <Separator />
           <SettingsDialog className="inline-flex min-h-11 items-center rounded-md px-1 focus-visible:ring-1 focus-visible:ring-text focus-visible:outline-none md:px-2" />
         </nav>

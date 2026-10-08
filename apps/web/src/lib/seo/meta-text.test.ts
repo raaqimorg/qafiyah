@@ -5,7 +5,6 @@ import {
   sanitizeMetaText,
   truncateMetaText,
   withBrand,
-  withBrandIfItFits,
   withPageNumber,
 } from './meta-text';
 
@@ -59,16 +58,5 @@ describe('withPageNumber', () => {
 
   it('adds the page number in Arabic digits from page 2 on', () => {
     expect(withPageNumber('ديوان المتنبي', 12)).toBe('ديوان المتنبي، الصفحة ١٢');
-  });
-});
-
-describe('withBrandIfItFits', () => {
-  it('appends the brand when the title stays short enough to show in full', () => {
-    expect(withBrandIfItFits('البردة - المتنبي')).toBe('البردة - المتنبي | قافية');
-  });
-
-  it('leaves the brand off a title that search results would cut', () => {
-    const lead = 'في هذه الأيام كم من شاب وشابة يحمل ملفه بعد التخرج - حسن الزهراني';
-    expect(withBrandIfItFits(lead)).toBe(lead);
   });
 });

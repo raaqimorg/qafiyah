@@ -16,7 +16,6 @@ import {
   truncateMetaText,
   UNKNOWN_ENTITY_NAME,
   withBrand,
-  withBrandIfItFits,
 } from '@/lib/seo/meta-text';
 import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
@@ -86,6 +85,7 @@ function buildJsonLd(
   crumbItems: readonly BreadcrumbItem[]
 ): readonly [PoemArticleDoc, BreadcrumbListDoc] {
   const poetHref = `${SITE_URL}${poetUrl(poem.poet.slug)}`;
+  const eraHref = `${SITE_URL}${poetsUrl({ era: poem.era.slug })}`;
   const displayTitle = poem.title;
   const poetName = poem.poet.name;
   const article = buildPoemArticle({
@@ -97,6 +97,7 @@ function buildJsonLd(
     isPartOf: [
       websiteRef(),
       buildThingRef({ '@type': 'Collection', name: poetName, url: poetHref }),
+      buildThingRef({ '@type': 'Collection', name: poem.era.name, url: eraHref }),
     ],
     description,
     text: buildPoemText(poem),
@@ -119,9 +120,7 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
   const description = truncateMetaText(
     sanitizeMetaText(opening === '' ? structuralPart : `${structuralPart} مطلعها: ${opening}.`)
   );
-  const pageTitle = withBrandIfItFits(
-    `${sanitizeMetaText(displayTitle)} - ${sanitizeMetaText(poetName)}`
-  );
+  const pageTitle = withBrand(`${sanitizeMetaText(displayTitle)} - ${sanitizeMetaText(poetName)}`);
   const muallaqaTitle = MUALLAQA_SEARCH_TITLES[slug];
   const canonicalSlug = poem.recensionOf?.slug ?? slug;
   const pageUrl = `${SITE_URL}${poemUrl(canonicalSlug)}`;
