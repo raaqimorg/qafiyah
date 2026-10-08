@@ -14,4 +14,9 @@ describe('GET /robots.txt', () => {
     expect(text).not.toContain('{API}');
     expect(text).toContain('Sitemap: http://localhost:4321/sitemap-index.xml');
   });
+
+  it('keeps crawlers off the random poem redirect', async () => {
+    const response = await GET(fakeContext());
+    expect(await response.text()).toContain('Disallow: /poems/random');
+  });
 });
