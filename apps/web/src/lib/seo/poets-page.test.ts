@@ -52,6 +52,23 @@ describe('buildPoetLayout', () => {
     );
   });
 
+  it('names fewer poems rather than cut a title when the description would run long', () => {
+    const long = 'كلمة '.repeat(14).trim();
+    const poems = [
+      { title: long, slug: 'p1', meter: { name: 'الكامل' } },
+      { title: long, slug: 'p2', meter: { name: 'الكامل' } },
+      { title: long, slug: 'p3', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems,
+      pagination: { page: 1, totalPages: 1 },
+    });
+    expect(layout.description).toBe(
+      `ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له ٦٥ قصيدة، منها «${long}».`
+    );
+  });
+
   it('uses the bio when present', () => {
     const poet = { ...basePoet, bio: 'شاعرة سورية معاصرة.' };
     const layout = buildPoetLayout({ poet, poems: [], pagination: { page: 1, totalPages: 1 } });

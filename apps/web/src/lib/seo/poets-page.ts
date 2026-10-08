@@ -175,6 +175,24 @@ function buildWorksJsonLd(poet: Poet, listedPoems: readonly PoemRow[]) {
   );
 }
 
+function describePoetWithoutBio(
+  lead: string,
+  summary: string,
+  poemsCount: number,
+  poems: readonly PoemRow[]
+): string {
+  const titles = poems.slice(0, 2).map((poem) => `«${sanitizeMetaText(poem.title)}»`);
+  const candidates = [titles, titles.slice(0, 1), []].map((shown) => {
+    const samplesLead = poemsCount <= shown.length ? ': ' : '، منها ';
+    const samples = shown.length === 0 ? '' : `${samplesLead}${shown.join(' و')}`;
+    return `${lead} ${summary}${samples}.`;
+  });
+  const fitting = candidates.find((text) => text.length <= POET_DESCRIPTION_TARGET_LENGTH);
+  return (
+    fitting ?? excerptAtWordBoundary(candidates.at(-1) ?? lead, POET_DESCRIPTION_TARGET_LENGTH)
+  );
+}
+
 export function buildPoetLayout(input: {
   readonly poet: Poet;
   readonly poems: readonly PoemRow[];
@@ -199,16 +217,11 @@ export function buildPoetLayout(input: {
   const bio = bioText === undefined ? undefined : buildBioView(bioText);
   const metaBio = bioText === undefined ? undefined : sanitizeMetaText(bioText);
   const eraClause = knownEra === undefined ? '' : `من العصر ال${knownEra}، `;
-  const sampleTitles = poems.slice(0, 2).map((poem) => `«${sanitizeMetaText(poem.title)}»`);
-  const samplesLead = poet.poemsCount <= sampleTitles.length ? ': ' : '، منها ';
-  const samplesClause = sampleTitles.length === 0 ? '' : `${samplesLead}${sampleTitles.join(' و')}`;
-  const fallback = `شاعر ${eraClause}له ${poemsLabel}${samplesClause}.`;
-  const description = excerptAtWordBoundary(
+  const lead = `ديوان ${poet.name} على ${SITE_NAME_AR}.`;
+  const description =
     metaBio === undefined
-      ? `ديوان ${poet.name} على ${SITE_NAME_AR}. ${fallback}`
-      : `ديوان ${poet.name} على ${SITE_NAME_AR}. ${metaBio}`,
-    POET_DESCRIPTION_TARGET_LENGTH
-  );
+      ? describePoetWithoutBio(lead, `شاعر ${eraClause}له ${poemsLabel}`, poet.poemsCount, poems)
+      : excerptAtWordBoundary(`${lead} ${metaBio}`, POET_DESCRIPTION_TARGET_LENGTH);
 
   const personJsonLd = personNode({
     name: poet.name,
