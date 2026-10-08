@@ -27,7 +27,7 @@ describe('buildTaxonomyTermView', () => {
 
     expect(layout.title).toBe('بحر الطويل: قصائده وشعراؤه | قافية');
     expect(layout.description).toBe(
-      'تصفح ١٢ قصيدة على بحر الطويل على قافية، لـالمتنبي، ضمن أرشيف قافية الشامل للشعر العربي.'
+      'تصفح ١٢ قصيدة على بحر الطويل على قافية، من شعرائه المتنبي، ضمن أرشيف قافية الشامل للشعر العربي.'
     );
     expect(layout.canonical).toBe('/meters/altaweel');
     expect((layout.jsonLd[0] as { name: string }).name).toBe('قصائد بحر الطويل');
@@ -47,6 +47,26 @@ describe('buildTaxonomyTermView', () => {
     expect(body.heading).toBe('الراء (٥ قصائد)');
     expect(body.items[0]?.subtitle).toBe('الكامل');
     expect(layout.canonical).toBe('/rhymes/r?page=2');
+  });
+
+  it('adds the page number to the title from page 2 on', () => {
+    const { layout } = buildTaxonomyTermView('rhymes', {
+      term: { name: 'الراء', slug: 'r', poemsCount: 5 },
+      poems,
+      pagination: { page: 2, totalPages: 4 },
+    });
+
+    expect(layout.title).toBe('قصائد على روي الراء، الصفحة ٢ | قافية');
+  });
+
+  it('names the sample poem with its poet as the subject, so the name keeps its form', () => {
+    const { layout } = buildTaxonomyTermView('rhymes', {
+      term: { name: 'الراء', slug: 'r', poemsCount: 5 },
+      poems,
+      pagination: { page: 1, totalPages: 1 },
+    });
+
+    expect(layout.description).toContain('منها «البردة» نظمها المتنبي');
   });
 
   it('never surfaces an anonymous poet as a sample poet (regression: the unknown poet has the most poems of any poet)', () => {

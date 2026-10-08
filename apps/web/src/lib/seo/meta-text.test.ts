@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { excerptAtWordBoundary, sanitizeMetaText, truncateMetaText, withBrand } from './meta-text';
+import {
+  excerptAtWordBoundary,
+  sanitizeMetaText,
+  truncateMetaText,
+  withBrand,
+  withPageNumber,
+} from './meta-text';
 
 describe('sanitizeMetaText', () => {
   it('strips quotes and backslashes and collapses whitespace', () => {
@@ -42,5 +48,15 @@ describe('excerptAtWordBoundary', () => {
 describe('withBrand', () => {
   it('appends the site brand', () => {
     expect(withBrand('ديوان المتنبي')).toBe('ديوان المتنبي | قافية');
+  });
+});
+
+describe('withPageNumber', () => {
+  it('leaves the first page as it is', () => {
+    expect(withPageNumber('ديوان المتنبي', 1)).toBe('ديوان المتنبي');
+  });
+
+  it('adds the page number in Arabic digits from page 2 on', () => {
+    expect(withPageNumber('ديوان المتنبي', 12)).toBe('ديوان المتنبي، الصفحة ١٢');
   });
 });
