@@ -16,6 +16,7 @@ import {
   truncateMetaText,
   UNKNOWN_ENTITY_NAME,
   withBrand,
+  withBrandIfItFits,
 } from '@/lib/seo/meta-text';
 import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
@@ -84,7 +85,6 @@ function buildJsonLd(
   crumbItems: readonly BreadcrumbItem[]
 ): readonly [PoemArticleDoc, BreadcrumbListDoc] {
   const poetHref = `${SITE_URL}${poetUrl(poem.poet.slug)}`;
-  const eraHref = `${SITE_URL}${poetsUrl({ era: poem.era.slug })}`;
   const displayTitle = poem.title;
   const poetName = poem.poet.name;
   const article = buildPoemArticle({
@@ -96,7 +96,6 @@ function buildJsonLd(
     isPartOf: [
       websiteRef(),
       buildThingRef({ '@type': 'Collection', name: poetName, url: poetHref }),
-      buildThingRef({ '@type': 'Collection', name: poem.era.name, url: eraHref }),
     ],
     description,
     text: buildPoemText(poem),
@@ -110,11 +109,18 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
   const poetName = poem.poet.name;
   const versesLabel = formatArabicCount({ count: poem.verseCount, nounForms: VERSES_NOUN_FORMS });
   const opening = stripTashkeel(poem.verses[0]?.[0] ?? '');
-  const structuralPart = `قصيدة ${displayTitle} نظمها ${poetName}، ${versesLabel} على بحر ${poem.meter.name} وروي ${poem.rhyme.name}.`;
+  const facets = [
+    poem.meter.name === UNKNOWN_ENTITY_NAME ? undefined : `بحر ${poem.meter.name}`,
+    poem.rhyme.name === UNKNOWN_ENTITY_NAME ? undefined : `روي ${poem.rhyme.name}`,
+  ].filter((facet): facet is string => facet !== undefined);
+  const facetsPart = facets.length === 0 ? '' : ` على ${facets.join(' و')}`;
+  const structuralPart = `قصيدة ${displayTitle} نظمها ${poetName}، ${versesLabel}${facetsPart}.`;
   const description = truncateMetaText(
     sanitizeMetaText(opening === '' ? structuralPart : `${structuralPart} مطلعها: ${opening}.`)
   );
-  const pageTitle = withBrand(`${sanitizeMetaText(displayTitle)} - ${sanitizeMetaText(poetName)}`);
+  const pageTitle = withBrandIfItFits(
+    `${sanitizeMetaText(displayTitle)} - ${sanitizeMetaText(poetName)}`
+  );
   const muallaqaTitle = MUALLAQA_SEARCH_TITLES[slug];
   const canonicalSlug = poem.recensionOf?.slug ?? slug;
   const pageUrl = `${SITE_URL}${poemUrl(canonicalSlug)}`;

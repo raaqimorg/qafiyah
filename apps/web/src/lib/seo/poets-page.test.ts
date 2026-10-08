@@ -25,6 +25,33 @@ describe('buildPoetLayout', () => {
     );
   });
 
+  it('names two of the poems when the poet has no bio', () => {
+    const poems = [
+      { title: 'أمل', slug: 'p1', meter: { name: 'الكامل' } },
+      { title: 'غربة', slug: 'p2', meter: { name: 'الكامل' } },
+      { title: 'وطن', slug: 'p3', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems,
+      pagination: { page: 1, totalPages: 1 },
+    });
+    expect(layout.description).toBe(
+      'ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له ٦٥ قصيدة، منها «أمل» و«غربة».'
+    );
+  });
+
+  it('lists the poems after a colon when they are all the poet has', () => {
+    const poet = { ...basePoet, poemsCount: 1 };
+    const poems = [
+      { title: 'أمل', slug: 'p1', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({ poet, poems, pagination: { page: 1, totalPages: 1 } });
+    expect(layout.description).toBe(
+      'ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له قصيدة: «أمل».'
+    );
+  });
+
   it('uses the bio when present', () => {
     const poet = { ...basePoet, bio: 'شاعرة سورية معاصرة.' };
     const layout = buildPoetLayout({ poet, poems: [], pagination: { page: 1, totalPages: 1 } });

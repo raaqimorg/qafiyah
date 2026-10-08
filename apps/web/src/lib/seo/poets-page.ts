@@ -199,7 +199,10 @@ export function buildPoetLayout(input: {
   const bio = bioText === undefined ? undefined : buildBioView(bioText);
   const metaBio = bioText === undefined ? undefined : sanitizeMetaText(bioText);
   const eraClause = knownEra === undefined ? '' : `من العصر ال${knownEra}، `;
-  const fallback = `شاعر ${eraClause}له ${poemsLabel}.`;
+  const sampleTitles = poems.slice(0, 2).map((poem) => `«${sanitizeMetaText(poem.title)}»`);
+  const samplesLead = poet.poemsCount <= sampleTitles.length ? ': ' : '، منها ';
+  const samplesClause = sampleTitles.length === 0 ? '' : `${samplesLead}${sampleTitles.join(' و')}`;
+  const fallback = `شاعر ${eraClause}له ${poemsLabel}${samplesClause}.`;
   const description = excerptAtWordBoundary(
     metaBio === undefined
       ? `ديوان ${poet.name} على ${SITE_NAME_AR}. ${fallback}`

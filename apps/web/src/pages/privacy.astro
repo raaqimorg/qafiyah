@@ -1,0 +1,114 @@
+---
+import Layout from '@/layouts/layout.astro';
+import { VIEWER_HINT_COOKIE } from '@/lib/constants/config';
+import { INLINE_LINK, TYPE } from '@/lib/constants/design-tokens';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { NEW_KEY_COOKIE } from '@/lib/server/new-key-cookie';
+import { STATE_COOKIE } from '@/lib/server/oauth/redirect';
+import { SESSION_COOKIE } from '@/lib/server/session';
+import { withBrand } from '@/lib/seo/meta-text';
+import { CONTACT_EMAIL } from '@qafiyah/config';
+
+const TITLE = withBrand('سياسة الخصوصية');
+const DESCRIPTION =
+  'ما تجمعه قافية عن زوارها ومطوريها، ولماذا، ومدة حفظه، وملفات تعريف الارتباط التي يستخدمها الموقع، وكيف تطلب حذف بياناتك.';
+
+const PARAGRAPH = `${TYPE.body} text-text-muted leading-[1.8]`;
+const SECTION_HEADING = `${TYPE.subheading} text-text`;
+const LIST = `${TYPE.body} text-text-muted leading-[1.8] list-disc ps-6 flex flex-col gap-2`;
+
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout title={TITLE} description={DESCRIPTION} canonical="/privacy">
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 py-16" dir="rtl">
+    <div class="flex flex-col gap-2">
+      <h1 class={`${TYPE.heading} text-text`}>سياسة الخصوصية</h1>
+      <p class={PARAGRAPH}>آخر تحديث: ٨ أكتوبر ٢٠٢٦.</p>
+    </div>
+
+    <p class={PARAGRAPH}>
+      تصف هذه الصفحة ما يجمعه موقع قافية عن زواره ومطوريه، ولماذا، ومدة حفظه. لا نعرض إعلانات، ولا
+      نبيع بيانات أحد، ولا نشاركها إلا مع الخدمات المذكورة هنا لتشغيل الموقع.
+    </p>
+
+    <section class="flex flex-col gap-3">
+      <h2 class={SECTION_HEADING}>ما نجمعه عن الزوار</h2>
+      <ul class={LIST}>
+        <li>
+          <strong class="text-text">إحصاءات الاستخدام</strong>، عبر خدمة PostHog: الصفحات التي
+          تفتحها ومدة بقائك فيها، ونوع جهازك ومتصفحك، وعنوان IP والبلد التقريبي المستنتج منه. ونسجل
+          عمليات البحث: عدد النتائج والمرشحات المستخدمة، ونص البحث فقط حين لا يجد نتيجة. ونسجل الضغط
+          على زر القصيدة العشوائية وتغيير الإعدادات. تُحفظ هذه الإحصاءات سنة.
+        </li>
+        <li>
+          <strong class="text-text">تسجيل الجلسات</strong>، عبر PostHog أيضًا: نسجل نحو ٤٪ من
+          الزيارات تسجيلًا يعيد عرض حركة الصفحة، لنفهم أين يتعثر الزوار. يُخفى كل ما يُكتب في
+          الحقول. وتُحفظ التسجيلات ٣٠ يومًا.
+        </li>
+        <li>
+          <strong class="text-text">تقارير الأخطاء</strong>، عبر خدمة Sentry: حين يقع خطأ نسجل
+          تفاصيله التقنية، ونوع المتصفح والنظام، وعنوان الصفحة دون معاملات البحث، وعنوان IP. ونقيس
+          سرعة تحميل نحو ١٠٪ من الصفحات. تُحفظ هذه البيانات ٣٠ يومًا.
+        </li>
+        <li>
+          <strong class="text-text">سجلات الخادم</strong>: يسجل خادمنا عنوان IP وعنوان الصفحة
+          المطلوبة، ومنه نص البحث، ووقت الطلب. نستخدمها لإصلاح الأعطال وحماية الموقع، وتُحذف بعد ٧
+          أيام.
+        </li>
+        <li>
+          <strong class="text-text">Cloudflare</strong>: تمر كل الطلبات عبر Cloudflare لتسريع الموقع
+          وحمايته، فتعالج عناوين IP لهذا الغرض.
+        </li>
+      </ul>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class={SECTION_HEADING}>حسابات المطورين</h2>
+      <p class={PARAGRAPH}>
+        لا نطلب حسابًا لتصفح الموقع. الحساب لمن يريد مفتاحًا لواجهة البرمجة فقط، ويُنشأ بتسجيل
+        الدخول عبر قوقل أو قتهب. نحفظ فيه بريدك الإلكتروني واسمك وصورتك كما تصلنا من الخدمة التي
+        سجلت بها، ومعرف حسابك فيها، ونسخة مشفرة من كل مفتاح لا نستطيع منها استرجاع المفتاح نفسه،
+        وعدد الطلبات بكل مفتاح في كل ساعة. تبقى هذه البيانات ما دام الحساب موجودًا، وتبقى نسخها
+        الاحتياطية المشفرة ٣٠ يومًا بعد ذلك.
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class={SECTION_HEADING}>ملفات تعريف الارتباط والتخزين في المتصفح</h2>
+      <ul class={LIST}>
+        <li>
+          <code dir="ltr">{SESSION_COOKIE}</code>: يبقيك مسجل الدخول في حساب المطور.
+        </li>
+        <li>
+          <code dir="ltr">{STATE_COOKIE}</code>: يحمي خطوة تسجيل الدخول، ويُحذف بعدها.
+        </li>
+        <li>
+          <code dir="ltr">{NEW_KEY_COOKIE}</code>: يعرض مفتاحك الجديد مرة واحدة بعد إنشائه.
+        </li>
+        <li>
+          <code dir="ltr">{VIEWER_HINT_COOKIE}</code>: يتذكر إن كنت مسجل الدخول، ليظهر زر الحساب
+          الصحيح.
+        </li>
+        <li>ملف PostHog: معرف عشوائي يربط زياراتك بعضها ببعض في الإحصاءات، ولا يحمل اسمك.</li>
+        <li>
+          التخزين المحلي في متصفحك: إعداداتك (المظهر وحجم خط القصائد)، وحالة تسجيل الدخول، وما
+          يحتاجه الموقع لإعادة التحميل بعد تحديثه.
+        </li>
+      </ul>
+      <p class={PARAGRAPH}>لا نستخدم ملفات تعريف ارتباط للإعلانات أو للتتبع عبر مواقع أخرى.</p>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class={SECTION_HEADING}>طلب حذف بياناتك</h2>
+      <p class={PARAGRAPH}>
+        لحذف حساب المطور أو أي بيانات تخصك، راسلنا على{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`} class={INLINE_LINK} dir="ltr">
+          {CONTACT_EMAIL}
+        </a>
+        ، وسنحذفها في أقرب وقت. وتستطيع منع إحصاءات الاستخدام بأي أداة لحجب المتتبعات في متصفحك،
+        ويبقى الموقع يعمل كما هو.
+      </p>
+    </section>
+  </div>
+</Layout>
