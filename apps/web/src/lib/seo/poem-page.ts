@@ -110,7 +110,7 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
   const poetName = poem.poet.name;
   const versesLabel = formatArabicCount({ count: poem.verseCount, nounForms: VERSES_NOUN_FORMS });
   const opening = stripTashkeel(poem.verses[0]?.[0] ?? '');
-  const structuralPart = `قصيدة ${displayTitle} لـ${poetName}، ${versesLabel} على بحر ${poem.meter.name} وروي ${poem.rhyme.name}.`;
+  const structuralPart = `قصيدة ${displayTitle} نظمها ${poetName}، ${versesLabel} على بحر ${poem.meter.name} وروي ${poem.rhyme.name}.`;
   const description = truncateMetaText(
     sanitizeMetaText(opening === '' ? structuralPart : `${structuralPart} مطلعها: ${opening}.`)
   );

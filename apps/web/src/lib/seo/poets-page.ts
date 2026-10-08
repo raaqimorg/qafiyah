@@ -20,6 +20,7 @@ import {
   sanitizeMetaText,
   UNKNOWN_ENTITY_NAME,
   withBrand,
+  withPageNumber,
 } from '@/lib/seo/meta-text';
 import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
@@ -81,7 +82,7 @@ export function buildPoetsIndexView(input: {
 
   const emptyText = isFiltered ? 'لا يوجد شعراء مطابقون' : 'لا يوجد المزيد من الشعراء';
 
-  const title = withBrand('شعراء العرب ودواوينهم');
+  const title = withBrand(withPageNumber('شعراء العرب ودواوينهم', pageNumber));
   const description = `صفحة الشعراء على ${SITE_NAME_AR}. تصفح دواوين الشعراء من العصر الجاهلي إلى المعاصر.`;
 
   const collectionJsonLd = collectionPageNode({
@@ -186,7 +187,7 @@ export function buildPoetLayout(input: {
 
   const poemsLabel = formatArabicCount({ count: poet.poemsCount, nounForms: POEMS_NOUN_FORMS });
 
-  const title = withBrand(`ديوان ${poet.name}`);
+  const title = withBrand(withPageNumber(`ديوان ${poet.name}`, pagination.page));
   const knownEra = poet.era.name === UNKNOWN_ENTITY_NAME ? undefined : poet.era.name;
   const subtitle = [poemsLabel, knownEra, pickAdditiveNickname(poet)]
     .filter((part): part is string => part !== undefined)

@@ -131,6 +131,12 @@ describe('buildPoemLayout', () => {
     expect(layout.description).toContain('مطلعها: صدر.');
   });
 
+  it('names the poet as the subject of نظمها, so a name like أبو الطيب keeps its form', () => {
+    const poem = { ...basePoem, poet: { ...basePoem.poet, name: 'أبو الطيب' } };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description).toContain('قصيدة البردة نظمها أبو الطيب،');
+  });
+
   it('keeps og and twitter description in sync (regression: they used to drift)', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     expect(layout.twitterDescription).toBe(layout.ogDescription);

@@ -67,10 +67,10 @@ export const TERM_PAGE_CONFIG: Record<TaxonomySection, TermPageConfig> = {
     get: (slug) => getMeter(slug as MeterSlug),
     makeFilters: (slug) => ({ meterSlugs: [slug as MeterSlug] }),
     crumbLabel: 'البحور',
-    titleLead: (name) => withBrand(`بحر ${name}: قصائده وشعراؤه`),
+    titleLead: (name) => `بحر ${name}: قصائده وشعراؤه`,
     description: (name, poemsLabel, poems) => {
       const poets = distinctPoetNames(poems, 2);
-      const poetsPart = poets.length > 0 ? `، لـ${poets.join(' و')}` : '';
+      const poetsPart = poets.length > 0 ? `، من شعرائه ${poets.join(' و')}` : '';
       return `تصفح ${poemsLabel} على بحر ${name} على ${SITE_NAME_AR}${poetsPart}، ${ARCHIVE_TAIL}`;
     },
     jsonLdName: (name) => `قصائد بحر ${name}`,
@@ -83,10 +83,10 @@ export const TERM_PAGE_CONFIG: Record<TaxonomySection, TermPageConfig> = {
     get: (slug) => getRhyme(slug as RhymeSlug),
     makeFilters: (slug) => ({ rhymeSlugs: [slug as RhymeSlug] }),
     crumbLabel: 'القوافي',
-    titleLead: (name) => withBrand(`قصائد على روي ${name}`),
+    titleLead: (name) => `قصائد على روي ${name}`,
     description: (name, poemsLabel, poems) => {
       const sample = firstAttributedPoem(poems);
-      const samplePart = sample ? `، منها «${sample.title}» لـ${sample.poet.name}` : '';
+      const samplePart = sample ? `، منها «${sample.title}» نظمها ${sample.poet.name}` : '';
       return `تصفح ${poemsLabel} قافيتها ${name} على ${SITE_NAME_AR}${samplePart}، ${ARCHIVE_TAIL}`;
     },
     jsonLdName: (name) => `قصائد قافية ${name}`,
@@ -99,10 +99,10 @@ export const TERM_PAGE_CONFIG: Record<TaxonomySection, TermPageConfig> = {
     get: (slug) => getTheme(slug as ThemeSlug),
     makeFilters: (slug) => ({ themeSlugs: [slug as ThemeSlug] }),
     crumbLabel: 'الأغراض',
-    titleLead: (name) => withBrand(`شعر ${name}`),
+    titleLead: (name) => `شعر ${name}`,
     description: (name, poemsLabel, poems) => {
       const poets = distinctPoetNames(poems, 2);
-      const poetsPart = poets.length > 0 ? `، لـ${poets.join(' و')}` : '';
+      const poetsPart = poets.length > 0 ? `، من شعرائه ${poets.join(' و')}` : '';
       return `تصفح ${poemsLabel} في غرض ${name} على ${SITE_NAME_AR}${poetsPart}، ${ARCHIVE_TAIL}`;
     },
     jsonLdName: (name) => `قصائد غرض ${name}`,
@@ -115,10 +115,10 @@ export const TERM_PAGE_CONFIG: Record<TaxonomySection, TermPageConfig> = {
     get: (slug) => getCollection(slug as CollectionSlug),
     makeFilters: (slug) => ({ collectionSlugs: [slug as CollectionSlug] }),
     crumbLabel: 'الدواوين',
-    titleLead: (name) => withBrand(`ديوان ${name}`),
+    titleLead: (name) => `ديوان ${name}`,
     description: (name, poemsLabel, poems) => {
       const sample = firstAttributedPoem(poems);
-      const samplePart = sample ? `، منها «${sample.title}» لـ${sample.poet.name}` : '';
+      const samplePart = sample ? `، منها «${sample.title}» نظمها ${sample.poet.name}` : '';
       return `تصفح ${poemsLabel} في ديوان ${name} على ${SITE_NAME_AR}${samplePart}، ${ARCHIVE_TAIL}`;
     },
     jsonLdName: (name) => `قصائد ديوان ${name}`,
