@@ -67,7 +67,7 @@ The web app is Astro with server-side rendering. Every route renders when it is 
 - The entrypoint runs both processes, and stops if either one dies. So `restart: unless-stopped` recovers a crash.
 - To build only this image, run `docker compose build web`.
 
-Browser and server errors go to Sentry only from builds that carry a release. `bun run deploy` builds with `SENTRY_RELEASE` set to the commit. The Dockerfile gives it to Astro as `PUBLIC_SENTRY_RELEASE`, which turns reporting on. Dev servers and local Docker builds have no release, so they never report to the production project.
+Browser and server errors go to Sentry, and page views go to PostHog, only from builds that carry a release. `bun run deploy` builds with `SENTRY_RELEASE` set to the commit. The Dockerfile gives it to Astro as `PUBLIC_SENTRY_RELEASE`, which turns reporting on. Dev servers and local Docker builds have no release, so they never report to the production projects.
 
 Sentry has one uptime monitor, which is all that the plan includes. It requests `https://qafiyah.com/api/v1/poems/random?option=slug` every minute from several regions.
 
