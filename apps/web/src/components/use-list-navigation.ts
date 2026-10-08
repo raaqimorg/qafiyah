@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import type React from 'react';
+import { captureEvent } from '@/lib/analytics/capture-event';
 
-declare global {
-  interface Window {
-    posthog?: { readonly capture: (event: string) => void };
-  }
-}
+import type React from 'react';
 
 export function isPlainClick(event: React.MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -24,7 +20,7 @@ export function usePageviews(): () => void {
     const search = window.location.search;
     if (search === lastSearchRef.current) return;
     lastSearchRef.current = search;
-    window.posthog?.capture('$pageview');
+    captureEvent('$pageview');
   }, []);
 
   useEffect(() => {

@@ -83,7 +83,6 @@ jobs:
                 - "!.oxlintrc.json"
                 - "!.oxfmtrc.json"
                 - "!.prettierrc.json"
-                - "!.prettierignore"
                 - "!knip.json"
                 - "!.dependency-cruiser.cjs"
                 - "!clippy.toml"

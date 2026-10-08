@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/astro';
+import { posthog } from 'posthog-js';
 
 const LOW_SIGNAL_REJECTION_MAX_LENGTH = 3;
 
@@ -20,6 +21,13 @@ Sentry.init({
   enabled: Boolean(import.meta.env.PUBLIC_SENTRY_RELEASE),
   environment: import.meta.env.DEV ? 'development' : 'production',
   tracesSampleRate: 0,
+  integrations: [
+    posthog.sentryIntegration({
+      organization: 'qafiyah',
+      projectId: 4511594177560576,
+      sendExceptionsToPostHog: false,
+    }),
+  ],
   dataCollection: {
     cookies: false,
     urlQueryParams: false,

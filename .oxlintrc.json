@@ -36,8 +36,7 @@
     "**/data",
     "**/env.d.ts",
     "**/worker-configuration.d.ts",
-    "apps/web/.astro",
-    "apps/web/src/components/layout/posthog.astro"
+    "apps/web/.astro"
   ],
   "rules": {
     "react/react-in-jsx-scope": "off",
