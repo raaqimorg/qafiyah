@@ -157,6 +157,12 @@ describe('buildPoemLayout', () => {
     expect(urls.some((url) => url.includes('?era='))).toBe(false);
   });
 
+  it('ends the description with one period when the opening line ends in punctuation', () => {
+    const poem = { ...basePoem, verses: [['ولسان حاله يقول:', 'عجز']] };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description.endsWith('مطلعها: ولسان حاله يقول.')).toBe(true);
+  });
+
   it('keeps og and twitter description in sync (regression: they used to drift)', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     expect(layout.twitterDescription).toBe(layout.ogDescription);
