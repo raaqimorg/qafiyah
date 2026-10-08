@@ -25,6 +25,50 @@ describe('buildPoetLayout', () => {
     );
   });
 
+  it('names two of the poems when the poet has no bio', () => {
+    const poems = [
+      { title: 'أمل', slug: 'p1', meter: { name: 'الكامل' } },
+      { title: 'غربة', slug: 'p2', meter: { name: 'الكامل' } },
+      { title: 'وطن', slug: 'p3', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems,
+      pagination: { page: 1, totalPages: 1 },
+    });
+    expect(layout.description).toBe(
+      'ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له ٦٥ قصيدة، منها «أمل» و«غربة».'
+    );
+  });
+
+  it('lists the poems after a colon when they are all the poet has', () => {
+    const poet = { ...basePoet, poemsCount: 1 };
+    const poems = [
+      { title: 'أمل', slug: 'p1', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({ poet, poems, pagination: { page: 1, totalPages: 1 } });
+    expect(layout.description).toBe(
+      'ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له قصيدة: «أمل».'
+    );
+  });
+
+  it('names fewer poems rather than cut a title when the description would run long', () => {
+    const long = 'كلمة '.repeat(14).trim();
+    const poems = [
+      { title: long, slug: 'p1', meter: { name: 'الكامل' } },
+      { title: long, slug: 'p2', meter: { name: 'الكامل' } },
+      { title: long, slug: 'p3', meter: { name: 'الكامل' } },
+    ] as unknown as Parameters<typeof buildPoetLayout>[0]['poems'];
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems,
+      pagination: { page: 1, totalPages: 1 },
+    });
+    expect(layout.description).toBe(
+      `ديوان إباء إسماعيل على قافية. شاعر من العصر المعاصر، له ٦٥ قصيدة، منها «${long}».`
+    );
+  });
+
   it('uses the bio when present', () => {
     const poet = { ...basePoet, bio: 'شاعرة سورية معاصرة.' };
     const layout = buildPoetLayout({ poet, poems: [], pagination: { page: 1, totalPages: 1 } });
@@ -83,6 +127,15 @@ describe('buildPoetLayout', () => {
     expect(layout.pag.nextPageUrl).toBe('/poets/CCMr?meter=altawil&theme=alnasib&page=3');
     expect(layout.pag.prevPageUrl).toBe('/poets/CCMr?meter=altawil&theme=alnasib');
     expect(layout.crumbItems.at(-1)?.path).toBe('/poets/CCMr');
+  });
+
+  it('adds the page number to the title from page 2 on', () => {
+    const layout = buildPoetLayout({
+      poet: basePoet,
+      poems: [],
+      pagination: { page: 2, totalPages: 3 },
+    });
+    expect(layout.title).toBe('ديوان إباء إسماعيل، الصفحة ٢ | قافية');
   });
 
   it('puts a nickname that adds something at the end of the subtitle', () => {

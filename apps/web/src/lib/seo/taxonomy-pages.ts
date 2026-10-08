@@ -17,6 +17,7 @@ import {
   type CreativeWorkRef,
 } from '@/lib/seo/json-ld/thing-ref';
 import { websiteRef } from '@/lib/seo/json-ld/website';
+import { withBrand, withPageNumber } from '@/lib/seo/meta-text';
 import { listPoems } from '@/lib/server/poems';
 import { poemUrl, type TaxonomySection, taxonomyIndexUrl, taxonomyUrl } from '@/lib/urls';
 
@@ -98,7 +99,7 @@ export function buildTaxonomyTermView(section: TaxonomySection, load: TaxonomyTe
   }));
 
   const layout: LayoutView = {
-    title: cfg.titleLead(name),
+    title: withBrand(withPageNumber(cfg.titleLead(name), pagination.page)),
     description: cfg.description(name, poemsLabel, poems),
     canonical: taxonomyUrl(section, slug, pagination.page),
     prevUrl: pag.hasPrevPage ? pag.prevPageUrl : undefined,

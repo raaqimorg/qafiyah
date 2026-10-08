@@ -26,6 +26,7 @@ import type { Poem } from '@/lib/api/result-types';
 const HEMISTICH_SEPARATOR = ' - ';
 const VERSE_SEPARATOR = '\n';
 const KEYWORD_SEPARATOR = ', ';
+const TRAILING_PUNCTUATION = /[\s.:،,؛;!?؟…]+$/u;
 
 const MUALLAQA_SEARCH_TITLES: Readonly<Record<string, string>> = {
   rHUD: 'معلقة امرئ القيس',
@@ -109,8 +110,13 @@ export function buildPoemLayout(poem: Poem, slug: PoemSlug): PoemLayoutProps {
   const displayTitle = poem.title;
   const poetName = poem.poet.name;
   const versesLabel = formatArabicCount({ count: poem.verseCount, nounForms: VERSES_NOUN_FORMS });
-  const opening = stripTashkeel(poem.verses[0]?.[0] ?? '');
-  const structuralPart = `قصيدة ${displayTitle} لـ${poetName}، ${versesLabel} على بحر ${poem.meter.name} وروي ${poem.rhyme.name}.`;
+  const opening = stripTashkeel(poem.verses[0]?.[0] ?? '').replace(TRAILING_PUNCTUATION, '');
+  const facets = [
+    poem.meter.name === UNKNOWN_ENTITY_NAME ? undefined : `بحر ${poem.meter.name}`,
+    poem.rhyme.name === UNKNOWN_ENTITY_NAME ? undefined : `روي ${poem.rhyme.name}`,
+  ].filter((facet): facet is string => facet !== undefined);
+  const facetsPart = facets.length === 0 ? '' : ` على ${facets.join(' و')}`;
+  const structuralPart = `قصيدة ${displayTitle} نظمها ${poetName}، ${versesLabel}${facetsPart}.`;
   const description = truncateMetaText(
     sanitizeMetaText(opening === '' ? structuralPart : `${structuralPart} مطلعها: ${opening}.`)
   );

@@ -21,6 +21,7 @@ Disallow: /account
 Disallow: /auth/
 Disallow: /login
 Disallow: /api/
+Disallow: /poems/random
 
 # ---------------------------------------------------------------------------
 # Denied: web archives. No snapshots of this site anywhere.

@@ -131,6 +131,25 @@ describe('buildPoemLayout', () => {
     expect(layout.description).toContain('مطلعها: صدر.');
   });
 
+  it('names the poet as the subject of نظمها, so a name like أبو الطيب keeps its form', () => {
+    const poem = { ...basePoem, poet: { ...basePoem.poet, name: 'أبو الطيب' } };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description).toContain('قصيدة البردة نظمها أبو الطيب،');
+  });
+
+  it('leaves an unknown meter out of the description instead of naming it', () => {
+    const poem = { ...basePoem, meter: { name: 'غير معروف', slug: 'ghayrmaruf' } };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description).toContain('بيتان على روي الراء.');
+    expect(layout.description).not.toContain('غير معروف');
+  });
+
+  it('ends the description with one period when the opening line ends in punctuation', () => {
+    const poem = { ...basePoem, verses: [['ولسان حاله يقول:', 'عجز']] };
+    const layout = buildPoemLayout(poem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
+    expect(layout.description.endsWith('مطلعها: ولسان حاله يقول.')).toBe(true);
+  });
+
   it('keeps og and twitter description in sync (regression: they used to drift)', () => {
     const layout = buildPoemLayout(basePoem, 'brda' as Parameters<typeof buildPoemLayout>[1]);
     expect(layout.twitterDescription).toBe(layout.ogDescription);
