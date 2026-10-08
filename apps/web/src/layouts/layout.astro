@@ -8,7 +8,7 @@ import SEO, { type Props as SeoProps } from '@/components/layout/seo.astro';
 import ThemeInit from '@/components/layout/theme-init.astro';
 import ViewerInit from '@/components/layout/viewer-init.astro';
 import LayoutDebug from '@/components/layout/layout-debug.astro';
-import { isDev, POSTHOG_HOST } from '@/lib/constants/config';
+import { isDev, isRelease, POSTHOG_HOST } from '@/lib/constants/config';
 import { SITE_LANGUAGE } from '@/lib/constants/site-meta';
 import '@/styles/globals.css';
 
@@ -30,8 +30,8 @@ const htmlClass = isDev ? 'debug-screens' : '';
     <ModuleReloadRecovery />
     <SEO {...seo} />
     <Font cssVariable="--font-amiri" preload={[{ weight: 400 }]} />
-    {!isDev && <PostHog />}
-    {!isDev && <link rel="preconnect" href={POSTHOG_HOST} crossorigin />}
+    {isRelease && <PostHog />}
+    {isRelease && <link rel="preconnect" href={POSTHOG_HOST} crossorigin />}
     <ThemeInit />
     <ViewerInit />
     {isDev && <LayoutDebug />}
