@@ -458,6 +458,21 @@ describe('buildApplySql', () => {
     ).toThrow('quote tag');
     expect(() => buildApplySql([{ ...split, newRows: [half(3)] }])).toThrow('letters changed');
   });
+
+  it('lets a hand edit drop the texts it lists, and no other letters', () => {
+    const note = 'كلمات الشاعر';
+    const edit = {
+      ...split,
+      oldRows: [note, `${half(3)}*${half(4)}`],
+      newRows: [`${half(3)}*${half(4)}`],
+      dropped: [note],
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 1 WHERE id = 42;');
+    expect(() => buildApplySql([{ ...edit, dropped: [] }])).toThrow('letters changed');
+    expect(() => buildApplySql([{ ...edit, dropped: ['تاريخ'] }])).toThrow('not in its rows');
+    expect(() => buildApplySql([{ ...edit, newRows: [half(3)] }])).toThrow('letters changed');
+  });
 });
 
 describe('planPoem', () => {

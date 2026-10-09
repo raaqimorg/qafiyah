@@ -422,10 +422,29 @@ async function score(dir: string): Promise<void> {
   );
 }
 
+type HandEdit = { readonly rows: readonly string[]; readonly dropped?: readonly string[] };
+
+async function readHandEdits(dir: string): Promise<Map<string, HandEdit>> {
+  const file = Bun.file(join(dir, 'hand-edits.json'));
+  if (!(await file.exists())) return new Map();
+  return new Map(Object.entries((await file.json()) as Record<string, HandEdit>));
+}
+
 async function sql(corpusPath: string, dir: string): Promise<void> {
   const { poems } = classical(readCorpus(await Bun.file(corpusPath).text()));
   const bySlug = new Map(poems.map((poem) => [poem.slug, poem]));
-  const auto = (await Bun.file(join(dir, 'auto.json')).json()) as Auto;
+  const handEdits = await readHandEdits(dir);
+  const handEdited = (key: string): boolean => handEdits.has(key.split(':')[0] ?? '');
+  const raw = (await Bun.file(join(dir, 'auto.json')).json()) as Auto;
+  const auto: Auto = {
+    ...raw,
+    merges: raw.merges.filter((merge) => !handEdits.has(merge.slug)),
+    copySplits: raw.copySplits.filter((fix) => !handEdited(fix.key)),
+    strays: raw.strays.filter((fix) => !handEdited(fix.key)),
+    strayQueue: raw.strayQueue.filter((key) => !handEdited(key)),
+    splitQueue: raw.splitQueue.filter((fix) => !handEdited(fix.key)),
+    unclearQueue: raw.unclearQueue.filter((slug) => !handEdits.has(slug)),
+  };
   const splitAnswers = await readAnswers(dir, 'splits');
   const unclearAnswers = await readAnswers(dir, 'unclear');
   const review: string[] = [];
@@ -543,12 +562,25 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
     if (poem !== undefined)
       changes.push({ poemId: poem.id, slug, oldRows: poem.rows, newRows, reason: 'merge' });
   }
+  for (const [slug, edit] of handEdits) {
+    const poem = bySlug.get(slug);
+    if (poem === undefined) review.push(`- ${slug}: hand edit not in the corpus export`);
+    else
+      changes.push({
+        poemId: poem.id,
+        slug,
+        oldRows: poem.rows,
+        newRows: edit.rows,
+        dropped: edit.dropped ?? [],
+        reason: 'hand',
+      });
+  }
 
   await Bun.write(join(dir, 'apply.sql'), buildApplySql(changes));
   await Bun.write(join(dir, 'plan.json'), `${JSON.stringify(changes)}\n`);
   await Bun.write(join(dir, 'review.md'), `# Not applied\n\n${review.join('\n')}\n`);
   console.log(
-    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'rows').length} with row fixes, ${changes.filter((change) => change.reason === 'merge').length} merged); ${review.length} listed for review`
+    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'rows').length} with row fixes, ${changes.filter((change) => change.reason === 'merge').length} merged, ${changes.filter((change) => change.reason === 'hand').length} edited by hand); ${review.length} listed for review`
   );
 }
 

@@ -66,5 +66,6 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
       - It exports the rest as CSV batches for review, and lists the rows longer than a verse in `long.csv`.
     - `score` measures the review on verses that are known to be good.
     - `sql` turns the accepted answers into one transaction, which never edits a shared verse. It refuses the stray joins until at least 98% of their sample is correct.
+      - It also takes hand edits from `hand-edits.json`: the final rows of a poem, and the texts dropped from it (notes and headings). A hand edit owns its poem, so the other fixes skip that poem. The letters must stay the same, apart from the dropped texts.
   - The promotion of a new primary reading: `promote-reading.ts`, over `reading-promotion.ts`. It turns a transcription (JSON, kept out of git) into one transaction. The transaction moves each primary's old text to a new recension, and writes the new text and its `source` into the primary.
 - `lib/` holds the shared helpers: the repo root, file walking, the list of tracked files, the runner for external linters, snapshot writing, cargo dumps, the remote and VPS helpers, and the tag of the database container.

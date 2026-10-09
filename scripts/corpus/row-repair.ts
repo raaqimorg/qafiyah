@@ -297,8 +297,20 @@ export type Change = {
   readonly slug: string;
   readonly oldRows: readonly string[];
   readonly newRows: readonly string[];
+  readonly dropped?: readonly string[];
   readonly reason: string;
 };
+
+function lettersWithout(rows: readonly string[], dropped: readonly string[]): string | undefined {
+  let remaining = lettersOnly(rows.join(''));
+  for (const text of dropped) {
+    const removed = lettersOnly(text);
+    const at = removed.length === 0 ? -1 : remaining.indexOf(removed);
+    if (at < 0) return undefined;
+    remaining = remaining.slice(0, at) + remaining.slice(at + removed.length);
+  }
+  return remaining;
+}
 
 const TAG = '$qafiyah$';
 const NUMERIC_ID = /^\d+$/;
@@ -319,7 +331,11 @@ export function buildApplySql(changes: readonly Change[]): string {
     if (!NUMERIC_ID.test(change.poemId)) {
       throw new Error(`refusing a non-numeric poem id: ${change.poemId}`);
     }
-    if (lettersOnly(change.newRows.join('')) !== lettersOnly(change.oldRows.join(''))) {
+    const kept = lettersWithout(change.oldRows, change.dropped ?? []);
+    if (kept === undefined) {
+      throw new Error(`refusing ${change.slug}: a dropped text is not in its rows`);
+    }
+    if (lettersOnly(change.newRows.join('')) !== kept) {
       throw new Error(`refusing ${change.slug}: its letters changed`);
     }
     lines.push(`DELETE FROM poem_verses WHERE poem_id = ${change.poemId};`);
