@@ -214,7 +214,7 @@ When two rows hold the same poem by the same poet, one row survives, and `merge_
 
 Aliases always point at a live poem. A later merge of a survivor points its aliases again, and a new poem never gets a slug that an alias holds.
 
-`merge_poem` refuses two different poets, because that is a question of attribution, not a duplicate.
+`merge_poem` refuses two different poets, because that is a question of attribution, not a duplicate. The excerpt merge of issue #271 crossed poets once, by moving each poem to the winning poet first (`docs/exceptions.md`).
 
 The rules for the survivor are these, in order:
 
