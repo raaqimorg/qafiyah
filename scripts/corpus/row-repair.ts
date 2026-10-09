@@ -301,13 +301,37 @@ export type Change = {
   readonly reason: string;
 };
 
+export type TitleChange = {
+  readonly poemId: string;
+  readonly slug: string;
+  readonly from: string;
+  readonly to: string;
+};
+
+const TITLE = /^\p{L}+( \p{L}+)*$/u;
+
 function withoutText(rows: readonly string[], text: string): string[][] {
-  return rows.flatMap((row, index) => {
-    const at = row.indexOf(text);
-    if (at < 0) return [];
-    const rest = row === text ? [] : [row.slice(0, at) + row.slice(at + text.length)];
-    return [[...rows.slice(0, index), ...rest, ...rows.slice(index + 1)]];
+  const whole: string[][] = [];
+  const inside: string[][] = [];
+  rows.forEach((row, index) => {
+    for (let at = row.indexOf(text); at >= 0; at = row.indexOf(text, at + 1)) {
+      const rest = row === text ? [] : [row.slice(0, at) + row.slice(at + text.length)];
+      (row === text ? whole : inside).unshift([
+        ...rows.slice(0, index),
+        ...rest,
+        ...rows.slice(index + 1),
+      ]);
+    }
   });
+  return [...whole, ...inside];
+}
+
+function holdsInOrder(remaining: string, target: string): boolean {
+  let at = 0;
+  for (let index = 0; index < remaining.length && at < target.length; index += 1) {
+    if (remaining[index] === target[at]) at += 1;
+  }
+  return at === target.length;
 }
 
 function keepsLetters(
@@ -315,8 +339,10 @@ function keepsLetters(
   dropped: readonly string[],
   target: string
 ): boolean {
+  const remaining = lettersOnly(rows.join(''));
   const [text, ...rest] = dropped;
-  if (text === undefined) return lettersOnly(rows.join('')) === target;
+  if (text === undefined) return remaining === target;
+  if (!holdsInOrder(remaining, target)) return false;
   return withoutText(rows, text).some((option) => keepsLetters(option, rest, target));
 }
 
@@ -333,12 +359,17 @@ function quote(text: string): string {
   return `${TAG}${text}${TAG}`;
 }
 
-export function buildApplySql(changes: readonly Change[]): string {
+export function buildApplySql(
+  changes: readonly Change[],
+  titles: readonly TitleChange[] = []
+): string {
   const lines = ['BEGIN;'];
-  for (const change of changes) {
+  for (const change of [...changes, ...titles]) {
     if (!NUMERIC_ID.test(change.poemId)) {
       throw new Error(`refusing a non-numeric poem id: ${change.poemId}`);
     }
+  }
+  for (const change of changes) {
     const dropped = change.dropped ?? [];
     if (
       dropped.some(
@@ -362,11 +393,19 @@ export function buildApplySql(changes: readonly Change[]): string {
       `UPDATE poems SET verse_count = ${change.newRows.length} WHERE id = ${change.poemId};`
     );
   }
+  for (const title of titles) {
+    if (!TITLE.test(title.to)) {
+      throw new Error(`refusing ${title.slug}: a title holds letters and single spaces only`);
+    }
+    lines.push(
+      `UPDATE poems SET title = ${quote(title.to)} WHERE id = ${title.poemId} AND title = ${quote(title.from)};`
+    );
+  }
   lines.push('COMMIT;', ...REFRESHES);
   return `${lines.join('\n')}\n`;
 }
 
-export type RowRepairs = {
+type RowRepairs = {
   readonly unsplit: readonly number[];
   readonly misplaced: readonly number[];
   readonly stray: readonly number[];

@@ -503,6 +503,57 @@ describe('buildApplySql', () => {
       'letters changed'
     );
   });
+
+  it('drops whole rows first, even when earlier rows contain the same text', () => {
+    const letters = 'ابتثجحخدذرزطظعغفكلم';
+    const copy = Array.from(
+      { length: 40 },
+      (_, index) => `${letters[index % 20]}${letters[Math.floor(index / 20)]}*${half(3)}`
+    );
+    const kept = copy.map((row) => `ق${row}`);
+    const edit = {
+      ...split,
+      oldRows: [...kept, ...copy],
+      newRows: kept,
+      dropped: copy,
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 40 WHERE id = 42;');
+  });
+
+  it('sets a title only while the poem still holds the old one', () => {
+    const title = { poemId: '42', slug: 'AbCd', from: 'سسس', to: 'سس سس' };
+    expect(buildApplySql([], [title])).toContain(
+      'UPDATE poems SET title = $qafiyah$سس سس$qafiyah$ WHERE id = 42 AND title = $qafiyah$سسس$qafiyah$;'
+    );
+    expect(() => buildApplySql([], [{ ...title, to: 'سَس' }])).toThrow('letters and single spaces');
+    expect(() => buildApplySql([], [{ ...title, to: 'سس، سس' }])).toThrow('letters and single');
+    expect(() => buildApplySql([], [{ ...title, to: '' }])).toThrow('letters and single spaces');
+    expect(() => buildApplySql([], [{ ...title, poemId: '42; DROP' }])).toThrow('non-numeric');
+  });
+
+  it('finds which copy of a short text inside a row was dropped', () => {
+    const edit = {
+      ...split,
+      oldRows: [`ص${half(3)}*${half(4)}ص`],
+      newRows: [`ص${half(3)}*${half(4)}`],
+      dropped: ['ص'],
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 1 WHERE id = 42;');
+  });
+
+  it('places single dropped letters without trying every combination', () => {
+    const row = 'سمص*نسم';
+    const edit = {
+      ...split,
+      oldRows: [`م${row}ن`, ...Array.from({ length: 99 }, () => row), `${row}ص`],
+      newRows: Array.from({ length: 101 }, () => row),
+      dropped: ['م', 'ن', 'ص'],
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 101 WHERE id = 42;');
+  });
 });
 
 describe('planPoem', () => {

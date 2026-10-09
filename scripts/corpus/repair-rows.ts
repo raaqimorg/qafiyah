@@ -25,6 +25,7 @@ import {
   scoreMeasure,
   typicalHalf,
   type Change,
+  type TitleChange,
 } from './row-repair';
 
 const DEFAULT_DIR = 'reports/corpus/row-repair';
@@ -430,6 +431,14 @@ async function readHandEdits(dir: string): Promise<Map<string, HandEdit>> {
   return new Map(Object.entries((await file.json()) as Record<string, HandEdit>));
 }
 
+type TitleFix = { readonly from: string; readonly to: string };
+
+async function readTitles(dir: string): Promise<Map<string, TitleFix>> {
+  const file = Bun.file(join(dir, 'titles.json'));
+  if (!(await file.exists())) return new Map();
+  return new Map(Object.entries((await file.json()) as Record<string, TitleFix>));
+}
+
 async function sql(corpusPath: string, dir: string): Promise<void> {
   const everyPoem = readCorpus(await Bun.file(corpusPath).text());
   const { poems } = classical(everyPoem);
@@ -578,11 +587,18 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
       });
   }
 
-  await Bun.write(join(dir, 'apply.sql'), buildApplySql(changes));
+  const titles: TitleChange[] = [];
+  for (const [slug, fix] of await readTitles(dir)) {
+    const poem = anyBySlug.get(slug);
+    if (poem === undefined) review.push(`- ${slug}: title fix not in the corpus export`);
+    else titles.push({ poemId: poem.id, slug, from: fix.from, to: fix.to });
+  }
+
+  await Bun.write(join(dir, 'apply.sql'), buildApplySql(changes, titles));
   await Bun.write(join(dir, 'plan.json'), `${JSON.stringify(changes)}\n`);
   await Bun.write(join(dir, 'review.md'), `# Not applied\n\n${review.join('\n')}\n`);
   console.log(
-    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'rows').length} with row fixes, ${changes.filter((change) => change.reason === 'merge').length} merged, ${changes.filter((change) => change.reason === 'hand').length} edited by hand); ${review.length} listed for review`
+    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'rows').length} with row fixes, ${changes.filter((change) => change.reason === 'merge').length} merged, ${changes.filter((change) => change.reason === 'hand').length} edited by hand), ${titles.length} titles; ${review.length} listed for review`
   );
 }
 
