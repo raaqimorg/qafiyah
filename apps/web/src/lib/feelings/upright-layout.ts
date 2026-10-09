@@ -2,9 +2,9 @@ import { FEELING_TREE, type Feeling } from '@/lib/feelings/feeling-tree';
 
 export type Depth = 1 | 2 | 3;
 
-export type Point = { readonly x: number; readonly y: number };
+type Point = { readonly x: number; readonly y: number };
 
-export type ViewBox = {
+type ViewBox = {
   readonly x: number;
   readonly y: number;
   readonly w: number;
