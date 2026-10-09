@@ -473,6 +473,36 @@ describe('buildApplySql', () => {
     expect(() => buildApplySql([{ ...edit, dropped: ['تاريخ'] }])).toThrow('not in its rows');
     expect(() => buildApplySql([{ ...edit, newRows: [half(3)] }])).toThrow('letters changed');
   });
+
+  it('drops a listed row as a whole, even when its letters also appear earlier in the poem', () => {
+    const verse = `م${half(3)}*${half(4)}`;
+    const date = '٢٠٢٠*م';
+    const edit = {
+      ...split,
+      oldRows: [verse, date],
+      newRows: [verse],
+      dropped: [date],
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 1 WHERE id = 42;');
+  });
+
+  it('finds which copy of a repeated row was dropped', () => {
+    const name = 'ماجد*الزيد';
+    const [first, second] = [`${half(3)}*${half(4)}`, `ق${half(3)}*${half(4)}`];
+    const edit = {
+      ...split,
+      oldRows: [first, name, second, name],
+      newRows: [first, name, second],
+      dropped: [name],
+      reason: 'hand',
+    };
+    expect(buildApplySql([edit])).toContain('UPDATE poems SET verse_count = 3 WHERE id = 42;');
+    expect(() => buildApplySql([{ ...edit, newRows: [first, second, name] }])).not.toThrow();
+    expect(() => buildApplySql([{ ...edit, newRows: [name, first, second] }])).toThrow(
+      'letters changed'
+    );
+  });
 });
 
 describe('planPoem', () => {

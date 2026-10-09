@@ -301,15 +301,23 @@ export type Change = {
   readonly reason: string;
 };
 
-function lettersWithout(rows: readonly string[], dropped: readonly string[]): string | undefined {
-  let remaining = lettersOnly(rows.join(''));
-  for (const text of dropped) {
-    const removed = lettersOnly(text);
-    const at = removed.length === 0 ? -1 : remaining.indexOf(removed);
-    if (at < 0) return undefined;
-    remaining = remaining.slice(0, at) + remaining.slice(at + removed.length);
-  }
-  return remaining;
+function withoutText(rows: readonly string[], text: string): string[][] {
+  return rows.flatMap((row, index) => {
+    const at = row.indexOf(text);
+    if (at < 0) return [];
+    const rest = row === text ? [] : [row.slice(0, at) + row.slice(at + text.length)];
+    return [[...rows.slice(0, index), ...rest, ...rows.slice(index + 1)]];
+  });
+}
+
+function keepsLetters(
+  rows: readonly string[],
+  dropped: readonly string[],
+  target: string
+): boolean {
+  const [text, ...rest] = dropped;
+  if (text === undefined) return lettersOnly(rows.join('')) === target;
+  return withoutText(rows, text).some((option) => keepsLetters(option, rest, target));
 }
 
 const TAG = '$qafiyah$';
@@ -331,11 +339,15 @@ export function buildApplySql(changes: readonly Change[]): string {
     if (!NUMERIC_ID.test(change.poemId)) {
       throw new Error(`refusing a non-numeric poem id: ${change.poemId}`);
     }
-    const kept = lettersWithout(change.oldRows, change.dropped ?? []);
-    if (kept === undefined) {
+    const dropped = change.dropped ?? [];
+    if (
+      dropped.some(
+        (text) => lettersOnly(text) === '' || !change.oldRows.some((row) => row.includes(text))
+      )
+    ) {
       throw new Error(`refusing ${change.slug}: a dropped text is not in its rows`);
     }
-    if (lettersOnly(change.newRows.join('')) !== kept) {
+    if (!keepsLetters(change.oldRows, dropped, lettersOnly(change.newRows.join('')))) {
       throw new Error(`refusing ${change.slug}: its letters changed`);
     }
     lines.push(`DELETE FROM poem_verses WHERE poem_id = ${change.poemId};`);

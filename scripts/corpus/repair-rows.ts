@@ -431,8 +431,10 @@ async function readHandEdits(dir: string): Promise<Map<string, HandEdit>> {
 }
 
 async function sql(corpusPath: string, dir: string): Promise<void> {
-  const { poems } = classical(readCorpus(await Bun.file(corpusPath).text()));
+  const everyPoem = readCorpus(await Bun.file(corpusPath).text());
+  const { poems } = classical(everyPoem);
   const bySlug = new Map(poems.map((poem) => [poem.slug, poem]));
+  const anyBySlug = new Map(everyPoem.map((poem) => [poem.slug, poem]));
   const handEdits = await readHandEdits(dir);
   const handEdited = (key: string): boolean => handEdits.has(key.split(':')[0] ?? '');
   const raw = (await Bun.file(join(dir, 'auto.json')).json()) as Auto;
@@ -563,7 +565,7 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
       changes.push({ poemId: poem.id, slug, oldRows: poem.rows, newRows, reason: 'merge' });
   }
   for (const [slug, edit] of handEdits) {
-    const poem = bySlug.get(slug);
+    const poem = anyBySlug.get(slug);
     if (poem === undefined) review.push(`- ${slug}: hand edit not in the corpus export`);
     else
       changes.push({
