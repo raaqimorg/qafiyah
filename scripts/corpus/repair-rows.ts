@@ -68,6 +68,7 @@ const BATCH = 100;
 const MEASURE_SIZE = 300;
 const STRAY_SAMPLE_SIZE = 150;
 const STRAY_SAMPLE_ROUND = 4;
+const MEASURE_ROUND = 2;
 const MIN_EXACT_RATE = 0.98;
 const SEED = 186;
 
@@ -193,13 +194,18 @@ async function writeMeasureSample(dir: string, poems: readonly Poem[]): Promise<
   const byMeter = new Map<string, { poem: Poem; index: number; half: number }[]>();
   const ordered = poems
     .filter((each) => allClean(each))
-    .sort((a, b) => stableOrder(a.slug) - stableOrder(b.slug));
+    .sort(
+      (a, b) =>
+        stableOrder(`measure-${MEASURE_ROUND}:${a.slug}`) -
+        stableOrder(`measure-${MEASURE_ROUND}:${b.slug}`)
+    );
   for (const poem of ordered) {
     const half = typicalHalf(poem.rows);
     if (half === undefined) continue;
     const list = byMeter.get(poem.meter) ?? [];
     if (list.length < MEASURE_SIZE) {
-      list.push({ poem, index: stableOrder(`${poem.slug}:row`) % poem.rows.length, half });
+      const index = stableOrder(`measure-${MEASURE_ROUND}:${poem.slug}:row`) % poem.rows.length;
+      list.push({ poem, index, half });
     }
     byMeter.set(poem.meter, list);
   }
