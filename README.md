@@ -137,6 +137,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 - [`docs/changelog/`](docs/changelog/): what each released version changed, one file per version.
 - [`docs/domain.md`](docs/domain.md): what a poem, poet, meter, rhyme, era, theme, and collection mean.
 - [`docs/search.md`](docs/search.md): Arabic text handling, relevance tiers, and snippet selection.
+- [`docs/feelings.md`](docs/feelings.md): the /feelings tree, how its verses were chosen, and the limits of choosing them by word.
 - [`docs/code-conventions.md`](docs/code-conventions.md) and the TypeScript, Rust, testing, and pull request files next to it: how to write code, tests, docs, and commits.
 - [`docs/identity.md`](docs/identity.md): canonical name, description, organization, and links.
 - [`AGENTS.md`](AGENTS.md) and each component's `AGENTS.md`: the repo layout and the shape of each component. They are written for AI agents, and they are useful to anyone.
