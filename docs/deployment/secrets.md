@@ -13,7 +13,7 @@ This page is for machines that hold an age key: the maintainers' laptops and the
 
 ## Important
 
-- **Back up the laptop's private key.** Save the contents of `~/.config/sops/age/keys.txt` in the password manager. If that file is lost and no other recipient can decrypt, every committed secret is lost for good. This includes the `DUMP_KEY__*` passphrases that unlock `data/db/`.
+- **Back up the laptop's private key.** Save the contents of `~/.config/sops/age/keys.txt` in the password manager. If that file is lost and no other recipient can decrypt, every committed secret is lost for good. This includes the `DUMP_KEY__*` passphrases that unlock `data/db/`, and the `AVATAR_KEY__*` passphrases that unlock `data/avatars/`.
 - **A new VPS needs its key before the first deploy.** `bun run deploy` and `bun run db:reseed` fail on a server that has no `sops`, no age key, or no recipient line in `.sops.yaml`. Follow "Setting up a new production server" below first.
 - **Never edit `.env` by hand**, on the laptop or on the VPS. The next `secrets:pull` or deploy overwrites it. Edit with `bun run secrets:edit` instead.
 - **Never commit a decrypted file.** Only `secrets/*.enc.env` belongs in git.

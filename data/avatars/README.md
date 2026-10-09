@@ -56,6 +56,8 @@ If `avatars.zip` is over about 45 MB, split it into `avatars.zip.part-aa`, `.par
 openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass "pass:<passphrase>" -in "$part" -out "$part.enc"
 ```
 
+Then store the passphrase as `AVATAR_KEY__{dir}` in both `secrets/dev.enc.env` and `secrets/prod.enc.env`. Add the key to `scripts/secrets/schema.ts` first, because `bun run secrets:check` refuses a key that the schema does not list. After `bun run secrets:pull`, maintainers find the passphrase in `.env`.
+
 ## Restore and decrypt
 
 ```bash
@@ -73,7 +75,7 @@ This directory has none of the automation of `data/db/`:
 
 - no dedicated scripts to encrypt or resolve
 - no entry in `keys.manifest`
-- no `DUMP_KEY__*` variable in `.env`
+- no key pattern in the secrets schema: each `AVATAR_KEY__*` is its own entry
 - no restore on boot
 
 Everything here was created by hand. If avatar snapshots become regular, make `scripts/db/encrypt-dump.sh` general, and do not write new scripts. Its file pattern (`*.dump` and `*.dump.part-*`) is the only part that is specific to dumps.
