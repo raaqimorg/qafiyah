@@ -38,7 +38,7 @@ The API serves **the same response body to every caller**. There is no capped da
 
 That is why JSON reads are `Cache-Control: private, max-age=300`. The caller's own browser can use a response again for five minutes. No shared cache (Cloudflare, nginx) can store one, because it would give one caller's counters to the next caller, and cached hits would skip the count.
 
-The website's `/api/v1/search` proxy removes those headers, so every visitor gets the same response. The proxy sets its own `public` policy on successful searches (`max-age=300, stale-while-revalidate=86400`). The website's nginx serves a cached search as fresh for five minutes. After that it serves the stored answer and refreshes it in the background, so an entry lives until a day passes without a request for it (`inactive=24h`). A deploy clears the cache. The stack smoke run checks that a repeated search is a cache hit.
+The website's `/api/v1/search` proxy removes those headers, so every visitor gets the same response. The proxy sets its own `public` policy on successful searches (`max-age=300, stale-while-revalidate=86400`). The website's nginx serves a cached search as fresh for five minutes. After that it serves the stored answer and refreshes it in the background, so an entry lives until a day passes without a request for it (`inactive=24h`). A deploy clears the cache. The stack smoke run checks that a repeated search is a cache hit. Cloudflare also caches a successful search in each data center, fresh for the same five minutes (`services.md`, "Cloudflare caches pages too").
 
 Anonymous callers share an hourly bucket for each address:
 
@@ -51,11 +51,34 @@ Website visitors never reach those buckets, because the site calls the API with 
 
 There are three layers, outermost first.
 
-**Cloudflare** has one rate limiting rule, set in the dashboard. The Free plan allows only one.
+**Cloudflare** has three custom rules and one rate limiting rule, set in the dashboard. The Free plan allows five custom rules and one rate limiting rule.
 
-- A client address that sends more than 100 requests in 10 seconds, to any path on the zone, is blocked for 10 seconds with Cloudflare's own `429` (error 1015).
-- Verified bots are exempt, and each Cloudflare data center keeps its own count.
-- It is a flood guard far above what a visitor sends. A full `bun run smoke:prod` from one address can trip it.
+The custom rules block a request with Cloudflare's own `403`, so it never reaches the tunnel. In order:
+
+1. **Scanner tools and paths:**
+   - a path segment that starts with a dot, except `/.well-known/`
+   - `/wp-` anywhere in the path
+   - script, configuration, backup, archive, and key file extensions (`php`, `env`, `sql`, `bak`, `zip`, `pem`, and others)
+   - well-known admin and product paths (`/admin`, `/phpmyadmin`, `/cgi-bin/`, `/actuator`, and others)
+   - the default user agents of scanners (`sqlmap`, `nikto`, `nuclei`, `nmap`, and others)
+2. **Attack payloads in the URL:** the decoded, lowercased URL contains a common injection marker (`<script`, `union select`, `/etc/passwd`, and others).
+3. **Methods the site never uses:** any method but `GET`, `HEAD`, and `OPTIONS` on the four site hosts. `POST` to `/account/keys` and `/auth/logout` is allowed, and so is `/cdn-cgi/*`, where a Cloudflare challenge posts.
+
+The edge gateway's WAF still runs in `DetectionOnly` (`services.md`). So these rules are the only layer that refuses such probes. They stop a tool with its default settings, not a person who changes them.
+
+- Before you add a route under a blocked path or extension, or a new `POST` route, change the rule in the dashboard.
+- Keep one custom rule free for an incident.
+- `bun run smoke:prod` sends a few requests that these rules block. Those probes expect only "no 5xx", so a `403` passes.
+
+The rate limiting rule is a flood guard far above what a visitor sends:
+
+- A client address that sends more than 100 counted requests in 10 seconds is blocked for 10 seconds with Cloudflare's own `429` (error 1015).
+- It does not count `/_astro/*`, `/cdn-cgi/*`, or `/poets/*/avatar.webp`, which Cloudflare serves from its cache. So a page costs about 3 counted requests: the document, and `/api/me` twice.
+- On 2026-10-09, a first visit sent 26 requests, and 20 of them were `/_astro/` files. Before the exclusion, four visitors behind one address could trip the rule.
+- 100 is about twice what a fast reader sends, and equals the free API plan's burst for 10 seconds. A premium or enterprise key at its full burst can trip it.
+- On the Free plan, the rule can match only the path and the verified bot flag. So it cannot tell `qafiyah.com` from `api.qafiyah.com`.
+- Verified bots are exempt, and each Cloudflare data center keeps its own count. A request that a custom rule blocked does not count.
+- A full `bun run smoke:prod` from one address can trip it.
 - It counts each IPv6 address alone, not by /64, so it does nothing against rotation inside a block. On 2026-09-28, 182 requests from two addresses in one /64 through one data center passed. 180 requests from one address were blocked after about 110.
 - A client's new connections can also reach different data centers, which splits its count.
 
@@ -71,6 +94,7 @@ There are three layers, outermost first.
 - The website's browser proxy also sends the visitor's address as `CF-Connecting-IP`, from the `X-Real-IP` that nginx sets. This covers `/api/v1/search`, `/api/v1/poems/random`, and, for a request that names exactly one poet, `/api/v1/poems` and `/api/v1/poems/facets`.
 - The API counts those requests for each visitor: `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour for each /64 or IPv4 address, and ten times that for each /48. These buckets are separate from those of anonymous callers.
 - Only an address that the web container forwards counts. Page renders forward none, so they stay unlimited.
+- A search that Cloudflare answers from its cache reaches neither nginx nor the API, so no limit counts it.
 - Locally, `bun run dev` has no nginx to set the address, so its proxy stays unlimited. In the Docker stack, every local request reaches nginx as one address. nginx already holds that address to 60 a minute, which is the same 3,600 an hour.
 - A refused search is a `429` marked `no-store`. The proxy passes it through, and nginx does not cache it.
 

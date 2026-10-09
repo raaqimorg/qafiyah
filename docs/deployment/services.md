@@ -107,13 +107,21 @@ The pages that read a query string accept only one spelling of it. They answer e
 
 A poet name search on `/poets?q=` is the one input with an unlimited number of values. So while `q` is present, nginx limits it for each visitor: 60 a minute with a burst of 30, then the 429 page. The stack smoke run checks all three behaviors (`scripts/smoke/probes/page-cache.ts` and the caching suite).
 
-**Cloudflare caches pages too**, through a Cache Rule in the dashboard:
+**Cloudflare caches pages too**, through two Cache Rules in the dashboard.
 
-- It applies to the host `qafiyah.com`, on paths that do not start with `/api/`.
-- It makes them eligible for cache, and takes the Edge TTL from the origin's `Cache-Control`. When there is no `Cache-Control`, it does not cache.
-- So `no-store` pages are never stored there.
+The first rule applies to every path on the host `qafiyah.com`:
 
-Cached pages refer to the build's hashed `/_astro/` scripts, and the next deploy removes those scripts. So `bun run deploy` purges the whole Cloudflare cache after the new containers pass the edge check. It uses `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` from the production secrets. That token can only purge the cache of `qafiyah.com`. If the purge fails, the deploy exits with an error and shows Cloudflare's response. Then purge everything in the dashboard by hand, before you do anything else.
+- It makes responses eligible for cache, and takes the Edge TTL and the Browser TTL from the origin's `Cache-Control`. When there is no `Cache-Control`, it does not cache.
+- So the origin decides. `no-store` and `private` responses are never stored there: `/account`, `/login`, `/auth/`, `/api/me`, the poet page filters, the random poem, 404 pages, and a refused search.
+- Under `/api/`, only a successful search is `public` (`max-age=300`). So a data center serves a repeated search as fresh for five minutes.
+- The cache key keeps the whole query string. A stray query string on a page that reads none misses Cloudflare, and nginx answers it from its own cache.
+
+The second rule applies to `cdn.qafiyah.com`, because R2 sends no `Cache-Control` for avatars:
+
+- It keeps an avatar at the edge for 30 days, and tells the browser to keep it for 1 day.
+- The browser time is short because a purge cannot reach a browser. A replaced avatar shows within a day.
+
+Cached pages refer to the build's hashed `/_astro/` scripts, and the next deploy removes those scripts. So `bun run deploy` purges the whole Cloudflare cache after the new containers pass the edge check. It uses `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` from the production secrets. That token can only purge the cache of the `qafiyah.com` zone, which includes the avatars on `cdn.qafiyah.com`. If the purge fails, the deploy exits with an error and shows Cloudflare's response. Then purge everything in the dashboard by hand, before you do anything else.
 
 **The zone's Managed Transforms** (dashboard, Rules > Settings) are set for this origin:
 
