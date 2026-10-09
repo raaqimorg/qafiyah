@@ -15,11 +15,20 @@ import {
   copyCuts,
   cutAt,
   foldKey,
+  indexesInLongRuns,
+  isConfidentStray,
+  isLongRow,
+  isRegular,
+  isMisplacedSplit,
+  isStraySplit,
   isUnsplitVerse,
+  joinSplit,
   mergePairs,
   numberedWords,
+  referenceHalf,
   rhymePattern,
   typicalHalf,
+  type Reference,
 } from './row-repair';
 
 const RHYMING = 'ده';
@@ -72,6 +81,146 @@ describe('isUnsplitVerse', () => {
 
   it('leaves any row that already has a separator', () => {
     expect(isUnsplitVerse(`${half(20)}*${half(20)}`, 10)).toBe(false);
+  });
+
+  it('leaves a row long enough to hold more than one verse', () => {
+    expect(isUnsplitVerse(half(26), 10)).toBe(false);
+  });
+});
+
+describe('referenceHalf', () => {
+  const verses = (size: number, count: number): string[] =>
+    Array.from({ length: count }, () => `${half(size)}*${half(size)}`);
+
+  it('checks the poem own half-line against the meter and keeps it when they agree', () => {
+    expect(referenceHalf(verses(11, 6), 10)).toEqual({ kind: 'checked', half: 11 });
+  });
+
+  it('takes the meter half-line when stray splits shorten the poem own and full verses remain', () => {
+    const rows = [...verses(5, 6), ...verses(10, 2)];
+    expect(referenceHalf(rows, 10)).toEqual({ kind: 'checked', half: 10 });
+  });
+
+  it('leaves a short poem own half-line unchecked when no row is a full verse, as in a shortened meter', () => {
+    expect(referenceHalf(verses(6, 6), 10)).toEqual({ kind: 'unchecked', half: 6 });
+  });
+
+  it('uses the meter half-line for a poem with too few verses, checked only when a full verse shows it', () => {
+    expect(referenceHalf([half(20)], 10)).toEqual({ kind: 'checked', half: 10 });
+    expect(referenceHalf([`${half(6)}*${half(6)}`], 10)).toEqual({ kind: 'unchecked', half: 10 });
+  });
+
+  it('leaves the half-line unchecked when the poem rows keep to no verse length, as in free verse', () => {
+    const rows = [...verses(10, 4), half(14), half(13), half(30), half(6), half(15), half(32)];
+    expect(referenceHalf(rows, 10)).toEqual({ kind: 'unchecked', half: 10 });
+  });
+
+  it('falls back to the poem own half-line without a meter, and to nothing without either', () => {
+    expect(referenceHalf(verses(9, 4), undefined)).toEqual({ kind: 'unchecked', half: 9 });
+    expect(referenceHalf([half(20)], undefined)).toBeUndefined();
+  });
+});
+
+describe('isStraySplit', () => {
+  it('flags a two-part row about one half-line long', () => {
+    expect(isStraySplit(`${half(5)}*${half(5)}`, 10)).toBe(true);
+  });
+
+  it('leaves a full verse, a shortened verse, and a one-part half-line', () => {
+    expect(isStraySplit(`${half(10)}*${half(10)}`, 10)).toBe(false);
+    expect(isStraySplit(`${half(7)}*${half(7)}`, 10)).toBe(false);
+    expect(isStraySplit(half(10), 10)).toBe(false);
+  });
+});
+
+describe('isRegular', () => {
+  it('is true when most rows are about one half-line or one verse long', () => {
+    expect(
+      isRegular([half(10), `${half(5)}*${half(5)}`, `${half(10)}*${half(10)}`, half(14)], 10)
+    ).toBe(true);
+  });
+
+  it('is false when many rows fall between a half-line and a verse', () => {
+    expect(isRegular([half(10), half(14), half(14), half(30)], 10)).toBe(false);
+  });
+});
+
+describe('isConfidentStray', () => {
+  const stray = 'ببب سسس*ححح ددد';
+
+  it('accepts a stray split in a four-foot meter with at least two words on each side', () => {
+    expect(isConfidentStray(stray, 'altawil')).toBe(true);
+  });
+
+  it('refuses a meter with a common shortened form, whose short verse can be one half-line long', () => {
+    expect(isConfidentStray(stray, 'alkamil')).toBe(false);
+  });
+
+  it('refuses a one-word side, which may set off a rhyme word', () => {
+    expect(isConfidentStray('ببب سسس ححح*ددد', 'altawil')).toBe(false);
+  });
+
+  it('refuses pieces that end on the same two letters, which may be rhymes set apart on purpose', () => {
+    expect(isConfidentStray('ببب سسعة*ححح دلعة', 'altawil')).toBe(false);
+  });
+
+  it('refuses a row with an ellipsis, which may mark missing words', () => {
+    expect(isConfidentStray('ببب سسس ...*ححح ددد', 'altawil')).toBe(false);
+  });
+
+  it('refuses a row with digits, which mark notes, dates, and numbering', () => {
+    expect(isConfidentStray('٢ ببب سسس*٣ ححح ددد', 'altawil')).toBe(false);
+    expect(isConfidentStray('2 ببب سسس*ححح ددد', 'altawil')).toBe(false);
+  });
+});
+
+describe('indexesInLongRuns', () => {
+  it('returns the rows of runs longer than three, which look like a section in a shorter meter', () => {
+    expect([...indexesInLongRuns([1, 2, 5, 6, 7, 8, 12])]).toEqual([5, 6, 7, 8]);
+  });
+
+  it('returns nothing when every run is short, as in a takhmis', () => {
+    expect(indexesInLongRuns([0, 1, 4, 5, 6, 9]).size).toBe(0);
+  });
+});
+
+describe('isMisplacedSplit', () => {
+  it('flags a verse-long row whose separator sits far from the middle', () => {
+    expect(isMisplacedSplit(`${half(3)}*${half(17)}`, 10)).toBe(true);
+  });
+
+  it('leaves a verse with fair halves, and a row too long to be one verse', () => {
+    expect(isMisplacedSplit(`${half(8)}*${half(12)}`, 10)).toBe(false);
+    expect(isMisplacedSplit(`${half(3)}*${half(25)}`, 10)).toBe(false);
+  });
+});
+
+describe('isLongRow', () => {
+  it('flags a row long enough to hold more than one verse, with or without a separator', () => {
+    expect(isLongRow(half(26), 10)).toBe(true);
+    expect(isLongRow(`${half(13)}*${half(13)}`, 10)).toBe(true);
+    expect(isLongRow(half(20), 10)).toBe(false);
+  });
+});
+
+describe('joinSplit', () => {
+  it('joins the two parts with one space', () => {
+    expect(joinSplit('ببب سسس*ححح ددد')).toBe('ببب سسس ححح ددد');
+    expect(joinSplit('ببب سسس * ححح ددد')).toBe('ببب سسس ححح ددد');
+  });
+
+  it('looks past punctuation to the nearest words', () => {
+    expect(joinSplit('ببب سسس ،*ححح')).toBe('ببب سسس ، ححح');
+  });
+
+  it('refuses a one-letter piece next to the separator, which may be half of a split word', () => {
+    expect(joinSplit('ببب سسس*ن ححح')).toBeUndefined();
+    expect(joinSplit('ببب ت*ححح ددد')).toBeUndefined();
+  });
+
+  it('refuses a row without exactly one separator', () => {
+    expect(joinSplit('ببب سسس')).toBeUndefined();
+    expect(joinSplit('ببب*سسس*ححح')).toBeUndefined();
   });
 });
 
@@ -244,6 +393,10 @@ describe('copyCuts', () => {
     const cuts = copyCuts([`${half(3)}*بببب`, half(5), 'ا*ب*ج']);
     expect([...cuts]).toEqual([[foldKey(`${half(3)}بببب`), 3]]);
   });
+
+  it('skips a copy whose own separator is far from the middle', () => {
+    expect(copyCuts([`${half(2)}*${half(18)}`]).size).toBe(0);
+  });
 });
 
 describe('buildApplySql', () => {
@@ -298,16 +451,19 @@ describe('buildApplySql', () => {
 
 describe('planPoem', () => {
   const pairs = OTHERS.slice(0, 3).flatMap((other) => [line(10, other), line(10, RHYMING)]);
+  const meter: Reference = { kind: 'checked', half: 10 };
+  const poem: Reference = { kind: 'unchecked', half: 10 };
+  const nothing = { unsplit: [], misplaced: [], stray: [], long: [] };
 
   it('merges a poem of half-line pairs into couplets', () => {
-    expect(planPoem(pairs, 10)).toEqual({ kind: 'merge', newRows: mergePairs(pairs) });
+    expect(planPoem(pairs, meter)).toEqual({ kind: 'merge', newRows: mergePairs(pairs) });
   });
 
   it('queues a poem of unclear half-lines for review', () => {
     expect(
       planPoem(
         OTHERS.map((other) => line(10, other)),
-        10
+        meter
       )
     ).toEqual({ kind: 'unclear' });
   });
@@ -316,25 +472,47 @@ describe('planPoem', () => {
     expect(
       planPoem(
         Array.from({ length: 6 }, () => line(10, RHYMING)),
-        10
+        meter
       )
     ).toEqual({ kind: 'none' });
   });
 
   it('lists the unsplit verse rows of a mixed poem by index', () => {
     const rows = [`${half(10)}*${half(10)}`, half(20), `${half(10)}*${half(10)}`, half(11)];
-    expect(planPoem(rows, 10)).toEqual({ kind: 'splits', indexes: [1] });
+    expect(planPoem(rows, meter)).toEqual({ kind: 'rows', ...nothing, unsplit: [1] });
   });
 
   it('lists every verse-long row of a flat poem as an unsplit verse', () => {
-    expect(planPoem([half(20), half(21), half(19)], 10)).toEqual({
-      kind: 'splits',
-      indexes: [0, 1, 2],
+    expect(planPoem([half(20), half(21), half(19)], meter)).toEqual({
+      kind: 'rows',
+      ...nothing,
+      unsplit: [0, 1, 2],
     });
   });
 
+  it('lists stray, misplaced, and long rows by index', () => {
+    const rows = [
+      `${half(10)}*${half(10)}`,
+      `${half(5)}*${half(5)}`,
+      `${half(3)}*${half(17)}`,
+      half(30),
+    ];
+    expect(planPoem(rows, meter)).toEqual({
+      kind: 'rows',
+      unsplit: [],
+      misplaced: [2],
+      stray: [1],
+      long: [3],
+    });
+  });
+
+  it('looks for stray splits only when the half-line is checked against the meter', () => {
+    const rows = [`${half(10)}*${half(10)}`, `${half(5)}*${half(5)}`];
+    expect(planPoem(rows, poem)).toEqual({ kind: 'none' });
+  });
+
   it('leaves a poem of full verses alone', () => {
-    expect(planPoem([`${half(10)}*${half(10)}`], 10)).toEqual({ kind: 'none' });
+    expect(planPoem([`${half(10)}*${half(10)}`], meter)).toEqual({ kind: 'none' });
   });
 });
 

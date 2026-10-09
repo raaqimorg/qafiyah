@@ -12,11 +12,15 @@ import {
   copyCuts,
   csvLine,
   foldKey,
+  indexesInLongRuns,
+  isConfidentStray,
   isFullVerse,
+  joinSplit,
   letters,
   numberedWords,
   parseAnswers,
   planPoem,
+  referenceHalf,
   scoreMeasure,
   typicalHalf,
   type Change,
@@ -24,8 +28,45 @@ import {
 
 const DEFAULT_DIR = 'reports/corpus/row-repair';
 const CLASSICAL = 'amudi';
+const UNKNOWN_TYPE = 'majhul';
+const CLASSICAL_METERS = new Set([
+  'altawil',
+  'alkamil',
+  'albasit',
+  'alwafir',
+  'alkhafif',
+  'alsarie',
+  'alrajz',
+  'almutakarib',
+  'alramal',
+  'almunsarih',
+  'almujtath',
+  'alhazaj',
+  'almadid',
+  'almutadarak',
+  'alkhabab',
+  'almuqtadab',
+  'almudare',
+  'majzualkamil',
+  'majzualramal',
+  'majzualrajaz',
+  'majzualwafir',
+  'majzualkhafif',
+  'majzualbasit',
+  'majzualmutaqarib',
+  'majzualmadid',
+  'mashturalrajaz',
+  'mashturalsari',
+  'ahdhalkamil',
+  'ahdhalwafir',
+  'maqtualkamil',
+  'mukhallaalbasit',
+  'manhukalmutadarik',
+]);
 const BATCH = 100;
 const MEASURE_SIZE = 300;
+const STRAY_SAMPLE_SIZE = 150;
+const STRAY_SAMPLE_ROUND = 4;
 const MIN_EXACT_RATE = 0.98;
 const SEED = 186;
 
@@ -40,14 +81,17 @@ type Poem = {
 type Candidate = {
   readonly key: string;
   readonly poem: Poem;
-  readonly index: number;
+  readonly row: string;
   readonly half: number;
 };
 
+type RowFix = { readonly key: string; readonly row: string };
+
 type Auto = {
   readonly merges: readonly { readonly slug: string; readonly newRows: readonly string[] }[];
-  readonly copySplits: readonly { readonly key: string; readonly row: string }[];
-  readonly splitQueue: readonly string[];
+  readonly copySplits: readonly RowFix[];
+  readonly strays: readonly RowFix[];
+  readonly splitQueue: readonly RowFix[];
   readonly unclearQueue: readonly string[];
 };
 
@@ -134,9 +178,13 @@ async function readAnswers(dir: string, prefix: string): Promise<Map<string, str
   return answers;
 }
 
+const hasClassicalMeter = (poem: Poem): boolean => CLASSICAL_METERS.has(poem.meter);
+
 function classical(poems: readonly Poem[]): { poems: Poem[]; baselines: Map<string, number> } {
-  const kept = poems.filter((poem) => poem.type === CLASSICAL);
-  return { poems: kept, baselines: meterBaselines(kept) };
+  const kept = poems.filter(
+    (poem) => poem.type === CLASSICAL || (poem.type === UNKNOWN_TYPE && hasClassicalMeter(poem))
+  );
+  return { poems: kept, baselines: meterBaselines(kept.filter((poem) => hasClassicalMeter(poem))) };
 }
 
 async function writeMeasureSample(dir: string, poems: readonly Poem[]): Promise<number> {
@@ -176,50 +224,93 @@ async function writeMeasureSample(dir: string, poems: readonly Poem[]): Promise<
   return measured.length;
 }
 
-async function plan(corpusPath: string, dir: string): Promise<void> {
+async function previousAnswers(
+  previousDir: string | undefined
+): Promise<{ splits: Map<string, string>; unclear: Map<string, string> }> {
+  if (previousDir === undefined) return { splits: new Map(), unclear: new Map() };
+  return {
+    splits: await readAnswers(previousDir, 'splits'),
+    unclear: await readAnswers(previousDir, 'unclear'),
+  };
+}
+
+async function plan(corpusPath: string, dir: string, previousDir?: string): Promise<void> {
   const everything = readCorpus(await Bun.file(corpusPath).text());
   const { poems, baselines } = classical(everything);
+  const previous = await previousAnswers(previousDir);
   await mkdir(dir, { recursive: true });
 
   const merges: { slug: string; newRows: readonly string[] }[] = [];
   const unclear: { poem: Poem; half: number }[] = [];
   const candidates: Candidate[] = [];
+  const strays: RowFix[] = [];
+  const strayReview: string[] = [];
+  const longLines: string[] = [];
   const counts = new Map<string, number>();
-  const bump = (name: string): void => {
-    counts.set(name, (counts.get(name) ?? 0) + 1);
+  const bump = (name: string, by = 1): void => {
+    counts.set(name, (counts.get(name) ?? 0) + by);
   };
 
   for (const poem of poems) {
-    const half = typicalHalf(poem.rows, baselines.get(poem.meter));
-    if (half === undefined) {
+    const reference = referenceHalf(poem.rows, baselines.get(poem.meter));
+    if (reference === undefined) {
       bump('no typical half');
       continue;
     }
-    const decision = planPoem(poem.rows, half);
+    const { half } = reference;
+    const decision = planPoem(poem.rows, reference);
     bump(`plan: ${decision.kind}`);
     if (decision.kind === 'merge') merges.push({ slug: poem.slug, newRows: decision.newRows });
-    if (decision.kind === 'unclear') unclear.push({ poem, half });
-    if (decision.kind === 'splits') {
-      for (const index of decision.indexes)
-        candidates.push({ key: rowKey(poem, index), poem, index, half });
+    if (decision.kind === 'unclear') {
+      if (previous.unclear.has(poem.slug)) bump('unclear: reviewed in #186, skipped');
+      else unclear.push({ poem, half });
     }
+    if (decision.kind !== 'rows') continue;
+
+    const inLongRuns = indexesInLongRuns(decision.stray);
+    for (const index of decision.stray) {
+      const row = poem.rows[index] ?? '';
+      const joined = joinSplit(row);
+      if (joined !== undefined && !inLongRuns.has(index) && isConfidentStray(row, poem.meter)) {
+        strays.push({ key: rowKey(poem, index), row: joined });
+      } else {
+        strayReview.push(csvLine([rowKey(poem, index), poem.meter, String(half), row]));
+      }
+    }
+    for (const index of decision.long) {
+      const row = poem.rows[index] ?? '';
+      longLines.push(
+        csvLine([rowKey(poem, index), poem.meter, (letters(row) / half).toFixed(2), row])
+      );
+    }
+    const toSplit = [
+      ...decision.unsplit.map((index) => ({ index, row: poem.rows[index] })),
+      ...decision.misplaced.map((index) => ({ index, row: joinSplit(poem.rows[index] ?? '') })),
+    ];
+    for (const { index, row } of toSplit) {
+      const key = rowKey(poem, index);
+      if (previous.splits.has(key)) bump('split: reviewed in #186, skipped');
+      else if (row === undefined) bump('split: misplaced next to a one-letter piece, skipped');
+      else candidates.push({ key, poem, row, half });
+    }
+    bump('stray rows', decision.stray.length);
+    bump('misplaced rows', decision.misplaced.length);
+    bump('unsplit rows', decision.unsplit.length);
+    bump('long rows, listed only', decision.long.length);
   }
 
-  const wanted = new Set(
-    candidates.map((candidate) => foldKey(candidate.poem.rows[candidate.index] ?? ''))
-  );
+  const wanted = new Set(candidates.map((candidate) => foldKey(candidate.row)));
   const copies = copyCuts(
     everything.flatMap((poem) =>
       poem.rows.filter((row) => isFullVerse(row) && wanted.has(foldKey(row)))
     )
   );
 
-  const copySplits: { key: string; row: string }[] = [];
+  const copySplits: RowFix[] = [];
   const queue: Candidate[] = [];
   for (const candidate of candidates) {
-    const row = candidate.poem.rows[candidate.index] ?? '';
-    const cut = copies.get(foldKey(row));
-    const repaired = cut === undefined ? undefined : acceptSplit(row, cut);
+    const cut = copies.get(foldKey(candidate.row));
+    const repaired = cut === undefined ? undefined : acceptSplit(candidate.row, cut);
     if (repaired === undefined) {
       queue.push(candidate);
       bump(cut === undefined ? 'split: no copy, queued' : 'split: copy failed the checks, queued');
@@ -234,7 +325,7 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
       candidate.key,
       candidate.poem.meter,
       String(candidate.half),
-      numberedWords(candidate.poem.rows[candidate.index] ?? ''),
+      numberedWords(candidate.row),
     ])
   );
   const unclearLines = unclear.map(({ poem }) =>
@@ -245,9 +336,32 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
       poem.rows.map((row) => `${letters(row)}:${lastWord(row)}`).join(' | '),
     ])
   );
+  const bySlug = new Map(poems.map((poem) => [poem.slug, poem]));
+  const strayLine = ({ key, row }: RowFix): string => {
+    const [slug = '', position = '0'] = key.split(':');
+    return csvLine([key, bySlug.get(slug)?.rows[Number(position) - 1] ?? '', row]);
+  };
+  const sample = [...strays]
+    .sort(
+      (a, b) =>
+        stableOrder(`stray-${STRAY_SAMPLE_ROUND}:${a.key}`) -
+        stableOrder(`stray-${STRAY_SAMPLE_ROUND}:${b.key}`)
+    )
+    .slice(0, STRAY_SAMPLE_SIZE);
 
   const splitBatches = await writeBatches(dir, 'splits', 'key,meter,half,words', splitLines);
   const unclearBatches = await writeBatches(dir, 'unclear', 'slug,meter,rows,lines', unclearLines);
+  await writeBatches(
+    dir,
+    'strays-sample',
+    'key,stored,joined',
+    sample.map((fix) => strayLine(fix))
+  );
+  await Bun.write(
+    join(dir, 'strays-review.csv'),
+    `key,meter,half,row\n${strayReview.join('\n')}\n`
+  );
+  await Bun.write(join(dir, 'long.csv'), `key,meter,size,row\n${longLines.join('\n')}\n`);
   const keyFile = Bun.file(join(dir, 'measure-key.csv'));
   const measureNote = (await keyFile.exists())
     ? 'kept the existing measurement sample, which its answers refer to'
@@ -256,7 +370,8 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
   const auto: Auto = {
     merges,
     copySplits,
-    splitQueue: queue.map((candidate) => candidate.key),
+    strays,
+    splitQueue: queue.map(({ key, row }) => ({ key, row })),
     unclearQueue: unclear.map(({ poem }) => poem.slug),
   };
   await Bun.write(join(dir, 'auto.json'), `${JSON.stringify(auto)}\n`);
@@ -268,8 +383,9 @@ async function plan(corpusPath: string, dir: string): Promise<void> {
     ...[...counts]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, value]) => `- ${name}: ${value}`),
+    `- strays: ${strays.length} joined automatically, ${strayReview.length} left for review`,
     '',
-    `Review batches: measure (${measureNote}), ${splitBatches} splits (${queue.length} rows), ${unclearBatches} unclear (${unclear.length} poems)`,
+    `Review batches: measure (${measureNote}), ${splitBatches} splits (${queue.length} rows), ${unclearBatches} unclear (${unclear.length} poems), stray sample (${sample.length} rows)`,
   ];
   await Bun.write(join(dir, 'summary.md'), `${summary.join('\n')}\n`);
   console.log(summary.join('\n'));
@@ -318,6 +434,21 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
     }
   }
 
+  const strayVerdicts = await readAnswers(dir, 'strays-sample');
+  if (auto.strays.length > 0) {
+    const judged = [...strayVerdicts.values()].filter(
+      (verdict) => verdict === 'ok' || verdict === 'no'
+    );
+    const rate =
+      judged.length === 0 ? 0 : judged.filter((verdict) => verdict === 'ok').length / judged.length;
+    if (judged.length < Math.min(STRAY_SAMPLE_SIZE, auto.strays.length) || rate < MIN_EXACT_RATE) {
+      console.error(
+        `refusing stray joins: ${judged.length} sample rows judged, ${(rate * 100).toFixed(1)}% ok, below ${MIN_EXACT_RATE * 100}%`
+      );
+      process.exit(1);
+    }
+  }
+
   const splits = new Map<string, Map<number, string>>();
   const addSplit = (key: string, row: string): void => {
     const [slug = '', position = '0'] = key.split(':');
@@ -326,12 +457,15 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
     splits.set(slug, forPoem);
   };
   for (const { key, row } of auto.copySplits) addSplit(key, row);
-  for (const key of auto.splitQueue) {
+  for (const { key, row } of auto.strays) {
+    if (strayVerdicts.get(key) === 'no') review.push(`- ${key}: stray join refused in the sample`);
+    else addSplit(key, row);
+  }
+  for (const { key, row } of auto.splitQueue) {
     const answer = splitAnswers.get(key);
-    const [slug = '', position = '0'] = key.split(':');
+    const [slug = ''] = key.split(':');
     const poem = bySlug.get(slug);
-    const row = poem?.rows[Number(position) - 1];
-    if (poem === undefined || row === undefined) {
+    if (poem === undefined) {
       review.push(`- ${key}: not in the corpus export`);
       continue;
     }
@@ -375,7 +509,7 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
       slug,
       oldRows: poem.rows,
       newRows: applySplits(poem.rows, forPoem),
-      reason: 'split',
+      reason: 'rows',
     });
   }
   for (const [slug, newRows] of merges) {
@@ -388,17 +522,17 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
   await Bun.write(join(dir, 'plan.json'), `${JSON.stringify(changes)}\n`);
   await Bun.write(join(dir, 'review.md'), `# Not applied\n\n${review.join('\n')}\n`);
   console.log(
-    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'split').length} split, ${changes.filter((change) => change.reason === 'merge').length} merged); ${review.length} listed for review`
+    `${changes.length} poems changed (${changes.filter((change) => change.reason === 'rows').length} with row fixes, ${changes.filter((change) => change.reason === 'merge').length} merged); ${review.length} listed for review`
   );
 }
 
-const [mode, first, second] = Bun.argv.slice(2);
-if (mode === 'plan' && first !== undefined) await plan(first, second ?? DEFAULT_DIR);
+const [mode, first, second, third] = Bun.argv.slice(2);
+if (mode === 'plan' && first !== undefined) await plan(first, second ?? DEFAULT_DIR, third);
 else if (mode === 'score') await score(first ?? DEFAULT_DIR);
 else if (mode === 'sql' && first !== undefined) await sql(first, second ?? DEFAULT_DIR);
 else {
   console.error(
-    'usage: repair-rows.ts plan <corpus.tsv> [dir] | score [dir] | sql <corpus.tsv> [dir]'
+    'usage: repair-rows.ts plan <corpus.tsv> [dir] [previous-dir] | score [dir] | sql <corpus.tsv> [dir]'
   );
   process.exit(1);
 }

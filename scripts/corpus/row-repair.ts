@@ -1,13 +1,28 @@
 import { DEFAULT_SOUND_CLASSES, lettersOnly } from './arabic-text';
-import { rhymeScore } from './qafiya';
+import { rhymeScore, sharedLiteralSuffixLength } from './qafiya';
 
 const UNSPLIT_RATIO = 1.6;
+const LONG_RATIO = 2.6;
 const HALF_LINE_RATIO = 1.3;
+const STRAY_MIN = 0.8;
+const STRAY_MAX = 1.15;
+const LONGEST_STRAY_RUN = 3;
+const SHORT_HALF = 0.55;
+const LONG_HALF = 1.45;
+const FULL_VERSE_RATIO = 1.7;
+const MIN_FULL_VERSE_SHARE = 0.15;
+const OWN_MIN = 0.8;
+const OWN_MAX = 1.25;
+const MIN_REGULAR_SHARE = 0.7;
+const RHYMING_SUFFIX = 2;
 const MIN_SHARE = 0.35;
 const MAX_SHARE = 0.65;
 const RHYMES = 0.8;
 const DOES_NOT_RHYME = 0.6;
 const MIN_VERSES = 4;
+const FOUR_FOOT_METERS = new Set(['altawil', 'albasit', 'almutakarib', 'almutadarak']);
+const ELLIPSIS = /\.\.|…/;
+const DIGIT = /\p{Nd}/u;
 
 export type RhymePattern = 'every' | 'alternating' | 'unclear';
 export type FlatKind =
@@ -45,8 +60,115 @@ export function typicalHalf(rows: readonly string[], meterBaseline?: number): nu
   return median(verses.flatMap((row) => row.split('*').map((part) => letters(part))));
 }
 
+export type Reference =
+  | { readonly kind: 'checked'; readonly half: number }
+  | { readonly kind: 'unchecked'; readonly half: number };
+
+function fullVerseShare(rows: readonly string[], half: number): number {
+  return rows.filter((row) => letters(row) >= FULL_VERSE_RATIO * half).length / rows.length;
+}
+
+export function isRegular(rows: readonly string[], half: number): boolean {
+  const regular = rows.filter((row) => {
+    const size = letters(row) / half;
+    return (size >= 0.75 && size <= 1.25) || (size >= UNSPLIT_RATIO && size <= 2.4);
+  });
+  return regular.length / rows.length >= MIN_REGULAR_SHARE;
+}
+
+export function referenceHalf(
+  rows: readonly string[],
+  meterBaseline: number | undefined
+): Reference | undefined {
+  const own = typicalHalf(rows);
+  if (meterBaseline === undefined) {
+    return own === undefined ? undefined : { kind: 'unchecked', half: own };
+  }
+  const hasFullVerses = fullVerseShare(rows, meterBaseline) >= MIN_FULL_VERSE_SHARE;
+  const checkedIfRegular = (half: number): Reference => ({
+    kind: isRegular(rows, half) ? 'checked' : 'unchecked',
+    half,
+  });
+  if (own === undefined) {
+    return hasFullVerses
+      ? checkedIfRegular(meterBaseline)
+      : { kind: 'unchecked', half: meterBaseline };
+  }
+  const ratio = own / meterBaseline;
+  if (ratio >= OWN_MIN && ratio <= OWN_MAX) return checkedIfRegular(own);
+  if (ratio < OWN_MIN && hasFullVerses) return checkedIfRegular(meterBaseline);
+  return { kind: 'unchecked', half: own };
+}
+
 export function isUnsplitVerse(row: string, half: number): boolean {
-  return !row.includes('*') && letters(row) >= UNSPLIT_RATIO * half;
+  const size = letters(row) / half;
+  return !row.includes('*') && size >= UNSPLIT_RATIO && size < LONG_RATIO;
+}
+
+export function isStraySplit(row: string, half: number): boolean {
+  const size = letters(row) / half;
+  return isFullVerse(row) && size >= STRAY_MIN && size <= STRAY_MAX;
+}
+
+export function isMisplacedSplit(row: string, half: number): boolean {
+  if (!isFullVerse(row)) return false;
+  const sizes = row.split('*').map((part) => letters(part) / half);
+  const size = letters(row) / half;
+  return (
+    size >= UNSPLIT_RATIO &&
+    size < LONG_RATIO &&
+    Math.min(...sizes) < SHORT_HALF &&
+    Math.max(...sizes) > LONG_HALF
+  );
+}
+
+export function isLongRow(row: string, half: number): boolean {
+  return letters(row) >= LONG_RATIO * half;
+}
+
+function wordsWithLetters(text: string): string[] {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => letters(word) > 0);
+}
+
+export function isConfidentStray(row: string, meter: string): boolean {
+  const parts = row.split('*');
+  return (
+    FOUR_FOOT_METERS.has(meter) &&
+    parts.length === 2 &&
+    parts.every((part) => wordsWithLetters(part).length >= 2) &&
+    sharedLiteralSuffixLength(parts) < RHYMING_SUFFIX &&
+    !ELLIPSIS.test(row) &&
+    !DIGIT.test(row)
+  );
+}
+
+export function indexesInLongRuns(indexes: readonly number[]): Set<number> {
+  const inLongRuns = new Set<number>();
+  let run: number[] = [];
+  const close = (): void => {
+    if (run.length > LONGEST_STRAY_RUN) for (const index of run) inLongRuns.add(index);
+    run = [];
+  };
+  for (const index of [...indexes].sort((a, b) => a - b)) {
+    if (run.length > 0 && index !== (run.at(-1) ?? 0) + 1) close();
+    run.push(index);
+  }
+  close();
+  return inLongRuns;
+}
+
+export function joinSplit(row: string): string | undefined {
+  const parts = row.split('*');
+  if (parts.length !== 2) return undefined;
+  const first = (parts[0] ?? '').trimEnd();
+  const second = (parts[1] ?? '').trimStart();
+  const before = wordsWithLetters(first).at(-1) ?? '';
+  const after = wordsWithLetters(second)[0] ?? '';
+  if (letters(before) <= 1 || letters(after) <= 1) return undefined;
+  return `${first} ${second}`;
 }
 
 export function rhymePattern(lines: readonly string[]): RhymePattern {
@@ -157,7 +279,9 @@ export function copyCuts(rows: Iterable<string>): Map<string, number> {
   const cuts = new Map<string, number>();
   for (const row of rows) {
     if (!isFullVerse(row)) continue;
-    cuts.set(foldKey(row), letters(row.split('*')[0] ?? ''));
+    const first = letters(row.split('*')[0] ?? '');
+    const share = first / letters(row);
+    if (share >= MIN_SHARE && share <= MAX_SHARE) cuts.set(foldKey(row), first);
   }
   return cuts;
 }
@@ -208,23 +332,37 @@ export function buildApplySql(changes: readonly Change[]): string {
   return `${lines.join('\n')}\n`;
 }
 
+export type RowRepairs = {
+  readonly unsplit: readonly number[];
+  readonly misplaced: readonly number[];
+  readonly stray: readonly number[];
+  readonly long: readonly number[];
+};
+
 export type PoemPlan =
   | { readonly kind: 'none' }
   | { readonly kind: 'merge'; readonly newRows: readonly string[] }
   | { readonly kind: 'unclear' }
-  | { readonly kind: 'splits'; readonly indexes: readonly number[] };
+  | ({ readonly kind: 'rows' } & RowRepairs);
 
-function unsplitIndexes(rows: readonly string[], half: number): number[] {
-  return rows.flatMap((row, index) => (isUnsplitVerse(row, half) ? [index] : []));
+function indexesWhere(rows: readonly string[], test: (row: string) => boolean): number[] {
+  return rows.flatMap((row, index) => (test(row) ? [index] : []));
 }
 
-export function planPoem(rows: readonly string[], half: number): PoemPlan {
+export function planPoem(rows: readonly string[], reference: Reference): PoemPlan {
+  const { half } = reference;
   const kind = classifyFlat(rows, half);
   if (kind === 'half-line-pairs') return { kind: 'merge', newRows: mergePairs(rows) };
   if (kind === 'unclear') return { kind: 'unclear' };
   if (kind === 'rhyming-half-lines') return { kind: 'none' };
-  const indexes = unsplitIndexes(rows, half);
-  return indexes.length > 0 ? { kind: 'splits', indexes } : { kind: 'none' };
+  const repairs: RowRepairs = {
+    unsplit: indexesWhere(rows, (row) => isUnsplitVerse(row, half)),
+    misplaced: indexesWhere(rows, (row) => isMisplacedSplit(row, half)),
+    stray: reference.kind === 'checked' ? indexesWhere(rows, (row) => isStraySplit(row, half)) : [],
+    long: indexesWhere(rows, (row) => isLongRow(row, half)),
+  };
+  const isEmpty = Object.values(repairs).every((indexes) => indexes.length === 0);
+  return isEmpty ? { kind: 'none' } : { kind: 'rows', ...repairs };
 }
 
 export function applySplits(
