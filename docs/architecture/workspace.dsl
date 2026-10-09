@@ -8,7 +8,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         developer = person "API developer" "Creates API keys on qafiyah.com and calls api.qafiyah.com."
         maintainer = person "Maintainer" "Deploys, reseeds, reindexes, and watches the dashboards."
 
-        cloudflare = softwareSystem "Cloudflare" "DNS, TLS, page cache, rate limits, and the tunnel into the VPS." "External"
+        cloudflare = softwareSystem "Cloudflare" "DNS, TLS, page cache, custom and rate limit rules, and the tunnel into the VPS." "External"
         sentry = softwareSystem "Sentry" "Collects errors and browser sessions." "External"
         posthog = softwareSystem "PostHog" "Product analytics, reached through its managed proxy at ix.qafiyah.com." "External"
         github = softwareSystem "GitHub" "Hosts the source, runs CI, and signs developers in." "External"
@@ -134,7 +134,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
 
         production = deploymentEnvironment "Production" {
             cf = deploymentNode "Cloudflare" "The global network in front of every qafiyah.com host." "Cloudflare" {
-                cloudflareEdge = infrastructureNode "Edge" "TLS, the page cache, rate limit rules, and the tunnel's public end." "Cloudflare"
+                cloudflareEdge = infrastructureNode "Edge" "TLS, the page cache, custom and rate limit rules, and the tunnel's public end." "Cloudflare"
                 deploymentNode "R2" "" "Cloudflare R2" {
                     containerInstance qafiyah.avatars
                 }
@@ -204,7 +204,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         dynamic qafiyah "search" "A website search." {
             title "Qafiyah: a website search"
             reader -> cloudflare "Types a query, and the search island requests /api/v1/search"
-            cloudflare -> qafiyah.edge "Forwards it uncached: the cache rule skips /api/"
+            cloudflare -> qafiyah.edge "Forwards it, unless its cache has the same search from the last five minutes"
             qafiyah.edge -> qafiyah.web "Passes it after the WAF checks"
             qafiyah.web -> qafiyah.api "On an nginx cache miss, the proxy forwards it with the internal key"
             qafiyah.api -> qafiyah.search "Runs the ranked poem query"
