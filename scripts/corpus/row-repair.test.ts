@@ -15,6 +15,7 @@ import {
   copyCuts,
   cutAt,
   foldKey,
+  glueSplit,
   indexesInLongRuns,
   isConfidentStray,
   isLongRow,
@@ -200,6 +201,16 @@ describe('isLongRow', () => {
     expect(isLongRow(half(26), 10)).toBe(true);
     expect(isLongRow(`${half(13)}*${half(13)}`, 10)).toBe(true);
     expect(isLongRow(half(20), 10)).toBe(false);
+  });
+});
+
+describe('glueSplit', () => {
+  it('joins the two parts with no space, for a separator inside a word', () => {
+    expect(glueSplit('ببب أبصا*رها ححح')).toBe('ببب أبصارها ححح');
+  });
+
+  it('refuses a row without exactly one separator', () => {
+    expect(glueSplit('ببب سسس')).toBeUndefined();
   });
 });
 

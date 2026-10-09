@@ -160,6 +160,12 @@ export function indexesInLongRuns(indexes: readonly number[]): Set<number> {
   return inLongRuns;
 }
 
+export function glueSplit(row: string): string | undefined {
+  const parts = row.split('*');
+  if (parts.length !== 2) return undefined;
+  return `${(parts[0] ?? '').trimEnd()}${(parts[1] ?? '').trimStart()}`;
+}
+
 export function joinSplit(row: string): string | undefined {
   const parts = row.split('*');
   if (parts.length !== 2) return undefined;

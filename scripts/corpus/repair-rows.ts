@@ -12,6 +12,7 @@ import {
   copyCuts,
   csvLine,
   foldKey,
+  glueSplit,
   indexesInLongRuns,
   isConfidentStray,
   isFullVerse,
@@ -91,6 +92,7 @@ type Auto = {
   readonly merges: readonly { readonly slug: string; readonly newRows: readonly string[] }[];
   readonly copySplits: readonly RowFix[];
   readonly strays: readonly RowFix[];
+  readonly strayQueue: readonly string[];
   readonly splitQueue: readonly RowFix[];
   readonly unclearQueue: readonly string[];
 };
@@ -245,6 +247,7 @@ async function plan(corpusPath: string, dir: string, previousDir?: string): Prom
   const candidates: Candidate[] = [];
   const strays: RowFix[] = [];
   const strayReview: string[] = [];
+  const strayQueue: string[] = [];
   const longLines: string[] = [];
   const counts = new Map<string, number>();
   const bump = (name: string, by = 1): void => {
@@ -274,6 +277,7 @@ async function plan(corpusPath: string, dir: string, previousDir?: string): Prom
       if (joined !== undefined && !inLongRuns.has(index) && isConfidentStray(row, poem.meter)) {
         strays.push({ key: rowKey(poem, index), row: joined });
       } else {
+        strayQueue.push(rowKey(poem, index));
         strayReview.push(csvLine([rowKey(poem, index), poem.meter, String(half), row]));
       }
     }
@@ -357,10 +361,7 @@ async function plan(corpusPath: string, dir: string, previousDir?: string): Prom
     'key,stored,joined',
     sample.map((fix) => strayLine(fix))
   );
-  await Bun.write(
-    join(dir, 'strays-review.csv'),
-    `key,meter,half,row\n${strayReview.join('\n')}\n`
-  );
+  await writeBatches(dir, 'strays-review', 'key,meter,half,row', strayReview);
   await Bun.write(join(dir, 'long.csv'), `key,meter,size,row\n${longLines.join('\n')}\n`);
   const keyFile = Bun.file(join(dir, 'measure-key.csv'));
   const measureNote = (await keyFile.exists())
@@ -371,6 +372,7 @@ async function plan(corpusPath: string, dir: string, previousDir?: string): Prom
     merges,
     copySplits,
     strays,
+    strayQueue,
     splitQueue: queue.map(({ key, row }) => ({ key, row })),
     unclearQueue: unclear.map(({ poem }) => poem.slug),
   };
@@ -460,6 +462,24 @@ async function sql(corpusPath: string, dir: string): Promise<void> {
   for (const { key, row } of auto.strays) {
     if (strayVerdicts.get(key) === 'no') review.push(`- ${key}: stray join refused in the sample`);
     else addSplit(key, row);
+  }
+  const strayAnswers = await readAnswers(dir, 'strays-review');
+  for (const key of auto.strayQueue) {
+    const [slug = '', position = '0'] = key.split(':');
+    const row = bySlug.get(slug)?.rows[Number(position) - 1];
+    const answer = strayAnswers.get(key) ?? strayAnswers.get(slug);
+    if (row === undefined) {
+      review.push(`- ${key}: not in the corpus export`);
+      continue;
+    }
+    if (answer === 'keep') continue;
+    if (answer !== 'join' && answer !== 'glue') {
+      review.push(`- ${key}: stray ${answer === undefined ? 'unanswered' : 'unsure'}`);
+      continue;
+    }
+    const repaired = answer === 'join' ? joinSplit(row) : glueSplit(row);
+    if (repaired === undefined) review.push(`- ${key}: stray ${answer} failed the checks`);
+    else addSplit(key, repaired);
   }
   for (const { key, row } of auto.splitQueue) {
     const answer = splitAnswers.get(key);
