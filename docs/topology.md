@@ -142,13 +142,13 @@ Two other workflows run on pull requests:
 
 ## External services
 
-| Service    | Role                                                                        | Reached via                                  |
-| ---------- | --------------------------------------------------------------------------- | -------------------------------------------- |
-| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), cache and rate limit rules | all subdomains, `cdn.`                       |
-| Sentry     | Error and session tracking for the API and the website                      | directly from the servers and the browser    |
-| PostHog    | Product analytics                                                           | `ix.qafiyah.com` (Cloudflare-managed)        |
-| GitHub     | Source hosting, Actions CI, secret scanning, developer sign-in              | `.github/workflows/`; OAuth from the website |
-| Google     | Developer sign-in                                                           | OAuth from the website                       |
+| Service    | Role                                                                                 | Reached via                                  |
+| ---------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Cloudflare | DNS, TLS, Tunnel (ingress), R2 (object storage), cache, custom, and rate limit rules | all subdomains, `cdn.`                       |
+| Sentry     | Error and session tracking for the API and the website                               | directly from the servers and the browser    |
+| PostHog    | Product analytics                                                                    | `ix.qafiyah.com` (Cloudflare-managed)        |
+| GitHub     | Source hosting, Actions CI, secret scanning, developer sign-in                       | `.github/workflows/`; OAuth from the website |
+| Google     | Developer sign-in                                                                    | OAuth from the website                       |
 
 ## See also
 
