@@ -1,9 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { SPACING_SCALE } from '@/lib/poem-scale';
-
-import { halvesSpacing, PoemDisplay } from './poem-display';
+import { PoemDisplay } from './poem-display';
 
 type Props = Parameters<typeof PoemDisplay>[0];
 
@@ -105,12 +103,6 @@ describe('PoemDisplay', () => {
     expect(article).toContain('--poem-scale:1');
     expect(article).toContain('--poem-spacing:1');
     expect(article).toContain('--poem-halves-spacing:1');
-  });
-
-  it('keeps the halves of a verse at their tightest spacing when only the verse gap can shrink', () => {
-    expect(halvesSpacing(SPACING_SCALE.min)).toBe(SPACING_SCALE.halvesMin);
-    expect(halvesSpacing(SPACING_SCALE.halvesMin)).toBe(SPACING_SCALE.halvesMin);
-    expect(halvesSpacing(1.4)).toBe(1.4);
   });
 
   it('renders the reading tools between the metadata row and the verses', () => {

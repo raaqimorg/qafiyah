@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { stripTashkeel } from './arabic';
 import {
   buildHighlightRegex,
   escapeRegExp,
@@ -85,5 +86,14 @@ describe('highlightSegments', () => {
   it('returns a single unhighlighted segment when nothing matches', () => {
     const regex = buildHighlightRegex(['غائب']) as RegExp;
     expect(highlightSegments('نص', regex)).toEqual([{ text: 'نص', highlighted: false }]);
+  });
+
+  it('still finds a vocalized search term once the verse and the term both lose their tashkeel', () => {
+    const verse = 'وَإِذا الشَّدائِدُ مَرَّةً أَشْجَتْكُمُ';
+    const regex = buildHighlightRegex([stripTashkeel('الشَّدائِدُ مَرَّةً')]) as RegExp;
+    expect(highlightSegments(stripTashkeel(verse), regex)).toContainEqual({
+      text: 'الشدائد مرة',
+      highlighted: true,
+    });
   });
 });

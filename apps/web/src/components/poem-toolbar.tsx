@@ -5,17 +5,19 @@ import { ListChevronsDownUp, ListChevronsUpDown, Minus, Plus, SunMoon } from 'lu
 import { IconButton } from '@/components/ui/icon-button';
 import { captureEvent } from '@/lib/analytics/capture-event';
 import { POEM_TOOLBAR_TEXTS } from '@/lib/constants/copy';
-import { FONT_SCALE, SPACING_SCALE, stepScale } from '@/lib/poem-scale';
+import { POEM_SCALE, stepScale } from '@/lib/poem-scale';
 import { toggleTheme } from '@/lib/settings/theme-actions';
 import { cn } from '@/lib/utils';
 
 const DIMMED = 'opacity-75 transition hover:opacity-100';
+const STEP_BUTTON = cn(DIMMED, 'aria-disabled:pointer-events-none aria-disabled:opacity-50');
 const ICON = 'size-5';
 const ICON_STROKE = 1.5;
 
 type PoemToolbarProps = {
   readonly fontScale: number;
   readonly spacingScale: number;
+  readonly spacingMin: number;
   readonly showTashkeel: boolean;
   readonly onFontScaleChange: (scale: number) => void;
   readonly onSpacingScaleChange: (scale: number) => void;
@@ -25,18 +27,22 @@ type PoemToolbarProps = {
 export function PoemToolbar({
   fontScale,
   spacingScale,
+  spacingMin,
   showTashkeel,
   onFontScaleChange,
   onSpacingScaleChange,
   onToggleTashkeel,
 }: PoemToolbarProps) {
+  const spacingRange = { ...POEM_SCALE.spacing, min: spacingMin };
   const stepFontScale = (direction: 1 | -1) => {
-    const next = stepScale(fontScale, direction, FONT_SCALE);
+    const next = stepScale(fontScale, direction, POEM_SCALE.font);
+    if (next === fontScale) return;
     onFontScaleChange(next);
     captureEvent('setting_changed', { setting: 'poem_font_scale', value: next });
   };
   const stepSpacingScale = (direction: 1 | -1) => {
-    const next = stepScale(spacingScale, direction, SPACING_SCALE);
+    const next = stepScale(spacingScale, direction, spacingRange);
+    if (next === spacingScale) return;
     onSpacingScaleChange(next);
     captureEvent('setting_changed', { setting: 'poem_spacing_scale', value: next });
   };
@@ -48,33 +54,33 @@ export function PoemToolbar({
     >
       <IconButton
         onClick={() => stepFontScale(-1)}
-        disabled={fontScale <= FONT_SCALE.min}
+        aria-disabled={fontScale <= POEM_SCALE.font.min}
         aria-label={POEM_TOOLBAR_TEXTS.fontSizeDecrease}
-        className={DIMMED}
+        className={STEP_BUTTON}
       >
         <Minus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={() => stepFontScale(1)}
-        disabled={fontScale >= FONT_SCALE.max}
+        aria-disabled={fontScale >= POEM_SCALE.font.max}
         aria-label={POEM_TOOLBAR_TEXTS.fontSizeIncrease}
-        className={DIMMED}
+        className={STEP_BUTTON}
       >
         <Plus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={() => stepSpacingScale(-1)}
-        disabled={spacingScale <= SPACING_SCALE.min}
+        aria-disabled={spacingScale <= spacingMin}
         aria-label={POEM_TOOLBAR_TEXTS.spacingDecrease}
-        className={DIMMED}
+        className={STEP_BUTTON}
       >
         <ListChevronsDownUp className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={() => stepSpacingScale(1)}
-        disabled={spacingScale >= SPACING_SCALE.max}
+        aria-disabled={spacingScale >= POEM_SCALE.spacing.max}
         aria-label={POEM_TOOLBAR_TEXTS.spacingIncrease}
-        className={DIMMED}
+        className={STEP_BUTTON}
       >
         <ListChevronsUpDown className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>

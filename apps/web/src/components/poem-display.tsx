@@ -10,7 +10,7 @@ import {
   VERSES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
 import { buildHighlightRegex, highlightSegments, parseHighlightTerms } from '@/lib/highlight';
-import { FONT_SCALE, SPACING_SCALE } from '@/lib/poem-scale';
+import { halvesSpacing, POEM_SCALE } from '@/lib/poem-scale';
 import { poetsUrl, poetUrl } from '@/lib/urls';
 import { cn } from '@/lib/utils';
 
@@ -19,10 +19,6 @@ import type { Poem } from '@/lib/api/result-types';
 const VERSE_GAP = 'gap-[calc(2.5rem*var(--poem-spacing))] sm:gap-[calc(3rem*var(--poem-spacing))]';
 const HEMISTICH_GAP =
   'gap-[calc(1rem*var(--poem-halves-spacing))] sm:gap-[calc(1.25rem*var(--poem-halves-spacing))]';
-
-export function halvesSpacing(spacingScale: number): number {
-  return Math.max(spacingScale, SPACING_SCALE.halvesMin);
-}
 
 function useHighlightTerms(): readonly string[] {
   const [terms, setTerms] = useState<readonly string[]>([]);
@@ -91,11 +87,17 @@ export function PoemDisplay({
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
-  const [fontScale, setFontScale] = useState<number>(FONT_SCALE.initial);
-  const [spacingScale, setSpacingScale] = useState<number>(SPACING_SCALE.initial);
+  const [fontScale, setFontScale] = useState<number>(POEM_SCALE.font.initial);
+  const [spacingScale, setSpacingScale] = useState<number>(POEM_SCALE.spacing.initial);
   const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
-  const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
+  const highlightRegex = useMemo(
+    () =>
+      buildHighlightRegex(
+        showTashkeel ? highlightTerms : highlightTerms.map((term) => stripTashkeel(term))
+      ),
+    [highlightTerms, showTashkeel]
+  );
   const columnStyle: CSSProperties &
     Record<'--poem-scale' | '--poem-spacing' | '--poem-halves-spacing', number> = {
     '--poem-scale': fontScale,
@@ -129,6 +131,7 @@ export function PoemDisplay({
         <PoemToolbar
           fontScale={fontScale}
           spacingScale={spacingScale}
+          spacingMin={lineByLine ? POEM_SCALE.spacing.halvesMin : POEM_SCALE.spacing.min}
           showTashkeel={showTashkeel}
           onFontScaleChange={setFontScale}
           onSpacingScaleChange={setSpacingScale}
