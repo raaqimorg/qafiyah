@@ -221,12 +221,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** put a schema version or hash in the index name, and reindex when the alias points at a different version.
 - **Status:** Needs review
 
-### The whole poem hydrates as a React island for font scale and a private `#h=` fragment
+### The whole poem hydrates as a React island for the reading toolbar and a private `#h=` fragment
 
-- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The only client-side needs are the font-scale setting and highlighting from a homemade `#h=term1,term2` fragment.
-- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
-- **Why it's unusual:** the server renders at scale 1, so a saved scale visibly resizes the poem after idle hydration. Theme avoids this with a pre-paint script, and font scale does not. The verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
-- **Normal approach:** render the poem statically in Astro, and set `--poem-scale` on `<html>` in the existing pre-paint script. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
+- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The client-side needs are the reading toolbar (font size, spacing, and tashkeel, which reset on every load, and the theme toggle) and highlighting from a homemade `#h=term1,term2` fragment.
+- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/components/poem-toolbar.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
+- **Why it's unusual:** the verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
+- **Normal approach:** render the poem statically in Astro, and keep a small island for the toolbar. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
 - **Status:** Needs review
 
 ### The home page hand-copies the search UI as a placeholder and deletes it by DOM query
@@ -269,12 +269,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** attributes on each param (or an `IntoParams` struct) and on the error response variants.
 - **Status:** Needs review
 
-### The settings store is built for more than two values
+### The settings store is built for more than one value
 
-- **What:** a module-singleton store behind `useSyncExternalStore` also broadcasts a `window` CustomEvent that only the same module listens to. It persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme` and `poemFontScale`.
+- **What:** a module cache persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme`.
 - **Where:** `apps/web/src/lib/settings/settings-store.ts`, `apps/web/src/lib/settings/settings-storage.ts`, `apps/web/src/lib/settings/settings-schema.ts`
-- **Why it's unusual:** `updateSettings` calls `notify()` and then dispatches the event, whose listener calls `notify()` again, so every update notifies subscribers twice. `applyTheme` also repeats `theme-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
-- **Normal approach:** nanostores `persistentAtom`, or the same `useSyncExternalStore` store without the window event and the version field.
+- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards one value. `applyTheme` also repeats `theme-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
+- **Normal approach:** read and write the one `theme` key in `localStorage` directly.
 - **Status:** Needs review
 
 ### Outbound links go through the API's `/v1/go/*` redirector
@@ -327,10 +327,10 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The footer is one React island
 
-- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `SettingsDialog` and `RandomPoemButton`.
+- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `RandomPoemButton`.
 - **Where:** `apps/web/src/layouts/layout.astro`, `apps/web/src/components/footer.tsx`
-- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in either widget removes the entire footer.
-- **Normal approach:** a `footer.astro` with two small islands.
+- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in the button removes the entire footer.
+- **Normal approach:** a `footer.astro` with one small island.
 - **Status:** Needs review
 
 ### Poem result cards navigate with JavaScript

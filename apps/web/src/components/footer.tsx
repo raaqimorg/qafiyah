@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils';
 
 import { IslandErrorBoundary } from './island-error-boundary';
 import { RandomPoemButton } from './random-poem-button';
-import { SettingsDialog } from './settings-dialog';
 
 function Separator({ className }: { readonly className?: string }) {
   return (
@@ -54,8 +53,6 @@ export function Footer({ className }: { className?: string }) {
           >
             للمطورين
           </a>
-          <Separator />
-          <SettingsDialog className="inline-flex min-h-11 items-center rounded-md px-1 focus-visible:ring-1 focus-visible:ring-text focus-visible:outline-none md:px-2" />
         </nav>
         <RandomPoemButton />
       </footer>
