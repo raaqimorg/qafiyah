@@ -874,6 +874,25 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** versioned migrations run on deploy, the way `apps/api/migrations/` manages the accounts database.
 - **Date:** 2026-09-26
 
+### The excerpt merge crossed poets
+
+- **What:** the excerpt merge of issue #277 merged short poems into the longer poems that hold their text, also when the two had different poets.
+  - A named poet won over an anonymous record. Then the poet of the older era won, then the poet with more poems. On a tie, both poems stayed.
+  - The longer text always survived. When the winning poet owned only the shorter poem, the longer poem moved to that poet only if the shorter one held 80% of it or more. Otherwise both poems stayed, because a short quotation does not make a long poem someone else's.
+  - A poem in a collection never changed poet.
+- **Where:** dump 0043; two SQL scripts that called `reattribute_poem` and then `merge_poem`, kept out of the repo
+- **Why:** the maintainer decided that one text gets one page, even when the sources credit it to two poets.
+- **Normal approach:** `merge_poem` refuses two poets, because that is a question of attribution. Both pages stay, and link to each other.
+- **Date:** 2026-10-09
+
+### The `nabati` poem type names a language, not a form
+
+- **What:** the poem type `nabati` holds every poem whose register is `nabati`, whatever its form. The web lays out its two-part entries like `amudi`.
+- **Where:** the `poem_types` row `nabati` in the dumps from 0044, `CLASSICAL_LAYOUT_POEM_TYPES` in `apps/web/src/lib/constants/taxonomy-data.ts`, and `docs/domain.md` ("Poem type")
+- **Why:** the maintainer wants readers to filter Nabati poetry, and the poem type is the filter that the API, search, and site already have.
+- **Normal approach:** keep the type as the form (`amudi`, `hurr`), and expose the existing `register_id` as its own filter in the API, the search index, and the site.
+- **Date:** 2026-10-10
+
 ## Static checks (`docs/development.md`)
 
 ### Two formatters

@@ -18,6 +18,8 @@ A passphrase is quick to get. Email avatars@qafiyah.com, and say what you need t
 
 Each snapshot is in `{sequence}_{DD}_{MM}_{YYYY}`, the same scheme as `data/db/`. For example, `0000_19_09_2026` is the first snapshot, from 19 September 2026.
 
+Each snapshot holds every avatar that is live on its date, not only the new ones. So the newest snapshot alone restores them all.
+
 ## Contents
 
 Each snapshot is `avatars.zip`, split and encrypted in the same way as the database dumps (below). When you unzip it, it has one folder for each poet:
@@ -27,6 +29,8 @@ poets/<slug>/avatar.webp
 ```
 
 These paths match the object keys that are already live in R2 (the bucket `qafiyah-assets`, served publicly at `cdn.qafiyah.com/poets/<slug>/avatar.webp`). This directory is a backup and archive copy, not the serving path. The app reads avatars from R2 at `cdn.qafiyah.com`, never from here.
+
+`0000_19_09_2026` is the exception: its folders are `avatars/<slug>/avatar.webp`.
 
 ## Uploading a batch to R2
 
@@ -41,12 +45,17 @@ find <src-dir> -maxdepth 1 -type f -name '*.webp' -print0 \
     ' _ {}
 ```
 
-Know these two problems:
+Know these three problems:
 
 - **Cloudflare limits the rate of uploads.** With 16 uploads in parallel, 224 of 6,631 uploads came back with `429`. Collect the failures, then try them again, 4 at a time, with a short sleep and two or three attempts each. That cleared all 224.
 - **`wrangler r2 bucket info` is wrong right after a bulk upload.** Its `object_count` is a billing and analytics statistic that updates late. It read `1` while thousands of objects were already live. Verify with real requests instead: `curl -sI https://cdn.qafiyah.com/poets/<slug>/avatar.webp` must give `200` and `content-type: image/webp`.
+- **wrangler can fail with `fetch failed` while `curl` works.** This happens when Node picks an IPv6 route that does not work, for example over WARP. Run wrangler with `NODE_OPTIONS=--dns-result-order=ipv4first`.
 
 Then set `poet.has_avatar` in Postgres for the poets that you uploaded. That flag makes the web app show the image.
+
+## Removing an avatar
+
+When a poet leaves the database (deleted, or merged into another poet), its avatar stays in R2 until you delete it. Delete it with `wrangler r2 object delete "qafiyah-assets/poets/<slug>/avatar.webp" --remote`, and leave it out of the next snapshot. Do this only after the release that removes the poet, because production keeps the old poet until then.
 
 ## Split and encryption
 
@@ -55,6 +64,8 @@ If `avatars.zip` is over about 45 MB, split it into `avatars.zip.part-aa`, `.par
 ```bash
 openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass "pass:<passphrase>" -in "$part" -out "$part.enc"
 ```
+
+Then store the passphrase as `AVATAR_KEY__{dir}` in both `secrets/dev.enc.env` and `secrets/prod.enc.env`. Add the key to `scripts/secrets/schema.ts` first, because `bun run secrets:check` refuses a key that the schema does not list. After `bun run secrets:pull`, maintainers find the passphrase in `.env`.
 
 ## Restore and decrypt
 
@@ -73,7 +84,7 @@ This directory has none of the automation of `data/db/`:
 
 - no dedicated scripts to encrypt or resolve
 - no entry in `keys.manifest`
-- no `DUMP_KEY__*` variable in `.env`
+- no key pattern in the secrets schema: each `AVATAR_KEY__*` is its own entry
 - no restore on boot
 
 Everything here was created by hand. If avatar snapshots become regular, make `scripts/db/encrypt-dump.sh` general, and do not write new scripts. Its file pattern (`*.dump` and `*.dump.part-*`) is the only part that is specific to dumps.

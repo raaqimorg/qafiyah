@@ -43,6 +43,19 @@ describe('PoemDisplay', () => {
     expect(entries[0]?.[1]?.attributes).toContain('text-left');
   });
 
+  it('renders a two-part entry of a nabati poem as a classical verse', () => {
+    const { entries } = render([['صدر', 'عجز']], 'nabati');
+    expect(entries[0]?.[0]?.attributes).toContain('text-right');
+    expect(entries[0]?.[1]?.attributes).toContain('text-left');
+  });
+
+  it('centers a two-part entry of a poem type with no classical layout', () => {
+    const { entries } = render([['صدر', 'عجز']], 'muwashshah');
+    for (const line of entries[0] ?? []) {
+      expect(line.attributes).not.toMatch(/text-right|text-left/);
+    }
+  });
+
   it('renders a one-part entry as one centered line with no empty second line', () => {
     const { article, entries } = render([['صدر', 'عجز'], ['سطر وحيد'], ['صدر ثان', 'عجز ثان']]);
     expect(entries.map((entry) => entry.length)).toEqual([2, 1, 2]);
