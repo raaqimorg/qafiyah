@@ -1,7 +1,11 @@
 #!/usr/bin/env sh
 set -e
 
-./scripts/check/commit-identity.sh pre-push
+refs="$(cat)"
+if [ -n "$refs" ]; then
+  printf '%s\n' "$refs" | ./scripts/check/commit-identity.sh pre-push
+  printf '%s\n' "$refs" | ./scripts/check/forbidden-terms.sh pre-push
+fi
 
 echo "Running the non-Docker gate (GitHub Actions runs the Docker phases)..."
 bun run ci --no-docker

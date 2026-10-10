@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -e
+
+./scripts/check/forbidden-terms.sh commit-msg "$1"

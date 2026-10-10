@@ -35,7 +35,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - the Rust toolchain pin and its keys
   - ShellCheck over every tracked shell script (found by `.sh` or by shebang), hadolint over every Dockerfile, and the SQL syntax check
   - the clippy wrapper behind `rust:lint`
-  - the optional commit identity guard. The husky hooks call it directly.
+  - the optional commit identity guard and forbidden-terms guard. The husky hooks call them directly (`docs/development.md`, "Committing").
 - `dev/` holds these parts:
   - `run.ts` (`bun run dev`), and the Compose wrapper with the default dev credentials
   - the port preflight, the database reset, and the management of dump keys
