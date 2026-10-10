@@ -18,7 +18,10 @@ const { items } = Astro.props;
           </span>
         )}
         {i === items.length - 1 ? (
-          <span aria-current="page" class="block max-w-48 truncate text-text-muted sm:max-w-none">
+          <span
+            aria-current="page"
+            class="block max-w-48 truncate-ink text-text-muted sm:max-w-none"
+          >
             {item.name}
           </span>
         ) : (

@@ -9,6 +9,14 @@
   top: 0.3em;
 }
 
+@utility truncate-ink {
+  overflow-x: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-inline: -0.25rem;
+  padding-inline: 0.25rem;
+}
+
 @utility focus-ring {
   &:focus-visible {
     @apply ring-1 ring-text outline-none;

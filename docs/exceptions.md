@@ -776,6 +776,17 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
 
+### Truncated text uses `truncate-ink`, not `truncate`
+
+- **What:** text that ends in an ellipsis uses the `truncate-ink` utility in `styles/globals.css`, not Tailwind's `truncate`. It clips only sideways, and its inline padding, cancelled by an equal negative margin, moves the clip edge 4 px out on each side.
+- **Where:** `styles/globals.css`, `components/ui-extended/list-card.tsx`, `components/ui-extended/select.tsx`, `components/adjacent-poems.astro`, `components/breadcrumbs.astro`, `pages/account/index.astro`
+- **Why:** Arabic glyphs draw past their own box, and `truncate` clips at the box edge.
+  - The tails of a final `ر`, `ز`, and `و` reach past the end of the word, up to 0.125 em in Thmanyah. Text that fits its box lost the tip of its last letter.
+  - The hamza in Amiri, and the dots under `ي` and the tails of `و` and `م` in Thmanyah and Scheherazade New, reach above and below the line box. Chrome cut up to 3 px, so a final `ي` lost its dots and read as `ى`.
+  - `overflow-clip-margin` would move the clip edge without padding, but Safari does not support it.
+- **Normal approach:** `truncate`.
+- **Date:** 2026-10-11
+
 ### The poet page's poem list updates in place
 
 - **What:** the `PoetPoems` island takes over the server-rendered list on a poet page.

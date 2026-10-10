@@ -31,14 +31,14 @@ export function ListCard({
         <span
           className={cn(
             TYPE.heading,
-            'block truncate text-text duration-300 group-hover:text-text-muted group-hover:underline group-hover:underline-offset-4'
+            'truncate-ink block text-text duration-300 group-hover:text-text-muted group-hover:underline group-hover:underline-offset-4'
           )}
         >
           {title.replaceAll('"', '')}
         </span>
       </Heading>
       <div className="flex w-full min-w-0 items-baseline justify-between gap-2">
-        <p className={cn(TYPE.body, 'min-w-0 shrink truncate text-text-subtle duration-300')}>
+        <p className={cn(TYPE.body, 'truncate-ink min-w-0 shrink text-text-subtle duration-300')}>
           {subtitle}
         </p>
         {era !== undefined && (
