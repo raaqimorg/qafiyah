@@ -2,6 +2,8 @@
 
 import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } from '@qafiyah/config';
 
+import { checkPrerequisites } from './doctor';
+import { blocksDev, formatReport } from './doctor-report';
 import { ensureEnvFileFrom } from './env-file';
 import {
   cargoProgress,
@@ -93,24 +95,29 @@ function startStage(label: string, announce = true): Stage {
   };
 }
 
-async function ensureDockerRunning(): Promise<void> {
-  const stage = startStage('docker');
-  const running = await Bun.spawn(['docker', 'info'], {
-    cwd: ROOT,
-    env: process.env,
-    stdout: 'ignore',
-    stderr: 'ignore',
-  })
-    .exited.then((code) => code === 0)
-    .catch(() => false);
+async function prerequisitesStage(): Promise<void> {
+  const stage = startStage('prerequisites');
+  const start = Date.now();
+  const outcomes = await checkPrerequisites(['run', 'commit']);
   stage.end();
-  if (running) {
-    console.log(green('✓'));
+  const time = dim(`(${formatMs(Date.now() - start)})`);
+  const problems = outcomes.filter((item) => item.status === 'fail' || item.status === 'warn');
+  if (problems.length === 0) {
+    console.log(`${green('✓')} ${time}`);
     return;
   }
-  console.log(red('✗'));
-  console.error(red('docker is not running, start Docker (OrbStack/Docker Desktop) and retry'));
-  process.exit(1);
+  const blocking = blocksDev(outcomes);
+  console.log(`${blocking ? red('✗') : yellow('⚠')} ${time}`);
+  console.log(formatReport(problems, { green, red, yellow, dim, bold }));
+  if (blocking) {
+    console.error(
+      red('\nfix the items marked ✗, then run bun run dev again (bun run doctor shows every check)')
+    );
+    process.exit(1);
+  }
+  console.log(
+    dim('bun run dev goes on, fix these when you can (bun run doctor shows every check)')
+  );
 }
 
 type StageOptions = {
@@ -561,7 +568,7 @@ await ensureRootEnvFile(identity);
 
 const withWorktreeFlag = (cmd: string[]): string[] => (isolating ? [...cmd, '--worktree'] : cmd);
 
-await ensureDockerRunning();
+await prerequisitesStage();
 await dumpStage();
 function watchDbLog(onLine: (line: string) => void): () => void {
   let polling = false;
