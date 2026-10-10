@@ -153,6 +153,13 @@ Both hooks first run `scripts/check/commit-identity.sh`. It is an optional guard
 - It reads the key with `git config --local`, so a `git -c` override cannot satisfy it. `--no-verify` and `HUSKY=0` skip it, as they skip every hook.
 - On the server side, GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account.
 
+The hooks also run `scripts/check/forbidden-terms.sh`, an optional guard against publishing names that must stay private:
+
+- It does nothing until a clone has a list in `.git/info/forbidden-terms`: one extended regular expression on each line, matched without regard to case, with `#` for comments. The file is inside `.git`, so it is never committed.
+- The pre-commit hook refuses a staged text file or file name that matches. The commit-msg hook (`.husky/commit-msg`) refuses a matching commit message. The pre-push hook refuses a new commit whose message or added lines match.
+- `forbidden-terms.sh text` checks text on standard input, so a local tool can run it before it publishes an issue or a pull request.
+- Its messages never print the matched term.
+
 `AGENTS.md` is the guide for its directory. The `CLAUDE.md` and `GEMINI.md` files next to each one are committed symlinks to it, so every agent harness reads the same file. After you add an `AGENTS.md`, run `bun run agents:link` to create the links. On Windows, check out with `git config core.symlinks true` from a Developer Mode or admin shell. Otherwise, the links appear as one-line text files.
 
 ## Troubleshooting

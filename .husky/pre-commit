@@ -2,5 +2,6 @@
 set -e
 
 ./scripts/check/commit-identity.sh pre-commit
+./scripts/check/forbidden-terms.sh pre-commit
 
 bunx lint-staged
