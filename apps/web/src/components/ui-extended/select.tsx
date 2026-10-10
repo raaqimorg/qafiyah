@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,10 @@ import type { SelectOption } from '@/lib/constants/taxonomy-data';
 import type React from 'react';
 
 const ALL_OPTION_VALUE = '__all__';
+const CLEAR_LABEL = 'مسح';
 
 type Props = {
+  readonly label: string;
   readonly options: readonly SelectOption[];
   readonly value: string | readonly string[];
   readonly onChange: (value: string | string[]) => void;
@@ -26,11 +28,11 @@ type Props = {
   readonly allOptionLabel?: string;
   readonly showCounts?: boolean;
   readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
-  readonly labelledBy?: string;
   readonly onEscape?: () => void;
 };
 
 export function Select({
+  label,
   options,
   value,
   onChange,
@@ -44,7 +46,6 @@ export function Select({
   allOptionLabel,
   showCounts = false,
   onOpenChange,
-  labelledBy,
   onEscape,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,8 +53,7 @@ export function Select({
   const containerRef = useRef<HTMLDivElement>(null);
   const comboboxRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
-  const defaultLabel = multiple ? 'اختيار متعدد' : 'اختيار';
-
+  const labelId = useId();
   const selectedValues = useMemo(() => (typeof value === 'string' ? [value] : value), [value]);
 
   const visibleOptions = useMemo(
@@ -188,108 +188,115 @@ export function Select({
   };
 
   return (
-    <div ref={containerRef} className={cn('relative w-full min-w-0', className)}>
-      <div
-        ref={comboboxRef}
-        role="combobox"
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-controls={listboxId}
-        className={cn(
-          'flex h-12 w-full items-center justify-between rounded-md border border-border px-3 py-2 text-base text-text-muted shadow-none focus-ring transition-colors hover:bg-surface-hover',
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-          { 'border-text': isOpen }
+    <div ref={containerRef} className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
+      <div className="flex w-full items-center justify-between gap-2">
+        <p id={labelId} className="leading-base block text-base text-text-muted">
+          {label}
+        </p>
+        {canClear && (
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="rounded-sm text-sm text-text-subtle underline underline-offset-4 focus-ring transition-colors hover:text-text"
+            aria-label={`${CLEAR_LABEL} ${label}`}
+          >
+            {CLEAR_LABEL}
+          </button>
         )}
-        onClick={toggleOpen}
-        onKeyDown={handleKeyDown}
-        tabIndex={disabled ? -1 : 0}
-        aria-labelledby={labelledBy}
-        aria-label={labelledBy === undefined ? defaultLabel : undefined}
-        aria-activedescendant={isOpen ? `option-${highlightedIndex}` : undefined}
-      >
-        <div className="flex w-full min-w-0 items-center justify-between">
-          <span className={cn('truncate', selectedValues.length === 0 && 'text-text-subtle')}>
-            {getDisplayValue()}
-          </span>
-          <div className="flex items-center gap-1.5">
-            {canClear && (
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="rounded-sm text-text-subtle focus-ring transition-colors hover:text-text"
-                aria-label="مسح الاختيار"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+      </div>
+      <div className="relative w-full min-w-0">
+        <div
+          ref={comboboxRef}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
+          className={cn(
+            'flex h-12 w-full items-center justify-between rounded-md border border-border px-3 py-2 text-base text-text-muted shadow-none focus-ring transition-colors hover:bg-surface-hover',
+            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+            { 'border-text': isOpen }
+          )}
+          onClick={toggleOpen}
+          onKeyDown={handleKeyDown}
+          tabIndex={disabled ? -1 : 0}
+          aria-labelledby={labelId}
+          aria-activedescendant={isOpen ? `option-${highlightedIndex}` : undefined}
+        >
+          <div className="flex w-full min-w-0 items-center justify-between">
+            <span className={cn('truncate-ink', selectedValues.length === 0 && 'text-text-subtle')}>
+              {getDisplayValue()}
+            </span>
             <ChevronDown
-              className={cn('h-4 w-4 transition-transform duration-200', isOpen && 'rotate-180')}
+              className={cn(
+                'h-4 w-4 shrink-0 transition-transform duration-200',
+                isOpen && 'rotate-180'
+              )}
             />
           </div>
         </div>
-      </div>
 
-      {isOpen && (
-        <ul
-          id={listboxId}
-          className={cn(
-            'absolute z-50 w-full overflow-auto rounded-md border border-border bg-surface-raised p-2',
-            'max-h-60 focus:outline-none'
-          )}
-          role="listbox"
-          aria-multiselectable={multiple}
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            marginTop: '0.25rem',
-            overflowY: 'auto',
-          }}
-        >
-          {displayedOptions.map((option, index) => {
-            const isSelected = isOptionSelected(option);
-            return (
-              <li
-                key={option.value}
-                id={`option-${index}`}
-                role="option"
-                aria-selected={isSelected}
-                className={cn(
-                  'cursor-pointer rounded-md px-2 py-2 text-base',
-                  index === highlightedIndex && 'bg-surface-hover',
-                  isSelected && 'text-text'
-                )}
-                onClick={() => toggleOption(option)}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setHighlightedIndex(index)}
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      'flex h-4 w-4 shrink-0 items-center justify-center rounded border bg-surface-raised',
-                      multiple ? 'rounded' : 'rounded-full',
-                      isSelected ? 'border-text bg-text' : 'border-border'
-                    )}
-                  >
-                    {isSelected &&
-                      (multiple ? (
-                        <Check className="h-3 w-3 text-surface" />
-                      ) : (
-                        <div className="h-2 w-2 rounded-full bg-surface" />
-                      ))}
-                  </div>
-                  <span>{option.label}</span>
-                  {showCounts && option.poemsCount !== undefined && (
-                    <Badge variant="outline" className="shrink-0 text-xs text-text-subtle">
-                      {formatArabicNumber(option.poemsCount)}
-                    </Badge>
+        {isOpen && (
+          <ul
+            id={listboxId}
+            className={cn(
+              'absolute z-50 w-full overflow-auto rounded-md border border-border bg-surface-raised p-2',
+              'max-h-60 focus:outline-none'
+            )}
+            role="listbox"
+            aria-multiselectable={multiple}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              marginTop: '0.25rem',
+              overflowY: 'auto',
+            }}
+          >
+            {displayedOptions.map((option, index) => {
+              const isSelected = isOptionSelected(option);
+              return (
+                <li
+                  key={option.value}
+                  id={`option-${index}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'cursor-pointer rounded-md px-2 py-2 text-base',
+                    index === highlightedIndex && 'bg-surface-hover',
+                    isSelected && 'text-text'
                   )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  onClick={() => toggleOption(option)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border bg-surface-raised',
+                        multiple ? 'rounded' : 'rounded-full',
+                        isSelected ? 'border-text bg-text' : 'border-border'
+                      )}
+                    >
+                      {isSelected &&
+                        (multiple ? (
+                          <Check className="h-3 w-3 text-surface" />
+                        ) : (
+                          <div className="h-2 w-2 rounded-full bg-surface" />
+                        ))}
+                    </div>
+                    <span>{option.label}</span>
+                    {showCounts && option.poemsCount !== undefined && (
+                      <Badge variant="outline" className="shrink-0 text-xs text-text-subtle">
+                        {formatArabicNumber(option.poemsCount)}
+                      </Badge>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,21 +2,23 @@
 
 import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 
-import { formatArabicCount } from '@/lib/arabic';
+import { PoemToolbar } from '@/components/poem-toolbar';
+import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
 import {
   CLASSICAL_LAYOUT_POEM_TYPES,
   FREE_VERSE_POEM_TYPE,
   VERSES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
 import { buildHighlightRegex, highlightSegments, parseHighlightTerms } from '@/lib/highlight';
-import { useSettings } from '@/lib/settings/use-settings';
+import { halvesSpacing, POEM_SCALE } from '@/lib/poem-scale';
 import { poetsUrl, poetUrl } from '@/lib/urls';
 import { cn } from '@/lib/utils';
 
 import type { Poem } from '@/lib/api/result-types';
 
-const VERSE_GAP = 'gap-10 sm:gap-12';
-const HEMISTICH_GAP = 'gap-4 sm:gap-5';
+const VERSE_GAP = 'gap-[calc(2.5rem*var(--poem-spacing))] sm:gap-[calc(3rem*var(--poem-spacing))]';
+const HEMISTICH_GAP =
+  'gap-[calc(1rem*var(--poem-halves-spacing))] sm:gap-[calc(1.25rem*var(--poem-halves-spacing))]';
 
 function useHighlightTerms(): readonly string[] {
   const [terms, setTerms] = useState<readonly string[]>([]);
@@ -85,9 +87,23 @@ export function PoemDisplay({
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
-  const { poemFontScale } = useSettings();
+  const [fontScale, setFontScale] = useState<number>(POEM_SCALE.font.initial);
+  const [spacingScale, setSpacingScale] = useState<number>(POEM_SCALE.spacing.initial);
+  const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
-  const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
+  const highlightRegex = useMemo(
+    () =>
+      buildHighlightRegex(
+        showTashkeel ? highlightTerms : highlightTerms.map((term) => stripTashkeel(term))
+      ),
+    [highlightTerms, showTashkeel]
+  );
+  const columnStyle: CSSProperties &
+    Record<'--poem-scale' | '--poem-spacing' | '--poem-halves-spacing', number> = {
+    '--poem-scale': fontScale,
+    '--poem-spacing': spacingScale,
+    '--poem-halves-spacing': halvesSpacing(spacingScale),
+  };
   return (
     <>
       <header className="flex w-full flex-col items-center justify-center gap-4 text-center xxs:gap-6">
@@ -111,6 +127,16 @@ export function PoemDisplay({
           </p>
           <p className="flex-1 py-0.5 md:py-1 lg:py-1.5">{theme.name}</p>
         </div>
+
+        <PoemToolbar
+          fontScale={fontScale}
+          spacingScale={spacingScale}
+          spacingMin={lineByLine ? POEM_SCALE.spacing.halvesMin : POEM_SCALE.spacing.min}
+          showTashkeel={showTashkeel}
+          onFontScaleChange={setFontScale}
+          onSpacingScaleChange={setSpacingScale}
+          onToggleTashkeel={() => setShowTashkeel((shown) => !shown)}
+        />
       </header>
 
       <div className="relative flex w-full flex-col items-center justify-between">
@@ -121,8 +147,7 @@ export function PoemDisplay({
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
               isClassical ? 'max-w-[calc(16em*var(--poem-scale))]' : 'px-(--poem-gutter)'
             )}
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- CSS custom properties are not part of the CSSProperties type
-            style={{ '--poem-scale': poemFontScale } as CSSProperties}
+            style={columnStyle}
           >
             {verses.map((entry, index) => {
               const halves = isClassical && entry.length === 2;
@@ -136,20 +161,23 @@ export function PoemDisplay({
                     isClassical && 'items-stretch'
                   )}
                 >
-                  {entry.map((part, partIndex) => (
-                    <p
-                      // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
-                      key={`${partIndex}|${part}`}
-                      style={{ fontSize: `${poemFontScale}em` }}
-                      lang="ar"
-                      dir="rtl"
-                      className={cn(
-                        halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
-                      )}
-                    >
-                      {highlightRegex ? highlightVerse(part, highlightRegex) : part}
-                    </p>
-                  ))}
+                  {entry.map((part, partIndex) => {
+                    const text = showTashkeel ? part : stripTashkeel(part);
+                    return (
+                      <p
+                        // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
+                        key={`${partIndex}|${part}`}
+                        style={{ fontSize: `${fontScale}em` }}
+                        lang="ar"
+                        dir="rtl"
+                        className={cn(
+                          halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
+                        )}
+                      >
+                        {highlightRegex ? highlightVerse(text, highlightRegex) : text}
+                      </p>
+                    );
+                  })}
                 </div>
               );
             })}

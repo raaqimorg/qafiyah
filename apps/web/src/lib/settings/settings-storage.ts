@@ -8,8 +8,6 @@ import {
   type Theme,
 } from './settings-schema';
 
-export const SETTINGS_CHANGE_EVENT = 'qafiyah:settings-change';
-
 export function safeGet(storage: Pick<Storage, 'getItem'>, key: string): string | null {
   try {
     return storage.getItem(key);

@@ -43,14 +43,17 @@ Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://
 curl "https://api.qafiyah.com/v1/poems/random?option=lines"
 ```
 
-**Run it locally.** You need [Bun](https://bun.sh) 1.4.2, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), and [rustup](https://rustup.rs). Then run:
+**Run it locally.** You need [Bun](https://bun.sh) 1.4.2, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), [rustup](https://rustup.rs), and Bash 4 or later. Install Bun first, then run:
 
 ```bash
 git clone https://github.com/raaqimorg/qafiyah.git
 cd qafiyah
 bun install
+bun run doctor
 bun run dev
 ```
+
+`bun run doctor` checks every other tool and its version, and prints the command that fixes each problem. `bun run dev` runs the same check first.
 
 The first run starts Postgres and Elasticsearch in Docker, restores a 100-poem sample, and builds the search index. It needs no `.env` file and no secrets. The site is then at http://localhost:4321, and the API is at http://localhost:8787. For everyday commands and troubleshooting, see [`docs/development.md`](docs/development.md).
 
@@ -159,7 +162,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 
 ## License
 
-The code and documentation are released under the [MIT license](LICENSE). The data is dedicated to the public domain under [CC0 1.0](data/LICENSE). The data is the poem catalog that the site and the API serve, and the snapshots in `data/`. The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
+The code and documentation are released under the [MIT license](LICENSE). The data is dedicated to the public domain under [CC0 1.0](data/LICENSE). The data is the poem catalog that the site and the API serve, and the snapshots in `data/`. The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/Amiri-OFL.txt). It also offers [Thmanyah Serif Text](https://font.thmanyah.com) by Thmanyah, and [Scheherazade New](https://software.sil.org/scheherazade/) by SIL Global, under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/ScheherazadeNew-OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
 
 <br>
 

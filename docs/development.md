@@ -4,11 +4,16 @@ This is the local development workflow for the monorepo. For the architecture an
 
 ## Prerequisites
 
+Install Bun first. Then run `bun install` and `bun run doctor`. The doctor checks the rest of this list and the minimum versions, and prints the command that fixes each problem. `bun run dev` runs the same check first, and stops if a tool that it needs is missing or too old.
+
 - [Bun](https://bun.sh) 1 or later.
+- Bash 4 or later. The dump scripts use `mapfile`, and macOS ships Bash 3.2. On a Mac, run `brew install bash`.
 - A Docker engine, such as [OrbStack](https://orbstack.dev) or Docker Desktop on a Mac. Postgres, Elasticsearch, and the app containers run through Compose.
+  - It needs Docker Compose 2.24.4 or later, because `docker-compose.dev.yml` uses the `!override` tag.
+  - Give Docker at least 4 GB of memory. The dev Elasticsearch alone can use 3 GB.
   - The API reaches both databases through their published `localhost` ports. It never uses OrbStack's `*.orb.local` container DNS.
   - The reason is speed: a large search response took 78 ms there on a kept-alive connection, and 23 ms through the published port.
-- Rust. `rust-toolchain.toml` pins the version, and `bun run check:rust-toolchain` checks that it matches.
+- Rust through [rustup](https://rustup.rs). `rust-toolchain.toml` pins the version, and only rustup reads that file. `bun run check:rust-toolchain` checks that the pin matches.
 - [ShellCheck](https://www.shellcheck.net), [actionlint](https://github.com/rhysd/actionlint), and [hadolint](https://github.com/hadolint/hadolint), for the static phase of the gate. Install them with `brew install shellcheck actionlint hadolint`.
 - Optional: the [GitHub CLI](https://cli.github.com). Install `gh`, then run `gh auth login`. It lets an AI agent read and file issues and open pull requests itself (`.github/CONTRIBUTING.md`, "Working with an AI agent").
 
@@ -21,7 +26,7 @@ bun run dev
 
 `bun run dev` (`scripts/dev/run.ts`) does these steps, in order:
 
-1. It checks that Docker is running.
+1. It checks the prerequisites (`bun run doctor`, without the optional tools). It stops if a tool to run the site is missing or too old, and only warns about the tools for committing.
 2. It resolves and decrypts a database dump (`scripts/db/resolve-dump.sh`). If no passphrase is set, it uses the bundled `data/db/0000_default/` sample of 100 poems. See `data/db/README.md`.
 3. It starts Postgres and Elasticsearch with Docker Compose, and restores the dump on a new volume.
 4. It runs the search indexer once to fill Elasticsearch.
@@ -152,6 +157,13 @@ Both hooks first run `scripts/check/commit-identity.sh`. It is an optional guard
 - It does not check commits that are already on a remote, because they are already public. An example is a squash merge that GitHub made on `main`, after you merge `main` into a branch.
 - It reads the key with `git config --local`, so a `git -c` override cannot satisfy it. `--no-verify` and `HUSKY=0` skip it, as they skip every hook.
 - On the server side, GitHub's "Block command line pushes that expose my email" setting covers the addresses on your account.
+
+The hooks also run `scripts/check/forbidden-terms.sh`, an optional guard against publishing names that must stay private:
+
+- It does nothing until a clone has a list in `.git/info/forbidden-terms`: one extended regular expression on each line, matched without regard to case, with `#` for comments. The file is inside `.git`, so it is never committed.
+- The pre-commit hook refuses a staged text file or file name that matches. The commit-msg hook (`.husky/commit-msg`) refuses a matching commit message. The pre-push hook refuses a new commit whose message or added lines match.
+- `forbidden-terms.sh text` checks text on standard input, so a local tool can run it before it publishes an issue or a pull request.
+- Its messages never print the matched term.
 
 `AGENTS.md` is the guide for its directory. The `CLAUDE.md` and `GEMINI.md` files next to each one are committed symlinks to it, so every agent harness reads the same file. After you add an `AGENTS.md`, run `bun run agents:link` to create the links. On Windows, check out with `git config core.symlinks true` from a Developer Mode or admin shell. Otherwise, the links appear as one-line text files.
 

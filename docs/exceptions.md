@@ -100,9 +100,9 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The search filters use a hand-built multi-select combobox
 
-- **What:** `Select` is a 295-line homemade ARIA combobox.
+- **What:** `Select` is a 302-line homemade ARIA combobox.
 - **Where:** `apps/web/src/components/ui-extended/select.tsx`, `apps/web/src/components/search/filters.tsx`, `apps/web/src/components/poet-poem-filters.tsx`
-- **Why it's unusual:** The home page's six filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control (the poet page passes `labelledBy` instead). Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
+- **Why it's unusual:** Option ids (`option-${index}`) repeat across instances. The single-select, `clearValue`, and `disabled` modes are never used.
 - **Normal approach:** a maintained primitive (shadcn Popover with cmdk, Headless UI `Listbox multiple`, or React Aria), or a checkbox group in a `<fieldset>` with a `<legend>`.
 - **Status:** Needs review
 
@@ -221,12 +221,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** put a schema version or hash in the index name, and reindex when the alias points at a different version.
 - **Status:** Needs review
 
-### The whole poem hydrates as a React island for font scale and a private `#h=` fragment
+### The whole poem hydrates as a React island for the reading toolbar and a private `#h=` fragment
 
-- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The only client-side needs are the font-scale setting and highlighting from a homemade `#h=term1,term2` fragment.
-- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
-- **Why it's unusual:** the server renders at scale 1, so a saved scale visibly resizes the poem after idle hydration. Theme avoids this with a pre-paint script, and font scale does not. The verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
-- **Normal approach:** render the poem statically in Astro, and set `--poem-scale` on `<html>` in the existing pre-paint script. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
+- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The client-side needs are the reading toolbar (font size, spacing, and tashkeel, which reset on every load, and the theme toggle) and highlighting from a homemade `#h=term1,term2` fragment.
+- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/components/poem-toolbar.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
+- **Why it's unusual:** the verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
+- **Normal approach:** render the poem statically in Astro, and keep a small island for the toolbar. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
 - **Status:** Needs review
 
 ### The home page hand-copies the search UI as a placeholder and deletes it by DOM query
@@ -271,10 +271,10 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The settings store is built for more than two values
 
-- **What:** a module-singleton store behind `useSyncExternalStore` also broadcasts a `window` CustomEvent that only the same module listens to. It persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme` and `poemFontScale`.
+- **What:** a module cache persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme` and `fontFamily`.
 - **Where:** `apps/web/src/lib/settings/settings-store.ts`, `apps/web/src/lib/settings/settings-storage.ts`, `apps/web/src/lib/settings/settings-schema.ts`
-- **Why it's unusual:** `updateSettings` calls `notify()` and then dispatches the event, whose listener calls `notify()` again, so every update notifies subscribers twice. `applyTheme` also repeats `theme-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
-- **Normal approach:** nanostores `persistentAtom`, or the same `useSyncExternalStore` store without the window event and the version field.
+- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards two values. `applyTheme` also repeats `settings-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
+- **Normal approach:** read and write the `theme` and `fontFamily` keys in `localStorage` directly.
 - **Status:** Needs review
 
 ### Outbound links go through the API's `/v1/go/*` redirector
@@ -327,10 +327,10 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The footer is one React island
 
-- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `SettingsDialog` and `RandomPoemButton`.
+- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `RandomPoemButton`.
 - **Where:** `apps/web/src/layouts/layout.astro`, `apps/web/src/components/footer.tsx`
-- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in either widget removes the entire footer.
-- **Normal approach:** a `footer.astro` with two small islands.
+- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in the button removes the entire footer.
+- **Normal approach:** a `footer.astro` with one small island.
 - **Status:** Needs review
 
 ### Poem result cards navigate with JavaScript
@@ -451,14 +451,6 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Where:** `apps/web/components.json`, `apps/web/vitest.config.ts`, and the `'use client'` files under `apps/web/src/`
 - **Why it's unusual:** the directive means nothing in Astro, and suggests React Server Components to a new maintainer. `shadcn add` would write components to the wrong place, with RSC markers.
 - **Normal approach:** `rsc: false` with aliases that match the tree, no directives, and Astro's `getViteConfig()` for vitest.
-- **Status:** Needs review
-
-### The poet bio toggle uses the checkbox hack
-
-- **What:** a `peer sr-only` checkbox and two `<label>`s toggle the rest of the bio.
-- **Where:** `apps/web/src/pages/poets/[slug].astro`
-- **Why it's unusual:** a screen reader announces the toggle as a checkbox, and a native disclosure element exists for this.
-- **Normal approach:** `<details><summary>عرض المزيد</summary>...</details>`.
 - **Status:** Needs review
 
 ### Two icon systems
@@ -723,10 +715,10 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** browser devtools.
 - **Date:** 2026-09-23
 
-### `theme-init.astro` duplicates `parseSettings`
+### `settings-init.astro` duplicates `parseSettings`
 
-- **What:** the inline theme-read logic is a hand-kept-in-sync duplicate of `settings-schema.ts::parseSettings`; change one, mirror the other.
-- **Where:** `components/layout/theme-init.astro`, `lib/settings/settings-schema.ts`
+- **What:** the inline theme and font-family read logic is a hand-kept-in-sync duplicate of `settings-schema.ts::parseSettings`; change one, mirror the other.
+- **Where:** `components/layout/settings-init.astro`, `lib/settings/settings-schema.ts`
 - **Why:** it runs `is:inline`, before hydration, so it can't import TS modules.
 - **Normal approach:** import the shared function.
 - **Date:** 2026-06-17
@@ -779,9 +771,21 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
   - Amiri has no alternate glyph for it that CSS could select.
   - Swapping the character in code would put a Latin comma into the text that copy and paste and screen readers see.
   - Amiri is OFL 1.1 with no Reserved Font Name, so the patched files keep the name.
+  - Thmanyah has no `٬` glyph. Scheherazade New reserves its name, so a patched file would need a new name. So in those two fonts, the `Qafiyah Thousands Separator` family in `astro.config.mjs` takes only U+066C (`unicodeRange`) from the patched Amiri files. It uses the same files as Amiri, so the build serves one copy of each, and the browser reuses the Amiri file that every page preloads.
   - Replacing or downloading the fonts again drops the patch. Apply it again with fontTools: for each file, `f = TTFont(path)`. In every `f['cmap'].tables` entry that has U+066C, set `table.cmap[0x066C] = table.cmap[0x2C]`. Then `f.save(path)`.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
+
+### Truncated text uses `truncate-ink`, not `truncate`
+
+- **What:** text that ends in an ellipsis uses the `truncate-ink` utility in `styles/globals.css`, not Tailwind's `truncate`. It clips only sideways, and its inline padding, cancelled by an equal negative margin, moves the clip edge 4 px out on each side.
+- **Where:** `styles/globals.css`, `components/ui-extended/list-card.tsx`, `components/ui-extended/select.tsx`, `components/adjacent-poems.astro`, `components/breadcrumbs.astro`, `pages/account/index.astro`
+- **Why:** Arabic glyphs draw past their own box, and `truncate` clips at the box edge.
+  - The tails of a final `ر`, `ز`, and `و` reach past the end of the word, up to 0.125 em in Thmanyah. Text that fits its box lost the tip of its last letter.
+  - The hamza in Amiri, and the dots under `ي` and the tails of `و` and `م` in Thmanyah and Scheherazade New, reach above and below the line box. Chrome cut up to 3 px, so a final `ي` lost its dots and read as `ى`.
+  - `overflow-clip-margin` would move the clip edge without padding, but Safari does not support it.
+- **Normal approach:** `truncate`.
+- **Date:** 2026-10-11
 
 ### The poet page's poem list updates in place
 

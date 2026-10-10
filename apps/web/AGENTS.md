@@ -1,6 +1,6 @@
 # Web Agent Guide
 
-This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, and settings.
+This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, and the poem with its reading toolbar.
 
 ## Shape
 
@@ -23,7 +23,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
   Do not edit these files. Run the script, and commit the diff.
 
 - `components/ui/` holds the design-system primitives. `ui-extended/` holds composed pieces built from them. `search/` is the search island (React Query, with URL state in `nuqs`). `layout/` is the page frame, with the `is:inline` scripts that run before hydration (see the "Web" section of `docs/exceptions.md`).
-- `lib/settings/` stores the theme and the font scale in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
+- `lib/settings/` stores the theme and the font family in the browser (localStorage, versioned). The poem toolbar is the only place that changes them. It parses every field carefully, so one bad value never discards the rest. The toolbar's font size, spacing, and tashkeel are page state in `PoemDisplay`, and reset on every load (limits in `lib/poem-scale.ts`). Chrome holds the first paint for a font that the page loads early: Amiri through its preload tag, and the chosen Thmanyah or Scheherazade New through `document.fonts.load` in the pre-paint script (`components/layout/settings-init.astro`). A preload tag that a script adds does not count. The two use `font-display: fallback`, so a slow first visit shows no fallback font for the first 100 ms.
 - `lib/observability/` holds these parts:
   - the Sentry reporting. `src/middleware.ts` runs three middlewares in order: the strip of Sentry's trace tags from cached pages (see `docs/exceptions.md`), Sentry's request handler, and the request timing.
   - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
@@ -31,7 +31,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
 - `lib/analytics/capture-event.ts` sends a PostHog event. It does nothing until PostHog starts, which happens only in release builds (`components/layout/posthog.astro`).
   - `search_completed`: once for each search, with the result counts and the filter counts. It carries the search text only when the search finds nothing.
   - `random_poem_requested`: a press on the random poem button.
-  - `setting_changed`: a change of the theme or the poem font size.
+  - `setting_changed`: a change of the theme or the font family, or one step of the poem font size or spacing.
 - `lib/arabic.ts` holds text helpers for Arabic: digit conversion, the agreement of singular, dual, and plural nouns, and input sanitization.
 - `lib/seo/` holds the metadata and JSON-LD builders for each route type.
 

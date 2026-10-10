@@ -4,25 +4,25 @@ export const SETTINGS_STORAGE_KEY = 'qafiyah:settings';
 
 export const SETTINGS_VERSION = 1;
 
-export const FONT_SCALE_MIN = 0.7;
-export const FONT_SCALE_MAX = 1.5;
-export const FONT_SCALE_STEP = 0.1;
-
 export type Theme = 'system' | 'light' | 'dark';
+
+export const FONT_FAMILIES = ['amiri', 'thmanyah', 'scheherazade'] as const;
+
+export type FontFamily = (typeof FONT_FAMILIES)[number];
 
 export type Settings = {
   readonly theme: Theme;
-  readonly poemFontScale: number;
+  readonly fontFamily: FontFamily;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
-  poemFontScale: 1,
+  fontFamily: 'amiri',
 };
 
 const themeSchema = v.picklist(['system', 'light', 'dark']);
+const fontFamilySchema = v.picklist(FONT_FAMILIES);
 const legacyThemeSchema = v.picklist(['light', 'dark']);
-const fontScaleSchema = v.pipe(v.number(), v.minValue(FONT_SCALE_MIN), v.maxValue(FONT_SCALE_MAX));
 
 type StoredRecord = Record<string, unknown>;
 
@@ -58,7 +58,7 @@ export function parseSettings(raw: string | null, legacyTheme: string | null): S
 
   return {
     theme: pick(themeSchema, stored['theme'], DEFAULT_SETTINGS.theme),
-    poemFontScale: pick(fontScaleSchema, stored['poemFontScale'], DEFAULT_SETTINGS.poemFontScale),
+    fontFamily: pick(fontFamilySchema, stored['fontFamily'], DEFAULT_SETTINGS.fontFamily),
   };
 }
 
@@ -71,9 +71,4 @@ export function serializeSettings(raw: string | null, patch: Partial<Settings>):
     ...patch,
     v: Math.max(storedVersion, SETTINGS_VERSION),
   });
-}
-
-export function clampFontScale(scale: number): number {
-  const clamped = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale));
-  return Math.round(clamped * 10) / 10;
 }

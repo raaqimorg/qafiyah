@@ -1,7 +1,11 @@
 ---
 import { SITE_THEME_COLOR_DARK_HEX, SITE_THEME_COLOR_HEX } from '@/lib/constants/site-meta';
 import { THEME_STORAGE_KEY } from '@/lib/constants/config';
-import { SETTINGS_STORAGE_KEY } from '@/lib/settings/settings-schema';
+import {
+  DEFAULT_SETTINGS,
+  FONT_FAMILIES,
+  SETTINGS_STORAGE_KEY,
+} from '@/lib/settings/settings-schema';
 ---
 
 <script
@@ -12,27 +16,40 @@ import { SETTINGS_STORAGE_KEY } from '@/lib/settings/settings-schema';
     legacyKey: THEME_STORAGE_KEY,
     lightColor: SITE_THEME_COLOR_HEX,
     darkColor: SITE_THEME_COLOR_DARK_HEX,
+    fontFamilies: FONT_FAMILIES,
+    defaultFontFamily: DEFAULT_SETTINGS.fontFamily,
   }}
 >
   const root = document.documentElement;
   const query = window.matchMedia('(prefers-color-scheme: dark)');
 
-  const readTheme = () => {
+  const readStored = () => {
     try {
       const raw = localStorage.getItem(settingsKey);
       if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const theme = parsed.theme;
-            return theme === 'dark' || theme === 'light' || theme === 'system' ? theme : 'system';
-          }
-        } catch {}
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
       }
+    } catch {}
+    return null;
+  };
+
+  const readTheme = () => {
+    const stored = readStored();
+    if (stored) {
+      const theme = stored.theme;
+      return theme === 'dark' || theme === 'light' || theme === 'system' ? theme : 'system';
+    }
+    try {
       const legacy = localStorage.getItem(legacyKey);
       if (legacy === 'dark' || legacy === 'light') return legacy;
     } catch {}
     return 'system';
+  };
+
+  const readFontFamily = () => {
+    const fontFamily = readStored()?.fontFamily;
+    return fontFamilies.includes(fontFamily) ? fontFamily : defaultFontFamily;
   };
 
   const apply = (theme) => {
@@ -44,6 +61,13 @@ import { SETTINGS_STORAGE_KEY } from '@/lib/settings/settings-schema';
   };
 
   apply(readTheme());
+  const fontFamily = readFontFamily();
+  root.dataset.font = fontFamily;
+  if (fontFamily !== defaultFontFamily) {
+    const fontVariable = `--font-${fontFamily}`;
+    const family = getComputedStyle(root).getPropertyValue(fontVariable).split(',')[0].trim();
+    document.fonts.load(`400 1em ${family}`);
+  }
 
   query.addEventListener('change', () => {
     if (readTheme() === 'system') apply('system');
