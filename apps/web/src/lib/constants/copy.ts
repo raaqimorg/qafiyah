@@ -43,6 +43,7 @@ export const POEM_TOOLBAR_TEXTS = {
   spacingIncrease: 'توسيع المسافة بين الأبيات',
   toggleTheme: 'تبديل المظهر',
   tashkeel: 'التشكيل',
+  hideTashkeel: 'إخفاء التشكيل',
 } as const;
 
 export const NOT_FOUND_MESSAGE_AR = 'الصفحة غير موجودة';

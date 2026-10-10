@@ -93,11 +93,12 @@ export function PoemToolbar({
       </IconButton>
       <button
         type="button"
-        aria-pressed={showTashkeel}
+        aria-pressed={!showTashkeel}
+        aria-label={POEM_TOOLBAR_TEXTS.hideTashkeel}
         onClick={onToggleTashkeel}
         className={cn(
           'min-h-11 rounded-md px-3 text-sm focus-ring hover:text-text',
-          showTashkeel ? 'bg-surface-sunken text-text-muted' : cn('text-text-subtle', DIMMED)
+          showTashkeel ? cn('text-text-subtle', DIMMED) : 'bg-surface-sunken text-text-muted'
         )}
       >
         {POEM_TOOLBAR_TEXTS.tashkeel}
