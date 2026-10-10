@@ -9,6 +9,14 @@
   top: 0.3em;
 }
 
+@utility truncate-ink {
+  overflow-x: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-inline: -0.25rem;
+  padding-inline: 0.25rem;
+}
+
 @utility focus-ring {
   &:focus-visible {
     @apply ring-1 ring-text outline-none;
@@ -53,7 +61,7 @@
   --text-micro: 0.875rem;
   --text-micro--line-height: 1.375rem;
 
-  --font-sans: var(--font-amiri);
+  --font-sans: var(--font-body);
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -144,6 +152,16 @@
     --title-leading: 2.25rem;
     --heading-size: 1.25rem;
     --heading-leading: 2rem;
+
+    --font-body: var(--font-amiri);
+  }
+
+  :root[data-font="thmanyah"] {
+    --font-body: var(--font-thousands-separator), var(--font-thmanyah);
+  }
+
+  :root[data-font="scheherazade"] {
+    --font-body: var(--font-thousands-separator), var(--font-scheherazade);
   }
 
   .dark {

@@ -33,6 +33,61 @@ export default defineConfig({
         ],
       },
     },
+    {
+      provider: fontProviders.local(),
+      name: 'Qafiyah Thousands Separator',
+      cssVariable: '--font-thousands-separator',
+      fallbacks: [],
+      unicodeRange: ['U+066C'],
+      options: {
+        variants: [
+          { weight: 400, style: 'normal', src: ['./src/assets/fonts/Amiri-Regular-400.woff2'] },
+          { weight: 700, style: 'normal', src: ['./src/assets/fonts/Amiri-Bold-700.woff2'] },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: 'Thmanyah Serif Text',
+      cssVariable: '--font-thmanyah',
+      fallbacks: ['serif'],
+      display: 'fallback',
+      options: {
+        variants: [
+          {
+            weight: 400,
+            style: 'normal',
+            src: ['./src/assets/fonts/ThmanyahSerifText-Regular-400.woff2'],
+          },
+          {
+            weight: 700,
+            style: 'normal',
+            src: ['./src/assets/fonts/ThmanyahSerifText-Bold-700.woff2'],
+          },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: 'Scheherazade New',
+      cssVariable: '--font-scheherazade',
+      fallbacks: ['serif'],
+      display: 'fallback',
+      options: {
+        variants: [
+          {
+            weight: 400,
+            style: 'normal',
+            src: ['./src/assets/fonts/ScheherazadeNew-Regular-400.woff2'],
+          },
+          {
+            weight: 700,
+            style: 'normal',
+            src: ['./src/assets/fonts/ScheherazadeNew-Bold-700.woff2'],
+          },
+        ],
+      },
+    },
   ],
   integrations: [
     react(),

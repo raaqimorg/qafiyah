@@ -223,7 +223,7 @@ export function Select({
           aria-activedescendant={isOpen ? `option-${highlightedIndex}` : undefined}
         >
           <div className="flex w-full min-w-0 items-center justify-between">
-            <span className={cn('truncate', selectedValues.length === 0 && 'text-text-subtle')}>
+            <span className={cn('truncate-ink', selectedValues.length === 0 && 'text-text-subtle')}>
               {getDisplayValue()}
             </span>
             <ChevronDown

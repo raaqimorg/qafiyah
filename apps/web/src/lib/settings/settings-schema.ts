@@ -6,15 +6,22 @@ export const SETTINGS_VERSION = 1;
 
 export type Theme = 'system' | 'light' | 'dark';
 
+export const FONT_FAMILIES = ['amiri', 'thmanyah', 'scheherazade'] as const;
+
+export type FontFamily = (typeof FONT_FAMILIES)[number];
+
 export type Settings = {
   readonly theme: Theme;
+  readonly fontFamily: FontFamily;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
+  fontFamily: 'amiri',
 };
 
 const themeSchema = v.picklist(['system', 'light', 'dark']);
+const fontFamilySchema = v.picklist(FONT_FAMILIES);
 const legacyThemeSchema = v.picklist(['light', 'dark']);
 
 type StoredRecord = Record<string, unknown>;
@@ -51,6 +58,7 @@ export function parseSettings(raw: string | null, legacyTheme: string | null): S
 
   return {
     theme: pick(themeSchema, stored['theme'], DEFAULT_SETTINGS.theme),
+    fontFamily: pick(fontFamilySchema, stored['fontFamily'], DEFAULT_SETTINGS.fontFamily),
   };
 }
 

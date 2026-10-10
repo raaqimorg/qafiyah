@@ -269,12 +269,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** attributes on each param (or an `IntoParams` struct) and on the error response variants.
 - **Status:** Needs review
 
-### The settings store is built for more than one value
+### The settings store is built for more than two values
 
-- **What:** a module cache persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme`.
+- **What:** a module cache persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme` and `fontFamily`.
 - **Where:** `apps/web/src/lib/settings/settings-store.ts`, `apps/web/src/lib/settings/settings-storage.ts`, `apps/web/src/lib/settings/settings-schema.ts`
-- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards one value. `applyTheme` also repeats `theme-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
-- **Normal approach:** read and write the one `theme` key in `localStorage` directly.
+- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards two values. `applyTheme` also repeats `settings-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
+- **Normal approach:** read and write the `theme` and `fontFamily` keys in `localStorage` directly.
 - **Status:** Needs review
 
 ### Outbound links go through the API's `/v1/go/*` redirector
@@ -715,10 +715,10 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** browser devtools.
 - **Date:** 2026-09-23
 
-### `theme-init.astro` duplicates `parseSettings`
+### `settings-init.astro` duplicates `parseSettings`
 
-- **What:** the inline theme-read logic is a hand-kept-in-sync duplicate of `settings-schema.ts::parseSettings`; change one, mirror the other.
-- **Where:** `components/layout/theme-init.astro`, `lib/settings/settings-schema.ts`
+- **What:** the inline theme and font-family read logic is a hand-kept-in-sync duplicate of `settings-schema.ts::parseSettings`; change one, mirror the other.
+- **Where:** `components/layout/settings-init.astro`, `lib/settings/settings-schema.ts`
 - **Why:** it runs `is:inline`, before hydration, so it can't import TS modules.
 - **Normal approach:** import the shared function.
 - **Date:** 2026-06-17
@@ -771,9 +771,21 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
   - Amiri has no alternate glyph for it that CSS could select.
   - Swapping the character in code would put a Latin comma into the text that copy and paste and screen readers see.
   - Amiri is OFL 1.1 with no Reserved Font Name, so the patched files keep the name.
+  - Thmanyah has no `٬` glyph. Scheherazade New reserves its name, so a patched file would need a new name. So in those two fonts, the `Qafiyah Thousands Separator` family in `astro.config.mjs` takes only U+066C (`unicodeRange`) from the patched Amiri files. It uses the same files as Amiri, so the build serves one copy of each, and the browser reuses the Amiri file that every page preloads.
   - Replacing or downloading the fonts again drops the patch. Apply it again with fontTools: for each file, `f = TTFont(path)`. In every `f['cmap'].tables` entry that has U+066C, set `table.cmap[0x066C] = table.cmap[0x2C]`. Then `f.save(path)`.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
+
+### Truncated text uses `truncate-ink`, not `truncate`
+
+- **What:** text that ends in an ellipsis uses the `truncate-ink` utility in `styles/globals.css`, not Tailwind's `truncate`. It clips only sideways, and its inline padding, cancelled by an equal negative margin, moves the clip edge 4 px out on each side.
+- **Where:** `styles/globals.css`, `components/ui-extended/list-card.tsx`, `components/ui-extended/select.tsx`, `components/adjacent-poems.astro`, `components/breadcrumbs.astro`, `pages/account/index.astro`
+- **Why:** Arabic glyphs draw past their own box, and `truncate` clips at the box edge.
+  - The tails of a final `ر`, `ز`, and `و` reach past the end of the word, up to 0.125 em in Thmanyah. Text that fits its box lost the tip of its last letter.
+  - The hamza in Amiri, and the dots under `ي` and the tails of `و` and `م` in Thmanyah and Scheherazade New, reach above and below the line box. Chrome cut up to 3 px, so a final `ي` lost its dots and read as `ى`.
+  - `overflow-clip-margin` would move the clip edge without padding, but Safari does not support it.
+- **Normal approach:** `truncate`.
+- **Date:** 2026-10-11
 
 ### The poet page's poem list updates in place
 
