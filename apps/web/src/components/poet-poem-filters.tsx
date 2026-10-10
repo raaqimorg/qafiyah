@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Select } from '@/components/ui-extended/select';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
@@ -34,8 +34,6 @@ const FILTERS: readonly FilterField[] = [
 
 const CLEAR_ALL_LABEL = 'مسح الكل';
 
-const labelClass = 'block text-base leading-base text-text-muted';
-
 type Props = {
   readonly facets: PoetFacets;
   readonly selected: PoetFilterSelection;
@@ -45,7 +43,6 @@ type Props = {
 };
 
 export function PoetPoemFilters({ facets, selected, clearHref, onApply, onClearClick }: Props) {
-  const labelIdPrefix = useId();
   const [draft, setDraft] = useState<PoetFilterSelection | null>(null);
   const openRef = useRef<PoetFilterKey | null>(null);
   const isCancelledRef = useRef(false);
@@ -93,25 +90,21 @@ export function PoetPoemFilters({ facets, selected, clearHref, onApply, onClearC
     <div ref={rootRef} className="flex w-full flex-col items-start gap-4">
       <div className="grid w-full grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
         {FILTERS.map(({ key, label, nounForms }) => (
-          <div key={key} className="flex min-w-0 flex-col items-start justify-start gap-2">
-            <p id={`${labelIdPrefix}-${key}`} className={labelClass}>
-              {label}
-            </p>
-            <Select
-              labelledBy={`${labelIdPrefix}-${key}`}
-              options={toSelectOptions(facets[POET_FACET_LIST[key]])}
-              value={shown[key]}
-              placeholderNounForms={nounForms}
-              onChange={(value) => handleChange(key, value)}
-              onOpenChange={(isOpen) => handleOpenChange(key, isOpen)}
-              onEscape={handleEscape}
-              placeholder={SEARCH_TEXTS.allPlaceholder}
-              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-              multiple={true}
-              sortOptions={false}
-              showCounts={true}
-            />
-          </div>
+          <Select
+            key={key}
+            label={label}
+            options={toSelectOptions(facets[POET_FACET_LIST[key]])}
+            value={shown[key]}
+            placeholderNounForms={nounForms}
+            onChange={(value) => handleChange(key, value)}
+            onOpenChange={(isOpen) => handleOpenChange(key, isOpen)}
+            onEscape={handleEscape}
+            placeholder={SEARCH_TEXTS.allPlaceholder}
+            allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+            multiple={true}
+            sortOptions={false}
+            showCounts={true}
+          />
         ))}
       </div>
       {hasPoetFilters(selected) && (
