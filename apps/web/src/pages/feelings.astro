@@ -1,0 +1,36 @@
+---
+import { FeelingExplorer } from '@/components/feelings/feeling-explorer';
+import Layout from '@/layouts/layout.astro';
+import { TYPE } from '@/lib/constants/design-tokens';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { withBrand } from '@/lib/seo/meta-text';
+
+const TITLE = withBrand('مشاعر');
+const DESCRIPTION = 'لا تعرف كيف تعبّر عن شعورك؟ حدّده خطوةً خطوة، واقرأ من الشعر ما يشبهه.';
+
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout title={TITLE} description={DESCRIPTION} canonical="/feelings" robotsIndex={false}>
+  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 py-12" dir="rtl">
+    <header class="flex flex-col items-center gap-3 text-center">
+      <h1 class={`${TYPE.heading} text-text`}>لا تعرف كيف تعبّر عن شعورك؟</h1>
+      <p class={`${TYPE.body} text-text-muted`}>اختر ما يقرب منه، وسنضيّق الدائرة معًا.</p>
+    </header>
+    <FeelingExplorer client:load />
+  </div>
+</Layout>
+
+<style is:global>
+  @keyframes feeling-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes feeling-fade {
+    from {
+      opacity: 0;
+    }
+  }
+</style>
