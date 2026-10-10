@@ -51,7 +51,7 @@ export function PoemToolbar({
     <div
       role="group"
       aria-label={POEM_TOOLBAR_TEXTS.label}
-      className="flex flex-wrap items-center justify-center gap-1 select-none"
+      className="flex flex-wrap items-center justify-center select-none"
     >
       <IconButton
         onClick={() => stepFontScale(-1)}
@@ -105,7 +105,7 @@ export function PoemToolbar({
         aria-label={POEM_TOOLBAR_TEXTS.hideTashkeel}
         onClick={onToggleTashkeel}
         className={cn(
-          'min-h-11 rounded-md px-3 text-sm focus-ring hover:text-text',
+          'min-h-11 rounded-md px-2.5 text-sm focus-ring hover:text-text',
           showTashkeel ? cn('text-text-subtle', DIMMED) : 'bg-surface-sunken text-text-muted'
         )}
       >

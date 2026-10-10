@@ -38,7 +38,7 @@ export default defineConfig({
       name: 'Thmanyah Serif Text',
       cssVariable: '--font-thmanyah',
       fallbacks: ['serif'],
-      display: 'swap',
+      display: 'fallback',
       options: {
         variants: [
           {
@@ -55,13 +55,25 @@ export default defineConfig({
       },
     },
     {
-      provider: fontProviders.google(),
-      name: 'IBM Plex Sans Arabic',
-      cssVariable: '--font-plex',
-      weights: [400, 700],
-      subsets: ['arabic', 'latin'],
-      fallbacks: ['sans-serif'],
-      display: 'swap',
+      provider: fontProviders.local(),
+      name: 'Scheherazade New',
+      cssVariable: '--font-scheherazade',
+      fallbacks: ['serif'],
+      display: 'fallback',
+      options: {
+        variants: [
+          {
+            weight: 400,
+            style: 'normal',
+            src: ['./src/assets/fonts/ScheherazadeNew-Regular-400.woff2'],
+          },
+          {
+            weight: 700,
+            style: 'normal',
+            src: ['./src/assets/fonts/ScheherazadeNew-Bold-700.woff2'],
+          },
+        ],
+      },
     },
   ],
   integrations: [

@@ -117,6 +117,22 @@
   line-gap-override: 0%;
 }
 
+@font-face {
+  font-family: "Qafiyah Thousands Separator";
+  src: url("../assets/fonts/Amiri-Regular-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  unicode-range: U+066C;
+}
+
+@font-face {
+  font-family: "Qafiyah Thousands Separator";
+  src: url("../assets/fonts/Amiri-Bold-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  unicode-range: U+066C;
+}
+
 @layer base {
   :root {
     --gutter: 1rem;
@@ -149,11 +165,11 @@
   }
 
   :root[data-font="thmanyah"] {
-    --font-body: var(--font-thmanyah);
+    --font-body: "Qafiyah Thousands Separator", var(--font-thmanyah);
   }
 
-  :root[data-font="plex"] {
-    --font-body: var(--font-plex);
+  :root[data-font="scheherazade"] {
+    --font-body: "Qafiyah Thousands Separator", var(--font-scheherazade);
   }
 
   .dark {

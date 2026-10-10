@@ -20,8 +20,8 @@ describe('parseSettings', () => {
   });
 
   it('round-trips stored values', () => {
-    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', fontFamily: 'plex' });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark', fontFamily: 'plex' });
+    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', fontFamily: 'scheherazade' });
+    expect(parseSettings(raw, null)).toEqual({ theme: 'dark', fontFamily: 'scheherazade' });
   });
 
   it('falls back to the default for an unknown theme', () => {

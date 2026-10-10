@@ -6,7 +6,9 @@ export const SETTINGS_VERSION = 1;
 
 export type Theme = 'system' | 'light' | 'dark';
 
-export type FontFamily = 'amiri' | 'thmanyah' | 'plex';
+export const FONT_FAMILIES = ['amiri', 'thmanyah', 'scheherazade'] as const;
+
+export type FontFamily = (typeof FONT_FAMILIES)[number];
 
 export type Settings = {
   readonly theme: Theme;
@@ -19,7 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 const themeSchema = v.picklist(['system', 'light', 'dark']);
-const fontFamilySchema = v.picklist(['amiri', 'thmanyah', 'plex']);
+const fontFamilySchema = v.picklist(FONT_FAMILIES);
 const legacyThemeSchema = v.picklist(['light', 'dark']);
 
 type StoredRecord = Record<string, unknown>;

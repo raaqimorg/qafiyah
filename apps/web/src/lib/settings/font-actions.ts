@@ -1,17 +1,17 @@
 import { captureEvent } from '@/lib/analytics/capture-event';
 
-import { type FontFamily } from './settings-schema';
+import { DEFAULT_SETTINGS, FONT_FAMILIES, type FontFamily } from './settings-schema';
 import { updateSettings } from './settings-store';
 
 const NEXT_FONT_FAMILY = {
   amiri: 'thmanyah',
-  thmanyah: 'plex',
-  plex: 'amiri',
+  thmanyah: 'scheherazade',
+  scheherazade: 'amiri',
 } as const satisfies Record<FontFamily, FontFamily>;
 
 function pageFontFamily(): FontFamily {
-  const fontFamily = document.documentElement.dataset['font'];
-  return fontFamily === 'thmanyah' || fontFamily === 'plex' ? fontFamily : 'amiri';
+  const current = document.documentElement.dataset['font'];
+  return FONT_FAMILIES.find((family) => family === current) ?? DEFAULT_SETTINGS.fontFamily;
 }
 
 export function cycleFontFamily(): void {

@@ -41,17 +41,20 @@ describe('cycleFontFamily', () => {
     expect(page.documentElement.dataset['font']).toBe('thmanyah');
   });
 
-  it('moves from Thmanyah to Plex', async () => {
+  it('moves from Thmanyah to Scheherazade', async () => {
     const { cycleFontFamily, getSettings } = await freshModules({
       stored: 'thmanyah',
       page: 'thmanyah',
     });
     cycleFontFamily();
-    expect(getSettings().fontFamily).toBe('plex');
+    expect(getSettings().fontFamily).toBe('scheherazade');
   });
 
-  it('wraps from Plex back to Amiri', async () => {
-    const { cycleFontFamily, getSettings } = await freshModules({ stored: 'plex', page: 'plex' });
+  it('wraps from Scheherazade back to Amiri', async () => {
+    const { cycleFontFamily, getSettings } = await freshModules({
+      stored: 'scheherazade',
+      page: 'scheherazade',
+    });
     cycleFontFamily();
     expect(getSettings().fontFamily).toBe('amiri');
   });
@@ -63,7 +66,7 @@ describe('cycleFontFamily', () => {
   });
 
   it('follows the page, not a font that another tab saved since it loaded', async () => {
-    const { cycleFontFamily, page } = await freshModules({ stored: 'plex', page: 'amiri' });
+    const { cycleFontFamily, page } = await freshModules({ stored: 'scheherazade', page: 'amiri' });
     cycleFontFamily();
     expect(page.documentElement.dataset['font']).toBe('thmanyah');
   });

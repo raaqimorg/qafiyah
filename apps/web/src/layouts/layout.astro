@@ -5,7 +5,7 @@ import ModuleReloadRecovery from '@/components/layout/module-reload-recovery.ast
 import Nav from '@/components/layout/nav.astro';
 import PostHog from '@/components/layout/posthog.astro';
 import SEO, { type Props as SeoProps } from '@/components/layout/seo.astro';
-import ThemeInit from '@/components/layout/theme-init.astro';
+import SettingsInit from '@/components/layout/settings-init.astro';
 import ViewerInit from '@/components/layout/viewer-init.astro';
 import LayoutDebug from '@/components/layout/layout-debug.astro';
 import { isDev, isRelease, POSTHOG_HOST } from '@/lib/constants/config';
@@ -31,10 +31,10 @@ const htmlClass = isDev ? 'debug-screens' : '';
     <SEO {...seo} />
     <Font cssVariable="--font-amiri" preload={[{ weight: 400 }]} />
     <Font cssVariable="--font-thmanyah" />
-    <Font cssVariable="--font-plex" />
+    <Font cssVariable="--font-scheherazade" />
     {isRelease && <PostHog />}
     {isRelease && <link rel="preconnect" href={POSTHOG_HOST} crossorigin />}
-    <ThemeInit />
+    <SettingsInit />
     <ViewerInit />
     {isDev && <LayoutDebug />}
   </head>

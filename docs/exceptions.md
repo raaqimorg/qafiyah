@@ -273,7 +273,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 - **What:** a module cache persists through a versioned, forward-compatible schema, with migration of legacy keys. All of this holds only `theme` and `fontFamily`.
 - **Where:** `apps/web/src/lib/settings/settings-store.ts`, `apps/web/src/lib/settings/settings-storage.ts`, `apps/web/src/lib/settings/settings-schema.ts`
-- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards two values. `applyTheme` also repeats `theme-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
+- **Why it's unusual:** a whole schema layer (a version field, a fallback for each field, and the keeping of unknown keys) guards two values. `applyTheme` also repeats `settings-init.astro`'s apply logic, while the approved entry covers only the parse duplication.
 - **Normal approach:** read and write the `theme` and `fontFamily` keys in `localStorage` directly.
 - **Status:** Needs review
 
@@ -715,10 +715,10 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** browser devtools.
 - **Date:** 2026-09-23
 
-### `theme-init.astro` duplicates `parseSettings`
+### `settings-init.astro` duplicates `parseSettings`
 
 - **What:** the inline theme and font-family read logic is a hand-kept-in-sync duplicate of `settings-schema.ts::parseSettings`; change one, mirror the other.
-- **Where:** `components/layout/theme-init.astro`, `lib/settings/settings-schema.ts`
+- **Where:** `components/layout/settings-init.astro`, `lib/settings/settings-schema.ts`
 - **Why:** it runs `is:inline`, before hydration, so it can't import TS modules.
 - **Normal approach:** import the shared function.
 - **Date:** 2026-06-17
@@ -771,6 +771,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
   - Amiri has no alternate glyph for it that CSS could select.
   - Swapping the character in code would put a Latin comma into the text that copy and paste and screen readers see.
   - Amiri is OFL 1.1 with no Reserved Font Name, so the patched files keep the name.
+  - Thmanyah has no `٬` glyph, and its license forbids changes. Scheherazade New reserves its name, so a patched file would need a new name. So in those two fonts, the `Qafiyah Thousands Separator` face in `styles/globals.css` takes only U+066C (`unicode-range`) from the patched Amiri files. The browser fetches them only when a page shows a `٬`.
   - Replacing or downloading the fonts again drops the patch. Apply it again with fontTools: for each file, `f = TTFont(path)`. In every `f['cmap'].tables` entry that has U+066C, set `table.cmap[0x066C] = table.cmap[0x2C]`. Then `f.save(path)`.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
@@ -781,7 +782,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Where:** `apps/web/src/assets/fonts/ThmanyahSerifText-Regular-400.woff2`, `apps/web/src/assets/fonts/ThmanyahSerifText-Bold-700.woff2`, `apps/web/astro.config.mjs`
 - **Why:** the maintainer chose to offer Thmanyah in the font setting.
   - Its license (in the font's `name` table) forbids hosting the files on any server or platform. It also forbids web embedding that lets users extract the files.
-  - The license forbids changes, so the files have no `٬` patch. Thmanyah has no `٬` glyph, so the browser draws it from the next font in the stack.
+  - The license forbids changes, so the files have no `٬` patch. Thmanyah has no `٬` glyph, so the site draws it from the patched Amiri (see the Amiri `٬` entry).
 - **Normal approach:** ship only fonts with an open license (such as OFL), or get written permission from ask@thmanyah.com.
 - **Date:** 2026-10-10
 
