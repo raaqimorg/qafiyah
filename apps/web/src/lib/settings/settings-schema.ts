@@ -8,7 +8,8 @@ export const FONT_SCALE_MIN = 0.7;
 export const FONT_SCALE_MAX = 1.5;
 export const FONT_SCALE_STEP = 0.1;
 
-export const SPACING_SCALE_MIN = 0.4;
+export const SPACING_SCALE_MIN = 0.2;
+export const HALVES_SPACING_MIN = 0.4;
 export const SPACING_SCALE_MAX = 1.8;
 export const SPACING_SCALE_STEP = 0.2;
 

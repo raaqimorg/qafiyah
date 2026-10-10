@@ -10,6 +10,7 @@ import {
   VERSES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
 import { buildHighlightRegex, highlightSegments, parseHighlightTerms } from '@/lib/highlight';
+import { HALVES_SPACING_MIN } from '@/lib/settings/settings-schema';
 import { useSettings } from '@/lib/settings/use-settings';
 import { poetsUrl, poetUrl } from '@/lib/urls';
 import { cn } from '@/lib/utils';
@@ -18,7 +19,11 @@ import type { Poem } from '@/lib/api/result-types';
 
 const VERSE_GAP = 'gap-[calc(2.5rem*var(--poem-spacing))] sm:gap-[calc(3rem*var(--poem-spacing))]';
 const HEMISTICH_GAP =
-  'gap-[calc(1rem*var(--poem-spacing))] sm:gap-[calc(1.25rem*var(--poem-spacing))]';
+  'gap-[calc(1rem*var(--poem-halves-spacing))] sm:gap-[calc(1.25rem*var(--poem-halves-spacing))]';
+
+export function halvesSpacing(spacingScale: number): number {
+  return Math.max(spacingScale, HALVES_SPACING_MIN);
+}
 
 function useHighlightTerms(): readonly string[] {
   const [terms, setTerms] = useState<readonly string[]>([]);
@@ -91,9 +96,11 @@ export function PoemDisplay({
   const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
   const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
-  const columnStyle: CSSProperties & Record<'--poem-scale' | '--poem-spacing', number> = {
+  const columnStyle: CSSProperties &
+    Record<'--poem-scale' | '--poem-spacing' | '--poem-halves-spacing', number> = {
     '--poem-scale': poemFontScale,
     '--poem-spacing': poemSpacingScale,
+    '--poem-halves-spacing': halvesSpacing(poemSpacingScale),
   };
   return (
     <>
