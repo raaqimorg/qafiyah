@@ -162,7 +162,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 
 ## License
 
-The code and documentation are released under the [MIT license](LICENSE). The data is dedicated to the public domain under [CC0 1.0](data/LICENSE). The data is the poem catalog that the site and the API serve, and the snapshots in `data/`. The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/Amiri-OFL.txt). It also offers [Thmanyah Serif Text](https://font.thmanyah.com) by Thmanyah, under the Thmanyah Font License, and [Scheherazade New](https://software.sil.org/scheherazade/) by SIL Global, under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/ScheherazadeNew-OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
+The code and documentation are released under the [MIT license](LICENSE). The data is dedicated to the public domain under [CC0 1.0](data/LICENSE). The data is the poem catalog that the site and the API serve, and the snapshots in `data/`. The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/Amiri-OFL.txt). It also offers [Thmanyah Serif Text](https://font.thmanyah.com) by Thmanyah, and [Scheherazade New](https://software.sil.org/scheherazade/) by SIL Global, under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/ScheherazadeNew-OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
 
 <br>
 

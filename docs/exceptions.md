@@ -771,20 +771,10 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
   - Amiri has no alternate glyph for it that CSS could select.
   - Swapping the character in code would put a Latin comma into the text that copy and paste and screen readers see.
   - Amiri is OFL 1.1 with no Reserved Font Name, so the patched files keep the name.
-  - Thmanyah has no `٬` glyph, and its license forbids changes. Scheherazade New reserves its name, so a patched file would need a new name. So in those two fonts, the `Qafiyah Thousands Separator` face in `styles/globals.css` takes only U+066C (`unicode-range`) from the patched Amiri files. The browser fetches them only when a page shows a `٬`.
+  - Thmanyah has no `٬` glyph. Scheherazade New reserves its name, so a patched file would need a new name. So in those two fonts, the `Qafiyah Thousands Separator` family in `astro.config.mjs` takes only U+066C (`unicodeRange`) from the patched Amiri files. It uses the same files as Amiri, so the build serves one copy of each, and the browser reuses the Amiri file that every page preloads.
   - Replacing or downloading the fonts again drops the patch. Apply it again with fontTools: for each file, `f = TTFont(path)`. In every `f['cmap'].tables` entry that has U+066C, set `table.cmap[0x066C] = table.cmap[0x2C]`. Then `f.save(path)`.
 - **Normal approach:** ship the font files unmodified.
 - **Date:** 2026-09-24
-
-### The Thmanyah font ships against its license text
-
-- **What:** the repo commits the Thmanyah Serif Text `.woff2` files, and the site serves them as a plain web font.
-- **Where:** `apps/web/src/assets/fonts/ThmanyahSerifText-Regular-400.woff2`, `apps/web/src/assets/fonts/ThmanyahSerifText-Bold-700.woff2`, `apps/web/astro.config.mjs`
-- **Why:** the maintainer chose to offer Thmanyah in the font setting.
-  - Its license (in the font's `name` table) forbids hosting the files on any server or platform. It also forbids web embedding that lets users extract the files.
-  - The license forbids changes, so the files have no `٬` patch. Thmanyah has no `٬` glyph, so the site draws it from the patched Amiri (see the Amiri `٬` entry).
-- **Normal approach:** ship only fonts with an open license (such as OFL), or get written permission from ask@thmanyah.com.
-- **Date:** 2026-10-10
 
 ### The poet page's poem list updates in place
 

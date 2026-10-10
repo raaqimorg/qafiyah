@@ -6,8 +6,6 @@ import {
   FONT_FAMILIES,
   SETTINGS_STORAGE_KEY,
 } from '@/lib/settings/settings-schema';
-
-const fontVariables = { thmanyah: '--font-thmanyah', scheherazade: '--font-scheherazade' };
 ---
 
 <script
@@ -20,7 +18,6 @@ const fontVariables = { thmanyah: '--font-thmanyah', scheherazade: '--font-scheh
     darkColor: SITE_THEME_COLOR_DARK_HEX,
     fontFamilies: FONT_FAMILIES,
     defaultFontFamily: DEFAULT_SETTINGS.fontFamily,
-    fontVariables,
   }}
 >
   const root = document.documentElement;
@@ -66,8 +63,8 @@ const fontVariables = { thmanyah: '--font-thmanyah', scheherazade: '--font-scheh
   apply(readTheme());
   const fontFamily = readFontFamily();
   root.dataset.font = fontFamily;
-  const fontVariable = fontVariables[fontFamily];
-  if (fontVariable) {
+  if (fontFamily !== defaultFontFamily) {
+    const fontVariable = `--font-${fontFamily}`;
     const family = getComputedStyle(root).getPropertyValue(fontVariable).split(',')[0].trim();
     document.fonts.load(`400 1em ${family}`);
   }
