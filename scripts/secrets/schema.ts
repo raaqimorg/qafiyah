@@ -66,6 +66,7 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   TELEGRAM_BOT_TOKEN: { presence: prodOnly, format: 'text', isSecret: true },
   TELEGRAM_CHAT_ID: { presence: prodOnly, format: 'text', isSecret: false },
   AVATAR_KEY__0000_19_09_2026: { presence: devOptional, format: 'text', isSecret: true },
+  AVATAR_KEY__0001_09_10_2026: { presence: devOptional, format: 'text', isSecret: true },
 };
 
 export const PAIRED_KEYS: readonly (readonly [string, string])[] = [

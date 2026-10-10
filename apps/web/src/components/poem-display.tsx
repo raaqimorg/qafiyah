@@ -4,7 +4,7 @@ import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useSt
 
 import { formatArabicCount } from '@/lib/arabic';
 import {
-  CLASSICAL_POEM_TYPE,
+  CLASSICAL_LAYOUT_POEM_TYPES,
   FREE_VERSE_POEM_TYPE,
   VERSES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
@@ -82,7 +82,7 @@ export function PoemDisplay({
   verseCount,
   poemType,
 }: PoemDisplayProps) {
-  const isClassical = poemType.slug === CLASSICAL_POEM_TYPE;
+  const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
   const { poemFontScale } = useSettings();

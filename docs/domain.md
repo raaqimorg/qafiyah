@@ -46,7 +46,7 @@ There is no separate "fragment" entity. That word is in the codebase only for th
 
 ## Poem type (نوع القصيدة, poem_type)
 
-The poem type is the poem's **form**: how its lines are built. It is different from what the poem is about (Theme), and from the pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, and has one of five values:
+The poem type is the poem's **form**: how its lines are built. It is different from what the poem is about (Theme), and from the pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, and has one of six values:
 
 | slug         | Arabic | what it is                                                                                                                                       |
 | ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -55,8 +55,9 @@ The poem type is the poem's **form**: how its lines are built. It is different f
 | `muwashshah` | موشح   | The Andalusi strophic form. The line lengths are regular, but the rhyme changes between strophes on purpose. This is what makes it not a qasida. |
 | `muzdawij`   | مزدوج  | The couplet form, usually rajaz. The two hemistichs of each bayt rhyme with each other, and the rhyme changes from bayt to bayt.                 |
 | `majhul`     | مجهول  | Unknown. See "The unknown value" below.                                                                                                          |
+| `nabati`     | نبطي   | Nabati poetry, the colloquial verse of the Arabian Peninsula. Every poem whose register is `nabati` has this type, whatever its form.            |
 
-The difference between these types is structural, not editorial:
+The difference between these types is structural, not editorial, with one exception. `nabati` names the language of a poem, not its form, so that readers can filter Nabati poetry (`docs/exceptions.md`). The others differ like this:
 
 - A qasida holds one bahr, so its hemistich lengths are all close. It also holds one rawi, so every ajuz ends on the same rhyme consonant.
 - A muwashshah has the first property, but not the second.
@@ -68,7 +69,7 @@ The difference between these types is structural, not editorial:
 - Search filters poems by it (`poemTypeSlugs`).
 - The poem detail endpoint returns it as `poemType` (`{ name, slug }`).
 - The poem page on the website reads it for the layout.
-  - An `amudi` poem shows each two-part entry as two offset lines. The sadr is against the right, and the ajuz is against the left, of a column sized in `em`.
+  - An `amudi` or `nabati` poem shows each two-part entry as two offset lines. The sadr is against the right, and the ajuz is against the left, of a column sized in `em`.
   - A single line, a longer entry, and every other type stay centered, with their parts one above the other.
   - Free verse (`hurr`), and any poem whose entries are all single lines, has spacing line by line, not verse by verse.
 
@@ -77,7 +78,7 @@ The difference between these types is structural, not editorial:
 Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads these poem columns. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. All of these columns can be null:
 
 - `form_id` (`forms`): `qasida` قصيدة, `muqattaa` مقطعة, `abyatthaniya` ابيات ثانية, `baytmufrad` بيت مفرد, `shatrbayt` شطر بيت. It says how much of a poem survives, from a full ode down to a single half-line.
-- `register_id` (`registers`): `fasih` فصيح, `nabati` نبطي, `hadith` حديث.
+- `register_id` (`registers`): `fasih` فصيح, `nabati` نبطي, `hadith` حديث. A poem with the register `nabati` also has the poem type `nabati`, which is what the site shows and filters.
 - `genre_id` (`genres`): `shir` شعر, `khatira` خاطرة.
 - `rhyme_majra_id` (`majras`): the vowel on the rawi. The values are `fatha` فتحة, `damma` ضمة, `kasra` كسرة, their tanwin forms, and `sukun` سكون.
 
@@ -214,7 +215,7 @@ When two rows hold the same poem by the same poet, one row survives, and `merge_
 
 Aliases always point at a live poem. A later merge of a survivor points its aliases again, and a new poem never gets a slug that an alias holds.
 
-`merge_poem` refuses two different poets, because that is a question of attribution, not a duplicate. The excerpt merge of issue #271 crossed poets once, by moving each poem to the winning poet first (`docs/exceptions.md`).
+`merge_poem` refuses two different poets, because that is a question of attribution, not a duplicate. The excerpt merge of issue #277 crossed poets once, by moving each poem to the winning poet first (`docs/exceptions.md`).
 
 The rules for the survivor are these, in order:
 

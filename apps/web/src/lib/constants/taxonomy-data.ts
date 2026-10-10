@@ -136,5 +136,5 @@ export const RESULTS_NOUN_FORMS = {
   plural: 'نتائج',
 } as const satisfies ArabicNounForms;
 
-export const CLASSICAL_POEM_TYPE = 'amudi';
+export const CLASSICAL_LAYOUT_POEM_TYPES: ReadonlySet<string> = new Set(['amudi', 'nabati']);
 export const FREE_VERSE_POEM_TYPE = 'hurr';
