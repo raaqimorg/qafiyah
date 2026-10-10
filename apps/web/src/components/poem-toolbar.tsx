@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  AArrowDown,
-  AArrowUp,
-  ListChevronsDownUp,
-  ListChevronsUpDown,
-  Moon,
-  Sun,
-} from 'lucide-react';
+import { ListChevronsDownUp, ListChevronsUpDown, Minus, Moon, Plus, Sun } from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { POEM_TOOLBAR_TEXTS, SETTINGS_TEXTS } from '@/lib/constants/copy';
@@ -47,7 +40,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
         aria-label={SETTINGS_TEXTS.fontSizeDecrease}
         className={DIMMED}
       >
-        <AArrowDown className={ICON} strokeWidth={ICON_STROKE} />
+        <Minus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={() => changeFontScale(poemFontScale + FONT_SCALE_STEP)}
@@ -55,7 +48,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
         aria-label={SETTINGS_TEXTS.fontSizeIncrease}
         className={DIMMED}
       >
-        <AArrowUp className={ICON} strokeWidth={ICON_STROKE} />
+        <Plus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={() => changeSpacingScale(poemSpacingScale - SPACING_SCALE_STEP)}
