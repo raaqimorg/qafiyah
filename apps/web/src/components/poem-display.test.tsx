@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { HALVES_SPACING_MIN, SPACING_SCALE_MIN } from '@/lib/settings/settings-schema';
+import { SPACING_SCALE } from '@/lib/poem-scale';
 
 import { halvesSpacing, PoemDisplay } from './poem-display';
 
@@ -100,15 +100,16 @@ describe('PoemDisplay', () => {
     expect(column).toContain('gap-[calc(2.5rem*var(--poem-spacing))]');
   });
 
-  it('scales both gaps by the saved spacing', () => {
+  it('starts every poem at the default font size and spacing', () => {
     const { article } = render([['صدر', 'عجز']]);
+    expect(article).toContain('--poem-scale:1');
     expect(article).toContain('--poem-spacing:1');
     expect(article).toContain('--poem-halves-spacing:1');
   });
 
   it('keeps the halves of a verse at their tightest spacing when only the verse gap can shrink', () => {
-    expect(halvesSpacing(SPACING_SCALE_MIN)).toBe(HALVES_SPACING_MIN);
-    expect(halvesSpacing(HALVES_SPACING_MIN)).toBe(HALVES_SPACING_MIN);
+    expect(halvesSpacing(SPACING_SCALE.min)).toBe(SPACING_SCALE.halvesMin);
+    expect(halvesSpacing(SPACING_SCALE.halvesMin)).toBe(SPACING_SCALE.halvesMin);
     expect(halvesSpacing(1.4)).toBe(1.4);
   });
 

@@ -36,18 +36,9 @@ describe('safeGet and safeSet', () => {
 describe('readStoredSettings', () => {
   it('round-trips through the storage keys', () => {
     const s = memory({
-      [SETTINGS_STORAGE_KEY]: JSON.stringify({
-        v: 1,
-        theme: 'dark',
-        poemFontScale: 1.2,
-        poemSpacingScale: 1.4,
-      }),
+      [SETTINGS_STORAGE_KEY]: JSON.stringify({ v: 1, theme: 'dark' }),
     });
-    expect(readStoredSettings(s)).toEqual({
-      theme: 'dark',
-      poemFontScale: 1.2,
-      poemSpacingScale: 1.4,
-    });
+    expect(readStoredSettings(s)).toEqual({ theme: 'dark' });
   });
 });
 

@@ -1,20 +1,12 @@
 'use client';
 
-import { ListChevronsDownUp, ListChevronsUpDown, Minus, Moon, Plus, Sun } from 'lucide-react';
+import { ListChevronsDownUp, ListChevronsUpDown, Minus, Plus, SunMoon } from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
+import { captureEvent } from '@/lib/analytics/capture-event';
 import { POEM_TOOLBAR_TEXTS } from '@/lib/constants/copy';
-import { changeFontScale, changeSpacingScale } from '@/lib/settings/poem-scale-actions';
-import {
-  FONT_SCALE_MAX,
-  FONT_SCALE_MIN,
-  FONT_SCALE_STEP,
-  SPACING_SCALE_MAX,
-  SPACING_SCALE_MIN,
-  SPACING_SCALE_STEP,
-} from '@/lib/settings/settings-schema';
+import { FONT_SCALE, SPACING_SCALE, stepScale } from '@/lib/poem-scale';
 import { toggleTheme } from '@/lib/settings/theme-actions';
-import { useSettings } from '@/lib/settings/use-settings';
 import { cn } from '@/lib/utils';
 
 const DIMMED = 'opacity-75 transition hover:opacity-100';
@@ -22,12 +14,32 @@ const ICON = 'size-5';
 const ICON_STROKE = 1.5;
 
 type PoemToolbarProps = {
+  readonly fontScale: number;
+  readonly spacingScale: number;
   readonly showTashkeel: boolean;
+  readonly onFontScaleChange: (scale: number) => void;
+  readonly onSpacingScaleChange: (scale: number) => void;
   readonly onToggleTashkeel: () => void;
 };
 
-export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps) {
-  const { poemFontScale, poemSpacingScale } = useSettings();
+export function PoemToolbar({
+  fontScale,
+  spacingScale,
+  showTashkeel,
+  onFontScaleChange,
+  onSpacingScaleChange,
+  onToggleTashkeel,
+}: PoemToolbarProps) {
+  const stepFontScale = (direction: 1 | -1) => {
+    const next = stepScale(fontScale, direction, FONT_SCALE);
+    onFontScaleChange(next);
+    captureEvent('setting_changed', { setting: 'poem_font_scale', value: next });
+  };
+  const stepSpacingScale = (direction: 1 | -1) => {
+    const next = stepScale(spacingScale, direction, SPACING_SCALE);
+    onSpacingScaleChange(next);
+    captureEvent('setting_changed', { setting: 'poem_spacing_scale', value: next });
+  };
   return (
     <div
       role="group"
@@ -35,32 +47,32 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
       className="flex flex-wrap items-center justify-center gap-1 select-none"
     >
       <IconButton
-        onClick={() => changeFontScale(poemFontScale - FONT_SCALE_STEP)}
-        disabled={poemFontScale <= FONT_SCALE_MIN}
+        onClick={() => stepFontScale(-1)}
+        disabled={fontScale <= FONT_SCALE.min}
         aria-label={POEM_TOOLBAR_TEXTS.fontSizeDecrease}
         className={DIMMED}
       >
         <Minus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
-        onClick={() => changeFontScale(poemFontScale + FONT_SCALE_STEP)}
-        disabled={poemFontScale >= FONT_SCALE_MAX}
+        onClick={() => stepFontScale(1)}
+        disabled={fontScale >= FONT_SCALE.max}
         aria-label={POEM_TOOLBAR_TEXTS.fontSizeIncrease}
         className={DIMMED}
       >
         <Plus className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
-        onClick={() => changeSpacingScale(poemSpacingScale - SPACING_SCALE_STEP)}
-        disabled={poemSpacingScale <= SPACING_SCALE_MIN}
+        onClick={() => stepSpacingScale(-1)}
+        disabled={spacingScale <= SPACING_SCALE.min}
         aria-label={POEM_TOOLBAR_TEXTS.spacingDecrease}
         className={DIMMED}
       >
         <ListChevronsDownUp className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
-        onClick={() => changeSpacingScale(poemSpacingScale + SPACING_SCALE_STEP)}
-        disabled={poemSpacingScale >= SPACING_SCALE_MAX}
+        onClick={() => stepSpacingScale(1)}
+        disabled={spacingScale >= SPACING_SCALE.max}
         aria-label={POEM_TOOLBAR_TEXTS.spacingIncrease}
         className={DIMMED}
       >
@@ -71,8 +83,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
         aria-label={POEM_TOOLBAR_TEXTS.toggleTheme}
         className={DIMMED}
       >
-        <Moon className={cn(ICON, 'dark:hidden')} strokeWidth={ICON_STROKE} />
-        <Sun className={cn(ICON, 'hidden dark:block')} strokeWidth={ICON_STROKE} />
+        <SunMoon className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <button
         type="button"

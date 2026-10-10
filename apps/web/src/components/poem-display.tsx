@@ -10,8 +10,7 @@ import {
   VERSES_NOUN_FORMS,
 } from '@/lib/constants/taxonomy-data';
 import { buildHighlightRegex, highlightSegments, parseHighlightTerms } from '@/lib/highlight';
-import { HALVES_SPACING_MIN } from '@/lib/settings/settings-schema';
-import { useSettings } from '@/lib/settings/use-settings';
+import { FONT_SCALE, SPACING_SCALE } from '@/lib/poem-scale';
 import { poetsUrl, poetUrl } from '@/lib/urls';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +21,7 @@ const HEMISTICH_GAP =
   'gap-[calc(1rem*var(--poem-halves-spacing))] sm:gap-[calc(1.25rem*var(--poem-halves-spacing))]';
 
 export function halvesSpacing(spacingScale: number): number {
-  return Math.max(spacingScale, HALVES_SPACING_MIN);
+  return Math.max(spacingScale, SPACING_SCALE.halvesMin);
 }
 
 function useHighlightTerms(): readonly string[] {
@@ -92,15 +91,16 @@ export function PoemDisplay({
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
-  const { poemFontScale, poemSpacingScale } = useSettings();
+  const [fontScale, setFontScale] = useState<number>(FONT_SCALE.initial);
+  const [spacingScale, setSpacingScale] = useState<number>(SPACING_SCALE.initial);
   const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
   const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
   const columnStyle: CSSProperties &
     Record<'--poem-scale' | '--poem-spacing' | '--poem-halves-spacing', number> = {
-    '--poem-scale': poemFontScale,
-    '--poem-spacing': poemSpacingScale,
-    '--poem-halves-spacing': halvesSpacing(poemSpacingScale),
+    '--poem-scale': fontScale,
+    '--poem-spacing': spacingScale,
+    '--poem-halves-spacing': halvesSpacing(spacingScale),
   };
   return (
     <>
@@ -127,7 +127,11 @@ export function PoemDisplay({
         </div>
 
         <PoemToolbar
+          fontScale={fontScale}
+          spacingScale={spacingScale}
           showTashkeel={showTashkeel}
+          onFontScaleChange={setFontScale}
+          onSpacingScaleChange={setSpacingScale}
           onToggleTashkeel={() => setShowTashkeel((shown) => !shown)}
         />
       </header>
@@ -160,7 +164,7 @@ export function PoemDisplay({
                       <p
                         // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
                         key={`${partIndex}|${part}`}
-                        style={{ fontSize: `${poemFontScale}em` }}
+                        style={{ fontSize: `${fontScale}em` }}
                         lang="ar"
                         dir="rtl"
                         className={cn(
