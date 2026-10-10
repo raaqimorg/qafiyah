@@ -17,6 +17,7 @@ export default defineConfig({
   security: { allowedDomains: [{ hostname: new URL(PROD_SITE_URL).hostname, protocol: 'https' }] },
   server: { port: Number(process.env.WEB_PORT ?? DEV_WEB_PORT) },
   build: { inlineStylesheets: 'always' },
+  devToolbar: { enabled: false },
   fonts: [
     {
       provider: fontProviders.local(),
