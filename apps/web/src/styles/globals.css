@@ -73,13 +73,47 @@
 }
 
 @font-face {
-  font-family: "Amiri Fallback";
-  src:
-    local("Geeza Pro"), local("Noto Naskh Arabic"), local("Noto Serif"), local("Times New Roman");
-  font-weight: 400 700;
+  font-family: "Amiri Fallback Times";
+  src: local("Times New Roman"), local("TimesNewRomanPSMT");
+  font-weight: 400;
   font-style: normal;
-  ascent-override: 112.4%;
-  descent-override: 63.4%;
+  size-adjust: 101.5%;
+  ascent-override: 110.8%;
+  descent-override: 62.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Amiri Fallback Times";
+  src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
+  font-weight: 700;
+  font-style: normal;
+  size-adjust: 99.4%;
+  ascent-override: 113%;
+  descent-override: 63.8%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Amiri Fallback Noto";
+  src:
+    local("Noto Naskh Arabic Regular"), local("NotoNaskhArabic-Regular"), local("NotoNaskhArabic");
+  font-weight: 400;
+  font-style: normal;
+  size-adjust: 92.6%;
+  ascent-override: 121.4%;
+  descent-override: 68.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Amiri Fallback Noto";
+  src: local("Noto Naskh Arabic Bold"), local("NotoNaskhArabic-Bold");
+  font-weight: 700;
+  font-style: normal;
+  size-adjust: 89.5%;
+  ascent-override: 125.6%;
+  descent-override: 70.9%;
   line-gap-override: 0%;
 }
 

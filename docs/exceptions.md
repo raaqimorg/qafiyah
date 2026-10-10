@@ -453,14 +453,6 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** `rsc: false` with aliases that match the tree, no directives, and Astro's `getViteConfig()` for vitest.
 - **Status:** Needs review
 
-### The poet bio toggle uses the checkbox hack
-
-- **What:** a `peer sr-only` checkbox and two `<label>`s toggle the rest of the bio.
-- **Where:** `apps/web/src/pages/poets/[slug].astro`
-- **Why it's unusual:** a screen reader announces the toggle as a checkbox, and a native disclosure element exists for this.
-- **Normal approach:** `<details><summary>عرض المزيد</summary>...</details>`.
-- **Status:** Needs review
-
 ### Two icon systems
 
 - **What:** React code uses `lucide-react`, while Astro code uses `icon.astro`, a hand-kept map of raw SVG paths (copies of Lucide icons) injected with `set:html`.

@@ -22,7 +22,7 @@ export default defineConfig({
       provider: fontProviders.local(),
       name: 'Amiri',
       cssVariable: '--font-amiri',
-      fallbacks: ['Amiri Fallback', 'serif'],
+      fallbacks: ['Amiri Fallback Times', 'Amiri Fallback Noto', 'serif'],
       optimizedFallbacks: false,
       display: 'swap',
       options: {

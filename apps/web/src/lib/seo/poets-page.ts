@@ -34,8 +34,7 @@ type PoetsPagination = Ok<'/poets'>['pagination'];
 type PoemRow = Ok<'/poems'>['data'][number];
 
 const POET_DESCRIPTION_TARGET_LENGTH = 160;
-const BIO_PREVIEW_LENGTH = 300;
-const BIO_TRUNCATION_FLOOR = 380;
+const BIO_COLLAPSE_FLOOR = 380;
 const SUBTITLE_SEPARATOR = '·';
 
 type ListCardItem = { readonly title: string; readonly subtitle: string; readonly href: string };
@@ -129,7 +128,7 @@ export function buildPoetsIndexView(input: {
 
 type BioView =
   | { readonly kind: 'full'; readonly text: string }
-  | { readonly kind: 'truncated'; readonly head: string; readonly rest: string };
+  | { readonly kind: 'collapsed'; readonly text: string };
 
 export type PoetLayoutView = {
   readonly title: string;
@@ -147,10 +146,7 @@ export type PoetLayoutView = {
 };
 
 function buildBioView(text: string): BioView {
-  if (text.length <= BIO_TRUNCATION_FLOOR) return { kind: 'full', text };
-  const head = excerptAtWordBoundary(text, BIO_PREVIEW_LENGTH);
-  const rest = text.slice(head.length);
-  return rest.trim() ? { kind: 'truncated', head, rest } : { kind: 'full', text };
+  return text.length <= BIO_COLLAPSE_FLOOR ? { kind: 'full', text } : { kind: 'collapsed', text };
 }
 
 function pickAdditiveNickname(poet: Poet): string | undefined {
