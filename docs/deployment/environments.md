@@ -2,7 +2,7 @@
 
 ## Prerequisites (VPS)
 
-1. **Docker and Docker Compose**, with the repo at `/opt/qafiyah`.
+1. **Docker and Docker Compose**, with the repo at `/opt/qafiyah` in a sparse checkout (see "The server checkout" below).
 2. **sops, age, and the VPS age key.** See `docs/deployment/secrets.md`. Every deploy generates the root `.env` from `secrets/prod.enc.env`. Compose loads that file automatically for `${VAR}`. Never edit it on the server.
 3. **A Cloudflare Tunnel** (or an equivalent) for ingress and TLS. It reaches the gateway over loopback: both hosts go to `127.0.0.1:80`, and nginx routes by `Host`.
 
@@ -27,6 +27,39 @@ The observability containers follow their own conditions. `db-monitor-role` runs
 **First boot only:** on an empty data volume, Postgres restores the newest dump from `data/db/` through `scripts/db/init.sh`. This takes a few minutes. The `start_period` of the `db` healthcheck is 300 seconds. The `db` container is then renamed to `<container>-<dump-number>` (for example, `qafiyah-db-0019`), so `docker ps` shows which dump it runs. Later starts use the same volume, so the name stays until the next real restore. To wipe and seed again locally, run `bun run db:reset`.
 
 To ship a new Postgres or Elasticsearch dump to production, follow the ordered steps (`bun run db:reseed`) in `.claude/skills/deploy/SKILL.md`. A major version upgrade of `postgres` or `elasticsearch` needs a volume wipe; see `docs/deployment/troubleshooting.md`.
+
+## The server checkout
+
+The checkout at `/opt/qafiyah` leaves out the old dumps and the avatar snapshots. Every dump adds about 0.4 GB, and the server only restores the newest one. The site reads avatars from R2, never from `data/avatars/`. Without this, the disk fills up: during the version 6 release, Elasticsearch passed its 90% and 95% disk watermarks, and the reseed and the first deploy failed.
+
+It is a non-cone sparse checkout. Show the current patterns on the server:
+
+```bash
+git -C /opt/qafiyah sparse-checkout list
+```
+
+The patterns keep everything (`/*`), then leave out `/data/avatars/` and each old folder of `data/db/`. A new dump folder is not in the list, so a deploy checks it out by itself. `git reset --hard` keeps the sparse checkout.
+
+At each release that ships a new dump, do these steps:
+
+1. Run `df -h /` on the server before `bun run db:reseed`. Elasticsearch builds the new index (about 1.1 GB) beside the old one, and refuses new shards above 90% disk.
+2. After the release, add the dump folders older than the live one to the list, so they leave the disk.
+
+Add a folder to the list (here `0044_10_10_2026`, after a later dump is live):
+
+```bash
+cd /opt/qafiyah
+git sparse-checkout add '!/data/db/0044_10_10_2026/'
+```
+
+Set it up on a new server, after the first clone (list every dump folder except the newest):
+
+```bash
+cd /opt/qafiyah
+git sparse-checkout set --no-cone '/*' '!/data/avatars/' '!/data/db/0031_23_09_2026/'
+```
+
+To undo it, run `git sparse-checkout disable`. All files come back on the next checkout.
 
 ## Secrets
 
