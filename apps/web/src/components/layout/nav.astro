@@ -5,7 +5,7 @@ import Icon from '@/components/ui/icon.astro';
 import { NAV_LINKS } from '@/lib/constants/site-meta';
 import { cn } from '@/lib/utils';
 
-const RESPONSIVE_ICON_SIZE = 'size-6 xxs:size-7';
+const MENU_ICON_SIZE = 'size-6';
 
 const path = Astro.url.pathname;
 
@@ -36,7 +36,7 @@ const isActiveLink = (href: string): boolean => {
           aria-controls="qaf-mobile-menu"
           aria-expanded="false"
         >
-          <Icon name="menu" class={RESPONSIVE_ICON_SIZE} strokeWidth={1.5} />
+          <Icon name="menu" class={MENU_ICON_SIZE} strokeWidth={1.5} />
         </button>
       </div>
       <ul class="hidden text-sm leading-[1.5] sm:flex sm:min-h-8 sm:flex-row sm:gap-3 md:gap-3.5 md:text-base xl:gap-4 xl:text-lg">
@@ -99,7 +99,7 @@ const isActiveLink = (href: string): boolean => {
     class="absolute top-2 left-4 -ml-1 inline-flex min-h-11 items-center rounded-md px-1 text-text-subtle opacity-75 focus-ring transition duration-200 hover:text-text hover:opacity-100"
     aria-label="إغلاق القائمة"
   >
-    <Icon name="menu-close" class={RESPONSIVE_ICON_SIZE} strokeWidth={1.5} />
+    <Icon name="menu-close" class={MENU_ICON_SIZE} strokeWidth={1.5} />
   </button>
 </div>
 
