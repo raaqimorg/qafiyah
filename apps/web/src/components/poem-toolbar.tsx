@@ -39,7 +39,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
     <div
       role="group"
       aria-label={POEM_TOOLBAR_TEXTS.label}
-      className="flex flex-wrap items-center justify-center gap-1"
+      className="flex flex-wrap items-center justify-center gap-1 select-none"
     >
       <IconButton
         onClick={() => changeFontScale(poemFontScale - FONT_SCALE_STEP)}
