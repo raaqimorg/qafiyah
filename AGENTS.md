@@ -58,3 +58,8 @@ This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum AP
 - Hard rule: never deploy unless the user asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
 - To carry out a written implementation plan, prefer `superpowers:executing-plans`. It works inline, in batches with checkpoints, in the current session. Use `superpowers:subagent-driven-development` (a new subagent for each task) only if the user asks for it.
 - When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`). It is one light sanity pass that you do yourself in the current session. Never use a subagent, a workflow, `/code-review`, or `superpowers:requesting-code-review` for it, unless the user names them.
+- When a local setup step fails because the repo assumes a tool, a step, or a setting that is missing, report it:
+  1. Finish the workaround, so the user can keep working.
+  2. Search the open issues (`gh issue list --search`). If one already covers it, add a comment there instead.
+  3. Ask the user, then open an issue with the bug template, with "Local development setup" as the area.
+  4. Give the command, the full error, the OS and tool versions, and the workaround that worked. Leave out secrets and personal data.
