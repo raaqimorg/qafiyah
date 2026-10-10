@@ -32,6 +32,7 @@
     "deploy": "./scripts/deploy/vps.sh",
     "dev": "bun scripts/dev/run.ts",
     "dev:preflight": "bun scripts/dev/preflight.ts",
+    "doctor": "bun scripts/dev/doctor.ts",
     "docs:diagrams": "bun scripts/docs/diagrams.ts",
     "docs:diagrams:check": "bun scripts/docs/diagrams.ts --check",
     "down": "./scripts/dev/compose.sh down",
