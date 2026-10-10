@@ -16,8 +16,6 @@ import {
 } from '@/lib/constants/taxonomy-data';
 import { cn } from '@/lib/utils';
 
-const labelClass = 'block text-base leading-base text-text-muted';
-
 type MultiFilter = {
   readonly selected: readonly string[];
   readonly options: readonly SelectOption[];
@@ -44,97 +42,85 @@ export function Filters({ filters, wantPoems }: Props) {
         {SEARCH_TEXTS.filtersTitle}
       </h2>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
-        <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-          <p className={labelClass}>{SEARCH_TEXTS.erasLabel}</p>
-          <Select
-            options={filters.eras.options}
-            value={filters.eras.selected}
-            placeholderNounForms={ERAS_NOUN_FORMS}
-            onChange={filters.eras.onChange}
-            placeholder={SEARCH_TEXTS.allPlaceholder}
-            allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-            multiple={true}
-            sortOptions={false}
-            showCounts={true}
-          />
-        </div>
+        <Select
+          label={SEARCH_TEXTS.erasLabel}
+          options={filters.eras.options}
+          value={filters.eras.selected}
+          placeholderNounForms={ERAS_NOUN_FORMS}
+          onChange={filters.eras.onChange}
+          placeholder={SEARCH_TEXTS.allPlaceholder}
+          allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+          multiple={true}
+          sortOptions={false}
+          showCounts={true}
+        />
 
         {wantPoems && (
           <>
-            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <p className={labelClass}>{SEARCH_TEXTS.metersLabel}</p>
-              <Select
-                options={filters.meters.options}
-                value={filters.meters.selected}
-                placeholderNounForms={METERS_NOUN_FORMS}
-                onChange={filters.meters.onChange}
-                placeholder={SEARCH_TEXTS.allPlaceholder}
-                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-                multiple={true}
-                sortOptions={false}
-                showCounts={true}
-              />
-            </div>
+            <Select
+              label={SEARCH_TEXTS.metersLabel}
+              options={filters.meters.options}
+              value={filters.meters.selected}
+              placeholderNounForms={METERS_NOUN_FORMS}
+              onChange={filters.meters.onChange}
+              placeholder={SEARCH_TEXTS.allPlaceholder}
+              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+              multiple={true}
+              sortOptions={false}
+              showCounts={true}
+            />
 
-            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <p className={labelClass}>{SEARCH_TEXTS.poemTypesLabel}</p>
-              <Select
-                options={filters.poemTypes.options}
-                value={filters.poemTypes.selected}
-                placeholderNounForms={POEM_TYPES_NOUN_FORMS}
-                onChange={filters.poemTypes.onChange}
-                placeholder={SEARCH_TEXTS.allPlaceholder}
-                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-                multiple={true}
-                sortOptions={false}
-                showCounts={true}
-              />
-            </div>
+            <Select
+              label={SEARCH_TEXTS.poemTypesLabel}
+              options={filters.poemTypes.options}
+              value={filters.poemTypes.selected}
+              placeholderNounForms={POEM_TYPES_NOUN_FORMS}
+              onChange={filters.poemTypes.onChange}
+              placeholder={SEARCH_TEXTS.allPlaceholder}
+              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+              multiple={true}
+              sortOptions={false}
+              showCounts={true}
+            />
 
-            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <p className={labelClass}>{SEARCH_TEXTS.themesLabel}</p>
-              <Select
-                options={filters.themes.options}
-                value={filters.themes.selected}
-                placeholderNounForms={THEMES_NOUN_FORMS}
-                onChange={filters.themes.onChange}
-                placeholder={SEARCH_TEXTS.allPlaceholder}
-                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-                multiple={true}
-                sortOptions={false}
-                showCounts={true}
-              />
-            </div>
+            <Select
+              label={SEARCH_TEXTS.themesLabel}
+              options={filters.themes.options}
+              value={filters.themes.selected}
+              placeholderNounForms={THEMES_NOUN_FORMS}
+              onChange={filters.themes.onChange}
+              placeholder={SEARCH_TEXTS.allPlaceholder}
+              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+              multiple={true}
+              sortOptions={false}
+              showCounts={true}
+            />
 
-            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <p className={labelClass}>{SEARCH_TEXTS.rhymesLabel}</p>
-              <Select
-                options={filters.rhymes.options}
-                value={filters.rhymes.selected}
-                placeholderNounForms={RHYMES_NOUN_FORMS}
-                onChange={filters.rhymes.onChange}
-                placeholder={SEARCH_TEXTS.allPlaceholder}
-                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-                multiple={true}
-                sortOptions={false}
-                showCounts={true}
-              />
-            </div>
+            <Select
+              label={SEARCH_TEXTS.rhymesLabel}
+              options={filters.rhymes.options}
+              value={filters.rhymes.selected}
+              placeholderNounForms={RHYMES_NOUN_FORMS}
+              onChange={filters.rhymes.onChange}
+              placeholder={SEARCH_TEXTS.allPlaceholder}
+              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+              multiple={true}
+              sortOptions={false}
+              showCounts={true}
+            />
 
-            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <p className={labelClass}>{SEARCH_TEXTS.collectionsLabel}</p>
-              <Select
-                options={filters.collections.options}
-                value={filters.collections.selected}
-                placeholderNounForms={COLLECTIONS_NOUN_FORMS}
-                onChange={filters.collections.onChange}
-                placeholder={SEARCH_TEXTS.allPlaceholder}
-                allOptionLabel={SEARCH_TEXTS.allPlaceholder}
-                multiple={true}
-                sortOptions={false}
-                showCounts={true}
-              />
-            </div>
+            <Select
+              label={SEARCH_TEXTS.collectionsLabel}
+              options={filters.collections.options}
+              value={filters.collections.selected}
+              placeholderNounForms={COLLECTIONS_NOUN_FORMS}
+              onChange={filters.collections.onChange}
+              placeholder={SEARCH_TEXTS.allPlaceholder}
+              allOptionLabel={SEARCH_TEXTS.allPlaceholder}
+              multiple={true}
+              sortOptions={false}
+              showCounts={true}
+            />
           </>
         )}
       </div>

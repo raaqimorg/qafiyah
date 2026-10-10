@@ -100,9 +100,9 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The search filters use a hand-built multi-select combobox
 
-- **What:** `Select` is a 295-line homemade ARIA combobox.
+- **What:** `Select` is a 302-line homemade ARIA combobox.
 - **Where:** `apps/web/src/components/ui-extended/select.tsx`, `apps/web/src/components/search/filters.tsx`, `apps/web/src/components/poet-poem-filters.tsx`
-- **Why it's unusual:** The home page's six filters share `aria-label="اختيار متعدد"`, and their visible labels are `<p>` elements not tied to the control (the poet page passes `labelledBy` instead). Option ids (`option-${index}`) repeat across instances, and a clear `<button>` is nested inside the `role="combobox"` element. The single-select, `clearValue`, and `disabled` modes are never used.
+- **Why it's unusual:** Option ids (`option-${index}`) repeat across instances. The single-select, `clearValue`, and `disabled` modes are never used.
 - **Normal approach:** a maintained primitive (shadcn Popover with cmdk, Headless UI `Listbox multiple`, or React Aria), or a checkbox group in a `<fieldset>` with a `<legend>`.
 - **Status:** Needs review
 

@@ -22,21 +22,21 @@ export type SearchFilterOptions = {
 
 export const ERAS_NOUN_FORMS = {
   singular: 'عصر',
-  accusative: 'عصرًا',
+  accusative: 'عصرا',
   dual: 'عصران',
   plural: 'عصور',
 } as const satisfies ArabicNounForms;
 
 export const POEM_TYPES_NOUN_FORMS = {
   singular: 'نوع',
-  accusative: 'نوعًا',
+  accusative: 'نوعا',
   dual: 'نوعان',
   plural: 'أنواع',
 } as const satisfies ArabicNounForms;
 
 export const METERS_NOUN_FORMS = {
   singular: 'بحر',
-  accusative: 'بحرًا',
+  accusative: 'بحرا',
   dual: 'بحران',
   plural: 'بحور',
 } as const satisfies ArabicNounForms;
@@ -75,7 +75,7 @@ export function sortMeterOptions(options: readonly SelectOption[]): readonly Sel
 
 export const THEMES_NOUN_FORMS = {
   singular: 'غرض',
-  accusative: 'غرضًا',
+  accusative: 'غرضا',
   dual: 'غرضان',
   plural: 'أغراض',
 } as const satisfies ArabicNounForms;
@@ -89,7 +89,7 @@ export const RHYMES_NOUN_FORMS = {
 
 export const COLLECTIONS_NOUN_FORMS = {
   singular: 'ديوان',
-  accusative: 'ديوانًا',
+  accusative: 'ديوانا',
   dual: 'ديوانان',
   plural: 'دواوين',
 } as const satisfies ArabicNounForms;
@@ -103,28 +103,28 @@ export const POEMS_NOUN_FORMS = {
 
 export const VERSES_NOUN_FORMS = {
   singular: 'بيت',
-  accusative: 'بيتًا',
+  accusative: 'بيتا',
   dual: 'بيتان',
   plural: 'أبيات',
 } as const satisfies ArabicNounForms;
 
 export const POETS_NOUN_FORMS = {
   singular: 'شاعر',
-  accusative: 'شاعرًا',
+  accusative: 'شاعرا',
   dual: 'شاعران',
   plural: 'شعراء',
 } as const satisfies ArabicNounForms;
 
 export const LETTERS_NOUN_FORMS = {
   singular: 'حرف',
-  accusative: 'حرفًا',
+  accusative: 'حرفا',
   dual: 'حرفان',
   plural: 'حروف',
 } as const satisfies ArabicNounForms;
 
 export const REQUESTS_NOUN_FORMS = {
   singular: 'طلب',
-  accusative: 'طلبًا',
+  accusative: 'طلبا',
   dual: 'طلبان',
   plural: 'طلبات',
 } as const satisfies ArabicNounForms;

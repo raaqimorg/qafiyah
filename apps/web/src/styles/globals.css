@@ -237,6 +237,10 @@
   body {
     @apply bg-surface text-text;
   }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 astro-island {

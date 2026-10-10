@@ -26,7 +26,7 @@ export const SEARCH_TEXTS = {
   poetsSearchPlaceholder: 'ابحث عن ديوان شاعر',
   poemSingular: 'بيت',
   poetSingular: 'شاعر',
-  maxLengthErrorTemplate: 'يجب ألا يتجاوز النص {n} حرفًا',
+  maxLengthErrorTemplate: 'يجب ألا يتجاوز النص {n} حرفا',
   poemsSectionTitle: 'القصائد',
   poetsSectionTitle: 'الشعراء',
   loadMorePoems: 'تحميل المزيد',
@@ -44,6 +44,7 @@ export const POEM_TOOLBAR_TEXTS = {
   toggleTheme: 'تبديل المظهر',
   cycleFontFamily: 'تبديل الخط',
   tashkeel: 'التشكيل',
+  hideTashkeel: 'إخفاء التشكيل',
 } as const;
 
 export const NOT_FOUND_MESSAGE_AR = 'الصفحة غير موجودة';
