@@ -26,7 +26,7 @@ export const SEARCH_TEXTS = {
   poetsSearchPlaceholder: 'ابحث عن ديوان شاعر',
   poemSingular: 'بيت',
   poetSingular: 'شاعر',
-  maxLengthErrorTemplate: 'يجب ألا يتجاوز النص {n} حرفًا',
+  maxLengthErrorTemplate: 'يجب ألا يتجاوز النص {n} حرفا',
   poemsSectionTitle: 'القصائد',
   poetsSectionTitle: 'الشعراء',
   loadMorePoems: 'تحميل المزيد',
