@@ -50,6 +50,8 @@ export const SETTINGS_TEXTS = {
 
 export const POEM_TOOLBAR_TEXTS = {
   label: 'أدوات القراءة',
+  spacingDecrease: 'تضييق المسافة بين الأبيات',
+  spacingIncrease: 'توسيع المسافة بين الأبيات',
   toggleTheme: 'تبديل المظهر',
   tashkeel: 'التشكيل',
 } as const;

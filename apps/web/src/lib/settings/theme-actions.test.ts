@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { FONT_SCALE_MAX, FONT_SCALE_MIN } from './settings-schema';
-
 function windowWithDevice(prefersDark: boolean) {
   return {
     get localStorage(): Storage {
@@ -15,12 +13,12 @@ function windowWithDevice(prefersDark: boolean) {
 
 async function freshModules() {
   vi.resetModules();
-  const actions = await import('./settings-actions');
+  const actions = await import('./theme-actions');
   const store = await import('./settings-store');
   return { ...actions, ...store };
 }
 
-describe('the settings actions', () => {
+describe('the theme actions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -45,21 +43,5 @@ describe('the settings actions', () => {
     changeTheme('dark');
     toggleTheme();
     expect(getSettings().theme).toBe('light');
-  });
-
-  it('keeps the font scale within its limits', async () => {
-    vi.stubGlobal('window', windowWithDevice(false));
-    const { changeFontScale, getSettings } = await freshModules();
-    changeFontScale(FONT_SCALE_MAX + 1);
-    expect(getSettings().poemFontScale).toBe(FONT_SCALE_MAX);
-    changeFontScale(FONT_SCALE_MIN - 1);
-    expect(getSettings().poemFontScale).toBe(FONT_SCALE_MIN);
-  });
-
-  it('rounds a stepped font scale to one decimal place', async () => {
-    vi.stubGlobal('window', windowWithDevice(false));
-    const { changeFontScale, getSettings } = await freshModules();
-    changeFontScale(1 + 0.1 + 0.1);
-    expect(getSettings().poemFontScale).toBe(1.2);
   });
 });

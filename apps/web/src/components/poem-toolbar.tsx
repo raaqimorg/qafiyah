@@ -1,11 +1,26 @@
 'use client';
 
-import { AArrowDown, AArrowUp, Moon, Sun } from 'lucide-react';
+import {
+  AArrowDown,
+  AArrowUp,
+  ListChevronsDownUp,
+  ListChevronsUpDown,
+  Moon,
+  Sun,
+} from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { POEM_TOOLBAR_TEXTS, SETTINGS_TEXTS } from '@/lib/constants/copy';
-import { changeFontScale, toggleTheme } from '@/lib/settings/settings-actions';
-import { FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP } from '@/lib/settings/settings-schema';
+import { changeFontScale, changeSpacingScale } from '@/lib/settings/poem-scale-actions';
+import {
+  FONT_SCALE_MAX,
+  FONT_SCALE_MIN,
+  FONT_SCALE_STEP,
+  SPACING_SCALE_MAX,
+  SPACING_SCALE_MIN,
+  SPACING_SCALE_STEP,
+} from '@/lib/settings/settings-schema';
+import { toggleTheme } from '@/lib/settings/theme-actions';
 import { useSettings } from '@/lib/settings/use-settings';
 import { cn } from '@/lib/utils';
 
@@ -19,12 +34,12 @@ type PoemToolbarProps = {
 };
 
 export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps) {
-  const { poemFontScale } = useSettings();
+  const { poemFontScale, poemSpacingScale } = useSettings();
   return (
     <div
       role="group"
       aria-label={POEM_TOOLBAR_TEXTS.label}
-      className="flex items-center justify-center gap-1"
+      className="flex flex-wrap items-center justify-center gap-1"
     >
       <IconButton
         onClick={() => changeFontScale(poemFontScale - FONT_SCALE_STEP)}
@@ -41,6 +56,22 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
         className={DIMMED}
       >
         <AArrowUp className={ICON} strokeWidth={ICON_STROKE} />
+      </IconButton>
+      <IconButton
+        onClick={() => changeSpacingScale(poemSpacingScale - SPACING_SCALE_STEP)}
+        disabled={poemSpacingScale <= SPACING_SCALE_MIN}
+        aria-label={POEM_TOOLBAR_TEXTS.spacingDecrease}
+        className={DIMMED}
+      >
+        <ListChevronsDownUp className={ICON} strokeWidth={ICON_STROKE} />
+      </IconButton>
+      <IconButton
+        onClick={() => changeSpacingScale(poemSpacingScale + SPACING_SCALE_STEP)}
+        disabled={poemSpacingScale >= SPACING_SCALE_MAX}
+        aria-label={POEM_TOOLBAR_TEXTS.spacingIncrease}
+        className={DIMMED}
+      >
+        <ListChevronsUpDown className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <IconButton
         onClick={toggleTheme}

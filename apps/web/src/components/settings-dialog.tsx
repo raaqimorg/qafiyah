@@ -5,7 +5,7 @@ import { type RefObject, useEffect, useRef } from 'react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { SETTINGS_TEXTS } from '@/lib/constants/copy';
-import { changeFontScale, changeTheme } from '@/lib/settings/settings-actions';
+import { changeFontScale } from '@/lib/settings/poem-scale-actions';
 import {
   DEFAULT_SETTINGS,
   FONT_SCALE_MAX,
@@ -13,6 +13,7 @@ import {
   FONT_SCALE_STEP,
   type Theme,
 } from '@/lib/settings/settings-schema';
+import { changeTheme } from '@/lib/settings/theme-actions';
 import { useSettings } from '@/lib/settings/use-settings';
 import { cn } from '@/lib/utils';
 

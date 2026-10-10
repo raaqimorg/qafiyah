@@ -83,19 +83,24 @@ describe('PoemDisplay', () => {
 
   it('spaces a free-verse poem line by line rather than verse by verse', () => {
     const { column } = render([['سطر أول'], ['سطر ثان', 'سطر ثالث'], ['سطر رابع']], 'hurr');
-    expect(column).toContain('gap-4 sm:gap-5');
-    expect(column).not.toContain('gap-10');
+    expect(column).toContain('gap-[calc(1rem*var(--poem-spacing))]');
+    expect(column).not.toContain('2.5rem');
   });
 
   it('spaces a poem made only of single lines line by line, whatever its type', () => {
     const { column } = render([['شطر أول'], ['شطر ثان'], ['شطر ثالث']], 'amudi');
-    expect(column).toContain('gap-4 sm:gap-5');
-    expect(column).not.toContain('gap-10');
+    expect(column).toContain('gap-[calc(1rem*var(--poem-spacing))]');
+    expect(column).not.toContain('2.5rem');
   });
 
   it('keeps verse spacing for a poem that holds verses and is not free verse', () => {
     const { column } = render([['صدر', 'عجز'], ['قفل']], 'muwashshah');
-    expect(column).toContain('gap-10 sm:gap-12');
+    expect(column).toContain('gap-[calc(2.5rem*var(--poem-spacing))]');
+  });
+
+  it('scales both gaps by the saved spacing', () => {
+    const { article } = render([['صدر', 'عجز']]);
+    expect(article).toContain('--poem-spacing:1');
   });
 
   it('renders the reading tools between the metadata row and the verses', () => {
@@ -105,10 +110,12 @@ describe('PoemDisplay', () => {
     expect(tools).toBeLessThan(html.indexOf('<article'));
   });
 
-  it('offers the font size, theme, and tashkeel controls', () => {
+  it('offers the font size, spacing, theme, and tashkeel controls', () => {
     const { html } = render([['صدر', 'عجز']]);
     expect(html).toContain('aria-label="تصغير خط القصيدة"');
     expect(html).toContain('aria-label="تكبير خط القصيدة"');
+    expect(html).toContain('aria-label="تضييق المسافة بين الأبيات"');
+    expect(html).toContain('aria-label="توسيع المسافة بين الأبيات"');
     expect(html).toContain('aria-label="تبديل المظهر"');
     expect(html).toMatch(/aria-pressed="true"[^>]*>التشكيل</);
   });

@@ -23,7 +23,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
   Do not edit these files. Run the script, and commit the diff.
 
 - `components/ui/` holds the design-system primitives. `ui-extended/` holds composed pieces built from them. `search/` is the search island (React Query, with URL state in `nuqs`). `layout/` is the page frame, with the `is:inline` scripts that run before hydration (see the "Web" section of `docs/exceptions.md`).
-- `lib/settings/` stores the theme and the font scale in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
+- `lib/settings/` stores the theme, the poem font scale, and the poem spacing in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
 - `lib/observability/` holds these parts:
   - the Sentry reporting. `src/middleware.ts` runs three middlewares in order: the strip of Sentry's trace tags from cached pages (see `docs/exceptions.md`), Sentry's request handler, and the request timing.
   - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
@@ -31,7 +31,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
 - `lib/analytics/capture-event.ts` sends a PostHog event. It does nothing until PostHog starts, which happens only in release builds (`components/layout/posthog.astro`).
   - `search_completed`: once for each search, with the result counts and the filter counts. It carries the search text only when the search finds nothing.
   - `random_poem_requested`: a press on the random poem button.
-  - `setting_changed`: a change of the theme or the poem font size.
+  - `setting_changed`: a change of the theme, the poem font size, or the poem spacing.
 - `lib/arabic.ts` holds text helpers for Arabic: digit conversion, the agreement of singular, dual, and plural nouns, and input sanitization.
 - `lib/seo/` holds the metadata and JSON-LD builders for each route type.
 

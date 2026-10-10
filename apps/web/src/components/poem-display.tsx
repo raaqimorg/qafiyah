@@ -16,8 +16,9 @@ import { cn } from '@/lib/utils';
 
 import type { Poem } from '@/lib/api/result-types';
 
-const VERSE_GAP = 'gap-10 sm:gap-12';
-const HEMISTICH_GAP = 'gap-4 sm:gap-5';
+const VERSE_GAP = 'gap-[calc(2.5rem*var(--poem-spacing))] sm:gap-[calc(3rem*var(--poem-spacing))]';
+const HEMISTICH_GAP =
+  'gap-[calc(1rem*var(--poem-spacing))] sm:gap-[calc(1.25rem*var(--poem-spacing))]';
 
 function useHighlightTerms(): readonly string[] {
   const [terms, setTerms] = useState<readonly string[]>([]);
@@ -86,10 +87,14 @@ export function PoemDisplay({
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
-  const { poemFontScale } = useSettings();
+  const { poemFontScale, poemSpacingScale } = useSettings();
   const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
   const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
+  const columnStyle: CSSProperties & Record<'--poem-scale' | '--poem-spacing', number> = {
+    '--poem-scale': poemFontScale,
+    '--poem-spacing': poemSpacingScale,
+  };
   return (
     <>
       <header className="flex w-full flex-col items-center justify-center gap-4 text-center xxs:gap-6">
@@ -128,8 +133,7 @@ export function PoemDisplay({
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
               isClassical ? 'max-w-[calc(16em*var(--poem-scale))]' : 'px-(--poem-gutter)'
             )}
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- CSS custom properties are not part of the CSSProperties type
-            style={{ '--poem-scale': poemFontScale } as CSSProperties}
+            style={columnStyle}
           >
             {verses.map((entry, index) => {
               const halves = isClassical && entry.length === 2;

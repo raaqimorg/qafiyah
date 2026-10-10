@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clampFontScale,
+  clampSpacingScale,
   DEFAULT_SETTINGS,
   FONT_SCALE_MAX,
   FONT_SCALE_MIN,
   parseSettings,
   SETTINGS_VERSION,
   serializeSettings,
+  SPACING_SCALE_MAX,
+  SPACING_SCALE_MIN,
 } from './settings-schema';
 
 describe('parseSettings', () => {
@@ -23,30 +26,33 @@ describe('parseSettings', () => {
   });
 
   it('round-trips stored values', () => {
-    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', poemFontScale: 1.2 });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark', poemFontScale: 1.2 });
+    const raw = JSON.stringify({
+      v: SETTINGS_VERSION,
+      theme: 'dark',
+      poemFontScale: 1.2,
+      poemSpacingScale: 0.6,
+    });
+    expect(parseSettings(raw, null)).toEqual({
+      theme: 'dark',
+      poemFontScale: 1.2,
+      poemSpacingScale: 0.6,
+    });
   });
 
   it('falls back per field, keeping the other valid fields intact', () => {
     const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'chartreuse', poemFontScale: 1.3 });
     expect(parseSettings(raw, null)).toEqual({
-      theme: DEFAULT_SETTINGS.theme,
+      ...DEFAULT_SETTINGS,
       poemFontScale: 1.3,
     });
 
     const raw2 = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', poemFontScale: 'huge' });
-    expect(parseSettings(raw2, null)).toEqual({
-      theme: 'dark',
-      poemFontScale: DEFAULT_SETTINGS.poemFontScale,
-    });
+    expect(parseSettings(raw2, null)).toEqual({ ...DEFAULT_SETTINGS, theme: 'dark' });
   });
 
   it('fills in fields that are absent entirely, so new settings can be added later', () => {
     const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'light' });
-    expect(parseSettings(raw, null)).toEqual({
-      theme: 'light',
-      poemFontScale: DEFAULT_SETTINGS.poemFontScale,
-    });
+    expect(parseSettings(raw, null)).toEqual({ ...DEFAULT_SETTINGS, theme: 'light' });
   });
 
   it('still reads known fields written by a newer version', () => {
@@ -56,12 +62,21 @@ describe('parseSettings', () => {
       poemFontScale: 1.1,
       somethingWeHaveNeverHeardOf: { nested: true },
     });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark', poemFontScale: 1.1 });
+    expect(parseSettings(raw, null)).toEqual({
+      ...DEFAULT_SETTINGS,
+      theme: 'dark',
+      poemFontScale: 1.1,
+    });
   });
 
   it('rejects an out-of-range font scale rather than trusting it', () => {
     const raw = JSON.stringify({ v: SETTINGS_VERSION, poemFontScale: 900 });
     expect(parseSettings(raw, null).poemFontScale).toBe(DEFAULT_SETTINGS.poemFontScale);
+  });
+
+  it('rejects an out-of-range spacing scale rather than trusting it', () => {
+    const raw = JSON.stringify({ v: SETTINGS_VERSION, poemSpacingScale: 0 });
+    expect(parseSettings(raw, null).poemSpacingScale).toBe(DEFAULT_SETTINGS.poemSpacingScale);
   });
 
   it('migrates the legacy theme key when no settings object exists yet', () => {
@@ -124,5 +139,17 @@ describe('clampFontScale', () => {
   it('clamps to the minimum and maximum', () => {
     expect(clampFontScale(0.1)).toBe(FONT_SCALE_MIN);
     expect(clampFontScale(9)).toBe(FONT_SCALE_MAX);
+  });
+});
+
+describe('clampSpacingScale', () => {
+  it('passes a scale inside the range through, rounded to one decimal', () => {
+    expect(clampSpacingScale(1)).toBe(1);
+    expect(clampSpacingScale(0.6000000001)).toBe(0.6);
+  });
+
+  it('clamps to the minimum and maximum', () => {
+    expect(clampSpacingScale(0)).toBe(SPACING_SCALE_MIN);
+    expect(clampSpacingScale(9)).toBe(SPACING_SCALE_MAX);
   });
 });
