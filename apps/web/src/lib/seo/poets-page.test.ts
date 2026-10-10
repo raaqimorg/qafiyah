@@ -82,24 +82,20 @@ describe('buildPoetLayout', () => {
     expect(layout.description).toBe('ديوان إباء إسماعيل على قافية. شاعرة سورية معاصرة.');
   });
 
-  it('splits a long bio into a preview and the rest, cutting on a word boundary', () => {
+  it('collapses a long bio and keeps its whole text', () => {
     const text = words(200);
     const layout = buildPoetLayout({
       poet: { ...basePoet, bio: text },
       poems: [],
       pagination: { page: 1, totalPages: 1 },
     });
-    const bio = layout.bio;
-    if (bio?.kind !== 'truncated') throw new Error(`expected a truncated bio, got ${bio?.kind}`);
-    expect(bio.head.length).toBeLessThanOrEqual(300);
-    expect(bio.head + bio.rest).toBe(text);
-    expect(bio.head.endsWith(' ')).toBe(false);
-    expect(bio.rest.startsWith(' ')).toBe(true);
+    expect(layout.bio).toEqual({ kind: 'collapsed', text });
   });
 
-  it('keeps a bio just past the preview length whole rather than hiding a few words', () => {
+  it('shows a bio of up to 380 characters in full', () => {
     const text = words(70);
     expect(text.length).toBeGreaterThan(300);
+    expect(text.length).toBeLessThanOrEqual(380);
     const layout = buildPoetLayout({
       poet: { ...basePoet, bio: text },
       poems: [],

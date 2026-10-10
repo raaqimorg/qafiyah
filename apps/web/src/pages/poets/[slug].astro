@@ -73,10 +73,11 @@ const pageNumber = pagination.page;
 const isFiltered = hasPoetFilters(filters);
 
 const BIO_CLASS = `${TYPE.body} text-text-muted leading-[1.8]`;
+const BIO_ID = 'poet-bio';
 const BIO_TOGGLE_ID = 'poet-bio-toggle';
-const ELLIPSIS_CLASS = "after:content-['…'] peer-checked:after:content-none";
+const BIO_CLAMP_CLASS = 'line-clamp-5 xs:line-clamp-3 data-expanded:line-clamp-none';
 const TOGGLE_CLASS =
-  'text-text cursor-pointer underline underline-offset-4 transition-colors hover:text-text-muted peer-focus-visible:ring-1 peer-focus-visible:ring-text';
+  'group self-start rounded-sm text-text underline underline-offset-4 transition-colors hover:text-text-muted focus-visible:ring-1 focus-visible:ring-text focus-visible:outline-none';
 
 const {
   title,
@@ -133,18 +134,22 @@ const {
     </div>
     <div class="flex w-full max-w-3xl flex-col gap-3">
       {bio?.kind === 'full' && <p class={BIO_CLASS}>{bio.text}</p>}
-      {bio?.kind === 'truncated' && (
-        <p class={BIO_CLASS}>
-          <input id={BIO_TOGGLE_ID} type="checkbox" class="peer sr-only" />
-          <span class={ELLIPSIS_CLASS}>{bio.head}</span>
-          <span class="hidden peer-checked:inline">{bio.rest}</span>{' '}
-          <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} peer-checked:hidden`}>
-            عرض المزيد
-          </label>
-          <label for={BIO_TOGGLE_ID} class={`${TOGGLE_CLASS} hidden peer-checked:inline`}>
-            طي
-          </label>
-        </p>
+      {bio?.kind === 'collapsed' && (
+        <>
+          <p id={BIO_ID} class={`${BIO_CLASS} ${BIO_CLAMP_CLASS}`}>
+            {bio.text}
+          </p>
+          <button
+            id={BIO_TOGGLE_ID}
+            type="button"
+            class={TOGGLE_CLASS}
+            aria-expanded="false"
+            aria-controls={BIO_ID}
+          >
+            <span class="group-aria-expanded:hidden">عرض المزيد</span>
+            <span class="hidden group-aria-expanded:inline">طي</span>
+          </button>
+        </>
       )}
     </div>
     <PoetPoems
@@ -156,3 +161,15 @@ const {
     />
   </ListPageBody>
 </Layout>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('#poet-bio-toggle');
+  const bio = document.querySelector<HTMLElement>('#poet-bio');
+  if (toggle && bio) {
+    toggle.addEventListener('click', () => {
+      const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', String(expanded));
+      bio.toggleAttribute('data-expanded', expanded);
+    });
+  }
+</script>
