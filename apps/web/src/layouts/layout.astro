@@ -30,6 +30,8 @@ const htmlClass = isDev ? 'debug-screens' : '';
     <ModuleReloadRecovery />
     <SEO {...seo} />
     <Font cssVariable="--font-amiri" preload={[{ weight: 400 }]} />
+    <Font cssVariable="--font-thmanyah" />
+    <Font cssVariable="--font-plex" />
     {isRelease && <PostHog />}
     {isRelease && <link rel="preconnect" href={POSTHOG_HOST} crossorigin />}
     <ThemeInit />

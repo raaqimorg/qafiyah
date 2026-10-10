@@ -20,13 +20,18 @@ describe('parseSettings', () => {
   });
 
   it('round-trips stored values', () => {
-    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark' });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark' });
+    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', fontFamily: 'plex' });
+    expect(parseSettings(raw, null)).toEqual({ theme: 'dark', fontFamily: 'plex' });
   });
 
   it('falls back to the default for an unknown theme', () => {
     const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'chartreuse' });
     expect(parseSettings(raw, null)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('falls back to the default font family for an unknown font, keeping the theme', () => {
+    const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', fontFamily: 'comic-sans' });
+    expect(parseSettings(raw, null)).toEqual({ ...DEFAULT_SETTINGS, theme: 'dark' });
   });
 
   it('fills in fields that are absent entirely, so new settings can be added later', () => {
@@ -36,7 +41,7 @@ describe('parseSettings', () => {
 
   it('ignores the font size and spacing that older builds saved', () => {
     const raw = JSON.stringify({ v: SETTINGS_VERSION, theme: 'dark', poemFontScale: 1.3 });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark' });
+    expect(parseSettings(raw, null)).toEqual({ ...DEFAULT_SETTINGS, theme: 'dark' });
   });
 
   it('still reads known fields written by a newer version', () => {
@@ -45,7 +50,7 @@ describe('parseSettings', () => {
       theme: 'dark',
       somethingWeHaveNeverHeardOf: { nested: true },
     });
-    expect(parseSettings(raw, null)).toEqual({ theme: 'dark' });
+    expect(parseSettings(raw, null)).toEqual({ ...DEFAULT_SETTINGS, theme: 'dark' });
   });
 
   it('migrates the legacy theme key when no settings object exists yet', () => {

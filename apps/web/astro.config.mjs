@@ -33,6 +33,36 @@ export default defineConfig({
         ],
       },
     },
+    {
+      provider: fontProviders.local(),
+      name: 'Thmanyah Serif Text',
+      cssVariable: '--font-thmanyah',
+      fallbacks: ['serif'],
+      display: 'swap',
+      options: {
+        variants: [
+          {
+            weight: 400,
+            style: 'normal',
+            src: ['./src/assets/fonts/ThmanyahSerifText-Regular-400.woff2'],
+          },
+          {
+            weight: 700,
+            style: 'normal',
+            src: ['./src/assets/fonts/ThmanyahSerifText-Bold-700.woff2'],
+          },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.google(),
+      name: 'IBM Plex Sans Arabic',
+      cssVariable: '--font-plex',
+      weights: [400, 700],
+      subsets: ['arabic', 'latin'],
+      fallbacks: ['sans-serif'],
+      display: 'swap',
+    },
   ],
   integrations: [
     react(),

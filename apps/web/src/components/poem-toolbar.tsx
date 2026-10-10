@@ -1,11 +1,12 @@
 'use client';
 
-import { ListChevronsDownUp, ListChevronsUpDown, Minus, Plus, SunMoon } from 'lucide-react';
+import { ListChevronsDownUp, ListChevronsUpDown, Minus, Plus, SunMoon, Type } from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { captureEvent } from '@/lib/analytics/capture-event';
 import { POEM_TOOLBAR_TEXTS } from '@/lib/constants/copy';
 import { POEM_SCALE, stepScale } from '@/lib/poem-scale';
+import { cycleFontFamily } from '@/lib/settings/font-actions';
 import { toggleTheme } from '@/lib/settings/theme-actions';
 import { cn } from '@/lib/utils';
 
@@ -90,6 +91,13 @@ export function PoemToolbar({
         className={DIMMED}
       >
         <SunMoon className={ICON} strokeWidth={ICON_STROKE} />
+      </IconButton>
+      <IconButton
+        onClick={cycleFontFamily}
+        aria-label={POEM_TOOLBAR_TEXTS.cycleFontFamily}
+        className={DIMMED}
+      >
+        <Type className={ICON} strokeWidth={ICON_STROKE} />
       </IconButton>
       <button
         type="button"

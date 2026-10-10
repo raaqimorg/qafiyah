@@ -17,22 +17,33 @@ import { SETTINGS_STORAGE_KEY } from '@/lib/settings/settings-schema';
   const root = document.documentElement;
   const query = window.matchMedia('(prefers-color-scheme: dark)');
 
-  const readTheme = () => {
+  const readStored = () => {
     try {
       const raw = localStorage.getItem(settingsKey);
       if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const theme = parsed.theme;
-            return theme === 'dark' || theme === 'light' || theme === 'system' ? theme : 'system';
-          }
-        } catch {}
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
       }
+    } catch {}
+    return null;
+  };
+
+  const readTheme = () => {
+    const stored = readStored();
+    if (stored) {
+      const theme = stored.theme;
+      return theme === 'dark' || theme === 'light' || theme === 'system' ? theme : 'system';
+    }
+    try {
       const legacy = localStorage.getItem(legacyKey);
       if (legacy === 'dark' || legacy === 'light') return legacy;
     } catch {}
     return 'system';
+  };
+
+  const readFontFamily = () => {
+    const fontFamily = readStored()?.fontFamily;
+    return fontFamily === 'thmanyah' || fontFamily === 'plex' ? fontFamily : 'amiri';
   };
 
   const apply = (theme) => {
@@ -44,6 +55,7 @@ import { SETTINGS_STORAGE_KEY } from '@/lib/settings/settings-schema';
   };
 
   apply(readTheme());
+  root.dataset.font = readFontFamily();
 
   query.addEventListener('change', () => {
     if (readTheme() === 'system') apply('system');
