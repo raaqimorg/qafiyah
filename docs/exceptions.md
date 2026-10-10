@@ -327,10 +327,10 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The footer is one React island
 
-- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `SettingsDialog` and `RandomPoemButton`.
+- **What:** `<Footer client:idle />` hydrates the whole footer, static links included, only to host `RandomPoemButton`.
 - **Where:** `apps/web/src/layouts/layout.astro`, `apps/web/src/components/footer.tsx`
-- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in either widget removes the entire footer.
-- **Normal approach:** a `footer.astro` with two small islands.
+- **Why it's unusual:** static markup ships as JavaScript on every page. Because the footer wraps itself in `IslandErrorBoundary fallback={null}`, a crash in the button removes the entire footer.
+- **Normal approach:** a `footer.astro` with one small island.
 - **Status:** Needs review
 
 ### Poem result cards navigate with JavaScript

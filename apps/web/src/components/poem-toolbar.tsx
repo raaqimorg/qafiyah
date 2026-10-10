@@ -3,7 +3,7 @@
 import { ListChevronsDownUp, ListChevronsUpDown, Minus, Moon, Plus, Sun } from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
-import { POEM_TOOLBAR_TEXTS, SETTINGS_TEXTS } from '@/lib/constants/copy';
+import { POEM_TOOLBAR_TEXTS } from '@/lib/constants/copy';
 import { changeFontScale, changeSpacingScale } from '@/lib/settings/poem-scale-actions';
 import {
   FONT_SCALE_MAX,
@@ -37,7 +37,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
       <IconButton
         onClick={() => changeFontScale(poemFontScale - FONT_SCALE_STEP)}
         disabled={poemFontScale <= FONT_SCALE_MIN}
-        aria-label={SETTINGS_TEXTS.fontSizeDecrease}
+        aria-label={POEM_TOOLBAR_TEXTS.fontSizeDecrease}
         className={DIMMED}
       >
         <Minus className={ICON} strokeWidth={ICON_STROKE} />
@@ -45,7 +45,7 @@ export function PoemToolbar({ showTashkeel, onToggleTashkeel }: PoemToolbarProps
       <IconButton
         onClick={() => changeFontScale(poemFontScale + FONT_SCALE_STEP)}
         disabled={poemFontScale >= FONT_SCALE_MAX}
-        aria-label={SETTINGS_TEXTS.fontSizeIncrease}
+        aria-label={POEM_TOOLBAR_TEXTS.fontSizeIncrease}
         className={DIMMED}
       >
         <Plus className={ICON} strokeWidth={ICON_STROKE} />

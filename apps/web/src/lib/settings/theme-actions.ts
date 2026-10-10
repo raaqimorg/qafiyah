@@ -4,7 +4,7 @@ import { type Theme } from './settings-schema';
 import { resolveIsDark } from './settings-storage';
 import { getSettings, updateSettings } from './settings-store';
 
-export function changeTheme(theme: Theme): void {
+function changeTheme(theme: Theme): void {
   const isChange = getSettings().theme !== theme;
   updateSettings({ theme });
   if (isChange) captureEvent('setting_changed', { setting: 'theme', value: theme });

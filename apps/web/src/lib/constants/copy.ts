@@ -35,21 +35,10 @@ export const SEARCH_TEXTS = {
   exactToggleDisableAria: 'إلغاء التطابق الحرفي في نتائج البحث',
 } as const;
 
-export const SETTINGS_TEXTS = {
-  title: 'الإعدادات',
-  close: 'إغلاق',
-  themeLabel: 'المظهر',
-  themeSystem: 'النظام',
-  themeLight: 'فاتح',
-  themeDark: 'داكن',
-  fontSizeLabel: 'حجم خط القصيدة',
-  fontSizeDecrease: 'تصغير خط القصيدة',
-  fontSizeIncrease: 'تكبير خط القصيدة',
-  reset: 'إعادة الضبط',
-} as const;
-
 export const POEM_TOOLBAR_TEXTS = {
   label: 'أدوات القراءة',
+  fontSizeDecrease: 'تصغير خط القصيدة',
+  fontSizeIncrease: 'تكبير خط القصيدة',
   spacingDecrease: 'تضييق المسافة بين الأبيات',
   spacingIncrease: 'توسيع المسافة بين الأبيات',
   toggleTheme: 'تبديل المظهر',

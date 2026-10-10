@@ -39,8 +39,8 @@ describe('the theme actions', () => {
 
   it('switches a dark theme back to light', async () => {
     vi.stubGlobal('window', windowWithDevice(false));
-    const { changeTheme, toggleTheme, getSettings } = await freshModules();
-    changeTheme('dark');
+    const { updateSettings, toggleTheme, getSettings } = await freshModules();
+    updateSettings({ theme: 'dark' });
     toggleTheme();
     expect(getSettings().theme).toBe('light');
   });

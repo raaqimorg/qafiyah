@@ -1,6 +1,6 @@
 # Web Agent Guide
 
-This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, the poem with its reading toolbar, and settings.
+This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, and the poem with its reading toolbar.
 
 ## Shape
 
@@ -23,7 +23,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
   Do not edit these files. Run the script, and commit the diff.
 
 - `components/ui/` holds the design-system primitives. `ui-extended/` holds composed pieces built from them. `search/` is the search island (React Query, with URL state in `nuqs`). `layout/` is the page frame, with the `is:inline` scripts that run before hydration (see the "Web" section of `docs/exceptions.md`).
-- `lib/settings/` stores the theme, the poem font scale, and the poem spacing in the browser (localStorage, versioned). It parses every field carefully, so one bad value never discards the rest.
+- `lib/settings/` stores the theme, the poem font scale, and the poem spacing in the browser (localStorage, versioned). The poem toolbar is the only place that changes them. It parses every field carefully, so one bad value never discards the rest.
 - `lib/observability/` holds these parts:
   - the Sentry reporting. `src/middleware.ts` runs three middlewares in order: the strip of Sentry's trace tags from cached pages (see `docs/exceptions.md`), Sentry's request handler, and the request timing.
   - the check for transient network errors, which controls the server-side retry in `lib/server/unwrap.ts`
