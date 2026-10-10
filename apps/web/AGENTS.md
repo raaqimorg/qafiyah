@@ -1,6 +1,6 @@
 # Web Agent Guide
 
-This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, and settings.
+This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with server-side rendering (`output: 'server'`), and React islands. Pages fetch from `apps/api` through a typed OpenAPI client. A few components hydrate in the browser for interaction: search, the random poem, the poem with its reading toolbar, and settings.
 
 ## Shape
 

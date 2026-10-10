@@ -31,7 +31,7 @@ function render(verses: Props['verses'], poemTypeSlug = 'amudi') {
       text: line[2] ?? '',
     }))
   );
-  return { article, column, entries };
+  return { html, article, column, entries };
 }
 
 describe('PoemDisplay', () => {
@@ -96,5 +96,25 @@ describe('PoemDisplay', () => {
   it('keeps verse spacing for a poem that holds verses and is not free verse', () => {
     const { column } = render([['صدر', 'عجز'], ['قفل']], 'muwashshah');
     expect(column).toContain('gap-10 sm:gap-12');
+  });
+
+  it('renders the reading tools between the metadata row and the verses', () => {
+    const { html } = render([['صدر', 'عجز']]);
+    const tools = html.indexOf('aria-label="أدوات القراءة"');
+    expect(tools).toBeGreaterThan(html.indexOf('المديح'));
+    expect(tools).toBeLessThan(html.indexOf('<article'));
+  });
+
+  it('offers the font size, theme, and tashkeel controls', () => {
+    const { html } = render([['صدر', 'عجز']]);
+    expect(html).toContain('aria-label="تصغير خط القصيدة"');
+    expect(html).toContain('aria-label="تكبير خط القصيدة"');
+    expect(html).toContain('aria-label="تبديل المظهر"');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>التشكيل</);
+  });
+
+  it('shows the verses with their tashkeel when the page loads', () => {
+    const { entries } = render([['قِفا نَبْكِ', 'عجز']]);
+    expect(entries[0]?.[0]?.text).toBe('قِفا نَبْكِ');
   });
 });

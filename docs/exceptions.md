@@ -223,8 +223,8 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The whole poem hydrates as a React island for font scale and a private `#h=` fragment
 
-- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The only client-side needs are the font-scale setting and highlighting from a homemade `#h=term1,term2` fragment.
-- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
+- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The client-side needs are the font-scale setting, the reading toolbar (font size, theme, and tashkeel), and highlighting from a homemade `#h=term1,term2` fragment.
+- **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/components/poem-toolbar.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
 - **Why it's unusual:** the server renders at scale 1, so a saved scale visibly resizes the poem after idle hydration. Theme avoids this with a pre-paint script, and font scale does not. The verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
 - **Normal approach:** render the poem statically in Astro, and set `--poem-scale` on `<html>` in the existing pre-paint script. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
 - **Status:** Needs review

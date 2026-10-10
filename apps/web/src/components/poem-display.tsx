@@ -2,7 +2,8 @@
 
 import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 
-import { formatArabicCount } from '@/lib/arabic';
+import { PoemToolbar } from '@/components/poem-toolbar';
+import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
 import {
   CLASSICAL_LAYOUT_POEM_TYPES,
   FREE_VERSE_POEM_TYPE,
@@ -86,6 +87,7 @@ export function PoemDisplay({
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
   const { poemFontScale } = useSettings();
+  const [showTashkeel, setShowTashkeel] = useState(true);
   const highlightTerms = useHighlightTerms();
   const highlightRegex = useMemo(() => buildHighlightRegex(highlightTerms), [highlightTerms]);
   return (
@@ -111,6 +113,11 @@ export function PoemDisplay({
           </p>
           <p className="flex-1 py-0.5 md:py-1 lg:py-1.5">{theme.name}</p>
         </div>
+
+        <PoemToolbar
+          showTashkeel={showTashkeel}
+          onToggleTashkeel={() => setShowTashkeel((shown) => !shown)}
+        />
       </header>
 
       <div className="relative flex w-full flex-col items-center justify-between">
@@ -136,20 +143,23 @@ export function PoemDisplay({
                     isClassical && 'items-stretch'
                   )}
                 >
-                  {entry.map((part, partIndex) => (
-                    <p
-                      // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
-                      key={`${partIndex}|${part}`}
-                      style={{ fontSize: `${poemFontScale}em` }}
-                      lang="ar"
-                      dir="rtl"
-                      className={cn(
-                        halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
-                      )}
-                    >
-                      {highlightRegex ? highlightVerse(part, highlightRegex) : part}
-                    </p>
-                  ))}
+                  {entry.map((part, partIndex) => {
+                    const text = showTashkeel ? part : stripTashkeel(part);
+                    return (
+                      <p
+                        // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
+                        key={`${partIndex}|${part}`}
+                        style={{ fontSize: `${poemFontScale}em` }}
+                        lang="ar"
+                        dir="rtl"
+                        className={cn(
+                          halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
+                        )}
+                      >
+                        {highlightRegex ? highlightVerse(text, highlightRegex) : text}
+                      </p>
+                    );
+                  })}
                 </div>
               );
             })}

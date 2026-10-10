@@ -48,6 +48,12 @@ export const SETTINGS_TEXTS = {
   reset: 'إعادة الضبط',
 } as const;
 
+export const POEM_TOOLBAR_TEXTS = {
+  label: 'أدوات القراءة',
+  toggleTheme: 'تبديل المظهر',
+  tashkeel: 'التشكيل',
+} as const;
+
 export const NOT_FOUND_MESSAGE_AR = 'الصفحة غير موجودة';
 export const SERVER_ERROR_MESSAGE_AR = 'حدث خطأ في الخادم';
 

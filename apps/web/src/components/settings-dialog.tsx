@@ -4,17 +4,15 @@ import { Minus, Plus, X } from 'lucide-react';
 import { type RefObject, useEffect, useRef } from 'react';
 
 import { IconButton } from '@/components/ui/icon-button';
-import { captureEvent } from '@/lib/analytics/capture-event';
 import { SETTINGS_TEXTS } from '@/lib/constants/copy';
+import { changeFontScale, changeTheme } from '@/lib/settings/settings-actions';
 import {
-  clampFontScale,
   DEFAULT_SETTINGS,
   FONT_SCALE_MAX,
   FONT_SCALE_MIN,
   FONT_SCALE_STEP,
   type Theme,
 } from '@/lib/settings/settings-schema';
-import { getSettings, updateSettings } from '@/lib/settings/settings-store';
 import { useSettings } from '@/lib/settings/use-settings';
 import { cn } from '@/lib/utils';
 
@@ -25,23 +23,6 @@ const THEME_OPTIONS: readonly { readonly value: Theme; readonly label: string }[
 ];
 
 const TRACK = 'bg-surface-sunken flex gap-1 rounded-lg p-1';
-
-function changeTheme(theme: Theme): void {
-  const isChange = getSettings().theme !== theme;
-  updateSettings({ theme });
-  if (isChange) captureEvent('setting_changed', { setting: 'theme', value: theme });
-}
-
-function changeFontScale(poemFontScale: number): void {
-  const isChange = getSettings().poemFontScale !== poemFontScale;
-  updateSettings({ poemFontScale });
-  if (isChange)
-    captureEvent('setting_changed', { setting: 'poem_font_scale', value: poemFontScale });
-}
-
-function stepScale(delta: number) {
-  changeFontScale(clampFontScale(getSettings().poemFontScale + delta));
-}
 
 function useLightDismiss(dialogRef: RefObject<HTMLDialogElement | null>): void {
   useEffect(() => {
@@ -138,7 +119,7 @@ export function SettingsDialog({ className }: { readonly className?: string }) {
             </div>
             <div className={cn(TRACK, 'items-center justify-between')}>
               <IconButton
-                onClick={() => stepScale(-FONT_SCALE_STEP)}
+                onClick={() => changeFontScale(settings.poemFontScale - FONT_SCALE_STEP)}
                 disabled={settings.poemFontScale <= FONT_SCALE_MIN}
                 aria-label={SETTINGS_TEXTS.fontSizeDecrease}
                 className="min-h-9 min-w-9 hover:bg-surface"
@@ -149,7 +130,7 @@ export function SettingsDialog({ className }: { readonly className?: string }) {
                 {Math.round(settings.poemFontScale * 100)}%
               </p>
               <IconButton
-                onClick={() => stepScale(FONT_SCALE_STEP)}
+                onClick={() => changeFontScale(settings.poemFontScale + FONT_SCALE_STEP)}
                 disabled={settings.poemFontScale >= FONT_SCALE_MAX}
                 aria-label={SETTINGS_TEXTS.fontSizeIncrease}
                 className="min-h-9 min-w-9 hover:bg-surface"
