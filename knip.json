@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreWorkspaces": ["packages/tsconfig"],
-  "ignoreBinaries": ["actionlint", "rustfmt", "shellcheck"],
+  "ignoreBinaries": ["rustfmt", "shellcheck"],
   "ignore": ["apps/web/src/lib/generated/openapi/schema.gen.ts"],
   "workspaces": {
     ".": {
