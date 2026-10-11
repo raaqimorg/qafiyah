@@ -15,7 +15,7 @@ The poem is the core content entity. It has these fields:
 
 A poem does **not** have its own era. Its era is its poet's era, and the database keeps a synchronized copy of it (see "Era" below).
 
-Every poem has exactly one poet, meter, theme, rhyme, and poem type. The collection, form, genre, and rhyme majra are optional (see "Poem type" below).
+Every poem has exactly one poet, meter, theme, rhyme, and poem type. The collection and genre are optional (see "Poem type" below).
 
 A poem's content is its ordered rows (`poem_verses` to `verses`), one row for each displayed line.
 
@@ -72,13 +72,11 @@ The difference between these types is structural, with one exception. `nabati` a
 
 ### Schema-only attributes
 
-Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads these poem columns. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. All of these columns can be null:
+Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads this poem column. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. The column can be null:
 
-- `form_id` (`forms`): `qasida` قصيدة, `muqattaa` مقطعة, `abyatthaniya` ابيات ثانية, `baytmufrad` بيت مفرد, `shatrbayt` شطر بيت. It says how much of a poem survives, from a full ode down to a single half-line.
 - `genre_id` (`genres`): `shir` شعر, `khatira` خاطرة.
-- `rhyme_majra_id` (`majras`): the vowel on the rawi. The values are `fatha` فتحة, `damma` ضمة, `kasra` كسرة, their tanwin forms, and `sukun` سكون.
 
-So a change to any of these has no visible effect on the site today, and needs no reindex. This is a fact about the application as it is now, not a promise.
+So a change to it has no visible effect on the site today, and needs no reindex. This is a fact about the application as it is now, not a promise.
 
 ## Poet
 
@@ -200,7 +198,7 @@ After such an edit on a running database, run `SELECT public.refresh_random_poem
 When two rows hold the same poem by the same poet, one row survives, and `merge_poem(keep, absorb)` merges the other into it (`scripts/db/sql/merge-poem.sql`):
 
 - The survivor keeps its own text.
-- From the absorbed copy, it fills an unknown meter or theme, and an empty collection, form, genre, or majra.
+- From the absorbed copy, it fills an unknown meter or theme, and an empty collection or genre.
 - The absorbed row is deleted. Its slug becomes a row in `poem_aliases`. So `GET /v1/poems/<old slug>` answers `301` to the survivor, and the website redirects the page the same way.
 
 Aliases always point at a live poem. A later merge of a survivor points its aliases again, and a new poem never gets a slug that an alias holds.
@@ -276,7 +274,7 @@ A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
 The `*_stats` relations hold the poem and poet counts for each term, which the listing pages show:
 
 - `poet_stats`, `meter_stats`, `rhyme_stats`, `era_stats`, `theme_stats`, `collection_stats`, `poem_type_stats`
-- the schema-only `form_stats`, `genre_stats`, `majra_stats`, `nation_stats`, `gender_stats`
+- the schema-only `genre_stats`, `nation_stats`, `gender_stats`
 
 They are **tables**, not views. As views, they counted the whole `poems` table again on every request, which took hundreds of milliseconds for each taxonomy index page.
 

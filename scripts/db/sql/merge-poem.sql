@@ -8,9 +8,7 @@ BEGIN
   SET meter_id = CASE WHEN km.slug = 'ghayrmaruf' THEN s.meter_id ELSE k.meter_id END,
       theme_id = CASE WHEN kt.slug = 'almutafarriqat' THEN s.theme_id ELSE k.theme_id END,
       collection_id = COALESCE(k.collection_id, s.collection_id),
-      form_id = COALESCE(k.form_id, s.form_id),
       genre_id = COALESCE(k.genre_id, s.genre_id),
-      rhyme_majra_id = COALESCE(k.rhyme_majra_id, s.rhyme_majra_id),
       flags = ARRAY(SELECT DISTINCT f FROM unnest(k.flags || s.flags) AS f ORDER BY f)
   FROM public.poems s, public.meters km, public.themes kt
   WHERE k.id = p_keep

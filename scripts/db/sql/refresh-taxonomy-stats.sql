@@ -4,8 +4,8 @@ DECLARE
 BEGIN
   FOREACH stats_rel IN ARRAY ARRAY[
     'poet_stats', 'meter_stats', 'rhyme_stats', 'era_stats', 'theme_stats',
-    'collection_stats', 'poem_type_stats', 'form_stats', 'genre_stats',
-    'majra_stats', 'nation_stats', 'gender_stats'
+    'collection_stats', 'poem_type_stats', 'genre_stats', 'nation_stats',
+    'gender_stats'
   ] LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -75,23 +75,7 @@ CREATE TABLE IF NOT EXISTS public.poem_type_stats (
   poets_count bigint
 );
 
-CREATE TABLE IF NOT EXISTS public.form_stats (
-  id bigint PRIMARY KEY,
-  name text,
-  slug text,
-  poems_count bigint,
-  poets_count bigint
-);
-
 CREATE TABLE IF NOT EXISTS public.genre_stats (
-  id bigint PRIMARY KEY,
-  name text,
-  slug text,
-  poems_count bigint,
-  poets_count bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.majra_stats (
   id bigint PRIMARY KEY,
   name text,
   slug text,
@@ -135,9 +119,7 @@ BEGIN
   DELETE FROM public.theme_stats;
   DELETE FROM public.collection_stats;
   DELETE FROM public.poem_type_stats;
-  DELETE FROM public.form_stats;
   DELETE FROM public.genre_stats;
-  DELETE FROM public.majra_stats;
   DELETE FROM public.nation_stats;
   DELETE FROM public.gender_stats;
 
@@ -196,24 +178,10 @@ BEGIN
   LEFT JOIN public.poets pt ON p.poet_id = pt.id
   GROUP BY v.id, v.name, v.slug;
 
-  INSERT INTO public.form_stats (id, name, slug, poems_count, poets_count)
-  SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
-  FROM public.forms v
-  LEFT JOIN public.poems p ON v.id = p.form_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
-  LEFT JOIN public.poets pt ON p.poet_id = pt.id
-  GROUP BY v.id, v.name, v.slug;
-
   INSERT INTO public.genre_stats (id, name, slug, poems_count, poets_count)
   SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
   FROM public.genres v
   LEFT JOIN public.poems p ON v.id = p.genre_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
-  LEFT JOIN public.poets pt ON p.poet_id = pt.id
-  GROUP BY v.id, v.name, v.slug;
-
-  INSERT INTO public.majra_stats (id, name, slug, poems_count, poets_count)
-  SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
-  FROM public.majras v
-  LEFT JOIN public.poems p ON v.id = p.rhyme_majra_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
   LEFT JOIN public.poets pt ON p.poet_id = pt.id
   GROUP BY v.id, v.name, v.slug;
 
