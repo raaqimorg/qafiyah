@@ -33,7 +33,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - the import boundaries between apps, and the constants that must stay the same in `config.ts` and the Rust crates
   - file naming, and parent-relative imports
   - the Rust toolchain pin and its keys
-  - ShellCheck over every tracked shell script (found by `.sh` or by shebang), hadolint over every Dockerfile, and the SQL syntax check
+  - ShellCheck over every tracked shell script (found by `.sh` or by shebang), hadolint over every Dockerfile, actionlint over every workflow, and the SQL syntax check
   - the clippy wrapper behind `rust:lint`
   - the optional commit identity guard and forbidden-terms guard. The husky hooks call them directly (`docs/development.md`, "Committing").
 - `dev/` holds these parts:
