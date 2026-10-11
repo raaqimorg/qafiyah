@@ -23,7 +23,6 @@ const COPIED = [
   'collection_id',
   'form_id',
   'poem_type_id',
-  'register_id',
   'genre_id',
   'rhyme_majra_id',
   'title',

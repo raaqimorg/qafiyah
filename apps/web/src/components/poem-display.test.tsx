@@ -49,8 +49,8 @@ describe('PoemDisplay', () => {
     expect(entries[0]?.[1]?.attributes).toContain('text-left');
   });
 
-  it('centers a two-part entry of a poem type with no classical layout', () => {
-    const { entries } = render([['صدر', 'عجز']], 'muwashshah');
+  it('centers a two-part entry of a free-verse poem', () => {
+    const { entries } = render([['صدر', 'عجز']], 'hurr');
     for (const line of entries[0] ?? []) {
       expect(line.attributes).not.toMatch(/text-right|text-left/);
     }
@@ -94,7 +94,7 @@ describe('PoemDisplay', () => {
   });
 
   it('keeps verse spacing for a poem that holds verses and is not free verse', () => {
-    const { column } = render([['صدر', 'عجز'], ['قفل']], 'muwashshah');
+    const { column } = render([['صدر', 'عجز'], ['قفل']], 'nabati');
     expect(column).toContain('gap-[calc(2.5rem*var(--poem-spacing))]');
   });
 

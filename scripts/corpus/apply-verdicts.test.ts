@@ -5,14 +5,14 @@ import { buildUpdateStatements, parseTransitions } from './apply-verdicts';
 const CSV = [
   'id,slug,current,proposed,structure,hypothesis,ajuz_count,rhyme_score,cv,mad_outliers,parity_warning,reason',
   '7,AbCd,hurr,amudi,flat,flat-every,9,1,0.08,0,false,rhyme-verified',
-  '9,EfGh,amudi,majhul,starred,starred,14,0.42,0.09,0,false,rhyme-scattered',
+  '9,EfGh,hurr,amudi,starred,starred,14,1,0.09,0,false,rhyme-verified',
 ].join('\n');
 
 describe('parseTransitions', () => {
   test('reads id, current, and proposed and skips the header', () => {
     expect(parseTransitions(CSV)).toEqual([
       { id: '7', current: 'hurr', proposed: 'amudi' },
-      { id: '9', current: 'amudi', proposed: 'majhul' },
+      { id: '9', current: 'hurr', proposed: 'amudi' },
     ]);
   });
 
@@ -24,11 +24,9 @@ describe('parseTransitions', () => {
 describe('buildUpdateStatements', () => {
   test('groups poems by target label into one statement each', () => {
     const statements = buildUpdateStatements(parseTransitions(CSV));
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(1);
     expect(statements[0]).toContain("slug = 'amudi'");
-    expect(statements[0]).toContain('(7)');
-    expect(statements[1]).toContain("slug = 'majhul'");
-    expect(statements[1]).toContain('(9)');
+    expect(statements[0]).toContain('(7, 9)');
   });
 
   test('rejects a non-numeric id rather than interpolating it', () => {
@@ -40,6 +38,12 @@ describe('buildUpdateStatements', () => {
   test('rejects an unknown target label', () => {
     expect(() =>
       buildUpdateStatements([{ id: '7', current: 'hurr', proposed: 'qasida' }])
+    ).toThrow();
+  });
+
+  test('rejects a removed poem type as a target', () => {
+    expect(() =>
+      buildUpdateStatements([{ id: '9', current: 'amudi', proposed: 'majhul' }])
     ).toThrow();
   });
 });

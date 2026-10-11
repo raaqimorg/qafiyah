@@ -7,19 +7,16 @@ BEGIN
   UPDATE public.poems k
   SET meter_id = CASE WHEN km.slug = 'ghayrmaruf' THEN s.meter_id ELSE k.meter_id END,
       theme_id = CASE WHEN kt.slug = 'almutafarriqat' THEN s.theme_id ELSE k.theme_id END,
-      poem_type_id = CASE WHEN ky.slug = 'majhul' THEN s.poem_type_id ELSE k.poem_type_id END,
       collection_id = COALESCE(k.collection_id, s.collection_id),
       form_id = COALESCE(k.form_id, s.form_id),
-      register_id = COALESCE(k.register_id, s.register_id),
       genre_id = COALESCE(k.genre_id, s.genre_id),
       rhyme_majra_id = COALESCE(k.rhyme_majra_id, s.rhyme_majra_id),
       flags = ARRAY(SELECT DISTINCT f FROM unnest(k.flags || s.flags) AS f ORDER BY f)
-  FROM public.poems s, public.meters km, public.themes kt, public.poem_types ky
+  FROM public.poems s, public.meters km, public.themes kt
   WHERE k.id = p_keep
     AND s.id = p_source
     AND km.id = k.meter_id
-    AND kt.id = k.theme_id
-    AND ky.id = k.poem_type_id;
+    AND kt.id = k.theme_id;
 END;
 $function$;
 

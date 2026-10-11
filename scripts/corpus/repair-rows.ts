@@ -30,7 +30,6 @@ import {
 
 const DEFAULT_DIR = 'reports/corpus/row-repair';
 const CLASSICAL = 'amudi';
-const UNKNOWN_TYPE = 'majhul';
 const CLASSICAL_METERS = new Set([
   'altawil',
   'alkamil',
@@ -185,9 +184,7 @@ async function readAnswers(dir: string, prefix: string): Promise<Map<string, str
 const hasClassicalMeter = (poem: Poem): boolean => CLASSICAL_METERS.has(poem.meter);
 
 function classical(poems: readonly Poem[]): { poems: Poem[]; baselines: Map<string, number> } {
-  const kept = poems.filter(
-    (poem) => poem.type === CLASSICAL || (poem.type === UNKNOWN_TYPE && hasClassicalMeter(poem))
-  );
+  const kept = poems.filter((poem) => poem.type === CLASSICAL);
   return { poems: kept, baselines: meterBaselines(kept.filter((poem) => hasClassicalMeter(poem))) };
 }
 

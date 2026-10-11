@@ -57,17 +57,14 @@ describe('proposedLabel', () => {
     expect(proposedLabel(row({ poemType: 'hurr' }), 'verified')).toBe('amudi');
   });
 
-  test('leaves a verified classical poem alone', () => {
+  test('leaves a verified classical or nabati poem alone', () => {
     expect(proposedLabel(row({ poemType: 'amudi' }), 'verified')).toBeNull();
+    expect(proposedLabel(row({ poemType: 'nabati' }), 'verified')).toBeNull();
   });
 
-  test('demotes a contradicted classical poem to majhul', () => {
-    expect(proposedLabel(row({ poemType: 'amudi' }), 'contradicted')).toBe('majhul');
-  });
-
-  test('never demotes a non-classical poem', () => {
+  test('never proposes a type for a contradicted poem', () => {
+    expect(proposedLabel(row({ poemType: 'amudi' }), 'contradicted')).toBeNull();
     expect(proposedLabel(row({ poemType: 'hurr' }), 'contradicted')).toBeNull();
-    expect(proposedLabel(row({ poemType: 'muwashshah' }), 'contradicted')).toBeNull();
   });
 
   test('proposes nothing for an untestable poem', () => {

@@ -889,13 +889,13 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** `merge_poem` refuses two poets, because that is a question of attribution. Both pages stay, and link to each other.
 - **Date:** 2026-10-09
 
-### The `nabati` poem type names a language, not a form
+### The `nabati` poem type names a region as well as a form
 
-- **What:** the poem type `nabati` holds every poem whose register is `nabati`, whatever its form. The web lays out its two-part entries like `amudi`.
+- **What:** the poem type `nabati` holds the two-hemistich colloquial verse of the Arabian Peninsula. The same form from another region is `amudi`, and free colloquial verse is `hurr`. The web lays out `nabati` entries like `amudi`.
 - **Where:** the `poem_types` row `nabati` in the dumps from 0044, `CLASSICAL_LAYOUT_POEM_TYPES` in `apps/web/src/lib/constants/taxonomy-data.ts`, and `docs/domain.md` ("Poem type")
 - **Why:** the maintainer wants readers to filter Nabati poetry, and the poem type is the filter that the API, search, and site already have.
-- **Normal approach:** keep the type as the form (`amudi`, `hurr`), and expose the existing `register_id` as its own filter in the API, the search index, and the site.
-- **Date:** 2026-10-10
+- **Normal approach:** keep the type as the form only (`amudi`, `hurr`), and add a separate dialect field with its own filter in the API, the search index, and the site.
+- **Date:** 2026-10-12
 
 ## Static checks (`docs/development.md`)
 

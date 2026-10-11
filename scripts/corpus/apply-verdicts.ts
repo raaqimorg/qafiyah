@@ -1,4 +1,4 @@
-const ALLOWED_TARGETS: ReadonlySet<string> = new Set(['amudi', 'majhul']);
+const ALLOWED_TARGETS: ReadonlySet<string> = new Set(['amudi']);
 const NUMERIC_ID = /^\d+$/;
 
 export type Transition = {
