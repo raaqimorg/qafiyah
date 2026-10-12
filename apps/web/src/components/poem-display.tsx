@@ -173,7 +173,7 @@ export function PoemDisplay({
                         lang="ar"
                         dir="rtl"
                         className={cn(
-                          halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
+                          halves && (partIndex === 0 ? 'text-right sm:pe-12' : 'text-left sm:ps-12')
                         )}
                       >
                         {highlightRegex ? highlightVerse(text, highlightRegex) : text}
