@@ -145,7 +145,9 @@ export function PoemDisplay({
             className={cn(
               'flex w-full flex-col text-verse font-normal',
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
-              isClassical ? 'max-w-[calc(16em*var(--poem-scale))]' : 'px-(--poem-gutter)'
+              isClassical
+                ? 'w-fit max-w-full min-w-[min(calc(16em*var(--poem-scale)),100%)]'
+                : 'px-(--poem-gutter)'
             )}
             style={columnStyle}
           >
