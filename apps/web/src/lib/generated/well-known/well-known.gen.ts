@@ -3,18 +3,13 @@
 
 export const ROBOTS_WEB_TEMPLATE = `# Qafiyah robots.txt
 #
-# Search engines, AI assistants, and link-preview bots are welcome.
-# Only web archivers, aggressive SEO scrapers, and Yandex are denied.
+# Every crawler is welcome: search engines, AI assistants, link previews,
+# archives, and SEO tools.
 #
 # Sitemap:  {SITE}/sitemap-index.xml
 # LLMs:     {SITE}/llms.txt
 # API:      {API}/llms.txt
 
-# ---------------------------------------------------------------------------
-# Allowed: everyone else, including Googlebot, Bingbot, Applebot, DuckDuckBot,
-# link-preview bots, and every AI crawler and assistant (training, AI search,
-# and live user fetches alike).
-# ---------------------------------------------------------------------------
 User-agent: *
 Allow: /
 Disallow: /account
@@ -22,32 +17,6 @@ Disallow: /auth/
 Disallow: /login
 Disallow: /api/
 Disallow: /poems/random
-
-# ---------------------------------------------------------------------------
-# Denied: web archives. No snapshots of this site anywhere.
-# ---------------------------------------------------------------------------
-User-agent: ia_archiver
-User-agent: archive.org_bot
-User-agent: Wayback
-User-agent: heritrix
-Disallow: /
-
-# ---------------------------------------------------------------------------
-# Denied: aggressive SEO / commercial scrapers and Yandex.
-# ---------------------------------------------------------------------------
-User-agent: Yandex
-User-agent: SemrushBot
-User-agent: AhrefsBot
-User-agent: MJ12bot
-User-agent: DotBot
-User-agent: BLEXBot
-User-agent: DataForSeoBot
-User-agent: PetalBot
-User-agent: SeznamBot
-User-agent: Barkrowler
-User-agent: serpstatbot
-User-agent: ZoominfoBot
-Disallow: /
 
 Sitemap: {SITE}/sitemap-index.xml
 `;
