@@ -17,7 +17,7 @@ export function Footer({ className }: { className?: string }) {
     <IslandErrorBoundary feature="footer" fallback={null}>
       <footer
         className={cn(
-          'relative flex w-full items-center justify-between gap-4 py-4 text-xs text-text-muted xxs:text-sm md:text-base xl:text-lg',
+          'relative flex w-full items-center justify-between gap-4 pt-4 pb-20 text-xs text-text-muted xxs:text-sm md:pb-4 md:text-base xl:text-lg',
           className
         )}
       >
