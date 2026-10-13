@@ -1,0 +1,21 @@
+services:
+  api:
+    build:
+      cache_from:
+        - type=gha,scope=api
+      cache_to:
+        - type=gha,scope=api,mode=max
+
+  web:
+    build:
+      cache_from:
+        - type=gha,scope=web
+      cache_to:
+        - type=gha,scope=web,mode=max
+
+  search-indexer:
+    build:
+      cache_from:
+        - type=gha,scope=search-indexer
+      cache_to:
+        - type=gha,scope=search-indexer,mode=max

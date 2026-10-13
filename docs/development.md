@@ -146,7 +146,8 @@ Commit messages follow `docs/pull-requests.md`: one subject line, and nothing el
 - The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only, in about a second. It runs oxlint, oxfmt, prettier for `.astro` files, rustfmt, and ShellCheck, as the `lint-staged` block in `package.json` sets.
 - The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, usually in less than a minute.
 - GitHub Actions runs the gate on every push and pull request to `main` or a version branch. It runs each Docker phase only when the change touches what that phase uses.
-- `bun run deploy` refuses a commit whose CI run did not pass. A skipped phase is not a failure.
+- `bun run deploy` refuses a commit whose CI run did not pass. A skipped phase is not a failure. After a release, it accepts the release pull request's passed run, because `main` then has exactly the same files.
+- The Docker jobs keep image layers in the GitHub Actions cache (`docker-compose.ci.yml`, which `scripts/dev/compose.sh` adds when `COMPOSE_CI_FILE` is set). So a job rebuilds only the images whose files changed. The runs on version branches fill the cache that pull requests into them read.
 - If you already ran the gate, `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook.
 
 Both hooks first run `scripts/check/commit-identity.sh`. It is an optional guard against commits with the wrong email:
