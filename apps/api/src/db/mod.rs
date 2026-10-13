@@ -7,12 +7,14 @@ use diesel::query_builder::{AstPass, Query, QueryFragment, QueryId};
 use diesel::sql_types::{Interval, Nullable, Text, Timestamptz};
 use diesel::{Connection, ConnectionError, QueryResult};
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
-use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::pooled_connection::deadpool::{Object, Pool};
 use diesel_async::pooled_connection::{AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::{AsyncConnection, AsyncPgConnection, SimpleAsyncConnection};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
-use crate::constants::{PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS};
+use crate::constants::{
+    PG_CONNECT_RETRY_INTERVAL_MILLISECONDS, PG_LOCK_TIMEOUT_SECONDS, PG_STATEMENT_TIMEOUT_SECONDS,
+};
 use crate::domain::StoreError;
 
 pub use qafiyah_corpus::schema as corpus;
@@ -37,7 +39,33 @@ extern "SQL" {
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
-pub type PgPool = Pool<AsyncPgConnection>;
+#[derive(Clone)]
+pub struct PgPool {
+    pool: Pool<AsyncPgConnection>,
+    connect_retry: Duration,
+}
+
+impl PgPool {
+    pub async fn get(
+        &self,
+    ) -> Result<Object<AsyncPgConnection>, PoolError<diesel_async::pooled_connection::PoolError>>
+    {
+        let deadline = tokio::time::Instant::now().checked_add(self.connect_retry);
+        loop {
+            match self.pool.get().await {
+                Err(PoolError::Backend(_))
+                    if deadline.is_some_and(|end| tokio::time::Instant::now() < end) =>
+                {
+                    tokio::time::sleep(Duration::from_millis(
+                        PG_CONNECT_RETRY_INTERVAL_MILLISECONDS,
+                    ))
+                    .await;
+                }
+                result => return result,
+            }
+        }
+    }
+}
 
 pub fn corpus_setup() -> String {
     format!("SET statement_timeout = '{PG_STATEMENT_TIMEOUT_SECONDS}s'")
@@ -81,7 +109,13 @@ impl<Q: QueryFragment<Pg>> QueryFragment<Pg> for Uncached<Q> {
     }
 }
 
-pub fn pool(url: &str, max_size: usize, wait: Duration, setup: String) -> Result<PgPool, String> {
+pub fn pool(
+    url: &str,
+    max_size: usize,
+    wait: Duration,
+    setup: String,
+    connect_retry: Duration,
+) -> Result<PgPool, String> {
     let mut config = ManagerConfig::<AsyncPgConnection>::default();
     config.custom_setup = Box::new(move |url| {
         let setup = setup.clone();
@@ -94,13 +128,17 @@ pub fn pool(url: &str, max_size: usize, wait: Duration, setup: String) -> Result
         })
     });
     let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(url, config);
-    Pool::builder(manager)
+    let pool = Pool::builder(manager)
         .max_size(max_size)
         .wait_timeout(Some(wait))
         .create_timeout(Some(wait))
         .runtime(Runtime::Tokio1)
         .build()
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    Ok(PgPool {
+        pool,
+        connect_retry,
+    })
 }
 
 pub fn present<T>(value: Option<T>) -> Result<T, StoreError> {
@@ -129,5 +167,48 @@ impl From<PoolError<diesel_async::pooled_connection::PoolError>> for StoreError 
                 StoreError::Database(error.to_string())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use deadpool::managed::PoolError;
+
+    use super::pool;
+
+    const REFUSING_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
+
+    #[tokio::test]
+    async fn a_refused_connection_is_tried_again_until_the_retry_window_ends() {
+        let pool = pool(
+            REFUSING_POSTGRES,
+            1,
+            Duration::from_millis(250),
+            String::new(),
+            Duration::from_millis(400),
+        )
+        .unwrap();
+        let started = Instant::now();
+        let result = pool.get().await;
+        assert!(matches!(result, Err(PoolError::Backend(_))));
+        assert!(started.elapsed() >= Duration::from_millis(400));
+    }
+
+    #[tokio::test]
+    async fn a_pool_without_a_retry_window_fails_at_once() {
+        let pool = pool(
+            REFUSING_POSTGRES,
+            1,
+            Duration::from_millis(250),
+            String::new(),
+            Duration::ZERO,
+        )
+        .unwrap();
+        let started = Instant::now();
+        let result = pool.get().await;
+        assert!(matches!(result, Err(PoolError::Backend(_))));
+        assert!(started.elapsed() < Duration::from_millis(400));
     }
 }

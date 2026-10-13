@@ -37,6 +37,7 @@ async fn main() {
         1,
         Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
         qafiyah_api::db::accounts_setup(),
+        Duration::ZERO,
     ) {
         Ok(pool) => pool,
         Err(e) => {

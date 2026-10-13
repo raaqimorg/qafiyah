@@ -72,7 +72,7 @@ It replaces only the corpus database (`qafiyah`). It does not touch `qafiyah_acc
 1. It builds `api` and `search-indexer` from `origin/main`, while the old stack serves.
 2. It checks that the disk can hold a second copy of the corpus, and stops if not.
 3. It restores the dump into `qafiyah_next`, while the API keeps serving `qafiyah` (#322). The restore runs the scripts of the synced checkout, not the scripts that the container started with (#209).
-4. It swaps the two databases in one transaction, and drops the old one. Only the queries that run at that moment fail.
+4. It swaps the two databases in one transaction, and drops the old one. The queries that run at that moment fail. A request that needs a new connection waits through the swap (#330).
 5. It rolls the API to the new build, as a deploy does.
 6. It rebuilds Elasticsearch with the new indexer and an alias swap, while the API serves.
 7. It ends with the same public health check as the deploy.

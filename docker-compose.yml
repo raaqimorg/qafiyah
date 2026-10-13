@@ -139,6 +139,7 @@ services:
       OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
       SESSION_STATE_SECRET: ${SESSION_STATE_SECRET:-}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
+      BUN_CONFIG_DNS_TIME_TO_LIVE_SECONDS: "5"
     volumes:
       - web_assets:/var/lib/web-assets
     networks:

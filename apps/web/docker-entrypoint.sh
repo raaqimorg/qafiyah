@@ -23,6 +23,13 @@ fi
 
 HOST="${HOST:-127.0.0.1}" PORT="${SSR_PORT:-4321}" bun /app/apps/web/dist/server/entry.mjs &
 ssr=$!
+until nc -z 127.0.0.1 "${SSR_PORT:-4321}"; do
+  if ! kill -0 "$ssr" 2>/dev/null; then
+    echo "[web] the Astro server exited before it listened" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
 nginx -g 'daemon off;' &
 ngx=$!
 

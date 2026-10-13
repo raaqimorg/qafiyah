@@ -65,6 +65,8 @@ The web app is Astro with server-side rendering. Every route renders when it is 
 - The serve image is **fully non-root**: nginx and the Bun server both run as `nginx`, under `tini`.
 - nginx listens on `8080`, and the container has no host port. Only `edge-gateway` binds `127.0.0.1:80`, and it proxies to `web-edge:8080`.
 - The entrypoint runs both processes, and stops if either one dies. So `restart: unless-stopped` recovers a crash.
+- The entrypoint starts nginx only after the Bun server accepts connections. Docker DNS lists a new replica as soon as it starts, so an nginx that listened first answered 502 for its first requests (#331). Until nginx listens, the edge gets a refused connection and tries the other replica.
+- `BUN_CONFIG_DNS_TIME_TO_LIVE_SECONDS` is `5`, the same as the nginx resolvers. Bun keeps an answer for 30 seconds by default, and kept sending requests to a removed API replica after a rollout (#327). With no cache at all (`0`), a new web replica stalled under load.
 - To build only this image, run `docker compose build web`.
 
 Browser and server errors go to Sentry, and page views go to PostHog, only from builds that carry a release. `bun run deploy` builds with `SENTRY_RELEASE` set to the commit. The Dockerfile gives it to Astro as `PUBLIC_SENTRY_RELEASE`, which turns reporting on. Dev servers and local Docker builds have no release, so they never report to the production projects.

@@ -887,6 +887,7 @@ async fn a_read_that_finds_every_connection_busy_is_unavailable_not_a_database_e
         1,
         std::time::Duration::from_millis(200),
         qafiyah_api::db::corpus_setup(),
+        std::time::Duration::ZERO,
     )
     .expect("a one-connection pool");
     let held = pool.get().await.expect("the one connection");
@@ -909,6 +910,7 @@ async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
         1,
         std::time::Duration::from_secs(10),
         qafiyah_api::db::corpus_setup(),
+        std::time::Duration::ZERO,
     )
     .expect("a one-connection pool");
     let facets = qafiyah_api::domain::poems::Facets {

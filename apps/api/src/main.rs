@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use qafiyah_api::config::Config;
 use qafiyah_api::constants::{
-    PG_ACCOUNTS_POOL_MAX_CONNECTIONS, PG_ACQUIRE_TIMEOUT_SECONDS, PG_POOL_MAX_CONNECTIONS,
+    PG_ACCOUNTS_POOL_MAX_CONNECTIONS, PG_ACQUIRE_TIMEOUT_SECONDS, PG_CONNECT_RETRY_SECONDS,
+    PG_POOL_MAX_CONNECTIONS,
 };
 use qafiyah_api::es::client::Es;
 use qafiyah_api::sentry;
@@ -48,6 +49,7 @@ async fn serve(config: Config) {
         PG_POOL_MAX_CONNECTIONS,
         Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
         qafiyah_api::db::corpus_setup(),
+        Duration::from_secs(PG_CONNECT_RETRY_SECONDS),
     ) {
         Ok(pool) => pool,
         Err(e) => {
@@ -66,6 +68,7 @@ async fn serve(config: Config) {
         PG_ACCOUNTS_POOL_MAX_CONNECTIONS,
         Duration::from_secs(PG_ACQUIRE_TIMEOUT_SECONDS),
         qafiyah_api::db::accounts_setup(),
+        Duration::from_secs(PG_CONNECT_RETRY_SECONDS),
     ) {
         Ok(pool) => pool,
         Err(e) => {
