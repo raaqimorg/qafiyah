@@ -444,7 +444,7 @@ services:
     container_name: qafiyah-alloy
     restart: unless-stopped
     <<: *default-logging
-    mem_limit: 256m
+    mem_limit: 512m
     cpus: 0.5
     pids_limit: 128
     security_opt:

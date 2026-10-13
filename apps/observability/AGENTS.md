@@ -22,6 +22,7 @@ This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana s
   - It counts dropped lines for each service (`loki_process_dropped_lines_by_label_total`, on the Health dashboard). The metrics still count every request.
   - It also runs cAdvisor (CPU and memory only, against the limits of each container) and the node exporter (host CPU, memory, and disk). Prometheus scrapes them from `alloy:12345/api/v0/component/...`.
   - cAdvisor reads each container through the containerd socket (`/run/containerd/containerd.sock`). The server's Docker keeps its images in containerd, and without that socket cAdvisor sees only the host's root cgroup, with no container names (#321). On a host without the socket, Docker mounts an empty directory there, and cAdvisor reads the containers through Docker as before.
+  - Its `mem_limit` is 512 MB. The Alloy binary is 572 MB, and about 140 MB of its code is in memory beside an 80 MB heap, so 256 MB set off the container memory alert (#336).
   - The node exporter also reads `*.prom` files from `./.metrics` in the checkout, mounted read-only. Only the accounts backup writes there (`docs/deployment/services.md`, "Accounts database backups").
 - `grafana/provisioning/` holds the datasources and one dashboard provider.
   - The datasources are Prometheus (uid `prometheus`) and Loki (uid `loki`). The plugins in the pinned Grafana image serve them.
