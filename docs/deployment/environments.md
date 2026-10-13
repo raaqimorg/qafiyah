@@ -42,7 +42,7 @@ The patterns keep everything (`/*`), then leave out `/data/avatars/` and each ol
 
 At each release that ships a new dump, do these steps:
 
-1. Run `df -h /` on the server before `bun run db:reseed`. Elasticsearch builds the new index (about 1.1 GB) beside the old one, and refuses new shards above 90% disk.
+1. Run `df -h /` on the server before `bun run db:reseed`. The reseed restores the corpus (about 2.3 GB) beside the live one, and Elasticsearch then builds the new index (about 1.1 GB) beside the old one. The reseed refuses to start unless the disk stays under 90% with the second corpus on it, because Elasticsearch refuses new shards above 90%.
 2. After the release, add the dump folders older than the live one to the list, so they leave the disk.
 
 Add a folder to the list (here `0044_10_10_2026`, after a later dump is live):

@@ -21,10 +21,12 @@ This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana s
   - Loki has no retention by size, so this rate limits its disk. A continuous flood on three services stores about 130 MB a day, which is under 1 GB over the 7 days, at the measured compression of 6.6 times.
   - It counts dropped lines for each service (`loki_process_dropped_lines_by_label_total`, on the Health dashboard). The metrics still count every request.
   - It also runs cAdvisor (CPU and memory only, against the limits of each container) and the node exporter (host CPU, memory, and disk). Prometheus scrapes them from `alloy:12345/api/v0/component/...`.
+  - cAdvisor reads each container through the containerd socket (`/run/containerd/containerd.sock`). The server's Docker keeps its images in containerd, and without that socket cAdvisor sees only the host's root cgroup, with no container names (#321). On a host without the socket, Docker mounts an empty directory there, and cAdvisor reads the containers through Docker as before.
   - The node exporter also reads `*.prom` files from `./.metrics` in the checkout, mounted read-only. Only the accounts backup writes there (`docs/deployment/services.md`, "Accounts database backups").
 - `grafana/provisioning/` holds the datasources and one dashboard provider.
   - The datasources are Prometheus (uid `prometheus`) and Loki (uid `loki`). The plugins in the pinned Grafana image serve them.
   - `GF_PLUGINS_PREINSTALL_DISABLED` stops Grafana from installing plugins from grafana.com after it starts. Those installs registered these two plugins again, and their queries failed with 404 for some seconds (#198).
+  - `GF_LOG_FILTERS` raises the `plugin.prometheus` logger to warn. At info, it writes one line for every query of the alert scheduler: about 52,000 lines a day, and 10% of Loki's disk (#326). Failed queries still log.
   - The dashboard provider loads `grafana/dashboards/` into the `Qafiyah` folder on every start.
   - `alerting/` holds the alert rules, the Telegram contact point, and the notification policy (see "Alerts").
 - `grafana/dashboards/`: `latency.json`, `slow-queries.json`, `elasticsearch.json`, `health.json` (the home dashboard), `resources.json`, `edge.json`, and `logs.json`. Each one starts with a text panel that says what it measures and how to read it.
@@ -86,7 +88,7 @@ Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", throu
 - The latency targets are first guesses: 300 ms for the API outside `/v1/search`, 1 s for `/v1/search`, and 1 s for the website. Tune them in `grafana/provisioning/alerting/rules.yml` after some weeks of production data.
 - A rule whose query returns no data stays quiet. "Metrics pipeline down" is the alert for missing data.
 - **Credentials:** `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` exist only in `secrets/prod.enc.env`. The schema refuses them in dev. Without them, `docker-compose.yml` passes placeholders, so a dev or CI stack evaluates the rules but every send fails. Grafana logs Telegram's answer, never the token.
-- **Before a reseed:** the reseed stops the API for a few minutes, so silence the alerts first. Open Grafana (`bun run observe`), go to Alerting, then Silences, and add a silence on `severity =~ .+` for 30 minutes. Grafana keeps no volume, so a deploy that recreates it also drops its silences.
+- **To silence alerts** (for planned work that stops a service): open Grafana (`bun run observe`), go to Alerting, then Silences, and add a silence on `severity =~ .+`. Grafana keeps no volume, so a deploy that recreates it also drops its silences. A reseed needs no silence, because the API keeps serving (#322).
 - **If the group changes:** Telegram gives a group a new chat ID when it becomes a supergroup (for example, when topics are turned on). Alerts then stop. Read the new ID from the bot's `getUpdates`, and update `TELEGRAM_CHAT_ID` with `bun run secrets:edit prod`.
 
 ## Tests
@@ -104,7 +106,7 @@ Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", throu
 
 ## Security and privacy
 
-- Alloy mounts the Docker socket and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker`, all read-only. It also joins the host's cgroup namespace. This is how it reads the logs and stats of every container. So an attacker who takes over Alloy would have the equivalent of root on the host. Alloy publishes no port, and is only on the `observability` network.
+- Alloy mounts the Docker socket, the containerd socket, and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker`, all read-only. It also joins the host's cgroup namespace. This is how it reads the logs and stats of every container. So an attacker who takes over Alloy would have the equivalent of root on the host. Alloy publishes no port, and is only on the `observability` network.
 - Loki keeps visitor addresses, request URIs, and search text for 7 days. Docker's own rotation keeps them only up to 30 MB of lines for each container. Grafana is reachable only through the tunnel, behind its sign-in.
 
 ## Known limits

@@ -50,7 +50,7 @@ The trade-offs: there is no public port to fall back on, so if the tunnel is dow
 The last eight containers are the private observability stack (`apps/observability/AGENTS.md`). To open it, run `bun run observe`. It forwards a port over the existing SSH connection, which goes through the tunnel.
 
 - **The database seeds itself** on the first boot, from the newest dump in `data/db/`. This happens only when the data volume is empty.
-  - In production, `bun run db:reseed` forces a restore. It recreates the database container from the synced checkout, and runs the same restore script in it. In dev, `bun run db:reset` forces a restore.
+  - In production, `bun run db:reseed` forces a restore. It restores the dump into a second database beside the live one, with the restore script of the synced checkout, then swaps the two in one transaction (`scripts/db/restore-and-swap.sh`). In dev, `bun run db:reset` forces a restore.
   - After a restore, the script renames the running container to `<container>-<dump-number>` (for example, `qafiyah-db-0019`). So `docker ps` shows which dump is live.
   - `container_name` in the Compose files does not change. Compose keeps track of the container by its own labels.
 - **`search-indexer`** is a one-shot init job. To force a reindex, see `apps/search-indexer/AGENTS.md` and `docs/deployment/services.md`.
@@ -76,7 +76,7 @@ docker compose build api web search-indexer                     # build on the h
 docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway \
   db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter \
   prometheus loki alloy grafana                                 # update the services that are not rolled
-# then a rolling replace of api, then web (see rollout() in scripts/deploy/vps.sh):
+# then a rolling replace of api, then web (see rollout() in scripts/lib/rollout.sh):
 #   docker compose up -d --no-deps --no-recreate --scale api=2 api   # add a new replica
 #   <wait until the new replica's healthcheck passes>                # the old one keeps serving
 #   docker stop/rm <old api id>                                      # remove the old one
@@ -97,13 +97,13 @@ Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) does a 
 
 After that, the script caps the Docker **build cache** at about 5 GB. It keeps the recent layers, so the next builds stay fast. It then prints a one-line summary of what else can be removed. This is the **only** thing that a deploy ever deletes, and it deletes only build cache. It never deletes images in use, containers, or named volumes, and it never touches the database or Elasticsearch data. To remove the rest by hand, run `docker system prune`, which also keeps the volumes. It also removes stopped containers, including the finished one-shot jobs.
 
-**Zero downtime.** The `rollout()` helper in `scripts/deploy/vps.sh` needs no plugin. It works like this:
+**Zero downtime.** The `rollout()` helper in `scripts/lib/rollout.sh` needs no plugin. `bun run deploy` rolls `api` and `web` with it, and `bun run db:reseed` rolls `api` after its database swap. It works like this:
 
 1. It doubles the `web` or `api` replicas on the new image.
 2. It waits until the new replicas pass their healthcheck.
 3. It removes the old replicas by id.
 
-For the overlap to serve traffic, both nginx hops look up their upstream for each request, instead of keeping the IP from startup. The edge gateway proxies `web-edge:8080` through an nginx variable (`apps/edge-gateway/proxy_backend.conf.template`, mounted over the image's template). The web nginx proxies `api-backend:8787` the same way (`apps/web/nginx.conf`). Both use `resolver 127.0.0.11 valid=5s`.
+For the overlap to serve traffic, both nginx hops look up their upstream for each request, instead of keeping the IP from startup. The edge gateway proxies `web-edge:8080` through an nginx variable (`apps/edge-gateway/proxy_backend.conf.template`, mounted over the image's template). The web nginx proxies `api-backend:8787` the same way (`apps/web/nginx.conf`). Both use `resolver 127.0.0.11 valid=5s`. For up to 5 seconds after a rollout removes a replica, they can still pick its IP. So both use a connect timeout of 2 seconds, and try the request once more on the live replica (#323).
 
 Because the rollout scales `web` and `api`, they have **no `container_name`**. Their replicas are `qafiyah-web-2` and so on, so address them by service name. They also have **no host port**; they only `expose` one.
 
@@ -128,7 +128,7 @@ The volumes persist, and a failed build leaves the running stack as it was. **Bu
   - Swap prevents out-of-memory failures during builds and in Elasticsearch and Postgres.
 - Every service has a `mem_limit`, `cpus`, and `pids_limit` in `docker-compose.yml`. Elasticsearch and Postgres also have a `mem_reservation`. The limits fit the server: 4 vCPUs and 8 GB of RAM, measured on 2026-10-05. So a leak or a fork storm in one container cannot bring down the whole host. `api` and `search-indexer` also run with `read_only: true`.
 - Base images are pinned by tag, not by digest, on purpose. Floating `-alpine` tags pick up security patches of the base OS on each rebuild. The application dependencies are locked by `--locked` (Rust) and `--frozen-lockfile` (Bun). When a specific base revision matters, change the tag explicitly.
-- Alloy mounts the Docker socket and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker`, all read-only, to read every container's logs and stats.
+- Alloy mounts the Docker socket, the containerd socket, and the host's `/`, `/proc`, `/sys`, and `/var/lib/docker`, all read-only, to read every container's logs and stats.
   - So if an attacker takes over Alloy, they have the equivalent of root. Alloy publishes no port, and joins only the `observability` network.
   - Loki keeps visitor addresses, request URIs, and search text for 7 days.
   - Alloy ships at most 10 lines a second for each service, beyond a burst of 2,000. So a flood of requests keeps Loki under about 1 GB.

@@ -1,4 +1,4 @@
-import { API_URL } from '@/lib/constants/config';
+import { API_URL, SITE_URL } from '@/lib/constants/config';
 import { canonicalPoetFilters } from '@/lib/poet-filters';
 import { API_V1_PREFIX, CDN_URL } from '@qafiyah/config';
 
@@ -36,6 +36,10 @@ export function retryUrl(originPathname: string, url: URL): string {
   return `${originPathname}${url.search}`;
 }
 
+function encodedPath(path: string): string {
+  return new URL(path, SITE_URL).pathname;
+}
+
 function withPage(path: string, page?: number): string {
   return page !== undefined && page > 1 ? `${path}?page=${page}` : path;
 }
@@ -45,7 +49,7 @@ export function taxonomyIndexUrl(section: TaxonomySection): string {
 }
 
 export function taxonomyUrl(section: TaxonomySection, slug: string, page?: number): string {
-  return withPage(`/${section}/${slug}`, page);
+  return withPage(encodedPath(`/${section}/${slug}`), page);
 }
 
 export function poetsUrl(opts?: {
@@ -80,7 +84,8 @@ export function poetUrl(slug: string, opts?: PoetUrlOptions): string {
   }
   if (opts?.page !== undefined && opts.page > 1) params.set('page', String(opts.page));
   const query = params.toString();
-  return query === '' ? `/poets/${slug}` : `/poets/${slug}?${query}`;
+  const path = encodedPath(`/poets/${slug}`);
+  return query === '' ? path : `${path}?${query}`;
 }
 
 export function poetAvatarUrl(slug: string): string {

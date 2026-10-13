@@ -93,6 +93,7 @@ nginx also does these things:
 - It sets the baseline security headers.
 - It compresses text with gzip.
 - It serves `/_astro/` as immutable.
+- It keeps the `/_astro/` files of every build from the last 7 days in the `qafiyah-web-assets` volume. When the current build does not have a file, nginx serves it from there. So a page that a browser kept from before a deploy still loads its scripts (#324). `apps/web/docker-entrypoint.sh` copies each build in when the container starts, and deletes the files that no build has used for 7 days.
 
 **The nginx cache key** keeps the query string only where the page reads one:
 
@@ -121,7 +122,7 @@ The second rule applies to `cdn.qafiyah.com`, because R2 sends no `Cache-Control
 - It keeps an avatar at the edge for 30 days, and tells the browser to keep it for 1 day.
 - The browser time is short because a purge cannot reach a browser. A replaced avatar shows within a day.
 
-Cached pages refer to the build's hashed `/_astro/` scripts, and the next deploy removes those scripts. So `bun run deploy` purges the whole Cloudflare cache after the new containers pass the edge check. It uses `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` from the production secrets. That token can only purge the cache of the `qafiyah.com` zone, which includes the avatars on `cdn.qafiyah.com`. If the purge fails, the deploy exits with an error and shows Cloudflare's response. Then purge everything in the dashboard by hand, before you do anything else.
+Pages that Cloudflare cached before a deploy show the previous build, with its inline styles and its scripts. So `bun run deploy` purges the whole Cloudflare cache after the new containers pass the edge check. It uses `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` from the production secrets. That token can only purge the cache of the `qafiyah.com` zone, which includes the avatars on `cdn.qafiyah.com`. If the purge fails, the deploy exits with an error and shows Cloudflare's response. Then purge everything in the dashboard by hand, before you do anything else.
 
 **The zone's Managed Transforms** (dashboard, Rules > Settings) are set for this origin:
 
@@ -213,10 +214,10 @@ So the node serves normal traffic normally after a restart. Only a burst on a co
 Prometheus, Loki, Alloy, Grafana, postgres_exporter, elasticsearch_exporter, blackbox_exporter, and the one-shot `db-monitor-role` job run in the same Compose stack. `bun run deploy` updates them together with `db` and `elasticsearch`. What each dashboard shows, and how to read it, is in `apps/observability/AGENTS.md`.
 
 - **To open it:** run `bun run observe` on your laptop. It forwards `127.0.0.1:3301` to Grafana's `127.0.0.1:3000` on the VPS. Sign in as `admin` with `GRAFANA_ADMIN_PASSWORD`; the script prints the `sops` command that reads it. Grafana keeps no volume. So a deploy that recreates it (a new image or a changed configuration) asks for the sign-in again. Other deploys leave it running.
-- **Alerts:** Grafana sends alerts to the Telegram group "Qafiyah Alerts". `apps/observability/AGENTS.md` ("Alerts") lists them, and says how to silence them before a reseed.
+- **Alerts:** Grafana sends alerts to the Telegram group "Qafiyah Alerts". `apps/observability/AGENTS.md` ("Alerts") lists them, and says how to silence them.
 - **To restart it:** run `docker compose restart prometheus loki alloy grafana`. Neither the API nor the website waits for them. If Prometheus or Loki is down, there are only gaps in the graphs and the log views. Docker keeps writing its own rotated log files in either case.
 - **Monitor credentials:**
-  - `db-monitor-role` sets `PG_MONITOR_PASSWORD` on the `qafiyah_monitor` Postgres role on every `up`. `bun run db:reseed` also sets it right after its restore, which recreates the `public` schema and its grants.
+  - `db-monitor-role` sets `PG_MONITOR_PASSWORD` on the `qafiyah_monitor` Postgres role on every `up`. `bun run db:reseed` also sets it on the new database, before it swaps that database in.
   - The search indexer sets `ES_MONITOR_PASSWORD` on the Elasticsearch monitor user on every run.
   - A change to either one in `secrets/prod.enc.env` takes effect on the next deploy.
 - **Disk:**

@@ -43,7 +43,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - worktree isolation, and the `CLAUDE.md` and `GEMINI.md` symlinks
   - a rate-limit probe, and the runner for the database-backed API and indexer tests
 - `db/` holds these parts:
-  - the dump lifecycle: resolve and decrypt, restore (on the first boot, and in place by `db:reseed`), split, encrypt, the fallback sample, and the before and after state diffs
+  - the dump lifecycle: resolve and decrypt, restore (on the first boot, and beside the live database by `db:reseed`, which then swaps it in), split, encrypt, the fallback sample, and the before and after state diffs
   - `diesel-schema.ts`, which writes the Diesel schemas (`crates/corpus`, and the API's accounts) from the dev databases
   - `sql/`: the refresh functions and the sample query
 
