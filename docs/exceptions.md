@@ -341,12 +341,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** the stretched-link pattern: the title `<a>` gets `after:absolute after:inset-0`, and nested links are raised with `relative z-10`.
 - **Status:** Needs review
 
-### The account control is mounted twice, and each copy fetches separately
+### The account control is mounted twice, and the two copies share one session request
 
-- **What:** the nav renders `<AccountControl client:load compact />` and `<AccountControl client:load />` as separate React roots. Each fetches `/api/me` and may re-encode the avatar into localStorage.
-- **Where:** `apps/web/src/components/layout/nav.astro`, `apps/web/src/components/layout/account-control.tsx`
-- **Why it's unusual:** every page makes two identical session requests, and the two copies race on the same localStorage key. The approved viewer-init entry covers the pre-paint mechanism, not the double mount.
-- **Normal approach:** one island styled responsively, or one shared fetch.
+- **What:** the nav renders `<AccountControl client:load compact />` and `<AccountControl client:load />` as separate React roots. Both call `loadViewer()` from `lib/viewer-session.ts`, which sends one `/api/me` request for the page and gives both the same result. So the hint cookie, the cached viewer, and the avatar are written once.
+- **Where:** `apps/web/src/components/layout/nav.astro`, `apps/web/src/components/layout/account-control.tsx`, `apps/web/src/lib/viewer-session.ts`
+- **Why it's unusual:** one control is two islands, and they share the request through a module-level promise. The promise lasts one page, because the site has no client-side router. A signed-out visitor still sends the request: when the accounts API fails, `/api/me` answers 204 and the hint cookie is cleared, so only the request on the next page can bring the control back.
+- **Normal approach:** one island styled responsively.
 - **Status:** Needs review
 
 ### An explicit `?page=1` returns 404
