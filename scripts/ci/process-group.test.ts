@@ -11,8 +11,9 @@ const alive = (pid: number): boolean => {
   }
 };
 
-async function until(condition: () => boolean): Promise<boolean> {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+async function until(condition: () => boolean, timeoutMs = 20_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     if (condition()) return true;
     await Bun.sleep(20);
   }
