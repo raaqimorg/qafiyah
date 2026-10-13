@@ -138,7 +138,7 @@ Two other workflows run on pull requests:
 
 **Docker images build on demand** (`.github/workflows/images.yml`, `workflow_dispatch`). There is one matrix job for each service. The jobs only build; nothing goes to a registry. Locally, `bun run build:images` builds the same images alone, and `bun run ci` builds them as part of the stack smoke.
 
-**Work merges into the open version branch, and a release merges that branch into `main`** (`docs/pull-requests.md`, "Versions and releases"). **A merge into `main` does not deploy.** The production deploy is a separate, manual, ordered step: `bun run deploy`, with the runbook in `.claude/skills/deploy/SKILL.md`. It refuses a commit whose CI run on `main` did not pass. It connects to the VPS over SSH, builds the images from source there, and replaces `api` and `web` with zero downtime. See `docs/deployment/README.md`.
+**Work merges into the open version branch, and a release merges that branch into `main`** (`docs/pull-requests.md`, "Versions and releases"). **A merge into `main` does not deploy.** The production deploy is a separate, manual, ordered step: `bun run deploy`, with the runbook in `.claude/skills/deploy/SKILL.md`. It refuses a commit whose CI run on `main` did not pass. After a release, the release pull request's passed run counts, because it tested the same files. It connects to the VPS over SSH, builds the images from source there, and replaces `api` and `web` with zero downtime. See `docs/deployment/README.md`.
 
 ## External services
 

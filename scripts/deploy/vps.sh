@@ -8,18 +8,39 @@ refuse() {
   exit 1
 }
 
+release_run_with_same_files() {
+  local tree sha
+  tree="$(git rev-parse "${target_sha}^{tree}")"
+  while read -r sha; do
+    if [[ "$(git rev-parse --quiet --verify "${sha}^{tree}" 2>/dev/null || true)" == "${tree}" ]]; then
+      echo "${sha}"
+      return 0
+    fi
+  done < <(gh run list --workflow ci.yml --event pull_request --status success --limit 50 \
+    --json headSha,headBranch --jq '.[] | select(.headBranch | test("^v[0-9]+$")) | .headSha' 2>/dev/null || true)
+  return 1
+}
+
 if [[ "${1:-}" == --skip-ci-check ]]; then
   echo "⚠ skipping the GitHub CI check, deploying origin/main unverified"
 else
   command -v gh >/dev/null || refuse "the GitHub CLI (gh) is needed to confirm CI passed; pass --skip-ci-check to deploy anyway"
-  target_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+  git fetch --quiet origin
+  target_sha="$(git rev-parse origin/main)"
   ci_state="$(gh run list --workflow ci.yml --commit "${target_sha}" --event push --limit 1 \
     --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
   case "${ci_state}" in
     "completed success") echo "✓ GitHub CI passed for ${target_sha:0:7}" ;;
-    "" | "null null") refuse "no GitHub CI run found for origin/main (${target_sha:0:7}); push first and let it run" ;;
     completed*) refuse "GitHub CI did not pass for ${target_sha:0:7} (${ci_state#completed }); fix main before deploying" ;;
-    *) refuse "GitHub CI is still running for ${target_sha:0:7}; deploy once it passes (gh run watch)" ;;
+    *)
+      if tested_sha="$(release_run_with_same_files)"; then
+        echo "✓ GitHub CI passed for the release pull request at ${tested_sha:0:7}, which has the same files as ${target_sha:0:7}"
+      elif [[ "${ci_state}" == "" || "${ci_state}" == "null null" ]]; then
+        refuse "no GitHub CI run found for origin/main (${target_sha:0:7}); push first and let it run"
+      else
+        refuse "GitHub CI is still running for ${target_sha:0:7}; deploy once it passes (gh run watch)"
+      fi
+      ;;
   esac
 fi
 

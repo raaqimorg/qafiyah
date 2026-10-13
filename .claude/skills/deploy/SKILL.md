@@ -17,7 +17,7 @@ In every other case, release the open version (`vN`) before you deploy. Follow "
 
 1. Write `docs/changelog/vN.md`.
 2. Merge the release pull request into `main` with a merge commit.
-3. Let CI pass.
+3. Deploy. The release pull request's CI run already tested the same files, so the deploy does not wait for the CI run on `main`.
 
 After the deploy, delete `vN`, and open `v<N+1>` from `main`.
 
@@ -29,7 +29,7 @@ This covers every container in `docker-compose.yml`: the site, the data stores, 
 bun run deploy        # scripts/deploy/vps.sh
 ```
 
-1. It checks that the GitHub CI run for `origin/main` passed. If the run is still going, failed, or never ran, it stops. In an emergency, `bun run deploy --skip-ci-check` skips this check.
+1. It checks that the GitHub CI run for `origin/main` passed. If that run failed, it stops. If that run is still going or never ran, it accepts a passed CI run of a release pull request (head branch `vN`) whose commit has exactly the same files as `origin/main`; otherwise it stops. In an emergency, `bun run deploy --skip-ci-check` skips this check.
 2. It builds, then replaces `api` and `web` with zero downtime.
 3. It runs the edge smoke gate.
 4. It purges the Cloudflare cache. If the purge fails, the deploy exits with an error. Then purge everything in the Cloudflare dashboard at once.
