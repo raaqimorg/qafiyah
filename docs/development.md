@@ -172,3 +172,4 @@ The hooks also run `scripts/check/forbidden-terms.sh`, an optional guard against
 - **Port already in use:** run `bun run clean` to stop leftover `astro` and `qafiyah-api` processes from an earlier run, then try again.
 - **Docker not running:** start Docker Desktop or OrbStack. `dev` and `ci` both check for Docker first, and stop with a clear message if it is not running.
 - **"Postgres unreachable" warning during preflight:** run `bun run db:up`.
+- **Script tests time out, often while `cargo test` runs:** an endpoint security agent with application control can hold each new process for 5 to 12 seconds while it checks newly built binaries. The script tests launch `git` and shell scripts, so `bun run test:scripts` allows each test 30 seconds. If a test still times out, measure how long `git --version` takes while `cargo test --workspace` runs.

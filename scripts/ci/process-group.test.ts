@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 
 import { killGroup, spawnGroup } from './process-group';
 
@@ -45,5 +45,15 @@ describe('killGroup', () => {
     const task = spawnGroup(['true'], import.meta.dir);
     await task.exited;
     expect(() => killGroup(task.pid)).not.toThrow();
+  });
+
+  test('does nothing when the group has only exited members, which macOS answers with EPERM', () => {
+    const kill = spyOn(process, 'kill').mockImplementation(() => {
+      throw Object.assign(new Error('kill() failed: EPERM: Operation not permitted'), {
+        code: 'EPERM',
+      });
+    });
+    expect(() => killGroup(1234)).not.toThrow();
+    kill.mockRestore();
   });
 });

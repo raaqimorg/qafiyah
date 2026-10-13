@@ -69,7 +69,7 @@
     "smoke:stack": "bun scripts/smoke/run.ts stack",
     "smoke:prod": "bun scripts/smoke/run.ts prod",
     "test": "turbo run test",
-    "test:scripts": "bun test scripts",
+    "test:scripts": "bun test --timeout 30000 scripts",
     "types": "turbo run types",
     "types:scripts": "tsc -p scripts/tsconfig.json",
     "up": "./scripts/dev/compose.sh up -d --build",

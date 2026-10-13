@@ -6,6 +6,7 @@ export function killGroup(pid: number): void {
   try {
     process.kill(-pid, 'SIGTERM');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ESRCH' && code !== 'EPERM') throw error;
   }
 }
