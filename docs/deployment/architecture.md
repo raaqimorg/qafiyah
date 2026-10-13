@@ -76,6 +76,9 @@ docker compose build api web search-indexer                     # build on the h
 docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway \
   db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter \
   prometheus loki alloy grafana                                 # update the services that are not rolled
+# then, for each mounted configuration file that changed since the last deploy (refs/deployed):
+#   the edge template: rendered again inside the running edge-gateway, then nginx -t and nginx -s reload
+#   prometheus.yml, loki.yml, config.alloy, grafana/: docker compose up -d --no-deps --force-recreate <service>
 # then a rolling replace of api, then web (see rollout() in scripts/lib/rollout.sh):
 #   docker compose up -d --no-deps --no-recreate --scale api=2 api   # add a new replica
 #   <wait until the new replica's healthcheck passes>                # the old one keeps serving
@@ -107,7 +110,13 @@ For the overlap to serve traffic, both nginx hops look up their upstream for eac
 
 Because the rollout scales `web` and `api`, they have **no `container_name`**. Their replicas are `qafiyah-web-2` and so on, so address them by service name. They also have **no host port**; they only `expose` one.
 
-The rollout is **fail-safe**. The old replica stops only after the new one is healthy. So a bad build stops the deploy while the old container still serves. The stateful and init services (`db`, `elasticsearch`, `search-indexer`) and the `edge-gateway` are updated in place. The `edge-gateway` is recreated, with a short interruption, only on a deploy that changes its configuration.
+The rollout is **fail-safe**. The old replica stops only after the new one is healthy. So a bad build stops the deploy while the old container still serves. The stateful and init services (`db`, `elasticsearch`, `search-indexer`) and the `edge-gateway` are updated in place. The `edge-gateway` is never recreated by a deploy, unless its Compose configuration changes. A recreate takes the edge down for about 20 seconds, while the old container waits for its open connections.
+
+**Mounted configuration files.** A running container keeps the old copy of a single mounted file after `git reset --hard` replaces it, and `docker compose up` does not notice a change in its contents. So the deploy compares the deployed commit (the git ref `refs/deployed` on the server, which it moves after each successful deploy) with the new one (#338):
+
+- A changed edge template is applied in the running `edge-gateway` with the image's own rendering scripts, then `nginx -t` and a graceful `nginx -s reload`, so traffic does not stop. If `nginx -t` fails, the old rendered file goes back, and the deploy stops.
+- A changed `prometheus.yml`, `loki.yml`, `config.alloy`, or Grafana provisioning recreates that service. None of them serves visitors.
+- `db` is never recreated this way. Its restore scripts run only on the first boot, and `db:reseed` pipes in the current one.
 
 **Rate limits are counted in each process, so a rollout briefly doubles them.** The limiter is an in-memory map in each `api` container (`apps/api/src/rate_limit.rs`).
 

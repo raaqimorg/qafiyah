@@ -12,6 +12,8 @@ This directory is configuration only, with no code and no build. The production 
 3. `proxy_next_upstream error timeout; proxy_next_upstream_tries 2;` tries a request again once, when the connection to the web container fails or times out. nginx never tries again a request that is not idempotent, such as a POST, after it was sent.
 4. `proxy_connect_timeout` is 2s, not the stock 60s. A connect on the Docker network takes less than a millisecond. During a web rollout, nginx can still pick the removed replica's IP for up to 5 seconds (the resolver's `valid=5s`), and nothing answers there. With 60s, those requests waited a full minute before the retry (#323). The web nginx uses the same 2s for its connection to the API.
 
+A deploy applies a changed template without stopping traffic: it renders the template again in the running container, and reloads nginx (#338).
+
 When you change the image tag in `docker-compose.yml`, copy the file again from the running container, and apply those four changes again:
 
 ```bash

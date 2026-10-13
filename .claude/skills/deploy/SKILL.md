@@ -30,7 +30,7 @@ bun run deploy        # scripts/deploy/vps.sh
 ```
 
 1. It checks that the GitHub CI run for `origin/main` passed. If that run failed, it stops. If that run is still going or never ran, it accepts a passed CI run of a release pull request (head branch `vN`) whose commit has exactly the same files as `origin/main`; otherwise it stops. In an emergency, `bun run deploy --skip-ci-check` skips this check.
-2. It builds, then replaces `api` and `web` with zero downtime.
+2. It builds, then replaces `api` and `web` with zero downtime. It applies the mounted configuration files that changed since the last deploy: the edge template with a graceful nginx reload, and the observability files by recreating their service (`docs/deployment/architecture.md`).
 3. It runs the edge smoke gate.
 4. It purges the Cloudflare cache. If the purge fails, the deploy exits with an error. Then purge everything in the Cloudflare dashboard at once.
 5. It prunes the build cache.

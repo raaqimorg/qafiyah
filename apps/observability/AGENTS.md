@@ -116,4 +116,4 @@ Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", throu
 - nginx measures time in milliseconds, so a cache hit often reads 0.
 - Counts over a window are estimates, from Prometheus `increase()` and Loki `count_over_time`. `increase()` extrapolates to the edges of the window, so a short burst can read a few percent high.
 - Prometheus 3.15 still marks `created-timestamp-zero-ingestion` as experimental.
-- Grafana keeps no volume. It provisions its datasources and dashboards on every start. A recreated container (a deploy that changes Grafana's image or configuration) asks for the sign-in again. A plain restart, or a deploy with no change to Grafana, keeps the session.
+- Grafana keeps no volume. It provisions its datasources and dashboards on every start. A recreated container (a deploy that changes Grafana's image, its Compose configuration, or a file under `grafana/`) asks for the sign-in again. A deploy also recreates Prometheus, Loki, or Alloy when its configuration file changes (#338). A plain restart, or a deploy with no change to Grafana, keeps the session.
