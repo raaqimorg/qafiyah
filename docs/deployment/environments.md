@@ -2,7 +2,7 @@
 
 ## Prerequisites (VPS)
 
-1. **Docker and Docker Compose**, with the repo at `/opt/qafiyah` in a sparse checkout (see "The server checkout" below).
+1. **Docker and Docker Compose 5.2.0**, with the repo at `/opt/qafiyah` in a sparse checkout (see "The server checkout" below). The Docker jobs in `ci.yml` and `images.yml` install the same Compose version, so CI builds the images the way the server does. When you upgrade Compose on the server, change the version in both workflows and here.
 2. **sops, age, and the VPS age key.** See `docs/deployment/secrets.md`. Every deploy generates the root `.env` from `secrets/prod.enc.env`. Compose loads that file automatically for `${VAR}`. Never edit it on the server.
 3. **A Cloudflare Tunnel** (or an equivalent) for ingress and TLS. It reaches the gateway over loopback: both hosts go to `127.0.0.1:80`, and nginx routes by `Host`.
 

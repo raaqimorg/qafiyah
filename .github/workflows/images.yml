@@ -48,6 +48,11 @@ jobs:
         with:
           bun-version: 1.4.2
 
+      - name: Install the Docker Compose version that the server runs
+        uses: docker/setup-compose-action@54042514f505b273907334ae2b9cdbb9a0213c1a # v2.4.0
+        with:
+          version: v5.2.0
+
       - name: Free disk space
         run: |
           avail=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
