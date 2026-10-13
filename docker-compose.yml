@@ -69,6 +69,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      network: host
     restart: unless-stopped
     stop_grace_period: 30s
     <<: *default-logging
@@ -111,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      network: host
       secrets:
         - sentry_auth_token
       args:
@@ -218,6 +220,7 @@ services:
     build:
       context: .
       dockerfile: apps/search-indexer/Dockerfile
+      network: host
     container_name: qafiyah-search-indexer
     restart: "no"
     <<: *default-logging

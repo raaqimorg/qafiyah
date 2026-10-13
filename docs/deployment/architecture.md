@@ -72,7 +72,7 @@ The deploy uploads its steps over SSH to a temporary file on the host. It runs t
 ```bash
 git fetch --depth 1 origin main
 git reset --hard FETCH_HEAD
-docker compose build api web search-indexer                     # build; the old stack keeps serving
+docker compose build api web search-indexer                     # build on the host network; the old stack keeps serving
 docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway \
   db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter \
   prometheus loki alloy grafana                                 # update the services that are not rolled
@@ -85,6 +85,8 @@ curl -fsS -H 'Host: api.qafiyah.com' 'http://127.0.0.1:80/v1/poems/random?option
 docker compose ps
 docker builder prune -f --max-used-space 5GB   # cap the build cache so that it cannot fill the disk
 ```
+
+The three images build on the host network (`network: host` under `build:` in `docker-compose.yml`). On the default build network, a build step gets the server's upstream DNS servers with the two IPv6 servers first, but it has no IPv6 route. musl reads only the first three servers, so one IPv4 server had to answer every `apk add`, and builds failed at random with "DNS: transient error" (#261). On the host network, build steps use the server's own resolver.
 
 Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) does a final check:
 

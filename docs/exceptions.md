@@ -963,3 +963,13 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Why:** `-D warnings` does not reach cargo's warnings, and rustup ignores unknown keys silently. `clippy.toml` needs neither, since clippy errors on an unknown key.
 - **Normal approach:** `cargo clippy -- -D warnings` alone.
 - **Date:** 2026-09-24
+
+## Deployment (`docker-compose.yml`)
+
+### Images build on the host network
+
+- **What:** `api`, `web`, and `search-indexer` set `network: host` under `build:`, so their build steps use the host's network and DNS resolver.
+- **Where:** `docker-compose.yml`, `docs/deployment/architecture.md`
+- **Why:** on the default build network, a build step on the server gets the upstream DNS servers with the two IPv6 servers first and no IPv6 route. musl reads only the first three, so `apk add` failed at random with "DNS: transient error" (#261). Build steps run only this repo's Dockerfiles.
+- **Normal approach:** the default build network, with `"dns"` in `/etc/docker/daemon.json` when the host's resolver does not suit containers. That needs a Docker restart, which stops every container, and it lives outside the repo.
+- **Date:** 2026-10-13
