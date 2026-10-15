@@ -885,7 +885,7 @@ async fn a_read_that_finds_every_connection_busy_is_unavailable_not_a_database_e
     let pool = qafiyah_api::db::pool(
         &url,
         1,
-        std::time::Duration::from_millis(200),
+        std::time::Duration::from_secs(2),
         qafiyah_api::db::corpus_setup(),
         std::time::Duration::ZERO,
     )
