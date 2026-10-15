@@ -9,6 +9,7 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   '.husky',
   '.next',
   '.turbo',
+  '.worktrees',
   '.wrangler',
   'build',
   'coverage',
