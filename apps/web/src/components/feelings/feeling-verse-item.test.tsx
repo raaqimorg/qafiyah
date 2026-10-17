@@ -20,10 +20,10 @@ const verse = (overrides: Partial<FeelingVerseRow>): FeelingVerseRow => ({
 const render = (row: FeelingVerseRow) => renderToStaticMarkup(<FeelingVerseItem verse={row} />);
 
 describe('FeelingVerseItem', () => {
-  it('names the poet and the era under the verse, and not the poem title', () => {
+  it('names the poet under the verse, and not the era or the poem title', () => {
     const html = render(verse({}));
     expect(html).toContain('البحتري');
-    expect(html).toContain('عباسي');
+    expect(html).not.toContain('عباسي');
     expect(html).not.toContain('أجدر وأخلق أن ترن عوائدي');
   });
 
