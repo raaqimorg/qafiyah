@@ -6,8 +6,6 @@ use crate::constants::{
 use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send};
 
-const INTENT: &str = "https://x.com/intent/tweet?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK";
-
 async fn es() -> FakeEs {
     FakeEs::serving(StatusCode::OK, empty_hits()).await
 }
@@ -32,28 +30,68 @@ async fn every_fixed_go_link_is_an_uncached_redirect() {
 }
 
 #[tokio::test]
-async fn the_share_link_wraps_a_poem_path_into_the_intent_url() {
+async fn every_share_route_redirects_to_its_network_intent_url() {
     let es = es().await;
-    let sent = send(
-        app_with(&es),
-        request("GET", "/v1/go/x-share?path=/poems/TnKK"),
-    )
-    .await;
-    assert_eq!(sent.status, StatusCode::FOUND);
-    assert_eq!(sent.header("location"), Some(INTENT));
-    assert_eq!(sent.header("cache-control"), Some("no-store"));
+    for (path, target) in [
+        (
+            "/v1/go/x-share?path=/poems/TnKK",
+            "https://x.com/intent/tweet?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+        (
+            "/v1/go/facebook-share?path=/poems/TnKK",
+            "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+        (
+            "/v1/go/whatsapp-share?path=/poems/TnKK",
+            "https://wa.me/?text=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+        (
+            "/v1/go/telegram-share?path=/poems/TnKK",
+            "https://t.me/share/url?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+        (
+            "/v1/go/reddit-share?path=/poems/TnKK",
+            "https://www.reddit.com/submit?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+        (
+            "/v1/go/linkedin-share?path=/poems/TnKK",
+            "https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK",
+        ),
+    ] {
+        let sent = send(app_with(&es), request("GET", path)).await;
+        assert_eq!(sent.status, StatusCode::FOUND, "{path}");
+        assert_eq!(sent.header("location"), Some(target), "{path}");
+        assert_eq!(sent.header("cache-control"), Some("no-store"), "{path}");
+        assert!(sent.body.is_empty());
+    }
 }
 
 #[tokio::test]
-async fn the_share_link_refuses_anything_but_a_poem_path() {
+async fn the_share_link_wraps_a_poet_path_into_the_intent_url() {
+    let es = es().await;
+    let sent = send(
+        app_with(&es),
+        request("GET", "/v1/go/x-share?path=/poets/mutanabbi"),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::FOUND);
+    assert_eq!(
+        sent.header("location"),
+        Some("https://x.com/intent/tweet?url=https%3A%2F%2Fqafiyah.com%2Fpoets%2Fmutanabbi")
+    );
+}
+
+#[tokio::test]
+async fn the_share_link_refuses_anything_but_a_page_path() {
     let es = es().await;
     for query in [
         "",
         "path=",
-        "path=/poets/TnKK",
         "path=//evil.test/poems/TnKK",
         "path=https://evil.test/poems/TnKK",
         "path=/poems/a/b",
+        "path=/poets/a/b",
+        "path=/about",
     ] {
         let sent = send(
             app_with(&es),
@@ -65,7 +103,7 @@ async fn the_share_link_refuses_anything_but_a_poem_path() {
         assert_eq!(body["code"], "BAD_REQUEST");
         assert_eq!(
             body["detail"],
-            "Invalid or missing ?path (expected an internal /poems/<slug> path)"
+            "Invalid or missing ?path (expected an internal /poems/<slug> or /poets/<slug> path)"
         );
     }
 }
@@ -79,7 +117,10 @@ async fn the_share_link_drops_a_query_or_fragment_from_the_path() {
     )
     .await;
     assert_eq!(sent.status, StatusCode::FOUND);
-    assert_eq!(sent.header("location"), Some(INTENT));
+    assert_eq!(
+        sent.header("location"),
+        Some("https://x.com/intent/tweet?url=https%3A%2F%2Fqafiyah.com%2Fpoems%2FTnKK")
+    );
 }
 
 #[tokio::test]

@@ -3,6 +3,7 @@ import { ResultAsync } from 'neverthrow';
 import type { MeterSlug, PoetSlug, RhymeSlug, ThemeSlug } from '@/lib/api/brands';
 import ListPageBody from '@/components/list-page-body.astro';
 import { PoetPoems } from '@/components/poet-poems';
+import { ShareBar } from '@/components/share-bar';
 import Layout from '@/layouts/layout.astro';
 import { TYPE } from '@/lib/constants/design-tokens';
 import { buildPoetLayout } from '@/lib/seo/poets-page';
@@ -130,6 +131,7 @@ const {
       <div class="flex min-w-0 flex-col gap-2">
         <h1 class={`${TYPE.title} text-text`}>{heading}</h1>
         <p class={`${TYPE.caption} text-text-subtle`}>{subtitle}</p>
+        <ShareBar client:idle path={poetUrl(slug)} className="self-start" />
       </div>
     </div>
     <div class="flex w-full max-w-3xl flex-col gap-3">

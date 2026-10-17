@@ -10,6 +10,8 @@ import { cycleFontFamily } from '@/lib/settings/font-actions';
 import { toggleTheme } from '@/lib/settings/theme-actions';
 import { cn } from '@/lib/utils';
 
+import type { ReactNode } from 'react';
+
 const DIMMED = 'opacity-75 transition hover:opacity-100';
 const STEP_BUTTON = cn(DIMMED, 'aria-disabled:pointer-events-none aria-disabled:opacity-50');
 const ICON = 'size-5';
@@ -23,6 +25,7 @@ type PoemToolbarProps = {
   readonly onFontScaleChange: (scale: number) => void;
   readonly onSpacingScaleChange: (scale: number) => void;
   readonly onToggleTashkeel: () => void;
+  readonly children?: ReactNode;
 };
 
 export function PoemToolbar({
@@ -33,6 +36,7 @@ export function PoemToolbar({
   onFontScaleChange,
   onSpacingScaleChange,
   onToggleTashkeel,
+  children,
 }: PoemToolbarProps) {
   const spacingRange = { ...POEM_SCALE.spacing, min: spacingMin };
   const stepFontScale = (direction: 1 | -1) => {
@@ -111,6 +115,7 @@ export function PoemToolbar({
       >
         {POEM_TOOLBAR_TEXTS.tashkeel}
       </button>
+      {children}
     </div>
   );
 }

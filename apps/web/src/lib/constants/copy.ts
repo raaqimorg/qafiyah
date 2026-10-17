@@ -1,4 +1,5 @@
 import { toArabicDigits } from '@/lib/arabic';
+import { SITE_NAME_AR } from '@/lib/constants/site-meta';
 
 export const ERROR_TEXTS = {
   unexpected: 'عذرًا، وقع خلل غير متوقّع.',
@@ -53,6 +54,32 @@ export const POEM_TOOLBAR_TEXTS = {
   hideTashkeel: 'إخفاء التشكيل',
 } as const;
 
+export const SHARE_BAR_TEXTS = {
+  label: 'مشاركة',
+  x: 'مشاركة على إكس',
+  facebook: 'مشاركة على فيسبوك',
+  whatsapp: 'مشاركة على واتساب',
+  telegram: 'مشاركة على تيليجرام',
+  reddit: 'مشاركة على ريديت',
+  linkedin: 'مشاركة على لينكدإن',
+  copyLink: 'نسخ الرابط',
+  copied: 'تم نسخ الرابط',
+  copyFailed: 'تعذر النسخ. حاول مرة أخرى أو انسخ النص يدويًا.',
+} as const;
+
+export const SHARE_BUTTON_TEXTS = {
+  label: 'مشاركة القصيدة',
+  open: 'فتح نافذة المشاركة',
+  close: 'إغلاق نافذة المشاركة',
+  verses: 'الأبيات',
+  addVerse: 'إضافة بيت',
+  removeVerse: 'حذف بيت',
+  copyText: 'نسخ النص',
+  copiedText: 'تم نسخ النص',
+  copyLink: 'نسخ الرابط',
+  copiedLink: 'تم نسخ الرابط',
+} as const;
+
 export const NOT_FOUND_MESSAGE_AR = 'الصفحة غير موجودة';
 export const SERVER_ERROR_MESSAGE_AR = 'حدث خطأ في الخادم';
 
@@ -61,3 +88,13 @@ export const NOT_FOUND_TITLE = `${NOT_FOUND_CODE} | ${NOT_FOUND_MESSAGE_AR}`;
 
 export const SERVER_ERROR_CODE = toArabicDigits(500);
 export const SERVER_ERROR_TITLE = `${SERVER_ERROR_CODE} | ${SERVER_ERROR_MESSAGE_AR}`;
+
+export function formatPoemCopySignature(poetName: string, canonicalUrl: string): string {
+  return `${poetName} | ${SITE_NAME_AR}: ${canonicalUrl}`;
+}
+
+export const POEM_SELECTION_SHARE_TEXTS = {
+  share: 'مشاركة المحدد',
+  title: 'مشاركة الأبيات المحددة',
+  shareFailed: 'تعذرت المشاركة. اختر وسيلة أخرى أو انسخ الأبيات.',
+} as const;

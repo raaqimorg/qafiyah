@@ -10,6 +10,7 @@ import { buildPoemLayout } from '@/lib/seo/poem-page';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { getPoem, movedPoemPath } from '@/lib/server/poems';
 import { poemUrl } from '@/lib/urls';
+import { PROD_SITE_URL } from '@qafiyah/config';
 
 const { slug } = Astro.params;
 const detail = slug ? await getPoem(slug as PoemSlug) : null;
@@ -59,6 +60,7 @@ const layout = buildPoemLayout(detail, slug as PoemSlug);
       <div class="flex w-full max-w-5xl flex-col items-center gap-10">
         <PoemDisplay
           client:idle
+          canonicalUrl={`${PROD_SITE_URL}${layout.canonical}`}
           title={poem.title}
           poet={poem.poet}
           era={poem.era}
@@ -67,6 +69,7 @@ const layout = buildPoemLayout(detail, slug as PoemSlug);
           verses={poem.verses}
           verseCount={poem.verseCount}
           poemType={poem.poemType}
+          sharePath={poemUrl(slug as string)}
         />
       </div>
       <AdjacentPoems

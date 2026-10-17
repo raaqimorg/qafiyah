@@ -11,6 +11,9 @@ import {
   isCanonical,
   poetUrl,
   retryUrl,
+  shareUrl,
+  shareIntent,
+  SHARE_NETWORK_VALUES,
   taxonomyIndexUrl,
   taxonomyUrl,
   xProfileUrl,
@@ -159,6 +162,69 @@ describe('poetAvatarUrl', () => {
   it('builds the CDN avatar url from the slug', () => {
     expect(poetAvatarUrl('CCMr')).toBe('https://cdn.qafiyah.com/poets/CCMr/avatar.webp');
   });
+});
+
+describe('shareUrl', () => {
+  const expectedPaths = {
+    x: '/v1/go/x-share',
+    facebook: '/v1/go/facebook-share',
+    whatsapp: '/v1/go/whatsapp-share',
+    telegram: '/v1/go/telegram-share',
+    reddit: '/v1/go/reddit-share',
+    linkedin: '/v1/go/linkedin-share',
+  } as const;
+
+  it('points every network at its share redirect with the encoded path', () => {
+    for (const network of SHARE_NETWORK_VALUES) {
+      const url = new URL(shareUrl(network, '/poems/TnKK'));
+      expect(url.pathname).toBe(expectedPaths[network]);
+      expect(url.searchParams.get('path')).toBe('/poems/TnKK');
+    }
+  });
+
+  it('carries a page query in the shared path through untouched', () => {
+    const url = new URL(shareUrl('x', '/poets/mutanabbi?page=2'));
+    expect(url.searchParams.get('path')).toBe('/poets/mutanabbi?page=2');
+  });
+});
+
+describe('shareIntent', () => {
+  const payload = {
+    body: 'عنوان القصيدة\nبيت & آخر؟',
+    title: 'عنوان القصيدة',
+    url: 'https://qafiyah.com/poems/TnKK',
+  };
+
+  it.each([
+    ['x', 'https://x.com/intent/tweet', { text: `${payload.body}\n\n${payload.url}` }],
+    ['whatsapp', 'https://wa.me/', { text: `${payload.body}\n\n${payload.url}` }],
+    ['telegram', 'https://t.me/share/url', { url: payload.url, text: payload.body }],
+    ['reddit', 'https://www.reddit.com/submit', { url: payload.url, title: payload.title }],
+    ['facebook', 'https://www.facebook.com/sharer/sharer.php', { u: payload.url }],
+    ['linkedin', 'https://www.linkedin.com/sharing/share-offsite/', { url: payload.url }],
+  ] as const)('encodes the supported content for %s', (network, endpoint, parameters) => {
+    const intent = new URL(shareIntent(network, payload));
+    expect(`${intent.origin}${intent.pathname}`).toBe(endpoint);
+    expect(Object.fromEntries(intent.searchParams)).toEqual(parameters);
+  });
+});
+
+describe('sharing selected verses', () => {
+  it.each(['x', 'whatsapp'] as const)(
+    'preserves the signature without appending another URL on %s',
+    (network) => {
+      const text = 'صدر البيت\nعجز البيت\n\nالمتنبي | قافية: https://qafiyah.com/poems/TnKK';
+      const intent = new URL(
+        shareIntent(network, {
+          body: text,
+          title: 'عنوان القصيدة',
+          url: 'https://qafiyah.com/poems/TnKK',
+          text,
+        })
+      );
+      expect(intent.searchParams.get('text')).toBe(text);
+    }
+  );
 });
 
 describe('feelingUrl', () => {

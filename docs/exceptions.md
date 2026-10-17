@@ -637,6 +637,22 @@ The API is not only a thin database connector. The crate has no doc comments bey
 
 Paths are relative to `apps/web/src/` unless they start at the repo root.
 
+### Copied poem selections carry attribution
+
+- **What:** copying one complete hemistich or line appends `{poet} | قافية: {url}` after a blank line.
+- **Where:** `components/poem-display.tsx`, `components/poem-copy.ts`, `lib/constants/copy.ts`
+- **Why:** issue #304 requests attribution so copied verses keep a link to their source. Smaller selections keep the browser's default copy behavior. Copied text separates hemistichs with one newline and verses with two.
+- **Normal approach:** copy the selected text without additions, and offer a separate control to copy an attributed quotation.
+- **Date:** 2026-10-15
+
+### Poem selections expose their own sharing action
+
+- **What:** selecting a complete poem line shows a horizontally centered share button below the final selected line.
+- **Where:** `components/poem-selection-share.tsx`, `components/poem-copy.ts`
+- **Why:** readers need the same verse formatting and attribution when sharing selections. The browser's selection-menu Share action has no standard interception hook.
+- **Normal approach:** expose sharing only through the reading toolbar. This action uses native sharing when available. Its fallback reuses the toolbar sharing dialog.
+- **Date:** 2026-10-15
+
 ### Two API clients, and no key ever reaches the browser
 
 - **What:** `apiServer` calls the internal API URL with `INTERNAL_API_KEY`, for server-side rendering. `apiBrowser` has no key, and calls `/api/v1` on the page's own origin. That is a proxy:
