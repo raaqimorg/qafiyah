@@ -26,6 +26,7 @@ async fn without_the_internal_key_the_account_api_is_unauthorized_at_its_full_pa
     for (key, path) in [
         (None, "/account/users/1/keys"),
         (Some("full"), "/account/users/1/keys"),
+        (Some("mcp"), "/account/users/1/keys"),
         (Some("qaf_users_own_key"), "/account/sessions/abc"),
         (Some(""), "/account/keys"),
     ] {

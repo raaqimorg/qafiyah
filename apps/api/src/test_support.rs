@@ -101,7 +101,7 @@ pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
 pub fn state(es: &FakeEs) -> AppState {
     state_with(
         es,
-        Keys::new(Some("internal".into()), Some("full".into())),
+        Keys::new(Some("internal".into()), Some("full".into())).with_mcp(Some("mcp".into())),
         1_000_000,
     )
 }
