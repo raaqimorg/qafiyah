@@ -98,7 +98,10 @@ services:
       PORT: "8787"
       API_KEY_INTERNAL: ${API_KEY_INTERNAL:-}
       API_KEY_FULL: ${API_KEY_FULL:-}
+      API_KEY_MCP: ${API_KEY_MCP:-}
       ANON_REQUESTS: ${ANON_REQUESTS:-}
+      MCP_REQUESTS: ${MCP_REQUESTS:-}
+      MCP_BURST: ${MCP_BURST:-}
       METRICS_PORT: "9464"
     networks:
       default:

@@ -43,6 +43,7 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   ENVIRONMENT: { presence: prodOnly, format: 'production', isSecret: false },
   API_KEY_INTERNAL: { presence: prodRequired, format: 'hex64', isSecret: true },
   API_KEY_FULL: { presence: prodRequired, format: 'hex64', isSecret: true },
+  API_KEY_MCP: { presence: prodRequired, format: 'hex64', isSecret: true },
   ANON_REQUESTS: { presence: devOnly, format: 'positive-int', isSecret: false },
   SENTRY_DSN_API: { presence: devOptional, format: 'url', isSecret: false },
   SENTRY_AUTH_TOKEN: { presence: devOptional, format: 'text', isSecret: true },

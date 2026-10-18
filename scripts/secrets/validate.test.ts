@@ -5,6 +5,7 @@ import { checkDecryptedValues, checkEncryptedNames, dumpDirectories } from './va
 const HEX_A = 'a'.repeat(64);
 const HEX_B = 'b'.repeat(64);
 const HEX_C = 'c'.repeat(64);
+const HEX_D = 'd'.repeat(64);
 const DUMP_DIRS = ['0028_21_09_2026'];
 
 const VALID_PROD = [
@@ -19,6 +20,7 @@ const VALID_PROD = [
   'ENVIRONMENT=production',
   `API_KEY_INTERNAL=${HEX_A}`,
   `API_KEY_FULL=${HEX_B}`,
+  `API_KEY_MCP=${HEX_D}`,
   'OAUTH_GOOGLE_CLIENT_ID=google-id',
   'OAUTH_GOOGLE_CLIENT_SECRET=google-secret',
   'OAUTH_GITHUB_CLIENT_ID=github-id',
@@ -48,7 +50,7 @@ describe('checkDecryptedValues', () => {
   test('a key set twice is reported with both lines', () => {
     const text = `${VALID_PROD}\nAPI_KEY_FULL=${HEX_B}`;
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'API_KEY_FULL is set 2 times (lines 11, 26)'
+      'API_KEY_FULL is set 2 times (lines 11, 27)'
     );
   });
 

@@ -119,6 +119,7 @@ async fn serve(config: Config) {
         es,
         config.keys,
         config.anon_requests,
+        config.mcp,
         metrics,
     );
     qafiyah_api::rate_limit::sweeper(state.limiter.clone());

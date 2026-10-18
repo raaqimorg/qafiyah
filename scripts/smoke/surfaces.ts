@@ -16,6 +16,7 @@ export type Host = 'web' | 'api';
 
 export const STACK_API_KEY_FULL = 'dev-stack-full';
 export const STACK_API_KEY_INTERNAL = 'dev-stack-internal';
+export const STACK_API_KEY_MCP = 'dev-stack-mcp';
 export const STACK_SESSION_STATE_SECRET = 'dev-stack-session-secret';
 export const STACK_GRAFANA_PASSWORD = 'dev-stack-grafana';
 

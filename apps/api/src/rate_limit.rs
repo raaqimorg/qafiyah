@@ -35,6 +35,12 @@ impl Bucket {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct McpLimits {
+    pub requests: u32,
+    pub burst: u32,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Limit {
     pub bucket: Bucket,

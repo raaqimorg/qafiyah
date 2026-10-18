@@ -21,7 +21,7 @@ use crate::domain::search::SearchIndex;
 use crate::domain::taxonomy::TaxonomyRepository;
 use crate::es::client::Es;
 use crate::metrics::Metrics;
-use crate::rate_limit::Limiter;
+use crate::rate_limit::{Limiter, McpLimits};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -38,6 +38,7 @@ pub struct AppState {
     pub key_cache: Arc<KeyCache>,
     pub usage: Arc<UsageRecorder>,
     pub anon_requests: u32,
+    pub mcp: McpLimits,
     pub metrics: Metrics,
 }
 
@@ -48,6 +49,7 @@ impl AppState {
         search: Es,
         keys: Keys,
         anon_requests: u32,
+        mcp: McpLimits,
         metrics: Metrics,
     ) -> Self {
         Self {
@@ -64,6 +66,7 @@ impl AppState {
             key_cache: Arc::new(KeyCache::default()),
             usage: Arc::new(UsageRecorder::default()),
             anon_requests,
+            mcp,
             metrics,
         }
     }

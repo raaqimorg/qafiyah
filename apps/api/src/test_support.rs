@@ -13,8 +13,10 @@ use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use crate::auth::Keys;
+use crate::constants::{DEV_MCP_BURST, DEV_MCP_REQUESTS};
 use crate::es::client::Es;
 use crate::metrics::Metrics;
+use crate::rate_limit::McpLimits;
 use crate::state::AppState;
 
 const UNREACHABLE_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
@@ -88,6 +90,10 @@ pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
             .expect("a fake endpoint"),
         keys,
         anon_requests,
+        McpLimits {
+            requests: DEV_MCP_REQUESTS,
+            burst: DEV_MCP_BURST,
+        },
         metrics,
     )
 }
