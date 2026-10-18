@@ -6,7 +6,9 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Request, StatusCode};
 use axum::routing::post;
 use axum::{Json, Router};
-use prometheus_client::encoding::prometheus_protobuf::prometheus_data_model::MetricFamily;
+use prometheus_client::encoding::prometheus_protobuf::prometheus_data_model::{
+    Metric, MetricFamily,
+};
 use prost::Message;
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -193,6 +195,39 @@ pub async fn scrape(metrics: &Metrics) -> Vec<MetricFamily> {
         );
     }
     families
+}
+
+fn labelled<'a>(
+    families: &'a [MetricFamily],
+    name: &'a str,
+    labels: &'a [(&'a str, &'a str)],
+) -> impl Iterator<Item = &'a Metric> {
+    families
+        .iter()
+        .filter(move |family| family.name == name)
+        .flat_map(|family| &family.metric)
+        .filter(move |metric| {
+            labels.iter().all(|(key, value)| {
+                metric
+                    .label
+                    .iter()
+                    .any(|pair| pair.name == *key && pair.value == *value)
+            })
+        })
+}
+
+pub fn counter_value(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> f64 {
+    labelled(families, name, labels)
+        .filter_map(|metric| metric.counter.as_ref())
+        .map(|counter| counter.value)
+        .sum()
+}
+
+pub fn gauge_value(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> f64 {
+    labelled(families, name, labels)
+        .filter_map(|metric| metric.gauge.as_ref())
+        .map(|gauge| gauge.value)
+        .sum()
 }
 
 pub fn histogram_count(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> u64 {

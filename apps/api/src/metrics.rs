@@ -9,7 +9,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::encoding::prometheus_protobuf::{EncodeError, encode_to_vec};
+use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
+use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::{Histogram, NativeHistogramConfig};
 use prometheus_client::registry::Registry;
 
@@ -33,11 +35,19 @@ struct SearchLabels {
     db_collection_name: String,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+struct McpRefusalLabels {
+    limit: &'static str,
+}
+
 #[derive(Clone)]
 pub struct Metrics {
     registry: Arc<Registry>,
     requests: Family<RequestLabels, Histogram>,
     searches: Family<SearchLabels, Histogram>,
+    mcp_admitted: Counter,
+    mcp_refusals: Family<McpRefusalLabels, Counter>,
+    mcp_hourly_limit: Gauge,
 }
 
 fn native() -> Histogram {
@@ -73,10 +83,31 @@ impl Default for Metrics {
             "Duration of every Elasticsearch search the API sent",
             searches.clone(),
         );
+        let mcp_admitted = Counter::default();
+        let mcp_refusals = Family::<McpRefusalLabels, Counter>::default();
+        let mcp_hourly_limit = Gauge::default();
+        registry.register(
+            "mcp_rate_limit_admitted",
+            "MCP calls that the rate limiter let through",
+            mcp_admitted.clone(),
+        );
+        registry.register(
+            "mcp_rate_limit_refusals",
+            "MCP calls that the rate limiter refused, by the limit that refused",
+            mcp_refusals.clone(),
+        );
+        registry.register(
+            "mcp_rate_limit_hourly_limit",
+            "The hourly ceiling on all MCP calls together",
+            mcp_hourly_limit.clone(),
+        );
         Self {
             registry: Arc::new(registry),
             requests,
             searches,
+            mcp_admitted,
+            mcp_refusals,
+            mcp_hourly_limit,
         }
     }
 }
@@ -105,6 +136,20 @@ impl Metrics {
                 db_collection_name: index.to_string(),
             })
             .observe(seconds);
+    }
+
+    pub fn record_mcp_admitted(&self) {
+        self.mcp_admitted.inc();
+    }
+
+    pub fn record_mcp_refusal(&self, limit: &'static str) {
+        self.mcp_refusals
+            .get_or_create(&McpRefusalLabels { limit })
+            .inc();
+    }
+
+    pub fn set_mcp_hourly_limit(&self, limit: u32) {
+        self.mcp_hourly_limit.set(i64::from(limit));
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, EncodeError> {

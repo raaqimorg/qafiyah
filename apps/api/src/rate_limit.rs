@@ -148,6 +148,16 @@ fn mcp_limits(address: Option<IpAddr>, mcp: McpLimits) -> Vec<Limit> {
     limits
 }
 
+fn mcp_limit_label(bucket: Bucket) -> &'static str {
+    if bucket == Bucket::McpTotal {
+        "hourly"
+    } else if bucket == Bucket::McpBurst {
+        "per_second"
+    } else {
+        "address"
+    }
+}
+
 fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec<Limit> {
     let address = address.map(bucket_address);
     let Some(caller) = caller else {
@@ -366,6 +376,12 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         }
     };
     let outcome = state.limiter.check_all(&limits, now);
+    if mcp {
+        match outcome.refused_by {
+            None => state.metrics.record_mcp_admitted(),
+            Some(bucket) => state.metrics.record_mcp_refusal(mcp_limit_label(bucket)),
+        }
+    }
 
     if let Some(caller) = caller
         && outcome.allowed
