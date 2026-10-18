@@ -1874,10 +1874,13 @@ dependencies = [
  "ipnet",
  "prometheus-client",
  "prost",
+ "reqwest",
+ "serde_json",
  "tokio",
  "tower",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
