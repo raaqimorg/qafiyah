@@ -1866,6 +1866,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "qafiyah-mcp"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http-body-util",
+ "ipnet",
+ "prometheus-client",
+ "prost",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "qafiyah-search-indexer"
 version = "0.0.0"
 dependencies = [

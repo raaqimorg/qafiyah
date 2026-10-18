@@ -57,6 +57,7 @@ export const MAX_ACTIVE_KEYS_PER_USER = 2;
 
 export const DEV_WEB_PORT = 4321;
 export const DEV_API_PORT = 8787;
+export const DEV_MCP_PORT = 8788;
 export const DEV_POSTGRES_PORT = 5434;
 export const DEV_INSPECTOR_PORT = 4322;
 

@@ -10,6 +10,7 @@ import {
   CF_CONNECTING_IP_HEADER,
   DEV_API_PORT,
   DEV_GRAFANA_PORT,
+  DEV_MCP_PORT,
   DEV_POSTGRES_PORT,
   DEV_WEB_PORT,
   ES_MAX_RESULT_WINDOW,
@@ -199,6 +200,16 @@ const RUST_CONSTANTS: readonly {
       X_INTENT_TWEET_URL,
       SECURITY_EMAIL,
       SECONDS_PER_HOUR,
+    },
+  },
+  {
+    file: 'apps/mcp/src/constants.rs',
+    values: {
+      DEV_MCP_PORT,
+      PROD_SITE_URL,
+      API_V1_PREFIX,
+      API_KEY_HEADER,
+      CF_CONNECTING_IP_HEADER,
     },
   },
 ];
