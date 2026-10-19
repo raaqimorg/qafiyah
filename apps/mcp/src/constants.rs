@@ -6,4 +6,4 @@ pub const CF_CONNECTING_IP_HEADER: &str = "cf-connecting-ip";
 pub const API_CALL_TIMEOUT_SECONDS: u64 = 8;
 pub const REQUEST_DEADLINE_SECONDS: u64 = 9;
 pub const MAX_REQUEST_BODY_BYTES: usize = 65_536;
-pub const MAX_POEM_CHARS: usize = 12_000;
+pub const MAX_POEM_CHARS: usize = 7_000;
