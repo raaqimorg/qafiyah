@@ -42,16 +42,20 @@ impl SearchType {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchInput {
+    #[serde(default)]
     #[schemars(
+        with = "String",
         description = "The search text, in Arabic. Leave it out to browse with filters only."
     )]
     pub q: Option<String>,
     #[serde(default)]
     #[schemars(description = "Which sections to search: poems, poets, or both.")]
     pub types: Vec<SearchType>,
-    #[schemars(description = "The page of poem results, from 1.")]
+    #[serde(default)]
+    #[schemars(with = "u32", description = "The page of poem results, from 1.")]
     pub poems_page: Option<u32>,
-    #[schemars(description = "The page of poet results, from 1.")]
+    #[serde(default)]
+    #[schemars(with = "u32", description = "The page of poet results, from 1.")]
     pub poets_page: Option<u32>,
     #[serde(default)]
     #[schemars(description = "Poet slugs to filter by.")]
@@ -74,13 +78,18 @@ pub struct SearchInput {
     #[serde(default)]
     #[schemars(description = "Collection slugs to filter by.")]
     pub collection_slugs: Vec<String>,
-    #[schemars(description = "Match the exact words, not related forms.")]
+    #[serde(default)]
+    #[schemars(
+        with = "bool",
+        description = "Match the exact words, not related forms."
+    )]
     pub exact: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListPoemsInput {
-    #[schemars(description = "The page, from 1.")]
+    #[serde(default)]
+    #[schemars(with = "u32", description = "The page, from 1.")]
     pub page: Option<u32>,
     #[serde(default)]
     #[schemars(description = "Poet slugs to filter by.")]
@@ -113,11 +122,14 @@ pub struct PoemInput {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListPoetsInput {
-    #[schemars(description = "The page, from 1.")]
+    #[serde(default)]
+    #[schemars(with = "u32", description = "The page, from 1.")]
     pub page: Option<u32>,
-    #[schemars(description = "An era slug to filter by.")]
+    #[serde(default)]
+    #[schemars(with = "String", description = "An era slug to filter by.")]
     pub era: Option<String>,
-    #[schemars(description = "Part of the poet's name, in Arabic.")]
+    #[serde(default)]
+    #[schemars(with = "String", description = "Part of the poet's name, in Arabic.")]
     pub q: Option<String>,
 }
 
@@ -167,7 +179,8 @@ pub struct FeelingVersesInput {
         regex(pattern = TERM_PATTERN)
     )]
     pub slug: String,
-    #[schemars(description = "The page, from 1.")]
+    #[serde(default)]
+    #[schemars(with = "u32", description = "The page, from 1.")]
     pub page: Option<u32>,
 }
 
@@ -1011,6 +1024,38 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    fn type_arrays(value: &Value, at: &str, found: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (key, child) in map {
+                    if key == "type" && child.is_array() {
+                        found.push(at.to_string());
+                    }
+                    type_arrays(child, &format!("{at}/{key}"), found);
+                }
+            }
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    type_arrays(child, &format!("{at}/{index}"), found);
+                }
+            }
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+        }
+    }
+
+    #[test]
+    fn no_input_schema_uses_a_type_array() {
+        let mut found = Vec::new();
+        for tool in Catalog::tool_router().list_all() {
+            let schema = serde_json::to_value(tool.input_schema.as_ref()).expect("a schema");
+            type_arrays(&schema, &tool.name, &mut found);
+        }
+        assert!(
+            found.is_empty(),
+            "single-type dialects reject these: {found:?}"
+        );
     }
 
     #[test]
