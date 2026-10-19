@@ -107,6 +107,11 @@ const PINNED: readonly { constant: string; value: string; files: readonly string
     files: ['apps/web/nginx.conf', 'docker-compose.yml'],
   },
   {
+    constant: 'DEV_MCP_PORT',
+    value: String(DEV_MCP_PORT),
+    files: ['docker-compose.yml'],
+  },
+  {
     constant: 'DEV_POSTGRES_PORT',
     value: String(DEV_POSTGRES_PORT),
     files: ['docker-compose.dev.yml'],
