@@ -87,6 +87,9 @@ pub fn shape_poem_list(response: &mut Value) {
 }
 
 pub fn shape_poem(response: &mut Value, max_chars: usize) {
+    if let Some(data) = response.get_mut("data").and_then(Value::as_object_mut) {
+        data.remove("keywords");
+    }
     link_at(response, "/data", Kind::Poem);
     link_at(response, "/data/poet", Kind::Poet);
     for pointer in ["/data/next", "/data/prev", "/data/recensionOf"] {
@@ -252,6 +255,19 @@ mod tests {
         for part in ["2", "3", "https://qafiyah.com/poems/Abcd"] {
             assert!(note.contains(part), "{note}");
         }
+    }
+
+    #[test]
+    fn a_poem_result_leaves_out_the_keywords_that_repeat_its_text() {
+        let mut response = json!({ "data": {
+            "slug": "Abcd",
+            "keywords": "every, word, of, the, poem, again",
+            "verseCount": 1,
+            "verses": [["a", "b"]],
+        }});
+        shape_poem(&mut response, 1_000);
+        assert!(response["data"].get("keywords").is_none());
+        assert_eq!(response["data"]["verses"], json!([["a", "b"]]));
     }
 
     #[test]
