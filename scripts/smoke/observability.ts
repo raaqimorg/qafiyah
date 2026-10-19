@@ -20,6 +20,9 @@ const RULE_UIDS = [
   'latency-api',
   'latency-search',
   'latency-web',
+  'mcp-budget',
+  'mcp-down',
+  'mcp-refusals',
   'pipeline-down',
   'postgres-down',
   'web-down',
@@ -284,6 +287,12 @@ export async function observabilityChecks(
     ),
     await positive(
       grafana,
+      'mcp tool calls are recorded',
+      'histogram_count(sum(mcp_tool_call_duration_seconds))'
+    ),
+    await positive(grafana, 'mcp admissions are recorded', 'sum(mcp_rate_limit_admitted_total)'),
+    await positive(
+      grafana,
       'elasticsearch searches are recorded',
       'histogram_count(sum(db_client_operation_duration_seconds))'
     ),
@@ -300,8 +309,8 @@ export async function observabilityChecks(
     ),
     await positive(
       grafana,
-      'both health probes succeed',
-      'min(probe_success) * count(probe_success) - 1'
+      'all three health probes succeed',
+      'min(probe_success) * count(probe_success) - 2'
     ),
     await positive(
       grafana,

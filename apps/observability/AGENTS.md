@@ -5,8 +5,8 @@ This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana s
 ## Shape
 
 - `prometheus.yml`: Prometheus scrapes every 15 seconds.
-  - It scrapes every API replica on its metrics port (`dns_sd_configs` on `api:9464`, with native histograms on).
-  - It also scrapes postgres_exporter, elasticsearch_exporter, the `/healthz` probes of `api` and `web` from blackbox_exporter, Alloy's container (cAdvisor) and host (node exporter) components, Loki, and itself.
+  - It scrapes every API replica on its metrics port (`dns_sd_configs` on `api:9464`, with native histograms on), and every MCP server replica the same way (`mcp:9464`).
+  - It also scrapes postgres_exporter, elasticsearch_exporter, the `/healthz` probes of `api`, `web`, and `mcp` from blackbox_exporter, Alloy's container (cAdvisor) and host (node exporter) components, Loki, and itself.
   - It does not scrape the website. The website pushes over OTLP to the receiver that `--web.enable-otlp-receiver` turns on.
   - `--enable-feature=created-timestamp-zero-ingestion` stores the start time of each series as a zero sample. So a burst that creates a series (the first errors of a route) is counted.
   - Retention is 15 days or 1 GB, whichever comes first.
@@ -38,6 +38,8 @@ This directory is configuration only: the Prometheus, Loki, Alloy, and Grafana s
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `http_server_request_duration_seconds{job="api"}`        | `apps/api/src/metrics.rs`, outermost layer                                         | every API request, by method, route template (`unmatched` for none), and status; a native histogram                                                                                                                                                                |
 | `http_server_request_duration_seconds{job="web"}`        | `apps/web/src/middleware.ts`                                                       | every request that reaches Astro, timed to the end of its body (once, even when the page rewrites to `/404`), by method, route pattern, and status; an OpenTelemetry exponential histogram pushed every 15 s                                                       |
+| `mcp_tool_call_duration_seconds`                         | `apps/mcp/src/metrics.rs`, once for each tool call                                 | every MCP tool call, by tool and outcome (`ok`, `bad_input`, `refused`, `not_found`, `unavailable`); a native histogram                                                                                                                                            |
+| `mcp_rate_limit_*`                                       | `apps/api/src/rate_limit.rs`                                                       | the MCP-key calls the API let through (`admitted_total`), the ones it refused by the limit that refused (`refusals_total`, `limit` is `address`, `hourly`, or `per_second`), and the hourly ceiling on all MCP calls (`hourly_limit`)                              |
 | `db_client_operation_duration_seconds`                   | `apps/api/src/es/client.rs`                                                        | every Elasticsearch search the API sends, by alias, failures included                                                                                                                                                                                              |
 | `pg_stat_statements_*`                                   | postgres_exporter as `qafiyah_monitor`                                             | the 100 statements with the most total time since the last reset, with their text                                                                                                                                                                                  |
 | `elasticsearch_*`                                        | elasticsearch_exporter as `qafiyah_monitor`                                        | cluster health, heap, search totals, thread pool rejections                                                                                                                                                                                                        |
@@ -64,7 +66,7 @@ The one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) makes sure tha
 
 - **Local:** the full Docker stack serves Grafana on `http://127.0.0.1:3300` (`DEV_GRAFANA_PORT`). Sign in as `admin`, with the password `GRAFANA_ADMIN_PASSWORD` (the dev default is in `scripts/dev/compose.sh`).
   - `bun run smoke:stack` starts the stack. You can also run `./scripts/dev/compose.sh up -d --build --wait`, with the stack environment that the smoke runner sets.
-  - `bun run dev` runs the API and the website on the host, without `METRICS_PORT` or an OTLP endpoint. So it records nothing.
+  - `bun run dev` runs the API, the MCP server, and the website on the host, without `METRICS_PORT` or an OTLP endpoint. So it records nothing.
 - **Production:** `bun run observe` forwards `127.0.0.1:3301` to Grafana on the VPS, over the existing SSH tunnel. It prints how to read the password from `secrets/prod.enc.env`. Explore searches the logs of every container.
 - **To change a dashboard:** edit it in the UI, export the JSON, and commit it here.
   - The UI cannot save over a provisioned dashboard, so git stays the only copy.
@@ -74,17 +76,19 @@ The one-shot `db-monitor-role` job (`scripts/db/monitor-role.sh`) makes sure tha
 
 Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", through the bot `@vigorousJJa_bot`. It sends a message when an alert fires, again every 4 hours while it keeps firing, and once when it resolves. Grafana evaluates the rules every 20 seconds.
 
-| Alert                                 | Fires when                                                                                                                                    | After |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| API down, Website down                | the `/healthz` probe fails                                                                                                                    | 1 min |
-| Postgres down                         | `pg_up` is 0                                                                                                                                  | 1 min |
-| Elasticsearch unhealthy               | the cluster is unreachable or red                                                                                                             | 1 min |
-| Metrics pipeline down                 | Prometheus cannot scrape Alloy, Loki, the probes, or an exporter                                                                              | 1 min |
-| Error rate                            | more than 5% of API or website requests answer 5xx over 5 minutes, with at least 20 requests                                                  | 2 min |
-| Container memory                      | a container uses more than 90% of its memory limit                                                                                            | 2 min |
-| Disk                                  | a host filesystem is more than 85% full                                                                                                       | 2 min |
-| API, Search, and Website latency burn | more than 14.4% of requests are slower than the target over both the last hour and the last 5 minutes, with at least 100 requests in the hour | 2 min |
-| Accounts backup stale                 | the last successful accounts backup is more than 26 hours old                                                                                 | 5 min |
+| Alert                                 | Fires when                                                                                                                                                      | After  |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| API down, Website down, MCP down      | the `/healthz` probe fails                                                                                                                                      | 1 min  |
+| Postgres down                         | `pg_up` is 0                                                                                                                                                    | 1 min  |
+| Elasticsearch unhealthy               | the cluster is unreachable or red                                                                                                                               | 1 min  |
+| Metrics pipeline down                 | Prometheus cannot scrape Alloy, Loki, the probes, or an exporter                                                                                                | 1 min  |
+| Error rate                            | more than 5% of API or website requests answer 5xx over 5 minutes, with at least 20 requests                                                                    | 2 min  |
+| Container memory                      | a container uses more than 90% of its memory limit                                                                                                              | 2 min  |
+| Disk                                  | a host filesystem is more than 85% full                                                                                                                         | 2 min  |
+| API, Search, and Website latency burn | more than 14.4% of requests are slower than the target over both the last hour and the last 5 minutes, with at least 100 requests in the hour                   | 2 min  |
+| MCP budget                            | MCP calls used more than 80% of the hourly MCP budget over the last hour. The summary gives the response: block the top addresses with a Cloudflare custom rule | 10 min |
+| MCP refusals                          | more than 5% of MCP tool calls are refused over 15 minutes, with at least 50 calls                                                                              | 1 min  |
+| Accounts backup stale                 | the last successful accounts backup is more than 26 hours old                                                                                                   | 5 min  |
 
 - The latency targets are first guesses: 300 ms for the API outside `/v1/search`, 1 s for `/v1/search`, and 1 s for the website. Tune them in `grafana/provisioning/alerting/rules.yml` after some weeks of production data.
 - A rule whose query returns no data stays quiet. "Metrics pipeline down" is the alert for missing data.
@@ -98,8 +102,8 @@ Grafana alerting sends every alert to the Telegram group "Qafiyah Alerts", throu
 
 - Every dashboard is provisioned.
 - Every Prometheus target is up.
-- The API and website histograms have observations.
-- The exporters report, and both health probes succeed.
+- The API, website, and MCP histograms have observations, and the API records MCP admissions.
+- The exporters report, and every health probe succeeds.
 - Container and host metrics arrive.
 - The website's JSON access log reaches Loki.
 - Every query in every dashboard evaluates against Prometheus or Loki.
