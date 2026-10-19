@@ -13,10 +13,11 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         posthog = softwareSystem "PostHog" "Product analytics, reached through its managed proxy at ix.qafiyah.com." "External"
         github = softwareSystem "GitHub" "Hosts the source, runs CI, and signs developers in." "External"
         google = softwareSystem "Google" "Signs developers in." "External"
+        assistants = softwareSystem "AI assistants" "Claude, ChatGPT, Cursor, and other MCP clients, which search and quote the catalog for their users." "External"
 
-        qafiyah = softwareSystem "Qafiyah" "The Arabic poetry catalog at qafiyah.com and its public API at api.qafiyah.com." {
+        qafiyah = softwareSystem "Qafiyah" "The Arabic poetry catalog at qafiyah.com, its public API at api.qafiyah.com, and its MCP server at mcp.qafiyah.com." {
             edge = container "Edge gateway" "Inspects every request and passes it to the website." "nginx, ModSecurity, OWASP CRS"
-            web = container "Website" "Renders and caches pages, signs developers in, routes api.qafiyah.com to the API, and proxies the browser's API calls." "Astro SSR, nginx, React" {
+            web = container "Website" "Renders and caches pages, signs developers in, routes api.qafiyah.com to the API and mcp.qafiyah.com to the MCP server, and proxies the browser's API calls." "Astro SSR, nginx, React" {
                 nginx = component "nginx" "Routes by Host, caches pages and searches, and serves static files." "nginx"
                 pages = component "Pages" "Server-renders every page, and rewrites to /404 when the API has nothing." "Astro"
                 catalog = component "Catalog client" "Calls the API with the internal key, retries network failures, and sets Cache-Control." "TypeScript, openapi-fetch"
@@ -36,6 +37,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
                 elasticsearch = component "Elasticsearch adapter" "Query bodies with relevance tiers, and typed hits." "reqwest"
                 metrics = component "Metrics endpoint" "Serves the request and search histograms on port 9464." "prometheus-client"
             }
+            mcp = container "MCP server" "Serves nine read-only catalog tools over MCP at mcp.qafiyah.com; each tool makes one API call." "Rust, axum, rmcp"
             corpus = container "Corpus database" "Poems, poets, and every taxonomy: the source of truth." "PostgreSQL" "Database"
             accountsDb = container "Accounts database" "Users, sessions, API keys, and usage." "PostgreSQL" "Database"
             search = container "Search index" "Poems and poets for full-text search, rebuilt from the corpus." "Elasticsearch" "Database"
@@ -48,7 +50,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
             alloy = container "Alloy" "Ships container logs to Loki, and exposes container and host stats." "Grafana Alloy" "Observability"
             pgExporter = container "Postgres exporter" "Query statistics and health of the corpus database." "postgres_exporter" "Observability"
             esExporter = container "Elasticsearch exporter" "Cluster health, heap, and query totals." "elasticsearch_exporter" "Observability"
-            blackbox = container "Blackbox exporter" "Probes /healthz on the API and the website." "blackbox_exporter" "Observability"
+            blackbox = container "Blackbox exporter" "Probes /healthz on the API, the MCP server, and the website." "blackbox_exporter" "Observability"
             monitorRole = container "Monitor role job" "Creates the read-only role the Postgres exporter signs in as." "PostgreSQL client, one-shot job" "Observability"
         }
 
@@ -57,17 +59,20 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         reader -> sentry "Sends browser errors and sessions to" "HTTPS"
         reader -> posthog "Sends page views to" "HTTPS, ix.qafiyah.com"
         developer -> cloudflare "Calls api.qafiyah.com and manages keys on qafiyah.com through" "HTTPS"
+        assistants -> cloudflare "Call mcp.qafiyah.com through" "HTTPS, MCP"
         maintainer -> github "Pushes code to" "git over HTTPS"
         maintainer -> qafiyah "Deploys, reseeds, reindexes, and opens Grafana over" "SSH through the Cloudflare Tunnel"
-        cloudflare -> qafiyah "Forwards qafiyah.com and api.qafiyah.com to" "HTTP over the Cloudflare Tunnel"
+        cloudflare -> qafiyah "Forwards qafiyah.com, api.qafiyah.com, and mcp.qafiyah.com to" "HTTP over the Cloudflare Tunnel"
         qafiyah -> sentry "Reports server errors to" "HTTPS"
         qafiyah -> google "Signs developers in with" "OAuth 2.0"
         qafiyah -> github "Signs developers in with" "OAuth 2.0"
         qafiyah -> github "Fetches main from, at each deploy" "git over HTTPS"
 
-        cloudflare -> qafiyah.edge "Forwards qafiyah.com and api.qafiyah.com to" "HTTP over the Cloudflare Tunnel"
+        cloudflare -> qafiyah.edge "Forwards qafiyah.com, api.qafiyah.com, and mcp.qafiyah.com to" "HTTP over the Cloudflare Tunnel"
         qafiyah.edge -> qafiyah.web "Passes inspected requests to" "HTTP, edge network"
         qafiyah.web -> qafiyah.api "Fetches page data and makes account calls, and routes api.qafiyah.com to" "HTTP/JSON, backend network"
+        qafiyah.web -> qafiyah.mcp "Routes mcp.qafiyah.com to" "HTTP, backend network"
+        qafiyah.mcp -> qafiyah.api "Calls the catalog with the MCP key and the caller's address" "HTTP/JSON, backend network"
         qafiyah.api -> qafiyah.corpus "Reads poems, poets, and taxonomies from" "SQL, default network"
         qafiyah.api -> qafiyah.accountsDb "Reads and writes users, keys, sessions, and usage in" "SQL, default network"
         qafiyah.api -> qafiyah.search "Searches" "HTTP/JSON, default network"
@@ -83,6 +88,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
 
         qafiyah.web -> qafiyah.prometheus "Pushes request durations to" "OTLP/HTTP, metrics network"
         qafiyah.prometheus -> qafiyah.api "Scrapes request and search histograms from" "HTTP, protobuf, default network"
+        qafiyah.prometheus -> qafiyah.mcp "Scrapes tool call histograms from" "HTTP, protobuf, metrics network"
         qafiyah.prometheus -> qafiyah.pgExporter "Scrapes" "HTTP, default network"
         qafiyah.prometheus -> qafiyah.esExporter "Scrapes" "HTTP, default network"
         qafiyah.prometheus -> qafiyah.blackbox "Runs /healthz probes through" "HTTP, default network"
@@ -92,6 +98,7 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         qafiyah.esExporter -> qafiyah.search "Reads cluster health and stats from" "HTTP/JSON, default network"
         qafiyah.blackbox -> qafiyah.api "Probes /healthz on" "HTTP, default network"
         qafiyah.blackbox -> qafiyah.web "Probes /healthz on" "HTTP, metrics network"
+        qafiyah.blackbox -> qafiyah.mcp "Probes /healthz on" "HTTP, metrics network"
         qafiyah.alloy -> qafiyah.loki "Pushes container logs to" "HTTP, observability network"
         qafiyah.grafana -> qafiyah.prometheus "Queries" "PromQL over HTTP, observability network"
         qafiyah.grafana -> qafiyah.loki "Queries" "LogQL over HTTP, observability network"
@@ -142,10 +149,11 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
             vps = deploymentNode "VPS" "One small Linux server; nothing listens on a public port." "Linux" {
                 cloudflared = infrastructureNode "cloudflared" "Dials out to Cloudflare and forwards each host to 127.0.0.1." "systemd service"
                 sshd = infrastructureNode "sshd" "SSH on 127.0.0.1:22, reached only through the tunnel." "systemd service"
-                compose = deploymentNode "Docker Compose project qafiyah" "Fourteen containers on five networks: edge, backend, default, observability, and metrics." "Docker Compose" {
+                compose = deploymentNode "Docker Compose project qafiyah" "Fifteen containers on five networks: edge, backend, default, observability, and metrics." "Docker Compose" {
                     edgeInstance = containerInstance qafiyah.edge
                     containerInstance qafiyah.web
                     containerInstance qafiyah.api
+                    containerInstance qafiyah.mcp
                     deploymentNode "qafiyah-db" "One Postgres server, two databases." "PostgreSQL 18" {
                         containerInstance qafiyah.corpus
                         containerInstance qafiyah.accountsDb
@@ -187,8 +195,10 @@ workspace "Qafiyah" "The architecture of qafiyah.com, an Arabic poetry catalog, 
         container qafiyah "observability" "The private observability stack and what it watches." {
             title "Qafiyah: the observability stack"
             include "element.tag==Observability"
-            include maintainer qafiyah.api qafiyah.web qafiyah.corpus qafiyah.search
+            include maintainer qafiyah.api qafiyah.web qafiyah.mcp qafiyah.corpus qafiyah.search
             exclude "qafiyah.web -> qafiyah.api"
+            exclude "qafiyah.web -> qafiyah.mcp"
+            exclude "qafiyah.mcp -> qafiyah.api"
             exclude "qafiyah.api -> qafiyah.search"
             exclude "qafiyah.api -> qafiyah.corpus"
             autoLayout lr

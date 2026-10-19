@@ -17,6 +17,7 @@
 - [API llms.txt]({API}/llms.txt): Machine-readable index of API endpoints
 - [OpenAPI spec]({API}/v1/openapi.json): OpenAPI 3 specification
 - [Random poem]({API}/v1/poems/random): Random poem slug (text/plain)
+- [MCP server](https://mcp.qafiyah.com/mcp): For AI assistants (Claude, ChatGPT, Cursor, and other MCP clients): search the catalog and quote it, with a link to each poem
 
 ## More
 

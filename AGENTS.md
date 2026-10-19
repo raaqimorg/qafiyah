@@ -6,6 +6,7 @@ This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum AP
 
 - `apps/`: the deployable services. Each one has its own `AGENTS.md`:
   - `api` (Rust)
+  - `mcp` (Rust): the MCP server at `mcp.qafiyah.com`, which calls the API
   - `web` (Astro/React)
   - `search-indexer` (Rust)
   - `edge-gateway` (nginx configuration only)
