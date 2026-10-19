@@ -329,6 +329,61 @@ mod tests {
         }
     }
 
+    async fn forwarded_over_a_real_connection(trusted: &str) -> Option<String> {
+        let fake = FakeApi::serving(StatusCode::OK, &[], r#"{"data":[]}"#).await;
+        let catalog = Catalog::new(
+            Api::new(&fake.url, None, Duration::from_secs(2)).expect("a client"),
+            Arc::from(vec![trusted.parse::<IpNet>().expect("a network")]),
+            Metrics::default(),
+            1_000,
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("an ephemeral port");
+        let address = listener.local_addr().expect("a bound address");
+        tokio::spawn(serve(
+            listener,
+            app(catalog, &[]),
+            std::future::pending::<()>(),
+        ));
+        let response = reqwest::Client::new()
+            .post(format!("http://{address}/mcp"))
+            .header("content-type", "application/json")
+            .header("accept", ACCEPT)
+            .header("mcp-protocol-version", "2025-06-18")
+            .header("cf-connecting-ip", "203.0.113.7")
+            .body(rpc(
+                "tools/call",
+                &json!({ "name": "list_feelings", "arguments": {} }),
+            ))
+            .send()
+            .await
+            .expect("an answer");
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let seen = fake.requests().await;
+        assert_eq!(seen.len(), 1, "one API call");
+        seen.into_iter()
+            .next()
+            .and_then(|request| request.headers.get("cf-connecting-ip").cloned())
+            .and_then(|value| value.to_str().ok().map(str::to_string))
+    }
+
+    #[tokio::test]
+    async fn a_trusted_peers_caller_address_reaches_the_api_over_a_real_connection() {
+        assert_eq!(
+            forwarded_over_a_real_connection("127.0.0.0/8").await,
+            Some("203.0.113.7".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn an_untrusted_peers_claimed_address_never_reaches_the_api() {
+        assert_eq!(
+            forwarded_over_a_real_connection("172.27.0.0/24").await,
+            None
+        );
+    }
+
     #[tokio::test]
     async fn a_body_over_64_kib_is_refused() {
         let (_fake, app) = served(&[]).await;
