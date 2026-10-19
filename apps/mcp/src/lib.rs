@@ -4,6 +4,9 @@ pub mod constants;
 pub mod forwarding;
 pub mod log;
 pub mod metrics;
+pub mod results;
+pub mod slugs;
+pub mod tools;
 
 #[cfg(test)]
 mod test_support;

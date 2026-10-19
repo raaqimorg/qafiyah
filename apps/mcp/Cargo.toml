@@ -15,6 +15,14 @@ prometheus-client = { version = "0.25.1", default-features = false, features = [
   "protobuf-protox",
 ] }
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
+rmcp = { version = "3.5.1", features = [
+  "server",
+  "macros",
+  "schemars",
+  "transport-streamable-http-server",
+] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net"] }
 tower = { version = "0.5", features = ["timeout"] }
