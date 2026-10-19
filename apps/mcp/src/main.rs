@@ -3,8 +3,14 @@
     reason = "a failed boot exits non-zero before the server starts"
 )]
 
+use std::sync::Arc;
+use std::time::Duration;
+
+use qafiyah_mcp::api::Api;
 use qafiyah_mcp::config::Config;
+use qafiyah_mcp::constants::{API_CALL_TIMEOUT_SECONDS, MAX_POEM_CHARS};
 use qafiyah_mcp::metrics::Metrics;
+use qafiyah_mcp::tools::Catalog;
 
 fn main() {
     if qafiyah_mcp::log::init(&std::env::var("ENVIRONMENT").unwrap_or_default()).is_err() {
@@ -32,6 +38,23 @@ fn main() {
 
 async fn serve(config: Config) {
     let metrics = Metrics::default();
+    let api = match Api::new(
+        &config.api_url,
+        config.api_key.clone(),
+        Duration::from_secs(API_CALL_TIMEOUT_SECONDS),
+    ) {
+        Ok(api) => api,
+        Err(e) => {
+            tracing::error!(stage = "boot_api", error = %e);
+            std::process::exit(1);
+        }
+    };
+    let catalog = Catalog::new(
+        api,
+        Arc::from(config.trusted_proxies.clone()),
+        metrics.clone(),
+        MAX_POEM_CHARS,
+    );
     let listener = match tokio::net::TcpListener::bind(("0.0.0.0", config.port)).await {
         Ok(listener) => listener,
         Err(e) => {
@@ -55,7 +78,8 @@ async fn serve(config: Config) {
 
     tracing::info!(stage = "ready", port = config.port);
 
-    match qafiyah_mcp::serve(listener, qafiyah_mcp::app(), qafiyah_mcp::shutdown_signal()).await {
+    let app = qafiyah_mcp::app(catalog, &config.allowed_hosts);
+    match qafiyah_mcp::serve(listener, app, qafiyah_mcp::shutdown_signal()).await {
         Ok(()) => tracing::info!(stage = "stopped"),
         Err(e) => {
             tracing::error!(stage = "serve", error = %e);
