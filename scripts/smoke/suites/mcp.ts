@@ -127,7 +127,7 @@ export const mcpProbes: readonly Probe[] = [
   },
   {
     url: `${MCP}/other`,
-    note: 'mcp.qafiyah.com answers 404 outside /mcp',
+    note: 'the mcp host answers 404 outside /mcp',
     host: 'mcp',
     unkeyed: true,
     checks: [isStatus(404)],
