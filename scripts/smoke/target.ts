@@ -24,6 +24,7 @@ export const TARGET = { name: SURFACE.name, manageServer: SURFACE.manageServer }
 
 export const WEB = SURFACE.web;
 export const API = SURFACE.api;
+export const MCP = SURFACE.mcp;
 export const SEARCH = `${API}${API_V1_PREFIX}/search`;
 
 function resolveApiKey(): string | undefined {

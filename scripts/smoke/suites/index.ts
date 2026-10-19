@@ -20,6 +20,7 @@ import { authProbes } from './auth';
 import { cachingProbes } from './caching';
 import { healthProbes } from './health';
 import { inputSafetyProbes } from './input-safety';
+import { mcpProbes } from './mcp';
 import { proxyProbes } from './proxy';
 import { routingProbes } from './routing';
 import { securityHeaderProbes } from './security-headers';
@@ -33,6 +34,7 @@ export const SUITES: readonly Suite[] = [
   { name: 'routing', probes: routingProbes },
   { name: 'health', probes: healthProbes },
   { name: 'api-contract', probes: apiContractProbes },
+  { name: 'mcp', probes: mcpProbes },
   {
     name: 'search',
     probes: [
