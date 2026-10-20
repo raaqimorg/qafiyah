@@ -31,6 +31,10 @@ const VALID_PROD = [
   'ACCOUNTS_BACKUP_R2_ENDPOINT=https://0123456789abcdef.r2.cloudflarestorage.com',
   'ACCOUNTS_BACKUP_R2_ACCESS_KEY_ID=r2-access-key-id-0007',
   'ACCOUNTS_BACKUP_R2_SECRET_ACCESS_KEY=r2-secret-access-key-08',
+  'DATA_R2_ENDPOINT=https://0123456789abcdef.r2.cloudflarestorage.com',
+  'DATA_BUCKET=qafiyah-data',
+  'DATA_R2_ACCESS_KEY_ID=r2-data-access-key-id-13',
+  'DATA_R2_SECRET_ACCESS_KEY=r2-data-secret-access-key-14',
   'CLOUDFLARE_ZONE_ID=0123456789abcdef0123456789abcdef',
   'CLOUDFLARE_CACHE_PURGE_TOKEN=cloudflare-purge-token-09',
   'TELEGRAM_BOT_TOKEN=123456:telegram-bot-token',
@@ -50,7 +54,7 @@ describe('checkDecryptedValues', () => {
   test('a key set twice is reported with both lines', () => {
     const text = `${VALID_PROD}\nAPI_KEY_FULL=${HEX_B}`;
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'API_KEY_FULL is set 2 times (lines 11, 27)'
+      'API_KEY_FULL is set 2 times (lines 11, 31)'
     );
   });
 
@@ -65,6 +69,13 @@ describe('checkDecryptedValues', () => {
     const text = withLine(VALID_PROD, 'SESSION_STATE_SECRET', '');
     expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
       'SESSION_STATE_SECRET is required in prod'
+    );
+  });
+
+  test('prod requires the data bucket keys', () => {
+    const text = withLine(VALID_PROD, 'DATA_R2_ENDPOINT', undefined);
+    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+      'DATA_R2_ENDPOINT is required in prod'
     );
   });
 
@@ -136,6 +147,13 @@ describe('checkDecryptedValues', () => {
     const text = 'OAUTH_GITHUB_CLIENT_ID=github-id';
     expect(checkDecryptedValues('dev', text, DUMP_DIRS)).toContain(
       'OAUTH_GITHUB_CLIENT_ID and OAUTH_GITHUB_CLIENT_SECRET must be set together'
+    );
+  });
+
+  test('half of the data bucket credential pair is reported', () => {
+    const text = 'DATA_R2_ACCESS_KEY_ID=r2-data-access-key-id-13';
+    expect(checkDecryptedValues('dev', text, DUMP_DIRS)).toContain(
+      'DATA_R2_ACCESS_KEY_ID and DATA_R2_SECRET_ACCESS_KEY must be set together'
     );
   });
 
