@@ -102,6 +102,7 @@ services:
       ANON_REQUESTS: ${ANON_REQUESTS:-}
       MCP_REQUESTS: ${MCP_REQUESTS:-}
       MCP_BURST: ${MCP_BURST:-}
+      MCP_ADDRESS_REQUESTS: ${MCP_ADDRESS_REQUESTS:-}
       METRICS_PORT: "9464"
     networks:
       default:

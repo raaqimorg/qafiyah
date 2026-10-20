@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use crate::auth::Keys;
-use crate::constants::{DEV_MCP_BURST, DEV_MCP_REQUESTS};
+use crate::constants::{DEV_MCP_ADDRESS_REQUESTS, DEV_MCP_BURST, DEV_MCP_REQUESTS};
 use crate::es::client::Es;
 use crate::metrics::Metrics;
 use crate::rate_limit::McpLimits;
@@ -95,6 +95,7 @@ pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
         McpLimits {
             requests: DEV_MCP_REQUESTS,
             burst: DEV_MCP_BURST,
+            address_requests: DEV_MCP_ADDRESS_REQUESTS,
         },
         metrics,
     )

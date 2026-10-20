@@ -164,6 +164,7 @@ async fn mcp_admissions_and_refusals_are_counted_by_the_limit_that_refused() {
     state.mcp = McpLimits {
         requests: 1,
         burst: 100,
+        address_requests: 100,
     };
     let app = crate::app(state.clone());
     assert_eq!(

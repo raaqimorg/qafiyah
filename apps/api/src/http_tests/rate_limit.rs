@@ -330,6 +330,7 @@ async fn a_refused_request_still_reports_the_quota_it_spent() {
 const WIDE: McpLimits = McpLimits {
     requests: 1_000_000,
     burst: 1_000_000,
+    address_requests: 500,
 };
 
 fn mcp_app(es: &FakeEs, key: &str, mcp: McpLimits) -> (AppState, axum::Router) {
@@ -346,11 +347,11 @@ fn mcp_app(es: &FakeEs, key: &str, mcp: McpLimits) -> (AppState, axum::Router) {
 async fn mcp_callers_are_counted_per_address_apart_from_visitors_and_anonymous_callers() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let (_, app) = mcp_app(&es, "mcp", WIDE);
-    let ceiling = VISITOR_REQUESTS.to_string();
+    let ceiling = WIDE.address_requests.to_string();
     for (ip, remaining) in [
-        ("203.0.113.5", VISITOR_REQUESTS - 1),
-        ("203.0.113.5", VISITOR_REQUESTS - 2),
-        ("203.0.113.6", VISITOR_REQUESTS - 1),
+        ("203.0.113.5", WIDE.address_requests - 1),
+        ("203.0.113.5", WIDE.address_requests - 2),
+        ("203.0.113.6", WIDE.address_requests - 1),
     ] {
         let sent = send(app.clone(), from("/v1/openapi.json", ip, Some("mcp"))).await;
         assert_eq!(sent.status, StatusCode::OK, "{ip}");
@@ -378,7 +379,7 @@ async fn an_mcp_call_with_no_address_is_limited_never_unlimited() {
     assert_eq!(sent.status, StatusCode::OK);
     assert_eq!(
         sent.header("x-ratelimit-limit"),
-        Some(VISITOR_REQUESTS.to_string().as_str())
+        Some(WIDE.address_requests.to_string().as_str())
     );
 }
 
@@ -387,8 +388,8 @@ async fn an_untrusted_peer_cannot_choose_the_mcp_address() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     let (_, app) = mcp_app(&es, "mcp", WIDE);
     for (claimed, remaining) in [
-        ("203.0.113.10", VISITOR_REQUESTS - 1),
-        ("203.0.113.11", VISITOR_REQUESTS - 2),
+        ("203.0.113.10", WIDE.address_requests - 1),
+        ("203.0.113.11", WIDE.address_requests - 2),
     ] {
         let sent = send(app.clone(), from_peer("198.51.100.7", claimed, Some("mcp"))).await;
         assert_eq!(sent.status, StatusCode::OK, "{claimed}");
@@ -409,6 +410,7 @@ async fn the_mcp_hourly_total_refuses_over_http() {
         McpLimits {
             requests: 2,
             burst: 1_000_000,
+            address_requests: 1_000_000,
         },
     );
     for (ip, status) in [
@@ -430,7 +432,7 @@ async fn an_mcp_call_never_touches_the_key_cache() {
     assert_eq!(sent.status, StatusCode::OK);
     assert_eq!(
         sent.header("x-ratelimit-limit"),
-        Some(VISITOR_REQUESTS.to_string().as_str())
+        Some(WIDE.address_requests.to_string().as_str())
     );
     assert!(state.key_cache.is_empty());
 }

@@ -47,6 +47,7 @@ impl Bucket {
 pub struct McpLimits {
     pub requests: u32,
     pub burst: u32,
+    pub address_requests: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -134,14 +135,14 @@ fn mcp_limits(address: Option<IpAddr>, mcp: McpLimits) -> Vec<Limit> {
         },
         Limit {
             bucket: address.map_or(Bucket::McpUnknown, Bucket::McpIp),
-            ceiling: VISITOR_REQUESTS,
+            ceiling: mcp.address_requests,
             window: WINDOW_SECONDS,
         },
     ];
     if let Some(IpAddr::V6(v6)) = address {
         limits.push(Limit {
             bucket: Bucket::McpBlock(slash_48(v6)),
-            ceiling: VISITOR_REQUESTS.saturating_mul(IPV6_BLOCK_MULTIPLIER),
+            ceiling: mcp.address_requests.saturating_mul(IPV6_BLOCK_MULTIPLIER),
             window: WINDOW_SECONDS,
         });
     }
@@ -1077,6 +1078,7 @@ mod tests {
         let mcp = McpLimits {
             requests: 50,
             burst: 5,
+            address_requests: 7,
         };
         let shape = |limits: Vec<Limit>| -> Vec<(Bucket, u32, i64)> {
             limits
@@ -1092,12 +1094,12 @@ mod tests {
                 (Bucket::McpBurst, 5, BURST_WINDOW_SECONDS),
                 (
                     Bucket::McpIp("2001:db8:1:2::".parse().expect("an address")),
-                    VISITOR_REQUESTS,
+                    7,
                     WINDOW_SECONDS
                 ),
                 (
                     Bucket::McpBlock("2001:db8:1::".parse().expect("an address")),
-                    VISITOR_REQUESTS.saturating_mul(IPV6_BLOCK_MULTIPLIER),
+                    70,
                     WINDOW_SECONDS
                 ),
             ]
@@ -1109,10 +1111,7 @@ mod tests {
             Bucket::McpIp("203.0.113.9".parse().expect("an address"))
         );
         let none = mcp_limits(None, mcp);
-        assert_eq!(
-            (none[2].bucket, none[2].ceiling),
-            (Bucket::McpUnknown, VISITOR_REQUESTS)
-        );
+        assert_eq!((none[2].bucket, none[2].ceiling), (Bucket::McpUnknown, 7));
     }
 
     #[test]
@@ -1123,6 +1122,7 @@ mod tests {
             McpLimits {
                 requests: 3,
                 burst: 1,
+                address_requests: 100,
             },
         );
         let first = limiter.check_all(&limits, 0);
@@ -1141,6 +1141,7 @@ mod tests {
         let mcp = McpLimits {
             requests: 2,
             burst: 100,
+            address_requests: 100,
         };
         for last in [1, 2] {
             let address = IpAddr::from([203, 0, 113, last]);

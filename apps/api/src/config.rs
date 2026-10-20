@@ -1,7 +1,8 @@
 use crate::auth::Keys;
 use crate::constants::{
-    DEFAULT_ANON_REQUESTS, DEFAULT_MCP_BURST, DEFAULT_MCP_REQUESTS, DEV_ANON_REQUESTS,
-    DEV_MCP_BURST, DEV_MCP_REQUESTS, UNKNOWN_ENVIRONMENT,
+    DEFAULT_ANON_REQUESTS, DEFAULT_MCP_ADDRESS_REQUESTS, DEFAULT_MCP_BURST, DEFAULT_MCP_REQUESTS,
+    DEV_ANON_REQUESTS, DEV_MCP_ADDRESS_REQUESTS, DEV_MCP_BURST, DEV_MCP_REQUESTS,
+    UNKNOWN_ENVIRONMENT,
 };
 use crate::rate_limit::McpLimits;
 
@@ -95,6 +96,12 @@ impl Config {
                     &environment,
                     DEFAULT_MCP_BURST,
                     DEV_MCP_BURST,
+                ),
+                address_requests: ceiling(
+                    lookup("MCP_ADDRESS_REQUESTS").as_deref(),
+                    &environment,
+                    DEFAULT_MCP_ADDRESS_REQUESTS,
+                    DEV_MCP_ADDRESS_REQUESTS,
                 ),
             },
             environment,
@@ -237,14 +244,16 @@ mod tests {
             strict.mcp,
             McpLimits {
                 requests: DEFAULT_MCP_REQUESTS,
-                burst: DEFAULT_MCP_BURST
+                burst: DEFAULT_MCP_BURST,
+                address_requests: DEFAULT_MCP_ADDRESS_REQUESTS
             }
         );
         assert_eq!(
             strict.mcp,
             McpLimits {
                 requests: 20_000,
-                burst: 20
+                burst: 20,
+                address_requests: 600
             }
         );
 
@@ -261,18 +270,21 @@ mod tests {
             dev.mcp,
             McpLimits {
                 requests: DEV_MCP_REQUESTS,
-                burst: DEV_MCP_BURST
+                burst: DEV_MCP_BURST,
+                address_requests: DEV_MCP_ADDRESS_REQUESTS
             }
         );
 
         production.push(("MCP_REQUESTS", "500"));
         production.push(("MCP_BURST", "5"));
+        production.push(("MCP_ADDRESS_REQUESTS", "50"));
         let explicit = Config::from_vars(vars(&production), 1).expect("a prod config");
         assert_eq!(
             explicit.mcp,
             McpLimits {
                 requests: 500,
-                burst: 5
+                burst: 5,
+                address_requests: 50
             }
         );
     }

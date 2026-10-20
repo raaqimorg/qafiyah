@@ -116,6 +116,7 @@ pub async fn harness() -> Option<Harness> {
         McpLimits {
             requests: 1_000_000,
             burst: 1_000_000,
+            address_requests: 1_000_000,
         },
         metrics,
     );

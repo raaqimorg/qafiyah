@@ -41,7 +41,7 @@ Under `ENVIRONMENT=production`, the app refuses to start without `API_KEY_MCP`, 
 - It refuses a `Host` outside `MCP_ALLOWED_HOSTS`, and any request that carries an `Origin` (403). It sends no CORS headers.
 - A request body is at most 64 KiB, here and in the web nginx.
 - The time limits nest: the API answers 503 after 6 seconds, each API call stops after 8 seconds, the whole request after 9 seconds, and the web nginx waits 10 seconds.
-- The API counts MCP calls in their own buckets, by the forwarded address, and against an hourly and a per-second total (`docs/exceptions.md`, "Internal keys bypass rate limiting and the accounts database"). The web nginx adds a request rate and a connection limit for each address.
+- The API counts MCP calls in their own buckets, by the forwarded address (`MCP_ADDRESS_REQUESTS`, 600 an hour), and against an hourly and a per-second total (`docs/exceptions.md`, "Internal keys bypass rate limiting and the accounts database"). The web nginx adds a request rate and a connection limit for each address.
 
 ## Tests
 
