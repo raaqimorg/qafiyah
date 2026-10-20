@@ -41,6 +41,43 @@ diesel::table! {
 }
 
 diesel::table! {
+    feeling_branch_verses (feeling_id, rank) {
+        feeling_id -> Int4,
+        rank -> Int4,
+        poem_id -> Int4,
+        position -> Int4,
+        verse_feeling_id -> Int4,
+    }
+}
+
+diesel::table! {
+    feeling_stats (id) {
+        id -> Int4,
+        verses_count -> Nullable<Int8>,
+    }
+}
+
+diesel::table! {
+    feeling_verses (poem_id, position, feeling_id) {
+        poem_id -> Int4,
+        position -> Int4,
+        feeling_id -> Int4,
+        strength -> Int2,
+    }
+}
+
+diesel::table! {
+    feelings (id) {
+        id -> Int4,
+        parent_id -> Nullable<Int4>,
+        slug -> Text,
+        name -> Text,
+        wheel_term -> Nullable<Text>,
+        sort_order -> Int4,
+    }
+}
+
+diesel::table! {
     meter_stats (id) {
         id -> Int4,
         name -> Nullable<Text>,
@@ -110,11 +147,8 @@ diesel::table! {
         rhyme_id -> Int4,
         era_id -> Int4,
         collection_id -> Nullable<Int4>,
-        form_id -> Nullable<Int8>,
         poem_type_id -> Int8,
-        register_id -> Nullable<Int8>,
         genre_id -> Nullable<Int8>,
-        rhyme_majra_id -> Nullable<Int8>,
         title -> Text,
         verse_count -> Int4,
         slug -> Text,
@@ -212,6 +246,7 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(feeling_verses -> feelings (feeling_id));
 diesel::joinable!(poem_aliases -> poems (poem_id));
 diesel::joinable!(poem_verses -> poems (poem_id));
 diesel::joinable!(poem_verses -> verses (verse_id));
@@ -229,6 +264,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     collections,
     era_stats,
     eras,
+    feeling_branch_verses,
+    feeling_stats,
+    feeling_verses,
+    feelings,
     meter_stats,
     meters,
     poem_aliases,

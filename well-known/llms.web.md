@@ -8,6 +8,7 @@
 - [Meters]({SITE}/meters): Classical Arabic meters (al-ʿarūḍ)
 - [Rhymes]({SITE}/rhymes): Rhyme letters (qāfiyah)
 - [Themes]({SITE}/themes): Thematic categories
+- [Feelings]({SITE}/feelings): The Feelings Wheel in Arabic, with the classical verses that express each feeling
 
 ## Data & API
 

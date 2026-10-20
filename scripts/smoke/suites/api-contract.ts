@@ -41,6 +41,7 @@ export const apiContractProbes: readonly Probe[] = [
   list('/meters', 'meters list, the developers page example'),
   list('/rhymes', 'rhymes list'),
   list('/themes', 'themes list'),
+  list('/feelings', 'feelings list'),
   list('/collections', 'collections list'),
   list('/poem-types', 'verse forms list'),
   {

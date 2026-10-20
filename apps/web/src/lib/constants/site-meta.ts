@@ -49,9 +49,10 @@ type NavLink = {
 export const NAV_LINKS = [
   { name: 'الرئيسة', href: '/', isExternal: false },
   { name: 'الشعراء', href: '/poets', isExternal: false },
+  { name: 'المشاعر', href: '/feelings', isExternal: false },
+  { name: 'الأغراض', href: '/themes', isExternal: false },
   { name: 'البحور', href: '/meters', isExternal: false },
   { name: 'القوافي', href: '/rhymes', isExternal: false },
-  { name: 'الأغراض', href: '/themes', isExternal: false },
   { name: 'الدواوين', href: '/collections', isExternal: false },
 ] as const satisfies readonly NavLink[];
 

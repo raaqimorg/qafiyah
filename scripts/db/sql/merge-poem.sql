@@ -7,19 +7,14 @@ BEGIN
   UPDATE public.poems k
   SET meter_id = CASE WHEN km.slug = 'ghayrmaruf' THEN s.meter_id ELSE k.meter_id END,
       theme_id = CASE WHEN kt.slug = 'almutafarriqat' THEN s.theme_id ELSE k.theme_id END,
-      poem_type_id = CASE WHEN ky.slug = 'majhul' THEN s.poem_type_id ELSE k.poem_type_id END,
       collection_id = COALESCE(k.collection_id, s.collection_id),
-      form_id = COALESCE(k.form_id, s.form_id),
-      register_id = COALESCE(k.register_id, s.register_id),
       genre_id = COALESCE(k.genre_id, s.genre_id),
-      rhyme_majra_id = COALESCE(k.rhyme_majra_id, s.rhyme_majra_id),
       flags = ARRAY(SELECT DISTINCT f FROM unnest(k.flags || s.flags) AS f ORDER BY f)
-  FROM public.poems s, public.meters km, public.themes kt, public.poem_types ky
+  FROM public.poems s, public.meters km, public.themes kt
   WHERE k.id = p_keep
     AND s.id = p_source
     AND km.id = k.meter_id
-    AND kt.id = k.theme_id
-    AND ky.id = k.poem_type_id;
+    AND kt.id = k.theme_id;
 END;
 $function$;
 
@@ -64,6 +59,25 @@ BEGIN
   UPDATE public.poems
   SET recension_of_id = CASE WHEN id = p_keep THEN NULL ELSE p_keep END
   WHERE recension_of_id = p_absorb;
+  UPDATE public.feeling_verses fv
+  SET poem_id = p_keep, position = kept.position
+  FROM public.poem_verses absorbed
+  JOIN LATERAL (
+    SELECT min(k.position) AS position
+    FROM public.poem_verses k
+    WHERE k.poem_id = p_keep AND k.verse_id = absorbed.verse_id
+  ) kept ON kept.position IS NOT NULL
+  WHERE fv.poem_id = p_absorb
+    AND absorbed.poem_id = p_absorb
+    AND absorbed.position = fv.position
+    AND absorbed.position = (
+      SELECT min(a.position) FROM public.poem_verses a
+      WHERE a.poem_id = p_absorb AND a.verse_id = absorbed.verse_id
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.feeling_verses taken
+      WHERE taken.poem_id = p_keep AND taken.position = kept.position AND taken.feeling_id = fv.feeling_id
+    );
   DELETE FROM public.poems WHERE id = p_absorb;
   INSERT INTO public.poem_aliases (slug, poem_id) VALUES (v_absorb_slug, p_keep);
 END;

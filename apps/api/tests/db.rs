@@ -78,6 +78,7 @@ pub async fn harness() -> Option<Harness> {
         4,
         Duration::from_secs(10),
         qafiyah_api::db::corpus_setup(),
+        Duration::ZERO,
     )
     .expect("the corpus database");
     let checks = qafiyah_api::db::pool(
@@ -85,6 +86,7 @@ pub async fn harness() -> Option<Harness> {
         4,
         Duration::from_secs(10),
         CHECK_STATEMENT_TIMEOUT.to_string(),
+        Duration::ZERO,
     )
     .expect("the corpus database for checks");
     static MIGRATED: OnceCell<()> = OnceCell::const_new();
@@ -100,6 +102,7 @@ pub async fn harness() -> Option<Harness> {
         4,
         Duration::from_secs(10),
         qafiyah_api::db::accounts_setup(),
+        Duration::ZERO,
     )
     .expect("the accounts database");
     let metrics = Metrics::default();

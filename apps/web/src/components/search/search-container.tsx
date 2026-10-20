@@ -27,6 +27,7 @@ import {
 } from '@/lib/constants/taxonomy-data';
 import { cn } from '@/lib/utils';
 
+import { FeelingsLink } from './feelings-link';
 import { ExactToggle, FilterBadges, Filters, FiltersButton } from './filters';
 import { SearchSection } from './sections';
 
@@ -114,7 +115,11 @@ export function SearchContainer({
                       onToggle={handlers.onToggleFilters}
                       filtersVisible={flags.filtersVisible}
                     />
-                    <ExactToggle enabled={flags.exactEnabled} onToggle={handlers.onToggleExact} />
+                    {flags.filtersVisible || flags.exactEnabled ? (
+                      <ExactToggle enabled={flags.exactEnabled} onToggle={handlers.onToggleExact} />
+                    ) : (
+                      <FeelingsLink />
+                    )}
                   </div>
 
                   <FilterBadges

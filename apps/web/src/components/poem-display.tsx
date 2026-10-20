@@ -188,7 +188,9 @@ export function PoemDisplay({
             className={cn(
               'flex w-full flex-col text-verse font-normal',
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
-              isClassical ? 'max-w-[calc(16em*var(--poem-scale))]' : 'px-(--poem-gutter)'
+              isClassical
+                ? 'w-fit max-w-full min-w-[min(calc(16em*var(--poem-scale)),100%)]'
+                : 'px-(--poem-gutter)'
             )}
             style={columnStyle}
           >
@@ -216,7 +218,7 @@ export function PoemDisplay({
                         lang="ar"
                         dir="rtl"
                         className={cn(
-                          halves && (partIndex === 0 ? 'pe-12 text-right' : 'ps-12 text-left')
+                          halves && (partIndex === 0 ? 'text-right sm:pe-12' : 'text-left sm:ps-12')
                         )}
                       >
                         {highlightRegex ? highlightVerse(text, highlightRegex) : text}

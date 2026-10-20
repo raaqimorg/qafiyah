@@ -1,0 +1,74 @@
+---
+import FeelingNavigation from '@/components/feelings/feeling-navigation.astro';
+import VerseCopy from '@/components/feelings/verse-copy.astro';
+import { FeelingVerseItem } from '@/components/feelings/feeling-verse-item';
+import { FeelingWheel } from '@/components/feelings/feeling-wheel';
+import { Pagination } from '@/components/pagination';
+import Layout from '@/layouts/layout.astro';
+import { formatArabicCount } from '@/lib/arabic';
+import { TYPE } from '@/lib/constants/design-tokens';
+import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
+import { buildFeelingTree, pathOf, type Feeling } from '@/lib/feelings/feeling-tree';
+import { derivePagination, parsePageQuery } from '@/lib/pagination';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { allFeelings, feelingVerses } from '@/lib/server/feelings';
+import { buildFeelingSeo } from '@/lib/seo/feelings-page';
+import { feelingUrl, isCanonical } from '@/lib/urls';
+import { cn } from '@/lib/utils';
+
+const page = parsePageQuery(Astro.url.searchParams.get('page'));
+const { slug } = Astro.params;
+const canonical = page === null || !slug ? null : feelingUrl(slug, page);
+if (canonical !== null && !isCanonical(Astro.url, canonical)) {
+  return Astro.redirect(canonical, 301);
+}
+if (page === null || !slug) return Astro.rewrite('/404');
+const [rows, found] = await Promise.all([allFeelings(), feelingVerses(slug, page)]);
+const tree = buildFeelingTree(rows);
+const path = pathOf(tree, slug);
+if (!found || !path) return Astro.rewrite('/404');
+const chain = path.reduce<readonly Feeling[]>((acc, index, depth) => {
+  const level = depth === 0 ? tree : (acc.at(-1)?.children ?? []);
+  const next = level[index];
+  return next ? [...acc, next] : acc;
+}, []);
+const feeling = chain.at(-1);
+if (!feeling) return Astro.rewrite('/404');
+const pagination = derivePagination(found.pagination, (n) => feelingUrl(slug, n));
+const count = formatArabicCount({ count: feeling.verseCount, nounForms: VERSES_NOUN_FORMS });
+const seo = buildFeelingSeo({
+  feeling,
+  parents: chain.slice(0, -1),
+  verses: found.verses,
+  page,
+  totalPages: found.pagination.totalPages,
+});
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout
+  title={seo.title}
+  description={seo.description}
+  canonical={feelingUrl(slug, page)}
+  jsonLd={seo.jsonLd}
+  prevUrl={pagination.hasPrevPage ? pagination.prevPageUrl : undefined}
+  nextUrl={pagination.hasNextPage ? pagination.nextPageUrl : undefined}
+>
+  <FeelingNavigation slot="head" />
+  <VerseCopy slot="head" />
+  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 py-12" dir="rtl">
+    <FeelingWheel tree={tree} path={path} />
+    <section class="flex flex-col gap-4 pt-8">
+      <div class="flex items-baseline justify-between gap-3">
+        <h1 class={cn(TYPE.caption, 'text-text-muted')}>أبيات في {feeling.name}</h1>
+        <p class={cn(TYPE.micro, 'text-text-subtle')}>{count}</p>
+      </div>
+      <ul class="grid grid-cols-1 md:grid-cols-2 md:gap-x-10">
+        {found.verses.map((verse) => (
+          <FeelingVerseItem verse={verse} />
+        ))}
+      </ul>
+      <Pagination {...pagination} />
+    </section>
+  </div>
+</Layout>

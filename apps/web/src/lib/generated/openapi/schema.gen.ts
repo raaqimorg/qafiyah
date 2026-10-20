@@ -70,6 +70,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/feelings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The feelings of the Feelings Wheel in Arabic that have verses, as a flat list in tree order: each core feeling, then its children, each followed by its own children. Each item counts the verses of its whole branch. */
+        get: operations["feelings.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/feelings/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A feeling by slug, with the count of verses in its whole branch. A feeling with no verses is not found. */
+        get: operations["feelings.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/feelings/{slug}/verses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch. */
+        get: operations["feelings.verses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meters": {
         parameters: {
             query?: never;
@@ -418,6 +469,64 @@ export interface components {
         };
         /** @enum {string} */
         ExactFlag: "true" | "false";
+        FeelingItem: {
+            /**
+             * @description The feeling's name in Arabic, a verbal noun with its article.
+             * @example الحزن
+             */
+            name: string;
+            /**
+             * @description The slug of the feeling above this one. Absent for the seven core feelings.
+             * @example alhuzn
+             */
+            parentSlug?: string | null;
+            /**
+             * @description The feeling's slug, for `GET /feelings/{slug}`.
+             * @example alhuzn
+             */
+            slug: string;
+            /**
+             * Format: int32
+             * @description Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.
+             * @example 1200
+             */
+            verseCount: number;
+            /**
+             * @description The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.
+             * @example Sad
+             */
+            wheelTerm?: string | null;
+        };
+        FeelingRef: {
+            /**
+             * @description The feeling's name in Arabic.
+             * @example الوحشة
+             */
+            name: string;
+            /**
+             * @description The feeling's slug, for `GET /feelings/{slug}`.
+             * @example alwahsha
+             */
+            slug: string;
+        };
+        FeelingVerseItem: {
+            /** @description The poem's era. */
+            era: components["schemas"]["EraRef"];
+            /** @description The verse's strongest feeling within the requested feeling's branch. A verse can express up to three feelings. */
+            feeling: components["schemas"]["FeelingRef"];
+            /** @description The verse's parts in reading order, usually its two hemistichs. */
+            parts: string[];
+            /** @description The poem that holds the verse. */
+            poem: components["schemas"]["PoemNavRef"];
+            /** @description The poem's poet. */
+            poet: components["schemas"]["PoetRef"];
+            /**
+             * Format: int32
+             * @description The verse's position in its poem, from 1.
+             * @example 3
+             */
+            position: number;
+        };
         FourLetterSlug: string;
         /** @description The requested item under `data`. */
         ItemEnvelope_CountedStats: {
@@ -444,6 +553,37 @@ export interface components {
                  * @example altawil
                  */
                 slug: string;
+            };
+        };
+        /** @description The requested item under `data`. */
+        ItemEnvelope_FeelingItem: {
+            data: {
+                /**
+                 * @description The feeling's name in Arabic, a verbal noun with its article.
+                 * @example الحزن
+                 */
+                name: string;
+                /**
+                 * @description The slug of the feeling above this one. Absent for the seven core feelings.
+                 * @example alhuzn
+                 */
+                parentSlug?: string | null;
+                /**
+                 * @description The feeling's slug, for `GET /feelings/{slug}`.
+                 * @example alhuzn
+                 */
+                slug: string;
+                /**
+                 * Format: int32
+                 * @description Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.
+                 * @example 1200
+                 */
+                verseCount: number;
+                /**
+                 * @description The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.
+                 * @example Sad
+                 */
+                wheelTerm?: string | null;
             };
         };
         /** @description The requested item under `data`. */
@@ -601,6 +741,64 @@ export interface components {
                  * @example altawil
                  */
                 slug: string;
+            }[];
+            /** @description Where this page sits in the list. */
+            pagination: components["schemas"]["Pagination"];
+        };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
+        ListEnvelope_FeelingItem: {
+            /** @description The items of this page. */
+            data: {
+                /**
+                 * @description The feeling's name in Arabic, a verbal noun with its article.
+                 * @example الحزن
+                 */
+                name: string;
+                /**
+                 * @description The slug of the feeling above this one. Absent for the seven core feelings.
+                 * @example alhuzn
+                 */
+                parentSlug?: string | null;
+                /**
+                 * @description The feeling's slug, for `GET /feelings/{slug}`.
+                 * @example alhuzn
+                 */
+                slug: string;
+                /**
+                 * Format: int32
+                 * @description Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.
+                 * @example 1200
+                 */
+                verseCount: number;
+                /**
+                 * @description The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.
+                 * @example Sad
+                 */
+                wheelTerm?: string | null;
+            }[];
+            /** @description Where this page sits in the list. */
+            pagination: components["schemas"]["Pagination"];
+        };
+        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
+        ListEnvelope_FeelingVerseItem: {
+            /** @description The items of this page. */
+            data: {
+                /** @description The poem's era. */
+                era: components["schemas"]["EraRef"];
+                /** @description The verse's strongest feeling within the requested feeling's branch. A verse can express up to three feelings. */
+                feeling: components["schemas"]["FeelingRef"];
+                /** @description The verse's parts in reading order, usually its two hemistichs. */
+                parts: string[];
+                /** @description The poem that holds the verse. */
+                poem: components["schemas"]["PoemNavRef"];
+                /** @description The poem's poet. */
+                poet: components["schemas"]["PoetRef"];
+                /**
+                 * Format: int32
+                 * @description The verse's position in its poem, from 1.
+                 * @example 3
+                 */
+                position: number;
             }[];
             /** @description Where this page sits in the list. */
             pagination: components["schemas"]["Pagination"];
@@ -1488,6 +1686,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEnvelope_CountedStats"];
+                };
+            };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "feelings.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every feeling with verses. */
+            200: {
+                headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelope_FeelingItem"];
+                };
+            };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "feelings.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description The feeling's `slug`, from its list.
+                 * @example alhuzn
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested feeling. */
+            200: {
+                headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemEnvelope_FeelingItem"];
+                };
+            };
+            /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
+            304: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A query or path parameter is invalid or unknown; `detail` names it */
+            400: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    /** @description Seconds until the window resets */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Temporarily unavailable: the database or search index did not answer in time */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying */
+                    "retry-after"?: number;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    "feelings.verses": {
+        parameters: {
+            query?: {
+                /**
+                 * @description Page number as a 1-based integer string, 30 verses a page. Minimum 1.
+                 * @example 1
+                 */
+                page?: string;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description The feeling's `slug`, from its list.
+                 * @example alhuzn
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of verses with pagination metadata. */
+            200: {
+                headers: {
+                    /** @description Send back in If-None-Match to get 304 while the data is unchanged */
+                    ETag?: string;
+                    /** @description Requests allowed per hour */
+                    "x-ratelimit-limit"?: number;
+                    /** @description Requests left in the current hour */
+                    "x-ratelimit-remaining"?: number;
+                    /** @description Unix seconds at which the window resets */
+                    "x-ratelimit-reset"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvelope_FeelingVerseItem"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */

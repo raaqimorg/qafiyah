@@ -1,0 +1,24 @@
+---
+import FeelingNavigation from '@/components/feelings/feeling-navigation.astro';
+import VerseCopy from '@/components/feelings/verse-copy.astro';
+import { FeelingWheel } from '@/components/feelings/feeling-wheel';
+import Layout from '@/layouts/layout.astro';
+import { buildFeelingTree } from '@/lib/feelings/feeling-tree';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { allFeelings } from '@/lib/server/feelings';
+import { buildFeelingsIndexSeo } from '@/lib/seo/feelings-page';
+
+const feelings = await allFeelings();
+const tree = buildFeelingTree(feelings);
+const seo = buildFeelingsIndexSeo(feelings);
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout title={seo.title} description={seo.description} canonical="/feelings" jsonLd={seo.jsonLd}>
+  <FeelingNavigation slot="head" />
+  <VerseCopy slot="head" />
+  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 py-12" dir="rtl">
+    <h1 class="sr-only">شجرة المشاعر</h1>
+    <FeelingWheel tree={tree} path={[]} />
+  </div>
+</Layout>

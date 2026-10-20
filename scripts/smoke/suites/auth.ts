@@ -43,8 +43,9 @@ export const authProbes: readonly Probe[] = [
   },
   {
     url: `${WEB}/auth/logout`,
-    note: 'logout without origin is rejected',
+    note: 'logout from another site is rejected',
     method: 'POST',
+    headers: { Origin: 'https://example.com', 'Content-Type': FORM_CONTENT_TYPE },
     checks: [isStatus(403)],
     surfaces: ALL,
   },

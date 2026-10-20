@@ -7,12 +7,14 @@ use crate::accounts::usage::UsageRecorder;
 use crate::accounts::users::UserRepository;
 use crate::auth::Keys;
 use crate::db::PgPool;
+use crate::db::feelings::PgFeelings;
 use crate::db::keys::PgKeys;
 use crate::db::poems::PgPoems;
 use crate::db::poets::PgPoets;
 use crate::db::sessions::PgSessions;
 use crate::db::taxonomy::PgTaxonomy;
 use crate::db::users::PgUsers;
+use crate::domain::feelings::FeelingRepository;
 use crate::domain::poems::PoemRepository;
 use crate::domain::poets::PoetRepository;
 use crate::domain::search::SearchIndex;
@@ -26,6 +28,7 @@ pub struct AppState {
     pub poems: Arc<dyn PoemRepository>,
     pub poets: Arc<dyn PoetRepository>,
     pub taxonomy: Arc<dyn TaxonomyRepository>,
+    pub feelings: Arc<dyn FeelingRepository>,
     pub search: Arc<dyn SearchIndex>,
     pub users: Arc<dyn UserRepository>,
     pub sessions: Arc<dyn SessionRepository>,
@@ -50,7 +53,8 @@ impl AppState {
         Self {
             poems: Arc::new(PgPoems::new(corpus.clone())),
             poets: Arc::new(PgPoets::new(corpus.clone())),
-            taxonomy: Arc::new(PgTaxonomy::new(corpus)),
+            taxonomy: Arc::new(PgTaxonomy::new(corpus.clone())),
+            feelings: Arc::new(PgFeelings::new(corpus)),
             search: Arc::new(search),
             users: Arc::new(PgUsers::new(accounts.clone())),
             sessions: Arc::new(PgSessions::new(accounts.clone())),

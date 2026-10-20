@@ -48,14 +48,14 @@ function answer(facets: ReturnType<typeof ok> | ReturnType<typeof failure>) {
   });
 }
 
-async function render(url: string) {
+async function render(url: string, slug = 'oNbs') {
   const container = await AstroContainer.create({
     manifest: { trailingSlash: 'never' } as SSRManifest,
     renderers: await loadRenderers([getContainerRenderer()]),
   });
   return await container.renderToResponse(PoetPage, {
     request: new Request(url),
-    params: { slug: 'oNbs' },
+    params: { slug },
   });
 }
 
@@ -65,6 +65,17 @@ beforeEach(() => {
 });
 
 describe('GET /poets/[slug]', () => {
+  it('looks up a slug with Arabic letters, instead of failing on a redirect to it', async () => {
+    answer(ok(FACETS));
+    const response = await render(
+      `https://qafiyah.com/poets/${encodeURIComponent('الفرزدق')}`,
+      'الفرزدق'
+    );
+    expect(get).toHaveBeenCalledWith('/poets/{slug}', expect.anything());
+    expect(response.status).toBe(301);
+    expect(response.headers.get('location')).toBe('/poets/oNbs');
+  });
+
   it('shows the filters and caches the page when the facets load', async () => {
     answer(ok(FACETS));
     const response = await render('https://qafiyah.com/poets/oNbs');

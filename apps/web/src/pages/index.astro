@@ -1,4 +1,5 @@
 ---
+import { FeelingsLink } from '@/components/search/feelings-link';
 import { SearchWithProviders } from '@/components/search/search-with-providers';
 import Icon from '@/components/ui/icon.astro';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
@@ -82,16 +83,7 @@ const jsonLd = [websiteNode(), organizationNode()];
                     <Icon name="filter" size={16} class="h-4 w-4" />
                     <Icon name="chevron-down" size={16} class="h-4 w-4" />
                   </button>
-                  <button
-                    type="button"
-                    aria-label={SEARCH_TEXTS.exactToggleEnableAria}
-                    tabindex="-1"
-                    aria-hidden="true"
-                    class="flex h-12 items-center justify-center gap-2 rounded-md border border-border bg-transparent px-4 text-base text-text-subtle shadow-none"
-                  >
-                    <Icon name="whole-word" size={16} class="h-4 w-4" />
-                    <span>{SEARCH_TEXTS.exactLabel}</span>
-                  </button>
+                  <FeelingsLink placeholder />
                 </div>
               </div>
             </div>

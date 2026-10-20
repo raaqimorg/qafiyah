@@ -67,6 +67,39 @@
   --radius-md: 6px;
   --radius-lg: 12px;
 
+  --animate-feeling-draw: feeling-draw 600ms ease-out backwards;
+  --animate-feeling-fade: feeling-fade 500ms ease-out backwards;
+  --animate-copy-check: copy-check var(--copy-hold) ease-out forwards;
+
+  @keyframes copy-check {
+    0% {
+      opacity: 0;
+      scale: 0.6;
+    }
+    12% {
+      opacity: 1;
+      scale: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes feeling-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes feeling-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-surface-sunken: var(--surface-sunken);
@@ -137,7 +170,7 @@
     --surface: #f8f6f3;
     --surface-raised: #ffffff;
     --surface-sunken: #f0edeb;
-    --surface-hover: #e7e5e2;
+    --surface-hover: #eeece9;
     --border: #cecbc9;
     --text: #252422;
     --text-muted: #4b4846;
@@ -168,7 +201,7 @@
     --surface: #0c0b09;
     --surface-raised: #12100f;
     --surface-sunken: #181614;
-    --surface-hover: #1e1c1a;
+    --surface-hover: #171513;
     --border: #2a2827;
     --text: #dedbd9;
     --text-muted: #aba8a6;

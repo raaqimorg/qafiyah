@@ -1,0 +1,7 @@
+---
+import { X_IN_APP_BROWSER_AGENT } from '@/lib/in-app-browser';
+---
+
+<script is:inline data-cfasync="false" define:vars={{ xAgent: X_IN_APP_BROWSER_AGENT }}>
+  if (navigator.userAgent.includes(xAgent)) document.documentElement.dataset.inAppBrowser = 'x';
+</script>

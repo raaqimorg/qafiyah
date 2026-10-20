@@ -17,7 +17,7 @@ In every other case, release the open version (`vN`) before you deploy. Follow "
 
 1. Write `docs/changelog/vN.md`.
 2. Merge the release pull request into `main` with a merge commit.
-3. Let CI pass.
+3. Deploy. The release pull request's CI run already tested the same files, so the deploy does not wait for the CI run on `main`.
 
 After the deploy, delete `vN`, and open `v<N+1>` from `main`.
 
@@ -29,8 +29,8 @@ This covers every container in `docker-compose.yml`: the site, the data stores, 
 bun run deploy        # scripts/deploy/vps.sh
 ```
 
-1. It checks that the GitHub CI run for `origin/main` passed. If the run is still going, failed, or never ran, it stops. In an emergency, `bun run deploy --skip-ci-check` skips this check.
-2. It builds, then replaces `api` and `web` with zero downtime.
+1. It checks that the GitHub CI run for `origin/main` passed. If that run failed, it stops. If that run is still going or never ran, it accepts a passed CI run of a release pull request (head branch `vN`) whose commit has exactly the same files as `origin/main`; otherwise it stops. In an emergency, `bun run deploy --skip-ci-check` skips this check.
+2. It builds, then replaces `api` and `web` with zero downtime. It applies the mounted configuration files that changed since the last deploy: the edge template with a graceful nginx reload, and the observability files by recreating their service (`docs/deployment/architecture.md`).
 3. It runs the edge smoke gate.
 4. It purges the Cloudflare cache. If the purge fails, the deploy exits with an error. Then purge everything in the Cloudflare dashboard at once.
 5. It prunes the build cache.
@@ -70,21 +70,21 @@ bun run db:reseed     # syncs to origin/main, builds api and search-indexer, res
 It replaces only the corpus database (`qafiyah`). It does not touch `qafiyah_accounts`. It does these steps:
 
 1. It builds `api` and `search-indexer` from `origin/main`, while the old stack serves.
-2. It stops the API for the restore. This takes a few minutes, and nginx keeps serving cached pages.
-3. It recreates the database container, so the restore runs the scripts of the synced checkout, not the scripts that the container started with (#209).
-4. It starts the new API on the restored data.
-5. It rebuilds Elasticsearch with the new indexer and an alias swap, while the API serves.
-6. It ends with the same public health check as the deploy.
+2. It checks that the disk can hold a second copy of the corpus, and stops if not.
+3. It restores the dump into `qafiyah_next`, while the API keeps serving `qafiyah` (#322). The restore runs the scripts of the synced checkout, not the scripts that the container started with (#209).
+4. It swaps the two databases in one transaction, and drops the old one. The queries that run at that moment fail. A request that needs a new connection waits through the swap (#330).
+5. It rolls the API to the new build, as a deploy does.
+6. It rebuilds Elasticsearch with the new indexer and an alias swap, while the API serves.
+7. It ends with the same public health check as the deploy.
 
 It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env`, and refuses to start without it. It asks for confirmation, unless you run it with `-y`. For details, see `docs/deployment/environments.md`.
 
 **For a new dump together with code changes**, do these steps in this order:
 
 1. Release the version that holds the snapshot and the code into `main` (step 0), and let CI pass.
-2. Silence the alerts for 30 minutes (`apps/observability/AGENTS.md`, "Alerts"), because the restore stops the API.
-3. Run `bun run db:reseed`. The API that it starts is already the new build. So this is safe if the old API cannot read the new schema, or if the new API needs the new schema.
-4. Run `bun run deploy` to roll out `web`. It also replaces `api` with the same build. No separate reindex is necessary, because the reseed already rebuilt search with the new indexer.
-5. Verify with `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump automatically.
+2. Run `bun run db:reseed`. Between the swap and the end of its API rollout (about 30 seconds), the old API serves the new data. If the old API cannot read the new schema, its queries fail for those seconds.
+3. Run `bun run deploy` to roll out `web`. It also replaces `api` with the same build. No separate reindex is necessary, because the reseed already rebuilt search with the new indexer.
+4. Verify with `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump automatically.
 
 ## 4. Rebuild only the search index (fix Elasticsearch differences, no data change)
 

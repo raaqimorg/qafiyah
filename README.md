@@ -73,7 +73,7 @@ Every response, including an error, reports `x-ratelimit-limit`, `x-ratelimit-re
 
 ## Data
 
-Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. This repo keeps versioned snapshots: database dumps in [`data/db/`](data/db/README.md), and avatar archives in [`data/avatars/`](data/avatars/README.md).
+Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. This repo keeps versioned snapshots: database dumps in [`data/db/`](data/db/README.md), avatar archives in [`data/avatars/`](data/avatars/README.md), and the verse feelings in [`data/feelings/`](data/feelings/README.md).
 
 The 100-poem sample that `bun run dev` restores is plain text. The full snapshots are encrypted, but they are free for anyone. To get a passphrase, email [dumps@qafiyah.com](mailto:dumps@qafiyah.com) or [avatars@qafiyah.com](mailto:avatars@qafiyah.com) and say what you plan to build. The passphrase comes back quickly, with no vetting. The encryption only lets us withdraw a record later, because a plaintext file pushed to a public repo stays in every clone. For details, see [`data/README.md`](data/README.md).
 
@@ -140,6 +140,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 - [`docs/changelog/`](docs/changelog/): what each released version changed, one file per version.
 - [`docs/domain.md`](docs/domain.md): what a poem, poet, meter, rhyme, era, theme, and collection mean.
 - [`docs/search.md`](docs/search.md): Arabic text handling, relevance tiers, and snippet selection.
+- [`docs/feelings.md`](docs/feelings.md): the /feelings wheel, how its verses were classified, and the limits of that classification.
 - [`docs/code-conventions.md`](docs/code-conventions.md) and the TypeScript, Rust, testing, and pull request files next to it: how to write code, tests, docs, and commits.
 - [`docs/identity.md`](docs/identity.md): canonical name, description, organization, and links.
 - [`AGENTS.md`](AGENTS.md) and each component's `AGENTS.md`: the repo layout and the shape of each component. They are written for AI agents, and they are useful to anyone.

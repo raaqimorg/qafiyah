@@ -49,4 +49,7 @@ else
   export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-qafiyah-dev}"
 fi
 
-exec docker compose -f docker-compose.yml -f docker-compose.dev.yml "${args[@]}"
+files=(-f docker-compose.yml -f docker-compose.dev.yml)
+[[ -n "${COMPOSE_CI_FILE:-}" ]] && files+=(-f "${COMPOSE_CI_FILE}")
+
+exec docker compose "${files[@]}" "${args[@]}"

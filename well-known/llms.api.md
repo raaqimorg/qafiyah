@@ -53,6 +53,12 @@ Each list returns every term with its counts. Each item takes the term's slug.
 - [GET /v1/poem-types]({BASE}/poem-types) and [/v1/poem-types/{slug}]({BASE}/poem-types/amudi): Verse forms (amudi, hurr, and the rest), with poem and poet counts
 - [GET /v1/collections]({BASE}/collections) and [/v1/collections/{slug}]({BASE}/collections/almuallaqat): Curated collections, with poem counts
 
+## Feelings
+
+- [GET /v1/feelings]({BASE}/feelings): The feelings of the Feelings Wheel in Arabic that have verses, as a flat list in tree order. Each item counts the verses of its whole branch.
+- [GET /v1/feelings/{slug}]({BASE}/feelings/alhuzn): One feeling, with the count of verses in its whole branch
+- [GET /v1/feelings/{slug}/verses]({BASE}/feelings/alhuzn/verses): Classical verses that express the feeling or a feeling below it, 30 a page, the strongest first. Params: `page`.
+
 ## Links
 
 - [Website]({SITE})

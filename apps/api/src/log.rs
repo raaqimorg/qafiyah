@@ -92,6 +92,7 @@ impl<B> MakeSpan<B> for RequestSpan {
             rhyme = Empty,
             collection = Empty,
             poem_type = Empty,
+            feeling = Empty,
             query_text = Empty,
             poems_count = Empty,
             poets_count = Empty,

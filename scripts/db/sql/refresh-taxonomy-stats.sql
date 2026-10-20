@@ -4,8 +4,8 @@ DECLARE
 BEGIN
   FOREACH stats_rel IN ARRAY ARRAY[
     'poet_stats', 'meter_stats', 'rhyme_stats', 'era_stats', 'theme_stats',
-    'collection_stats', 'poem_type_stats', 'form_stats', 'register_stats',
-    'genre_stats', 'majra_stats', 'nation_stats', 'gender_stats'
+    'collection_stats', 'poem_type_stats', 'genre_stats', 'nation_stats',
+    'gender_stats'
   ] LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -75,31 +75,7 @@ CREATE TABLE IF NOT EXISTS public.poem_type_stats (
   poets_count bigint
 );
 
-CREATE TABLE IF NOT EXISTS public.form_stats (
-  id bigint PRIMARY KEY,
-  name text,
-  slug text,
-  poems_count bigint,
-  poets_count bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.register_stats (
-  id bigint PRIMARY KEY,
-  name text,
-  slug text,
-  poems_count bigint,
-  poets_count bigint
-);
-
 CREATE TABLE IF NOT EXISTS public.genre_stats (
-  id bigint PRIMARY KEY,
-  name text,
-  slug text,
-  poems_count bigint,
-  poets_count bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.majra_stats (
   id bigint PRIMARY KEY,
   name text,
   slug text,
@@ -123,6 +99,20 @@ CREATE TABLE IF NOT EXISTS public.gender_stats (
   poems_count bigint
 );
 
+CREATE TABLE IF NOT EXISTS public.feeling_stats (
+  id integer PRIMARY KEY,
+  verses_count bigint
+);
+
+CREATE TABLE IF NOT EXISTS public.feeling_branch_verses (
+  feeling_id integer NOT NULL REFERENCES public.feelings (id),
+  rank integer NOT NULL,
+  poem_id integer NOT NULL,
+  position integer NOT NULL,
+  verse_feeling_id integer NOT NULL REFERENCES public.feelings (id),
+  PRIMARY KEY (feeling_id, rank)
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_poet_stats_slug ON public.poet_stats (slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_meter_stats_slug ON public.meter_stats (slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rhyme_stats_slug ON public.rhyme_stats (slug);
@@ -143,12 +133,11 @@ BEGIN
   DELETE FROM public.theme_stats;
   DELETE FROM public.collection_stats;
   DELETE FROM public.poem_type_stats;
-  DELETE FROM public.form_stats;
-  DELETE FROM public.register_stats;
   DELETE FROM public.genre_stats;
-  DELETE FROM public.majra_stats;
   DELETE FROM public.nation_stats;
   DELETE FROM public.gender_stats;
+  DELETE FROM public.feeling_stats;
+  DELETE FROM public.feeling_branch_verses;
 
   INSERT INTO public.poet_stats (id, name, slug, era_id, poems_count)
   SELECT p.id, p.name, p.slug, p.era_id, count(pm.id)
@@ -205,31 +194,10 @@ BEGIN
   LEFT JOIN public.poets pt ON p.poet_id = pt.id
   GROUP BY v.id, v.name, v.slug;
 
-  INSERT INTO public.form_stats (id, name, slug, poems_count, poets_count)
-  SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
-  FROM public.forms v
-  LEFT JOIN public.poems p ON v.id = p.form_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
-  LEFT JOIN public.poets pt ON p.poet_id = pt.id
-  GROUP BY v.id, v.name, v.slug;
-
-  INSERT INTO public.register_stats (id, name, slug, poems_count, poets_count)
-  SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
-  FROM public.registers v
-  LEFT JOIN public.poems p ON v.id = p.register_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
-  LEFT JOIN public.poets pt ON p.poet_id = pt.id
-  GROUP BY v.id, v.name, v.slug;
-
   INSERT INTO public.genre_stats (id, name, slug, poems_count, poets_count)
   SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
   FROM public.genres v
   LEFT JOIN public.poems p ON v.id = p.genre_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
-  LEFT JOIN public.poets pt ON p.poet_id = pt.id
-  GROUP BY v.id, v.name, v.slug;
-
-  INSERT INTO public.majra_stats (id, name, slug, poems_count, poets_count)
-  SELECT v.id, v.name, v.slug, count(DISTINCT p.id), count(DISTINCT pt.id)
-  FROM public.majras v
-  LEFT JOIN public.poems p ON v.id = p.rhyme_majra_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
   LEFT JOIN public.poets pt ON p.poet_id = pt.id
   GROUP BY v.id, v.name, v.slug;
 
@@ -247,11 +215,38 @@ BEGIN
   LEFT JOIN public.poems p ON p.poet_id = pt.id AND p.recension_of_id IS NULL AND NOT p.is_hidden
   GROUP BY v.id, v.name, v.slug;
 
+  WITH RECURSIVE branch (root_id, feeling_id) AS (
+    SELECT id, id FROM public.feelings
+    UNION ALL
+    SELECT b.root_id, f.id FROM branch b JOIN public.feelings f ON f.parent_id = b.feeling_id
+  ),
+  strongest AS (
+    SELECT DISTINCT ON (b.root_id, fv.poem_id, fv.position)
+      b.root_id, fv.poem_id, fv.position, fv.feeling_id, fv.strength
+    FROM branch b
+    JOIN public.feeling_verses fv ON fv.feeling_id = b.feeling_id
+    JOIN public.poems p ON p.id = fv.poem_id AND p.recension_of_id IS NULL AND NOT p.is_hidden
+    JOIN public.poets pt ON pt.id = p.poet_id AND NOT pt.is_hidden
+    ORDER BY b.root_id, fv.poem_id, fv.position, fv.strength DESC, fv.feeling_id
+  )
+  INSERT INTO public.feeling_branch_verses (feeling_id, rank, poem_id, position, verse_feeling_id)
+  SELECT root_id,
+    row_number() OVER (PARTITION BY root_id ORDER BY strength DESC, md5(poem_id || '/' || position), poem_id, position),
+    poem_id, position, feeling_id
+  FROM strongest;
+
+  INSERT INTO public.feeling_stats (id, verses_count)
+  SELECT f.id, count(b.rank)
+  FROM public.feelings f
+  LEFT JOIN public.feeling_branch_verses b ON b.feeling_id = f.id
+  GROUP BY f.id;
+
   ANALYZE public.poet_stats;
   ANALYZE public.meter_stats;
   ANALYZE public.rhyme_stats;
   ANALYZE public.era_stats;
   ANALYZE public.theme_stats;
   ANALYZE public.collection_stats;
+  ANALYZE public.feeling_branch_verses;
 END;
 $function$;

@@ -69,6 +69,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      network: host
     restart: unless-stopped
     stop_grace_period: 30s
     <<: *default-logging
@@ -111,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      network: host
       secrets:
         - sentry_auth_token
       args:
@@ -137,6 +139,9 @@ services:
       OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
       SESSION_STATE_SECRET: ${SESSION_STATE_SECRET:-}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
+      BUN_CONFIG_DNS_TIME_TO_LIVE_SECONDS: "5"
+    volumes:
+      - web_assets:/var/lib/web-assets
     networks:
       edge:
         aliases:
@@ -218,6 +223,7 @@ services:
     build:
       context: .
       dockerfile: apps/search-indexer/Dockerfile
+      network: host
     container_name: qafiyah-search-indexer
     restart: "no"
     <<: *default-logging
@@ -395,6 +401,7 @@ services:
       GF_NEWS_NEWS_FEED_ENABLED: "false"
       GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_LOG_FILTERS: plugin.prometheus:warn
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/health.json
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-unset}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-0}
@@ -437,7 +444,7 @@ services:
     container_name: qafiyah-alloy
     restart: unless-stopped
     <<: *default-logging
-    mem_limit: 256m
+    mem_limit: 512m
     cpus: 0.5
     pids_limit: 128
     security_opt:
@@ -462,6 +469,7 @@ services:
       - alloy_data:/var/lib/alloy/data
       - ./.metrics:/var/lib/alloy/textfile:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
       - /:/host/root:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -480,6 +488,8 @@ volumes:
     name: qafiyah-loki-data
   alloy_data:
     name: qafiyah-alloy-data
+  web_assets:
+    name: qafiyah-web-assets
 
 networks:
   default:

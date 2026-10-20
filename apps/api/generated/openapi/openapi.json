@@ -933,6 +933,724 @@
         }
       }
     },
+    "/feelings": {
+      "get": {
+        "tags": [
+          "feelings"
+        ],
+        "description": "The feelings of the Feelings Wheel in Arabic that have verses, as a flat list in tree order: each core feeling, then its children, each followed by its own children. Each item counts the verses of its whole branch.",
+        "operationId": "feelings.list",
+        "responses": {
+          "200": {
+            "description": "Every feeling with verses.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Send back in If-None-Match to get 304 while the data is unchanged"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope_FeelingItem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified: the If-None-Match ETag still matches, so the body is empty.",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            }
+          },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds to wait before retrying"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feelings/{slug}": {
+      "get": {
+        "tags": [
+          "feelings"
+        ],
+        "description": "A feeling by slug, with the count of verses in its whole branch. A feeling with no verses is not found.",
+        "operationId": "feelings.get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "The feeling's `slug`, from its list.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z-]*$"
+            },
+            "example": "alhuzn"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested feeling.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Send back in If-None-Match to get 304 while the data is unchanged"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope_FeelingItem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified: the If-None-Match ETag still matches, so the body is empty.",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            }
+          },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds to wait before retrying"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feelings/{slug}/verses": {
+      "get": {
+        "tags": [
+          "feelings"
+        ],
+        "description": "A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch.",
+        "operationId": "feelings.verses",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "The feeling's `slug`, from its list.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z-]*$"
+            },
+            "example": "alhuzn"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number as a 1-based integer string, 30 verses a page. Minimum 1.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of verses with pagination metadata.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Send back in If-None-Match to get 304 while the data is unchanged"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope_FeelingVerseItem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified: the If-None-Match ETag still matches, so the body is empty.",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            }
+          },
+          "400": {
+            "description": "A query or path parameter is invalid or unknown; `detail` names it",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds until the window resets"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "headers": {
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable: the database or search index did not answer in time",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Seconds to wait before retrying"
+              },
+              "x-ratelimit-limit": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests allowed per hour"
+              },
+              "x-ratelimit-remaining": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Requests left in the current hour"
+              },
+              "x-ratelimit-reset": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Unix seconds at which the window resets"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/meters": {
       "get": {
         "tags": [
@@ -5473,6 +6191,112 @@
           "false"
         ]
       },
+      "FeelingItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug",
+          "verseCount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The feeling's name in Arabic, a verbal noun with its article.",
+            "example": "الحزن"
+          },
+          "parentSlug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The slug of the feeling above this one. Absent for the seven core feelings.",
+            "example": "alhuzn",
+            "pattern": "^[a-z][a-z-]*$"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The feeling's slug, for `GET /feelings/{slug}`.",
+            "example": "alhuzn",
+            "pattern": "^[a-z][a-z-]*$"
+          },
+          "verseCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.",
+            "example": 1200
+          },
+          "wheelTerm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.",
+            "example": "Sad"
+          }
+        }
+      },
+      "FeelingRef": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The feeling's name in Arabic.",
+            "example": "الوحشة"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The feeling's slug, for `GET /feelings/{slug}`.",
+            "example": "alwahsha",
+            "pattern": "^[a-z][a-z-]*$"
+          }
+        }
+      },
+      "FeelingVerseItem": {
+        "type": "object",
+        "required": [
+          "parts",
+          "position",
+          "feeling",
+          "poem",
+          "poet",
+          "era"
+        ],
+        "properties": {
+          "era": {
+            "$ref": "#/components/schemas/EraRef",
+            "description": "The poem's era."
+          },
+          "feeling": {
+            "$ref": "#/components/schemas/FeelingRef",
+            "description": "The verse's strongest feeling within the requested feeling's branch. A verse can express up to three feelings."
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The verse's parts in reading order, usually its two hemistichs."
+          },
+          "poem": {
+            "$ref": "#/components/schemas/PoemNavRef",
+            "description": "The poem that holds the verse."
+          },
+          "poet": {
+            "$ref": "#/components/schemas/PoetRef",
+            "description": "The poem's poet."
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The verse's position in its poem, from 1.",
+            "example": 3
+          }
+        }
+      },
       "FourLetterSlug": {
         "type": "string",
         "pattern": "^[a-zA-Z]{4}$"
@@ -5515,6 +6339,59 @@
                 "description": "The term's slug.",
                 "example": "altawil",
                 "pattern": "^[a-z][a-z-]*$"
+              }
+            }
+          }
+        }
+      },
+      "ItemEnvelope_FeelingItem": {
+        "type": "object",
+        "description": "The requested item under `data`.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "name",
+              "slug",
+              "verseCount"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The feeling's name in Arabic, a verbal noun with its article.",
+                "example": "الحزن"
+              },
+              "parentSlug": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The slug of the feeling above this one. Absent for the seven core feelings.",
+                "example": "alhuzn",
+                "pattern": "^[a-z][a-z-]*$"
+              },
+              "slug": {
+                "type": "string",
+                "description": "The feeling's slug, for `GET /feelings/{slug}`.",
+                "example": "alhuzn",
+                "pattern": "^[a-z][a-z-]*$"
+              },
+              "verseCount": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.",
+                "example": 1200
+              },
+              "wheelTerm": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.",
+                "example": "Sad"
               }
             }
           }
@@ -5836,6 +6713,128 @@
                   "description": "The term's slug.",
                   "example": "altawil",
                   "pattern": "^[a-z][a-z-]*$"
+                }
+              }
+            },
+            "description": "The items of this page."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination",
+            "description": "Where this page sits in the list."
+          }
+        }
+      },
+      "ListEnvelope_FeelingItem": {
+        "type": "object",
+        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "slug",
+                "verseCount"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The feeling's name in Arabic, a verbal noun with its article.",
+                  "example": "الحزن"
+                },
+                "parentSlug": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The slug of the feeling above this one. Absent for the seven core feelings.",
+                  "example": "alhuzn",
+                  "pattern": "^[a-z][a-z-]*$"
+                },
+                "slug": {
+                  "type": "string",
+                  "description": "The feeling's slug, for `GET /feelings/{slug}`.",
+                  "example": "alhuzn",
+                  "pattern": "^[a-z][a-z-]*$"
+                },
+                "verseCount": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "Number of verses that express this feeling or a feeling below it, each verse counted once. At least 1, since a feeling with no verses is left out.",
+                  "example": 1200
+                },
+                "wheelTerm": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The word on the Feelings Wheel that this feeling translates. Absent for a feeling that the wheel does not have.",
+                  "example": "Sad"
+                }
+              }
+            },
+            "description": "The items of this page."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination",
+            "description": "Where this page sits in the list."
+          }
+        }
+      },
+      "ListEnvelope_FeelingVerseItem": {
+        "type": "object",
+        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "parts",
+                "position",
+                "feeling",
+                "poem",
+                "poet",
+                "era"
+              ],
+              "properties": {
+                "era": {
+                  "$ref": "#/components/schemas/EraRef",
+                  "description": "The poem's era."
+                },
+                "feeling": {
+                  "$ref": "#/components/schemas/FeelingRef",
+                  "description": "The verse's strongest feeling within the requested feeling's branch. A verse can express up to three feelings."
+                },
+                "parts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The verse's parts in reading order, usually its two hemistichs."
+                },
+                "poem": {
+                  "$ref": "#/components/schemas/PoemNavRef",
+                  "description": "The poem that holds the verse."
+                },
+                "poet": {
+                  "$ref": "#/components/schemas/PoetRef",
+                  "description": "The poem's poet."
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "The verse's position in its poem, from 1.",
+                  "example": 3
                 }
               }
             },
@@ -6845,6 +7844,10 @@
     {
       "name": "themes",
       "description": "Thematic categories (al-aghrad) of poems."
+    },
+    {
+      "name": "feelings",
+      "description": "The Feelings Wheel in Arabic, and the classical verses that express each feeling."
     },
     {
       "name": "collections",

@@ -1,6 +1,7 @@
 ---
 import { Font } from 'astro:assets';
 import { Footer } from '@/components/footer';
+import InAppBrowserInit from '@/components/layout/in-app-browser-init.astro';
 import ModuleReloadRecovery from '@/components/layout/module-reload-recovery.astro';
 import Nav from '@/components/layout/nav.astro';
 import PostHog from '@/components/layout/posthog.astro';
@@ -37,7 +38,9 @@ const htmlClass = isDev ? 'debug-screens' : '';
     {isRelease && <link rel="preconnect" href={POSTHOG_HOST} crossorigin />}
     <SettingsInit />
     <ViewerInit />
+    <InAppBrowserInit />
     {isDev && <LayoutDebug />}
+    <slot name="head" />
   </head>
   {bare ? (
     <body class="grid min-h-svh place-items-center bg-surface px-4 py-10 font-sans text-text">

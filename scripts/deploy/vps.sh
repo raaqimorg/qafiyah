@@ -8,55 +8,52 @@ refuse() {
   exit 1
 }
 
+release_run_with_same_files() {
+  local tree sha
+  tree="$(git rev-parse "${target_sha}^{tree}")"
+  while read -r sha; do
+    if [[ "$(git rev-parse --quiet --verify "${sha}^{tree}" 2>/dev/null || true)" == "${tree}" ]]; then
+      echo "${sha}"
+      return 0
+    fi
+  done < <(gh run list --workflow ci.yml --event pull_request --status success --limit 50 \
+    --json headSha,headBranch --jq '.[] | select(.headBranch | test("^v[0-9]+$")) | .headSha' 2>/dev/null || true)
+  return 1
+}
+
 if [[ "${1:-}" == --skip-ci-check ]]; then
   echo "⚠ skipping the GitHub CI check, deploying origin/main unverified"
 else
   command -v gh >/dev/null || refuse "the GitHub CLI (gh) is needed to confirm CI passed; pass --skip-ci-check to deploy anyway"
-  target_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+  git fetch --quiet origin
+  target_sha="$(git rev-parse origin/main)"
   ci_state="$(gh run list --workflow ci.yml --commit "${target_sha}" --event push --limit 1 \
     --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
   case "${ci_state}" in
     "completed success") echo "✓ GitHub CI passed for ${target_sha:0:7}" ;;
-    "" | "null null") refuse "no GitHub CI run found for origin/main (${target_sha:0:7}); push first and let it run" ;;
     completed*) refuse "GitHub CI did not pass for ${target_sha:0:7} (${ci_state#completed }); fix main before deploying" ;;
-    *) refuse "GitHub CI is still running for ${target_sha:0:7}; deploy once it passes (gh run watch)" ;;
+    *)
+      if tested_sha="$(release_run_with_same_files)"; then
+        echo "✓ GitHub CI passed for the release pull request at ${tested_sha:0:7}, which has the same files as ${target_sha:0:7}"
+      elif [[ "${ci_state}" == "" || "${ci_state}" == "null null" ]]; then
+        refuse "no GitHub CI run found for origin/main (${target_sha:0:7}); push first and let it run"
+      else
+        refuse "GitHub CI is still running for ${target_sha:0:7}; deploy once it passes (gh run watch)"
+      fi
+      ;;
   esac
 fi
 
 echo "→ Deploying origin/main to ${REMOTE_HOST} (zero-downtime) ..."
 
-remote_exec ./scripts/lib/reclaimable.sh ./scripts/lib/tag-db-container.sh <<'REMOTE'
+remote_exec ./scripts/lib/reclaimable.sh ./scripts/lib/tag-db-container.sh ./scripts/lib/rollout.sh <<'REMOTE'
 set -euo pipefail
 cd "$REMOTE_DIR"
-
-rollout() {
-  svc="$1"
-  old=$(docker compose ps -q "$svc")
-  n_old=$(printf '%s\n' "$old" | grep -c .)
-  [ "$n_old" -ge 1 ] || { echo "✗ rollout $svc: nothing running"; exit 1; }
-  target=$((2 * n_old))
-  echo "→ rolling $svc ($n_old -> $target -> $n_old)"
-  docker compose up -d --no-deps --no-recreate --scale "$svc=$target" "$svc"
-  deadline=$((SECONDS + 150))
-  while :; do
-    ids=$(docker compose ps -q "$svc"); n=0; h=0
-    for id in $ids; do
-      n=$((n + 1))
-      s=$(docker inspect -f '{{.State.Health.Status}}' "$id" 2>/dev/null || echo none)
-      [ "$s" = healthy ] && h=$((h + 1))
-    done
-    [ "$n" -ge "$target" ] && [ "$h" -eq "$n" ] && break
-    [ "$SECONDS" -ge "$deadline" ] && { echo "✗ rollout $svc timeout ($h/$n healthy)"; docker compose logs --tail=40 "$svc"; exit 1; }
-    sleep 2
-  done
-  echo "  $svc: new replica(s) healthy → settling, then draining old"
-  sleep 7
-  docker stop $old >/dev/null && docker rm $old >/dev/null
-}
 
 git fetch --depth 1 origin main
 current=$(git rev-parse --short HEAD)
 target=$(git rev-parse --short FETCH_HEAD)
+deployed=$(git rev-parse --verify --quiet refs/deployed || git rev-parse HEAD)
 echo "  current ${current}  ->  target ${target}"
 git reset --hard FETCH_HEAD
 ./scripts/secrets/pull.sh prod
@@ -66,6 +63,35 @@ export SENTRY_RELEASE="$target"
 docker compose build api web search-indexer
 
 docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter prometheus loki alloy grafana
+changed_config=$(git diff --name-only "$deployed" HEAD -- apps/edge-gateway apps/observability) ||
+  changed_config="apps/edge-gateway/proxy_backend.conf.template apps/observability/prometheus.yml apps/observability/loki.yml apps/observability/alloy/ apps/observability/grafana/"
+reload_edge=false
+recreate=()
+for path in $changed_config; do
+  case "$path" in
+    apps/edge-gateway/proxy_backend.conf.template) reload_edge=true ;;
+    apps/observability/prometheus.yml) recreate+=(prometheus) ;;
+    apps/observability/loki.yml) recreate+=(loki) ;;
+    apps/observability/alloy/*) recreate+=(alloy) ;;
+    apps/observability/grafana/*) recreate+=(grafana) ;;
+  esac
+done
+if [[ "$reload_edge" == true ]]; then
+  echo "→ applying the changed edge template with a graceful nginx reload"
+  edge=$(docker compose ps -q edge-gateway)
+  docker exec "$edge" mkdir -p /tmp/edge-templates/includes
+  docker cp apps/edge-gateway/proxy_backend.conf.template "$edge:/tmp/edge-templates/includes/proxy_backend.conf.template"
+  docker exec "$edge" sh -c 'cp /etc/nginx/includes/proxy_backend.conf /tmp/proxy_backend.conf.live &&
+    NGINX_ENVSUBST_TEMPLATE_DIR=/tmp/edge-templates /docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null &&
+    /docker-entrypoint.d/92-update-real_ip.sh &&
+    nginx -t -q && nginx -s reload 2>/dev/null ||
+    { cp /tmp/proxy_backend.conf.live /etc/nginx/includes/proxy_backend.conf; echo "✗ the new edge template failed nginx -t, so the old one stays live" >&2; exit 1; }'
+fi
+if ((${#recreate[@]} > 0)); then
+  mapfile -t recreate < <(printf '%s\n' "${recreate[@]}" | sort -u)
+  echo "→ recreating the services whose mounted configuration changed since ${deployed:0:7}: ${recreate[*]}"
+  docker compose up -d --no-deps --force-recreate "${recreate[@]}"
+fi
 tag_db_container "$(docker compose ps -q db)"
 
 rollout api
@@ -101,6 +127,7 @@ echo ""
 echo "=== prod status ==="
 docker compose ps
 echo ""
+git update-ref refs/deployed HEAD
 echo "✓ deployed $(git rev-parse --short HEAD)"
 
 echo ""

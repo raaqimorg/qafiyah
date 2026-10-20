@@ -41,6 +41,7 @@ data/db/*/*.dump.part-??
 !data/db/0000_default/*.dump
 !data/db/0000_default/*.dump.part-??
 data/db/*/CHANGES.md
+data/feelings/*/*.json.gz
 .worktrees/
 .husky/_/
 .local

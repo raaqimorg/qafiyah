@@ -25,6 +25,7 @@ pub fn lazy_pool() -> crate::db::PgPool {
         1,
         Duration::from_millis(250),
         String::new(),
+        Duration::ZERO,
     )
     .expect("a pool never connects at construction")
 }

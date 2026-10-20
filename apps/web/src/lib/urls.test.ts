@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { serializePoetSearch } from './poet-search-params';
 import {
   dbDumpsUrl,
+  feelingUrl,
   githubUrl,
   poemUrl,
   poemHighlightUrl,
@@ -33,6 +34,10 @@ describe('taxonomyUrl', () => {
   });
   it('appends ?page=N for pages beyond the first', () => {
     expect(taxonomyUrl('rhymes', 'meem', 3)).toBe('/rhymes/meem?page=3');
+  });
+  it('percent-encodes a slug with non-ASCII letters, as the request URL does', () => {
+    const url = new URL('https://qafiyah.com/meters/الطويل?page=2');
+    expect(taxonomyUrl('meters', 'الطويل', 2)).toBe(`${url.pathname}${url.search}`);
   });
 });
 
@@ -84,6 +89,20 @@ describe('poetUrl', () => {
     ];
     for (const state of states) {
       expect(poetUrl('mutanabbi', state)).toBe(`/poets/mutanabbi${serializePoetSearch(state)}`);
+    }
+  });
+  it('encodes a slug the way the request URL encodes its path, so a canonical slug never redirects', () => {
+    for (const path of ['/poets/a,b', '/poets/a%2Cb', '/poets/a;b:c@d=e+f$g&h', '/poets/a%20b']) {
+      const url = new URL(`https://qafiyah.com${path}`);
+      const slug = decodeURI(url.pathname.slice('/poets/'.length));
+      expect(poetUrl(slug)).toBe(url.pathname);
+    }
+  });
+  it('percent-encodes a slug with non-ASCII letters, as the request URL does', () => {
+    for (const slug of ['الفرزدق', 'imru-alqays؟']) {
+      const url = new URL(`https://qafiyah.com/poets/${slug}`);
+      expect(poetUrl(slug)).toBe(url.pathname);
+      expect(isCanonical(url, poetUrl(slug))).toBe(true);
     }
   });
 });
@@ -221,5 +240,13 @@ describe('poemHighlightUrl', () => {
     expect(poemHighlightUrl('https://qafiyah.com/poems/TnKK#h=old', [' '])).toBe(
       'https://qafiyah.com/poems/TnKK'
     );
+  });
+});
+
+describe('feelingUrl', () => {
+  it('builds the wheel, a feeling, and a later page', () => {
+    expect(feelingUrl()).toBe('/feelings');
+    expect(feelingUrl('alhuzn')).toBe('/feelings/alhuzn');
+    expect(feelingUrl('alhuzn', 2)).toBe('/feelings/alhuzn?page=2');
   });
 });

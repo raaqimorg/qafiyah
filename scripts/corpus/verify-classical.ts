@@ -21,7 +21,7 @@ import {
 } from './verdict';
 
 const CLASSICAL_LABEL = 'amudi';
-const UNKNOWN_LABEL = 'majhul';
+const TWO_HALF_LABELS: ReadonlySet<string> = new Set([CLASSICAL_LABEL, 'nabati']);
 const FIELD_COUNT = 6;
 
 export type CorpusRow = {
@@ -93,12 +93,7 @@ export function assessPoem(row: CorpusRow, table: SoundClassTable): PoemAssessme
 }
 
 export function proposedLabel(row: CorpusRow, verdict: Verdict): string | null {
-  if (verdict === 'verified') {
-    return row.poemType === CLASSICAL_LABEL ? null : CLASSICAL_LABEL;
-  }
-  if (verdict === 'contradicted') {
-    return row.poemType === CLASSICAL_LABEL ? UNKNOWN_LABEL : null;
-  }
+  if (verdict === 'verified' && !TWO_HALF_LABELS.has(row.poemType)) return CLASSICAL_LABEL;
   return null;
 }
 
@@ -108,7 +103,6 @@ const ANCHOR_CAP = 20000;
 const POOL_CAP = 200000;
 const SYNTHETIC_TRIALS = 10000;
 const SYNTHETIC_SEED = 20260920;
-const FORM_LABELS: ReadonlySet<string> = new Set(['muzdawij', 'muwashshah']);
 const VERSE_FENCE = '~~~';
 
 type Totals = Map<string, Map<Verdict, number>>;
@@ -246,8 +240,6 @@ async function main(): Promise<void> {
     recall >= CALIBRATION_BOUNDS.minAnchorRecall &&
     falsePositive <= CALIBRATION_BOUNDS.maxSyntheticFalsePositive;
 
-  const formPromotions = transitions.filter((row) => FORM_LABELS.has(row.split(',')[2] as string));
-
   await mkdir(outDir, { recursive: true });
 
   await writeFile(
@@ -279,12 +271,6 @@ async function main(): Promise<void> {
       ...[...reasons]
         .sort((left, right) => right[1] - left[1])
         .map(([reason, count]) => `- \`${reason}\`: ${count}`),
-      '',
-      '## Form-label promotions',
-      '',
-      'Promoting these is a form decision, not a data-quality one. Review separately.',
-      '',
-      `Total: ${formPromotions.length}.`,
       '',
     ].join('\n'),
     'utf8'

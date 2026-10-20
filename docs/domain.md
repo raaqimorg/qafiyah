@@ -15,7 +15,7 @@ The poem is the core content entity. It has these fields:
 
 A poem does **not** have its own era. Its era is its poet's era, and the database keeps a synchronized copy of it (see "Era" below).
 
-Every poem has exactly one poet, meter, theme, rhyme, and poem type. The collection, form, register, genre, and rhyme majra are optional (see "Poem type" below).
+Every poem has exactly one poet, meter, theme, rhyme, and poem type. The collection and genre are optional (see "Poem type" below).
 
 A poem's content is its ordered rows (`poem_verses` to `verses`), one row for each displayed line.
 
@@ -46,22 +46,19 @@ There is no separate "fragment" entity. That word is in the codebase only for th
 
 ## Poem type (نوع القصيدة, poem_type)
 
-The poem type is the poem's **form**: how its lines are built. It is different from what the poem is about (Theme), and from the pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, and has one of six values:
+The poem type is the poem's **form**: how its lines are built. It is different from what the poem is about (Theme), and from the pattern it scans to (Meter). `poems.poem_type_id` is NOT NULL, and has one of three values:
 
-| slug         | Arabic | what it is                                                                                                                                       |
-| ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `amudi`      | عمودي  | Classical verse. Every line is a bayt of two hemistichs, with one bahr and one rawi from start to end. Most of the catalog is this type.         |
-| `hurr`       | حر     | Free verse (شعر التفعيلة) and prose poetry. The lines have different lengths, and there is no single rhyme.                                      |
-| `muwashshah` | موشح   | The Andalusi strophic form. The line lengths are regular, but the rhyme changes between strophes on purpose. This is what makes it not a qasida. |
-| `muzdawij`   | مزدوج  | The couplet form, usually rajaz. The two hemistichs of each bayt rhyme with each other, and the rhyme changes from bayt to bayt.                 |
-| `majhul`     | مجهول  | Unknown. See "The unknown value" below.                                                                                                          |
-| `nabati`     | نبطي   | Nabati poetry, the colloquial verse of the Arabian Peninsula. Every poem whose register is `nabati` has this type, whatever its form.            |
+| slug     | Arabic | what it is                                                                                                                          |
+| -------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `amudi`  | عمودي  | Classical verse, built from verses of two hemistichs in one meter. Most of the catalog is this type.                                |
+| `hurr`   | حر     | Free verse (شعر التفعيلة), prose poetry, and free colloquial verse. The lines have different lengths, and there is no single rhyme. |
+| `nabati` | نبطي   | Nabati poetry: colloquial verse of the Arabian Peninsula, built from verses of two hemistichs like `amudi`.                         |
 
-The difference between these types is structural, not editorial, with one exception. `nabati` names the language of a poem, not its form, so that readers can filter Nabati poetry (`docs/exceptions.md`). The others differ like this:
+The difference between these types is structural, with one exception. `nabati` also names a region, so that readers can filter Nabati poetry (`docs/exceptions.md`). These rules decide the borderline cases:
 
-- A qasida holds one bahr, so its hemistich lengths are all close. It also holds one rawi, so every ajuz ends on the same rhyme consonant.
-- A muwashshah has the first property, but not the second.
-- A muzdawij has both. So length and rhyme alone cannot separate it from a qasida.
+- A strophic poem with a regular pattern, such as a muwashshah, a takhmis, or a mawwal, is `amudi`. A Gulf song with regular sections is `nabati`.
+- Colloquial verse from outside the Arabian Peninsula, such as zajal, is `amudi` when its lines are regular. Free colloquial verse from any region is `hurr`.
+- A poem with any free section is `hurr`.
 
 `poem_type` has no listing page on the website. These parts use it:
 
@@ -70,19 +67,16 @@ The difference between these types is structural, not editorial, with one except
 - The poem detail endpoint returns it as `poemType` (`{ name, slug }`).
 - The poem page on the website reads it for the layout.
   - An `amudi` or `nabati` poem shows each two-part entry as two offset lines. The sadr is against the right, and the ajuz is against the left, of a column sized in `em`.
-  - A single line, a longer entry, and every other type stay centered, with their parts one above the other.
+  - A single line, a longer entry, and every entry of a `hurr` poem stay centered, with their parts one above the other.
   - Free verse (`hurr`), and any poem whose entries are all single lines, has spacing line by line, not verse by verse.
 
 ### Schema-only attributes
 
-Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads these poem columns. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. All of these columns can be null:
+Nothing in `apps/api`, `apps/web`, or `apps/search-indexer` reads this poem column. This is different from meter, rhyme, theme, era, and collection, which all have their own pages and counts. The column can be null:
 
-- `form_id` (`forms`): `qasida` قصيدة, `muqattaa` مقطعة, `abyatthaniya` ابيات ثانية, `baytmufrad` بيت مفرد, `shatrbayt` شطر بيت. It says how much of a poem survives, from a full ode down to a single half-line.
-- `register_id` (`registers`): `fasih` فصيح, `nabati` نبطي, `hadith` حديث. A poem with the register `nabati` also has the poem type `nabati`, which is what the site shows and filters.
 - `genre_id` (`genres`): `shir` شعر, `khatira` خاطرة.
-- `rhyme_majra_id` (`majras`): the vowel on the rawi. The values are `fatha` فتحة, `damma` ضمة, `kasra` كسرة, their tanwin forms, and `sukun` سكون.
 
-So a change to any of these has no visible effect on the site today, and needs no reindex. This is a fact about the application as it is now, not a promise.
+So a change to it has no visible effect on the site today, and needs no reindex. This is a fact about the application as it is now, not a promise.
 
 ## Poet
 
@@ -130,6 +124,10 @@ The theme is the poem's genre or purpose. An example is `alnasib` (النسيب)
 
 A collection is a published, curated anthology that a poem belongs to. It can be a diwan, or one of the classical foundational compilations. `apps/web/src/lib/seo/taxonomy-copy.ts` describes this taxonomy as "دواوين وأمهات الكتب" (diwans and foundational anthologies). Like themes, collections apply only to poems.
 
+## Feeling (شعور)
+
+A feeling is a node of the Feelings Wheel in Arabic, named by a verbal noun with its article, such as `alhuzn` (الحزن). Every feeling has a parent, except the seven core feelings. A verse can express up to three feelings (`docs/feelings.md`). Feelings apply only to verses of eras 1 to 5.
+
 ## The "unknown" value
 
 Poet, meter, and era each have a real row for **unknown** (`غير معروف`), not a foreign key that can be null. A poem or a poet goes there when the classical sources do not record that attribute.
@@ -148,15 +146,9 @@ Poets do not have a single unknown row. They have one anonymous poet for each er
 - `غير معروف` (`JJHE`) holds the anonymous poems whose era is also unknown.
 - `مجهول (عباسي)` and the similar rows hold the anonymous poems whose era is known. So each poem keeps its era.
 - All of them have `poets.is_anonymous` set. The API sends it as `poet.isAnonymous`. Code checks this flag, never a poet's name or slug.
+- The website removes the anonymous poets from the "top N" attribution lists on purpose. When it needs a representative sample, it picks the first poem whose poet is not anonymous. So the site never shows an anonymous poet's name as if it were a real byline (`apps/web/src/lib/seo/taxonomy-copy.ts`, `apps/web/src/lib/seo/meta-text.ts`).
 
-The poem type spells its unknown value differently, `majhul` (مجهول), and it has a second meaning. A poem is `majhul` for one of two reasons:
-
-- The sources never said what form it is.
-- A structural validation pass could not confirm the form that the poem claimed.
-
-The second case means "not verified", never "verified as something else". A poem that fails validation becomes `majhul`, never `hurr`. A poem too short or too irregular to test keeps its label, because there is no evidence against it. So `majhul` says what is known. It does not say that the poem has no form.
-
-`majhul` behaves like any other taxonomy value: it has its own listing page and its own count. But the website removes it from the "top N" attribution lists on purpose. When the website needs a representative sample, it picks the first poem whose poet is not anonymous. So the site never shows an anonymous poet's name as if it were a real byline (`apps/web/src/lib/seo/taxonomy-copy.ts`, `apps/web/src/lib/seo/meta-text.ts`).
+The poem type has no unknown value. A poem that fails a structural validation pass keeps its type, and goes to review. A poem too short or too irregular to test keeps its type too, because there is no evidence against it.
 
 ## Related poems
 
@@ -210,7 +202,7 @@ After such an edit on a running database, run `SELECT public.refresh_random_poem
 When two rows hold the same poem by the same poet, one row survives, and `merge_poem(keep, absorb)` merges the other into it (`scripts/db/sql/merge-poem.sql`):
 
 - The survivor keeps its own text.
-- From the absorbed copy, it fills an unknown meter, theme, or poem type, and an empty collection, form, register, genre, or majra.
+- From the absorbed copy, it fills an unknown meter or theme, and an empty collection or genre.
 - The absorbed row is deleted. Its slug becomes a row in `poem_aliases`. So `GET /v1/poems/<old slug>` answers `301` to the survivor, and the website redirects the page the same way.
 
 Aliases always point at a live poem. A later merge of a survivor points its aliases again, and a new poem never gets a slug that an alias holds.
@@ -286,7 +278,8 @@ A merge of a poem that has recensions moves them to the survivor (`merge_poem`).
 The `*_stats` relations hold the poem and poet counts for each term, which the listing pages show:
 
 - `poet_stats`, `meter_stats`, `rhyme_stats`, `era_stats`, `theme_stats`, `collection_stats`, `poem_type_stats`
-- the schema-only `form_stats`, `register_stats`, `genre_stats`, `majra_stats`, `nation_stats`, `gender_stats`
+- the schema-only `genre_stats`, `nation_stats`, `gender_stats`
+- `feeling_stats`, the verse count of each feeling and every feeling below it, with each verse counted once. The same refresh ranks those verses in `feeling_branch_verses` (`docs/feelings.md`).
 
 They are **tables**, not views. As views, they counted the whole `poems` table again on every request, which took hundreds of milliseconds for each taxonomy index page.
 

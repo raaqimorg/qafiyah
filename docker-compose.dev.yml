@@ -52,6 +52,8 @@ volumes:
     name: qafiyah-dev${DEV_SUFFIX:-}-loki-data
   alloy_data:
     name: qafiyah-dev${DEV_SUFFIX:-}-alloy-data
+  web_assets:
+    name: qafiyah-dev${DEV_SUFFIX:-}-web-assets
 
 networks:
   edge:

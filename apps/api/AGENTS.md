@@ -33,6 +33,7 @@ The database and the search index are behind traits, so the dependencies point i
   - There is one file for each repository (`PgPoems`, `PgPoets`, `PgTaxonomy`, `PgUsers`, `PgSessions`, `PgKeys`, `PgUsage`).
   - Adapters return `domain::StoreError`, never `AppError`. "Not found" is `None`.
   - A pool that times out or cannot reach Postgres gives `StoreError::Unavailable` (503 with `Retry-After`). Any other failure is `Database` (500).
+  - `PgPool::get` tries again to open a refused connection for up to 2 seconds (`PG_CONNECT_RETRY_SECONDS`), before that 503. The reseed's database swap refuses new connections for about a tenth of a second, and a request waits through it (#330). deadpool alone returns the first refusal.
 - `es/` is the Elasticsearch adapter.
   - `es/query.rs` holds the query bodies, with their relevance tiers.
   - `es/client.rs` is the client. It reports these as `StoreError::Unavailable`: a search that times out, a search that cannot connect, and a 429, 503, or 504 from Elasticsearch. The message holds the HTTP client's whole cause chain. So a failed lookup, a refused connection, and a timeout look different in the log.

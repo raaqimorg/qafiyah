@@ -1,0 +1,39 @@
+---
+import { ClientRouter } from 'astro:transitions';
+---
+
+<ClientRouter fallback="none" />
+
+<script>
+  import { swapFunctions } from 'astro:transitions/client';
+
+  import { isFeelingNavigation, morphMain } from '@/lib/feelings/morph-feeling-page';
+
+  document.addEventListener('astro:before-preparation', (event) => {
+    if (event.formData === undefined && !isFeelingNavigation(event.from, event.to))
+      event.preventDefault();
+  });
+
+  addEventListener('pagehide', () => {
+    history.scrollRestoration = 'auto';
+  });
+
+  addEventListener('pageshow', () => {
+    history.scrollRestoration = 'manual';
+  });
+
+  document.addEventListener('astro:before-swap', (event) => {
+    event.swap = () => {
+      swapFunctions.deselectScripts(event.newDocument);
+      swapFunctions.swapHeadElements(event.newDocument);
+      morphMain(document, event.newDocument);
+    };
+  });
+</script>
+
+<style is:global>
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+</style>

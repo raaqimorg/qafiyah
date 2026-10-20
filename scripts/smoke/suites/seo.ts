@@ -139,6 +139,8 @@ const POET_SLUG = process.env['SEO_POET_SLUG'];
 const EXPECTED_JSON_LD_TYPES: Record<string, readonly string[]> = {
   '/': ['WebSite', 'Organization'],
   '/poets': ['CollectionPage'],
+  '/feelings': ['CollectionPage', 'BreadcrumbList'],
+  '/feelings/alhuzn': ['CollectionPage', 'BreadcrumbList'],
 };
 if (ERA_SLUG) EXPECTED_JSON_LD_TYPES[`/poets?era=${ERA_SLUG}`] = ['CollectionPage'];
 if (POET_SLUG)
@@ -147,7 +149,17 @@ if (POEM_SLUG) EXPECTED_JSON_LD_TYPES[`/poems/${POEM_SLUG}`] = ['CreativeWork', 
 
 const TWITTER_CARD = 'summary';
 
-const paths = ['/', '/meters', '/rhymes', '/themes', '/collections', '/poets', '/404'];
+const paths = [
+  '/',
+  '/meters',
+  '/rhymes',
+  '/themes',
+  '/collections',
+  '/feelings',
+  '/feelings/alhuzn',
+  '/poets',
+  '/404',
+];
 if (ERA_SLUG) paths.push(`/poets?era=${ERA_SLUG}`);
 if (POET_SLUG) paths.push(`/poets/${POET_SLUG}`);
 if (POEM_SLUG) paths.push(`/poems/${POEM_SLUG}`);

@@ -885,8 +885,9 @@ async fn a_read_that_finds_every_connection_busy_is_unavailable_not_a_database_e
     let pool = qafiyah_api::db::pool(
         &url,
         1,
-        std::time::Duration::from_millis(200),
+        std::time::Duration::from_secs(2),
         qafiyah_api::db::corpus_setup(),
+        std::time::Duration::ZERO,
     )
     .expect("a one-connection pool");
     let held = pool.get().await.expect("the one connection");
@@ -909,6 +910,7 @@ async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
         1,
         std::time::Duration::from_secs(10),
         qafiyah_api::db::corpus_setup(),
+        std::time::Duration::ZERO,
     )
     .expect("a one-connection pool");
     let facets = qafiyah_api::domain::poems::Facets {
@@ -1106,5 +1108,102 @@ async fn previous_and_next_skip_the_poets_recensions_and_hidden_poems() {
         assert_eq!(earlier["data"]["next"]["slug"], after.as_str(), "{unshown}");
         let later = h.get(&format!("/v1/poems/{after}")).await.json();
         assert_eq!(later["data"]["prev"]["slug"], before.as_str(), "{unshown}");
+    }
+}
+
+const FEELING_BRANCHES: &str = "WITH RECURSIVE branch (root_id, feeling_id) AS ( \
+     SELECT id, id FROM public.feelings \
+     UNION ALL SELECT b.root_id, f.id FROM branch b JOIN public.feelings f ON f.parent_id = b.feeling_id) ";
+
+const SHOWN_FEELING_VERSES: &str = "FROM branch b \
+     JOIN public.feeling_verses fv ON fv.feeling_id = b.feeling_id \
+     JOIN public.poems p ON p.id = fv.poem_id \
+     JOIN public.poets pt ON pt.id = p.poet_id \
+     WHERE p.recension_of_id IS NULL AND NOT p.is_hidden AND NOT pt.is_hidden";
+
+#[tokio::test]
+async fn the_feelings_list_holds_every_feeling_with_verses_and_every_parent_comes_first() {
+    let Some(h) = h().await else { return };
+    let body = h.get("/v1/feelings").await.json();
+    let rows = body["data"].as_array().expect("data");
+    let live = h
+        .count(
+            &format!(
+                "{FEELING_BRANCHES}SELECT count(DISTINCT b.root_id) AS value {SHOWN_FEELING_VERSES}"
+            ),
+            &[],
+        )
+        .await;
+    assert_eq!(i64::try_from(rows.len()).unwrap_or(-1), live);
+    assert!(
+        rows.iter()
+            .filter(|r| r.get("parentSlug").is_none())
+            .count()
+            <= 7
+    );
+    let mut seen = HashSet::new();
+    for row in rows {
+        assert!(row["verseCount"].as_u64().is_some_and(|count| count > 0));
+        if let Some(parent) = row["parentSlug"].as_str() {
+            assert!(seen.contains(parent), "{parent} after its child");
+        }
+        seen.insert(row["slug"].as_str().expect("slug").to_string());
+    }
+}
+
+#[tokio::test]
+async fn a_feeling_page_lists_each_verse_of_its_branch_once_and_matches_its_count() {
+    let Some(h) = h().await else { return };
+    let list = h.get("/v1/feelings").await.json();
+    let rows = list["data"].as_array().expect("data");
+    let Some(core) = rows.first() else { return };
+    let slug = core["slug"].as_str().expect("slug");
+    let branch: HashSet<&str> = rows
+        .iter()
+        .filter(|row| {
+            let mut current = Some(*row);
+            while let Some(feeling) = current {
+                if feeling["slug"] == slug {
+                    return true;
+                }
+                current = feeling["parentSlug"]
+                    .as_str()
+                    .and_then(|parent| rows.iter().find(|r| r["slug"] == parent));
+            }
+            false
+        })
+        .filter_map(|row| row["slug"].as_str())
+        .collect();
+    let live = h
+        .count(
+            &format!(
+                "{FEELING_BRANCHES}SELECT count(DISTINCT (fv.poem_id, fv.position)) AS value \
+                 {SHOWN_FEELING_VERSES} AND b.root_id = (SELECT id FROM public.feelings WHERE slug = $1)"
+            ),
+            &[slug],
+        )
+        .await;
+    let count = core["verseCount"].as_u64().expect("verseCount");
+    assert_eq!(i64::try_from(count).unwrap_or(-1), live);
+    let first = h.get(&format!("/v1/feelings/{slug}/verses")).await.json();
+    assert_eq!(total_items(&first), count);
+    let last_page = total_pages(&first);
+    let last = h
+        .get(&format!("/v1/feelings/{slug}/verses?page={last_page}"))
+        .await
+        .json();
+    let expected_last = count - (last_page - 1) * 30;
+    for (page, expected) in [(&first, count.min(30)), (&last, expected_last)] {
+        let data = page["data"].as_array().expect("data");
+        assert_eq!(u64::try_from(data.len()).unwrap_or(0), expected);
+        let mut verses = HashSet::new();
+        for verse in data {
+            assert!(verse["parts"].as_array().is_some_and(|p| p.len() == 2));
+            assert!(branch.contains(verse["feeling"]["slug"].as_str().expect("feeling")));
+            assert!(verses.insert((
+                verse["poem"]["slug"].to_string(),
+                verse["position"].to_string()
+            )));
+        }
     }
 }

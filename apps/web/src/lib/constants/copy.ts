@@ -34,6 +34,12 @@ export const SEARCH_TEXTS = {
   exactLabel: 'تطابق حرفي',
   exactToggleEnableAria: 'تفعيل التطابق الحرفي في نتائج البحث',
   exactToggleDisableAria: 'إلغاء التطابق الحرفي في نتائج البحث',
+  feelingsLabel: 'البحث بالمشاعر',
+} as const;
+
+export const FEELING_TEXTS = {
+  copyVerse: 'نسخ البيت',
+  verseCopied: 'تم نسخ البيت',
 } as const;
 
 export const POEM_TOOLBAR_TEXTS = {

@@ -3,6 +3,7 @@ mod cache;
 mod catalog;
 mod cors;
 mod errors;
+mod feelings;
 mod go;
 mod logging;
 mod metrics;

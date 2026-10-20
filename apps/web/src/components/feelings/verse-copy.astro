@@ -1,0 +1,32 @@
+<script>
+  const COPIED_MS = 2000;
+  const timers = new Map<HTMLButtonElement, number>();
+
+  function showCopied(button: HTMLButtonElement, label: string): void {
+    window.clearTimeout(timers.get(button));
+    delete button.dataset['copied'];
+    void button.offsetWidth;
+    button.style.setProperty('--copy-hold', `${COPIED_MS}ms`);
+    button.dataset['copied'] = '';
+    button.setAttribute('aria-label', button.dataset['copiedLabel'] ?? label);
+    timers.set(
+      button,
+      window.setTimeout(() => {
+        delete button.dataset['copied'];
+        button.setAttribute('aria-label', label);
+        timers.delete(button);
+      }, COPIED_MS)
+    );
+  }
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest<HTMLButtonElement>('[data-copy-verse]');
+    if (button === null) return;
+    const label = button.title;
+    navigator.clipboard.writeText(button.dataset['copyVerse'] ?? '').then(
+      () => showCopied(button, label),
+      () => undefined
+    );
+  });
+</script>

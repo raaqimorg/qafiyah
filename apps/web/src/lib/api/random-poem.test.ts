@@ -31,7 +31,20 @@ function hangUntilAborted(init?: FetchInit): Promise<Response> {
   });
 }
 
+function useFakeClock() {
+  vi.useFakeTimers();
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+    const controller = new AbortController();
+    setTimeout(
+      () => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
+      ms
+    );
+    return controller.signal;
+  });
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -245,19 +258,17 @@ describe('fetchRandomPoemSlugWithRetry retry logic', () => {
 
 describe('fetchRandomPoemSlugWithRetry backoff', () => {
   it('spaces retries with exponential backoff', async () => {
+    useFakeClock();
     const { at } = stubFetchSteps([withStatus(500)]);
-    await fetchRandomPoemSlugWithRetry(BASE, {
-      attempts: 3,
+    const pending = fetchRandomPoemSlugWithRetry(BASE, {
+      attempts: 4,
       backoffBaseMs: 40,
       attemptTimeoutMs: 1000,
       totalBudgetMs: 10_000,
     });
-    expect(at).toHaveLength(3);
-    const firstGap = at[1]! - at[0]!;
-    const secondGap = at[2]! - at[1]!;
-    expect(firstGap).toBeGreaterThanOrEqual(36);
-    expect(secondGap).toBeGreaterThanOrEqual(76);
-    expect(secondGap).toBeGreaterThan(firstGap);
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(at).toEqual([0, 40, 120, 280]);
   });
 });
 
@@ -289,36 +300,37 @@ describe('fetchRandomPoemSlugWithRetry timeout and budget', () => {
   });
 
   it('stops once the total budget is exhausted, well short of the attempt limit', async () => {
+    useFakeClock();
     const startedAt = Date.now();
     const { mock } = stubFetchSteps([hang()]);
-    const result = await fetchRandomPoemSlugWithRetry(BASE, {
+    const pending = fetchRandomPoemSlugWithRetry(BASE, {
       attempts: 50,
       attemptTimeoutMs: 20,
       totalBudgetMs: 200,
       backoffBaseMs: 5,
     });
-    const elapsed = Date.now() - startedAt;
+    await vi.runAllTimersAsync();
+    const result = await pending;
     expect(result._unsafeUnwrapErr().kind).toBe('network');
-    expect(mock.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(mock.mock.calls.length).toBeLessThanOrEqual(15);
-    expect(elapsed).toBeGreaterThanOrEqual(190);
-    expect(elapsed).toBeLessThan(450);
+    expect(mock).toHaveBeenCalledTimes(5);
+    expect(Date.now() - startedAt).toBe(200);
   });
 
   it('cuts an in-flight attempt short when the total budget runs out first', async () => {
+    useFakeClock();
     const startedAt = Date.now();
     const { mock } = stubFetchSteps([hang()]);
-    const result = await fetchRandomPoemSlugWithRetry(BASE, {
+    const pending = fetchRandomPoemSlugWithRetry(BASE, {
       attempts: 3,
       attemptTimeoutMs: 5000,
       totalBudgetMs: 100,
       backoffBaseMs: 5,
     });
-    const elapsed = Date.now() - startedAt;
+    await vi.runAllTimersAsync();
+    const result = await pending;
     expect(result._unsafeUnwrapErr().kind).toBe('network');
     expect(mock).toHaveBeenCalledTimes(1);
-    expect(elapsed).toBeGreaterThanOrEqual(90);
-    expect(elapsed).toBeLessThan(1000);
+    expect(Date.now() - startedAt).toBe(100);
   });
 
   it('works in browsers without AbortSignal.any (Chrome before 116, Safari before 17.4)', async () => {

@@ -36,13 +36,14 @@ jobs:
       docker-phases: ${{ github.event_name == 'workflow_dispatch' && '["diagrams","db","origin","stack"]' || steps.filter.outputs.changes }}
 
     steps:
-      - name: Checkout code without the production dumps and avatars
+      - name: Checkout code without the production snapshots
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
             !/data/avatars/
+            !/data/feelings/
             !/data/db/*/
             /data/db/0000_default/
 
@@ -67,6 +68,7 @@ jobs:
                 - "!data/db/keys.manifest"
                 - "!data/db/[0-9]*_[0-9]*/**"
                 - "!data/avatars/**"
+                - "!data/feelings/**"
                 - "!secrets/**"
                 - "!.sops.yaml"
                 - "!.github/*"
@@ -112,13 +114,14 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout code without the production dumps and avatars
+      - name: Checkout code without the production snapshots
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
             !/data/avatars/
+            !/data/feelings/
             !/data/db/*/
             /data/db/0000_default/
 
@@ -155,19 +158,22 @@ jobs:
     if: needs.changes.outputs.docker-phases != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      COMPOSE_CI_FILE: docker-compose.ci.yml
     strategy:
       fail-fast: false
       matrix:
         phase: ${{ fromJSON(needs.changes.outputs.docker-phases) }}
 
     steps:
-      - name: Checkout code without the production dumps and avatars
+      - name: Checkout code without the production snapshots
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
             !/data/avatars/
+            !/data/feelings/
             !/data/db/*/
             /data/db/0000_default/
 
@@ -178,6 +184,19 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install the Docker Compose version that the server runs
+        uses: docker/setup-compose-action@54042514f505b273907334ae2b9cdbb9a0213c1a # v2.4.0
+        with:
+          version: v5.2.0
+
+      - name: Set up Buildx, so image builds can read and write the GitHub Actions cache
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.35.0
+
+      - name: Expose the GitHub Actions cache service to Compose
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
 
       - name: Install the Rust toolchain
         if: matrix.phase == 'db' || matrix.phase == 'origin'

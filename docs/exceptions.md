@@ -29,7 +29,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 ### Full database dumps are committed to git under a homemade key scheme
 
 - **What:** every Postgres dump is committed as openssl-encrypted parts of 45 MB, with a hand-built key manifest. In October 2026, HEAD holds 90 parts (about 3.5 GB), and `.git` is about 3.5 GB.
-- **Where:** `data/README.md`, `data/db/`, `scripts/db/split-dump.sh`, `scripts/db/encrypt-dump.sh`, `scripts/db/resolve-dump.sh`, `scripts/dev/set-dump-key.sh`, `scripts/dev/check-dump-key.sh`
+- **Where:** `data/README.md`, `data/db/`, `data/feelings/`, `scripts/db/split-dump.sh`, `scripts/db/encrypt-dump.sh`, `scripts/db/resolve-dump.sh`, `scripts/dev/set-dump-key.sh`, `scripts/dev/check-dump-key.sh`
 - **Why it's unusual:** encrypted blobs never delta-compress, so every clone and every VPS fetch carries every version forever, and pushes already need the `pack.useSparse=false` workaround. The manifest "hash" is `openssl enc -P` with a salt hard-coded in two scripts. Passphrases go on the command line as `-pass "pass:..."`, where `ps` can read them. The "newest dump" lookup is repeated in six scripts.
 - **Normal approach:** dumps published as GitHub Release assets or R2 objects (R2 already holds avatars and backups) and downloaded by `db:up`. If encryption stays, use `age`, or at least `-pass env:VAR`.
 - **Status:** Needs review
@@ -37,7 +37,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 ### Deploys build images on the production VPS over SSH
 
 - **What:** `bun run deploy` joins shell files, uploads them over SSH to a temporary file on the host, and runs that file there with stdin from `/dev/null`. It runs `git reset --hard`, builds every image on the 8 GB production server, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` in the same way before it restores.
-- **Where:** `scripts/deploy/vps.sh`, `scripts/lib/remote.sh`, `scripts/db/reseed.sh`, `scripts/es/reindex-prod.sh`, `.github/workflows/images.yml`, `.claude/skills/deploy/SKILL.md`, `docs/deployment/architecture.md`
+- **Where:** `scripts/deploy/vps.sh`, `scripts/lib/remote.sh`, `scripts/lib/rollout.sh`, `scripts/db/reseed.sh`, `scripts/es/reindex-prod.sh`, `.github/workflows/images.yml`, `.claude/skills/deploy/SKILL.md`, `docs/deployment/architecture.md`
 - **Why it's unusual:** release Rust builds (`lto = true`, one codegen unit) and the Astro build compete with the live stack for memory. This is why the docs keep swap. With no registry, a rollback means a revert of `main` and a new build. The Images workflow builds each image and discards it. `rollout()` copies the docker-rollout plugin, with fixed timings: a health deadline of 150 seconds, and a settle time of 7 seconds.
 - **Normal approach:** CI builds on merge and pushes SHA-tagged images to GHCR, the VPS runs `docker compose pull` and `docker rollout` (or Kamal), and rollback redeploys the previous tag.
 - **Status:** Needs review
@@ -341,12 +341,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** the stretched-link pattern: the title `<a>` gets `after:absolute after:inset-0`, and nested links are raised with `relative z-10`.
 - **Status:** Needs review
 
-### The account control is mounted twice, and each copy fetches separately
+### The account control is mounted twice, and the two copies share one session request
 
-- **What:** the nav renders `<AccountControl client:load compact />` and `<AccountControl client:load />` as separate React roots. Each fetches `/api/me` and may re-encode the avatar into localStorage.
-- **Where:** `apps/web/src/components/layout/nav.astro`, `apps/web/src/components/layout/account-control.tsx`
-- **Why it's unusual:** every page makes two identical session requests, and the two copies race on the same localStorage key. The approved viewer-init entry covers the pre-paint mechanism, not the double mount.
-- **Normal approach:** one island styled responsively, or one shared fetch.
+- **What:** the nav renders `<AccountControl client:load compact />` and `<AccountControl client:load />` as separate React roots. Both call `loadViewer()` from `lib/viewer-session.ts`, which sends one `/api/me` request for the page and gives both the same result. So the hint cookie, the cached viewer, and the avatar are written once.
+- **Where:** `apps/web/src/components/layout/nav.astro`, `apps/web/src/components/layout/account-control.tsx`, `apps/web/src/lib/viewer-session.ts`
+- **Why it's unusual:** one control is two islands, and they share the request through a module-level promise. The promise lasts one page, because the site has no client-side router. A signed-out visitor still sends the request: when the accounts API fails, `/api/me` answers 204 and the hint cookie is cleared, so only the request on the next page can bring the control back.
+- **Normal approach:** one island styled responsively.
 - **Status:** Needs review
 
 ### An explicit `?page=1` returns 404
@@ -690,9 +690,9 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 ### Form POSTs rely on Astro's origin check instead of a CSRF token
 
-- **What:** no CSRF token; Astro rejects a POST without a matching `Origin` header with `403 Cross-site POST form submissions are forbidden` before the route runs, on top of the `SameSite=Lax` session cookie.
+- **What:** no CSRF token; Astro rejects a form POST from another site with `403 Cross-site POST form submissions are forbidden` before the route runs, on top of the `SameSite=Lax` session cookie. It reads `Sec-Fetch-Site` first, then `Origin`. A request with neither header passes, because a browser always sends one of them.
 - **Where:** `pages/account/`, `pages/auth/`, `apps/web/astro.config.mjs` (`security.allowedDomains`)
-- **Why:** the framework check and `SameSite=Lax` already cover cross-site forms. The check compares `Origin` with the request URL. TLS ends before nginx, so Astro sees `https://qafiyah.com` only because `security.allowedDomains` lets it trust nginx's `X-Forwarded-Proto: https`. Without that, every production POST is a 403. To test these routes with curl, add an explicit `-H 'Origin: ...'`.
+- **Why:** the framework check and `SameSite=Lax` already cover cross-site forms. The check compares `Origin` with the request URL. TLS ends before nginx, so Astro sees `https://qafiyah.com` only because `security.allowedDomains` lets it trust nginx's `X-Forwarded-Proto: https`. Without that, every production POST is a 403. To test the rejection with curl, add another site's `-H 'Origin: ...'`.
 - **Normal approach:** a per-form CSRF token.
 - **Date:** 2026-09-21
 
@@ -723,6 +723,15 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** render the control on the client after fetching the session.
 - **Date:** 2026-09-23
 
+### The footer leaves room for X's toolbar only inside X's in-app browser
+
+- **What:** `in-app-browser-init.astro` sets `data-in-app-browser="x"` on `<html>`, before the first paint, when the user agent contains `Twitter for iPhone`. The footer then adds 56px of bottom padding (`in-data-[in-app-browser=x]:pb-14`). Every other browser gets the plain footer.
+- **Where:** `components/layout/in-app-browser-init.astro`, `lib/in-app-browser.ts`, `components/footer.tsx`
+- **Why:** X's in-app browser on iPhone floats its toolbar over the bottom 64pt of the page, and it does not report the toolbar through `env(safe-area-inset-bottom)`. So the toolbar covers the footer links, and no browser API tells the page. Pages are cached by path, so the server cannot vary the HTML by user agent.
+  - X's in-app browser on Android (`TwitterAndroid`) is left out until someone checks whether its toolbar covers the page.
+- **Normal approach:** pad the footer with `env(safe-area-inset-bottom)`, or give every browser the same padding.
+- **Date:** 2026-10-13
+
 ### A custom layout debugger (dev only)
 
 - **What:** `layout-debug.astro` outlines and tints every wrapper with a unique color and a `D<n>` label on an overlay layer that never touches the page's own elements.
@@ -743,8 +752,8 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 - **What:** an `is:inline` script force-reloads the page once (rate-limited) when a dynamic import fails.
 - **Where:** `components/layout/module-reload-recovery.astro`
-- **Why:** a visitor's cached HTML can point at a JS chunk hash a newer deploy already evicted from nginx. It runs before hydration, so it can't import TS modules.
-- **Normal approach:** keep old chunks available across deploys.
+- **Why:** a visitor's cached HTML can point at a JS chunk hash that no build of the last 7 days has. The web keeps older chunks for 7 days (#324), so this covers only older pages. It runs before hydration, so it can't import TS modules.
+- **Normal approach:** keep old chunks available across deploys, as the web now does for 7 days.
 - **Date:** 2026-06-27
 
 ### HTML caching is asymmetric
@@ -826,6 +835,30 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** let the integration inject the tags, on a site that does not cache its HTML.
 - **Date:** 2026-10-08
 
+### The `/feelings` tree has its own SVG layout
+
+- **What:** `layoutUpright` places each feeling with its own constants, and estimates each label's width from its character count. The server renders the tree, and each label is an SVG `<text>` inside an SVG `<a>` to the feeling's page. The page draws a wide tree and a narrow tree, and a CSS container query shows one of them. Each tree sits at the top of a frame as tall as the tree, so no empty band sits above or below it.
+- **Where:** `lib/feelings/upright-layout.ts`, `components/feelings/feeling-wheel.tsx`
+- **Why:** issue #263 asks for a tree that grows up from one root, and CSS cannot draw its curved branches. The server cannot measure text, so the label widths are estimates. At both widths, the tests check that every label stays inside the frame, and that the frame ends just under the lowest label. Both trees are in the HTML because the server cannot know the screen width.
+- **Normal approach:** a row of buttons for each level, laid out by CSS.
+- **Date:** 2026-10-11
+
+### The `/feelings` pages morph in place
+
+- **What:** the feelings pages turn on Astro's `<ClientRouter />`. Between two feelings pages, an `astro:before-swap` listener swaps the head as Astro does, then morphs `#main` with idiomorph.
+  - Each tree node has a stable `id`, so the morph keeps it. Its CSS fade and the zoom `transform` then animate to the new page.
+  - Only a node that the morph adds draws or fades in: idiomorph's `afterNodeAdded` marks it `data-entering`. A full load or a reload shows the whole tree at once.
+  - A node that leaves fades out for 300 ms, then is removed.
+  - `<ClientRouter />` sets `history.scrollRestoration` to `manual` and restores the scroll position with its own script, after the first paint. So a reload of a scrolled feelings page showed the top for a moment. `pagehide` sets it back to `auto`, so the browser restores a reload before it paints, and `pageshow` sets it to `manual` again for the router.
+  - The server still renders every page. A link to any other page loads it in full. An `astro:before-preparation` listener stops the router before it fetches that page. Without it, the server renders that page twice: once for the router's fetch, and once for the full load.
+  - `prefetch: false` in `astro.config.mjs` stops `<ClientRouter />` from prefetching every link on hover. Each prefetch renders a page and calls the API.
+  - The morph does not run the new page's scripts. So a script that a feelings page needs goes on both pages, like the verse copy button's (`components/feelings/verse-copy.astro`).
+- **Where:** `components/feelings/feeling-navigation.astro`, `components/feelings/verse-copy.astro`, `lib/feelings/morph-feeling-page.ts`, `components/feelings/feeling-wheel.tsx`, the `head` slot in `layouts/layout.astro`
+- **Why:** a full page load shows the tree already at the new feeling, so the move between feelings is a jump. The morph keeps the tree on screen and animates its zoom and fades. So the reader sees where they moved. Astro's own swap replaces the whole body, and a view transition cannot animate elements inside an SVG.
+  - PostHog's `capture_pageview: 'history_change'` compares only the path, so a change of only `?page=` is not a pageview.
+- **Normal approach:** links that load each page in full, or Astro's `<ClientRouter />` with its default swap.
+- **Date:** 2026-10-15
+
 ## Search indexer (`apps/search-indexer`)
 
 ### A Compose init job that reindexes only empty aliases
@@ -905,13 +938,13 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Normal approach:** `merge_poem` refuses two poets, because that is a question of attribution. Both pages stay, and link to each other.
 - **Date:** 2026-10-09
 
-### The `nabati` poem type names a language, not a form
+### The `nabati` poem type names a region as well as a form
 
-- **What:** the poem type `nabati` holds every poem whose register is `nabati`, whatever its form. The web lays out its two-part entries like `amudi`.
+- **What:** the poem type `nabati` holds the two-hemistich colloquial verse of the Arabian Peninsula. The same form from another region is `amudi`, and free colloquial verse is `hurr`. The web lays out `nabati` entries like `amudi`.
 - **Where:** the `poem_types` row `nabati` in the dumps from 0044, `CLASSICAL_LAYOUT_POEM_TYPES` in `apps/web/src/lib/constants/taxonomy-data.ts`, and `docs/domain.md` ("Poem type")
 - **Why:** the maintainer wants readers to filter Nabati poetry, and the poem type is the filter that the API, search, and site already have.
-- **Normal approach:** keep the type as the form (`amudi`, `hurr`), and expose the existing `register_id` as its own filter in the API, the search index, and the site.
-- **Date:** 2026-10-10
+- **Normal approach:** keep the type as the form only (`amudi`, `hurr`), and add a separate dialect field with its own filter in the API, the search index, and the site.
+- **Date:** 2026-10-12
 
 ## Static checks (`docs/development.md`)
 
@@ -970,3 +1003,13 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 - **Why:** `-D warnings` does not reach cargo's warnings, and rustup ignores unknown keys silently. `clippy.toml` needs neither, since clippy errors on an unknown key.
 - **Normal approach:** `cargo clippy -- -D warnings` alone.
 - **Date:** 2026-09-24
+
+## Deployment (`docker-compose.yml`)
+
+### Images build on the host network
+
+- **What:** `api`, `web`, and `search-indexer` set `network: host` under `build:`, so their build steps use the host's network and DNS resolver.
+- **Where:** `docker-compose.yml`, `docs/deployment/architecture.md`
+- **Why:** on the default build network, a build step on the server gets the upstream DNS servers with the two IPv6 servers first and no IPv6 route. musl reads only the first three, so `apk add` failed at random with "DNS: transient error" (#261). Build steps run only this repo's Dockerfiles.
+- **Normal approach:** the default build network, with `"dns"` in `/etc/docker/daemon.json` when the host's resolver does not suit containers. That needs a Docker restart, which stops every container, and it lives outside the repo.
+- **Date:** 2026-10-13

@@ -4,8 +4,9 @@ This directory holds versioned binary snapshots, with one subdirectory for each 
 
 - `db/`: PostgreSQL dumps. Scripts handle them (`bun run db:reset`, `bun run db:reseed`). They are encrypted, and `bun run dev` seeds itself from them. See `db/README.md` and `db/MAINTAINERS_GUIDE.md`.
 - `avatars/`: zips of the poet avatar images. R2 serves a copy at `cdn.qafiyah.com`. They are manual today, with the same directory names and encryption as `db/`. See `avatars/README.md`.
+- `feelings/`: the feelings that a language model gave each classical verse, the input of `feeling_verses`. Their encryption is manual, like `avatars/`. See `feelings/README.md`.
 
-Both use the same layout: `{category}/{sequence}_{DD}_{MM}_{YYYY}/`. The encrypted `.enc` files are committed, and git ignores the plaintext.
+All three use the same layout: `{category}/{sequence}_{DD}_{MM}_{YYYY}/`. The encrypted `.enc` files are committed, and git ignores the plaintext.
 
 Everything here is public, and dedicated to the public domain under [CC0 1.0](LICENSE). This is different from the code in the rest of the repo, which is under MIT. The `.enc` files are encrypted, not restricted.
 
@@ -15,7 +16,7 @@ Why encrypt something that is open? Because nobody can edit a public git history
 - If a record must come out, for any reason, it must be possible to remove it everywhere that it went.
 - Encryption keeps that possible. The plaintext copies are the ones given out on request. So there is always a way to reach each person who holds one.
 
-A passphrase is quick to get. Email dumps@qafiyah.com for a `db/` snapshot, or avatars@qafiyah.com for an `avatars/` snapshot. Say what you need it for: your own use, or a contribution that you plan. You get the passphrase at once. There is no vetting, and nobody has to qualify. The README of each subdirectory says the same, in full.
+A passphrase is quick to get. Email dumps@qafiyah.com for a `db/` or `feelings/` snapshot, or avatars@qafiyah.com for an `avatars/` snapshot. Say what you need it for: your own use, or a contribution that you plan. You get the passphrase at once. There is no vetting, and nobody has to qualify. The README of each subdirectory says the same, in full.
 
 ## Moving or renaming anything here
 

@@ -250,6 +250,7 @@ The data is dedicated to the public domain under CC0 1.0. The API's code is MIT 
         (name = "meters", description = "Prosodic meters (al-buhur) of classical Arabic poetry."),
         (name = "rhymes", description = "Rhyme letters (al-qawafi) used to classify poems."),
         (name = "themes", description = "Thematic categories (al-aghrad) of poems."),
+        (name = "feelings", description = "The Feelings Wheel in Arabic, and the classical verses that express each feeling."),
         (name = "collections", description = "Curated collections (al-dawawin) of poems."),
         (name = "poem-types", description = "Verse forms (anwa' al-qasida): classical amudi verse, free verse, and the rest."),
     ),
@@ -272,12 +273,15 @@ mod tests {
     fn declares_every_contract_path() {
         let doc = document();
         let paths: Vec<&str> = doc.paths.paths.keys().map(String::as_str).collect();
-        assert_eq!(paths.len(), 22, "expected 22 paths, got {paths:?}");
+        assert_eq!(paths.len(), 25, "expected 25 paths, got {paths:?}");
         for expected in [
             "/collections",
             "/collections/{slug}",
             "/eras",
             "/eras/{slug}",
+            "/feelings",
+            "/feelings/{slug}",
+            "/feelings/{slug}/verses",
             "/meters",
             "/meters/{slug}",
             "/poem-types",

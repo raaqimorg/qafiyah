@@ -11,6 +11,8 @@ export const pageProbes: readonly Probe[] = [
   { url: `${WEB}/rhymes/meem`, expect: 'ok', note: 'rhyme detail' },
   { url: `${WEB}/themes`, expect: 'ok', note: 'themes index' },
   { url: `${WEB}/themes/almutafarriqat`, expect: 'ok', note: 'theme detail' },
+  { url: `${WEB}/feelings`, expect: 'ok', note: 'feelings wheel' },
+  { url: `${WEB}/feelings/alhuzn`, expect: 'ok', note: 'feeling detail' },
   { url: `${WEB}/collections/almuallaqat`, expect: 'ok', note: 'collection detail' },
   { url: `${WEB}/poets/${FIXTURE_POET.slug}`, expect: 'ok', note: 'poet detail' },
 ];
@@ -60,6 +62,12 @@ export const detailBoundaryProbes: readonly Probe[] = [
   { url: `${WEB}/poems/ab1d`, expect: 'not-found', note: 'poem slug with non-letter' },
   { url: `${WEB}/meters/ALBASIT`, expect: 'not-found', note: 'uppercase taxonomy slug rejected' },
   { url: `${WEB}/themes/zzz`, expect: 'not-found', note: 'well-formed but absent taxonomy slug' },
+  { url: `${WEB}/feelings/zzz`, expect: 'not-found', note: 'well-formed but absent feeling slug' },
+  {
+    url: `${WEB}/feelings/alhuzn?page=9999`,
+    expect: 'not-found',
+    note: 'feeling page past last',
+  },
   {
     url: `${WEB}/collections/almuallaqat?page=2`,
     expect: 'not-found',
