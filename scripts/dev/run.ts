@@ -10,6 +10,7 @@ import {
 
 import { checkPrerequisites } from './doctor';
 import { blocksDev, formatReport } from './doctor-report';
+import { dumpStageLine } from './dump-stage';
 import { ensureEnvFileFrom } from './env-file';
 import {
   cargoProgress,
@@ -165,7 +166,7 @@ async function runStage(label: string, cmd: string[], options: StageOptions = {}
 async function dumpStage(): Promise<void> {
   const stage = startStage('dump');
   const start = Date.now();
-  const proc = Bun.spawn(['./scripts/db/resolve-dump.sh'], {
+  const proc = Bun.spawn(['./scripts/data/pull.sh'], {
     cwd: ROOT,
     env: process.env,
     stdout: 'ignore',
@@ -175,36 +176,10 @@ async function dumpStage(): Promise<void> {
   const code = await proc.exited;
   stage.end();
   const ms = Date.now() - start;
-  if (code !== 0) {
-    console.log(`${red('✗')} ${dim(`(${formatMs(ms)})`)}`);
-    if (stderr.trim()) console.error(stderr.trim());
-    process.exit(code || 1);
-  }
-  const usingMatch = stderr.match(/\[resolve-dump] using (\S+) \(decrypted with (\S+)\)/);
-  const fallbackMatch = stderr.match(
-    /\[resolve-dump] (\S+) did not decrypt (\S+), falling back to data\/db\/0000_default/
-  );
-  const behindMatch = stderr.match(
-    /\[resolve-dump] (\d+) dump\(s\) behind latest \((\S+)\), run '([^']+)' to catch up/
-  );
-  if (usingMatch) {
-    console.log(`${green('✓')} using ${cyan(usingMatch[1] ?? '')} ${dim(`(${formatMs(ms)})`)}`);
-  } else if (fallbackMatch) {
-    console.log(
-      `${yellow('⚠')} ${fallbackMatch[1]} didn't work, using default sample ${dim(`(${formatMs(ms)})`)}`
-    );
-  } else {
-    console.log(`${green('✓')} using default sample ${dim(`(${formatMs(ms)})`)}`);
-  }
-  if (behindMatch) {
-    const [, count, latest, cmd] = behindMatch;
-    const plural = count === '1' ? '' : 's';
-    console.log(
-      yellow(
-        `  ⓘ ${count} dump${plural} behind latest (${cyan(latest ?? '')}), run '${cmd}' to catch up`
-      )
-    );
-  }
+  const line = dumpStageLine(code, stderr);
+  const mark = line.ok ? green('✓') : yellow('⚠');
+  console.log(`${mark} ${line.text} ${dim(`(${formatMs(ms)})`)}`);
+  if (!line.ok && stderr.trim()) console.error(dim(stderr.trim()));
 }
 
 async function preflightStage(target: string): Promise<void> {

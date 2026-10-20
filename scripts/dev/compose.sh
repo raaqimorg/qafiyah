@@ -3,8 +3,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-./scripts/db/resolve-dump.sh
-
 dev_default() {
   local name="$1" value="$2"
   [[ -n "${!name:-}" ]] && return 0
