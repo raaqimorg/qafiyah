@@ -36,12 +36,10 @@ docs/superpowers/
 TODO.txt
 target/
 /graft/
-data/db/*/*.dump
-data/db/*/*.dump.part-??
-!data/db/0000_default/*.dump
-!data/db/0000_default/*.dump.part-??
-data/db/*/CHANGES.md
-data/feelings/*/*.json.gz
+data/db/*/
+!data/db/0000_default/
+data/avatars/*/
+data/feelings/*/
 .worktrees/
 .husky/_/
 .local

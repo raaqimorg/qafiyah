@@ -24,6 +24,8 @@
     "corpus:promote-reading": "bun scripts/corpus/promote-reading.ts",
     "corpus:repair-rows": "bun scripts/corpus/repair-rows.ts",
     "corpus:verify-classical": "bun scripts/corpus/verify-classical.ts",
+    "data:pull": "./scripts/data/pull.sh",
+    "data:push": "./scripts/data/push.sh",
     "db:schema": "bun scripts/db/diesel-schema.ts",
     "db:schema:check": "bun scripts/db/diesel-schema.ts --check",
     "db:reseed": "./scripts/db/reseed.sh",
