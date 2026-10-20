@@ -51,8 +51,8 @@ The trade-offs: there is no public port to fall back on, so if the tunnel is dow
 
 The last eight containers are the private observability stack (`apps/observability/AGENTS.md`). To open it, run `bun run observe`. It forwards a port over the existing SSH connection, which goes through the tunnel.
 
-- **The database seeds itself** on the first boot, from the newest dump in `data/db/`. This happens only when the data volume is empty.
-  - In production, `bun run db:reseed` forces a restore. It restores the dump into a second database beside the live one, with the restore script of the synced checkout, then swaps the two in one transaction (`scripts/db/restore-and-swap.sh`). In dev, `bun run db:reset` forces a restore.
+- **The database seeds itself** on the first boot, from the newest dump in `data/db/` (downloaded from the R2 bucket `qafiyah-data`). This happens only when the data volume is empty.
+  - In production, `bun run db:reseed <dump-folder>` forces a restore. It downloads that dump, deletes every other dump on the server, and restores the dump into a second database beside the live one, with the restore script of the synced checkout, then swaps the two in one transaction (`scripts/db/restore-and-swap.sh`). In dev, `bun run db:reset` forces a restore.
   - After a restore, the script renames the running container to `<container>-<dump-number>` (for example, `qafiyah-db-0019`). So `docker ps` shows which dump is live.
   - `container_name` in the Compose files does not change. Compose keeps track of the container by its own labels.
 - **`search-indexer`** is a one-shot init job. To force a reindex, see `apps/search-indexer/AGENTS.md` and `docs/deployment/services.md`.

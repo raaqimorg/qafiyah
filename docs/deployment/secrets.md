@@ -26,7 +26,6 @@ bun run secrets:edit          # edit dev in $EDITOR, then generate .env again
 bun run secrets:edit prod     # edit prod, then commit, release, and run bun run deploy
 bun run secrets:pull          # generate .env again from secrets/dev.enc.env
 bun run secrets:check         # check both files against scripts/secrets/schema.ts
-bun run dump:key:set          # write DUMP_KEY__* into secrets/dev.enc.env
 ```
 
 `bun run deploy` and `bun run db:reseed` run `scripts/secrets/pull.sh prod` on the VPS right after they check out `origin/main`. So a committed change to `secrets/prod.enc.env` reaches production on the next deploy.

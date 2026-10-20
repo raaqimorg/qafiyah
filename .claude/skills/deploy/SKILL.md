@@ -61,28 +61,29 @@ This repo has no faster path today.
 
 ## 3. Ship a new Postgres or Elasticsearch dump to prod (release data)
 
-A normal deploy keeps the data volume. So a new dump in `data/db/` has no effect until it is restored.
+A normal deploy keeps the data volume. So a new dump in the R2 bucket `qafiyah-data` has no effect until it is restored.
 
 ```bash
-bun run db:reseed     # syncs to origin/main, builds api and search-indexer, restores the newest dump, starts the new api, rebuilds es
+bun run db:reseed 0047_25_10_2026   # syncs to origin/main, builds api and search-indexer, restores the named dump, starts the new api, rebuilds es
 ```
 
 It replaces only the corpus database (`qafiyah`). It does not touch `qafiyah_accounts`. It does these steps:
 
-1. It builds `api` and `search-indexer` from `origin/main`, while the old stack serves.
-2. It checks that the disk can hold a second copy of the corpus, and stops if not.
-3. It restores the dump into `qafiyah_next`, while the API keeps serving `qafiyah` (#322). The restore runs the scripts of the synced checkout, not the scripts that the container started with (#209).
-4. It swaps the two databases in one transaction, and drops the old one. The queries that run at that moment fail. A request that needs a new connection waits through the swap (#330).
-5. It rolls the API to the new build, as a deploy does.
-6. It rebuilds Elasticsearch with the new indexer and an alias swap, while the API serves.
-7. It ends with the same public health check as the deploy.
+1. It downloads the named dump from R2 to the server, and deletes every other dump there (`scripts/db/use-dump.sh`).
+2. It builds `api` and `search-indexer` from `origin/main`, while the old stack serves.
+3. It checks that the disk can hold a second copy of the corpus, and stops if not.
+4. It restores the dump into `qafiyah_next`, while the API keeps serving `qafiyah` (#322). The restore runs the scripts of the synced checkout, not the scripts that the container started with (#209).
+5. It swaps the two databases in one transaction, and drops the old one. The queries that run at that moment fail. A request that needs a new connection waits through the swap (#330).
+6. It rolls the API to the new build, as a deploy does.
+7. It rebuilds Elasticsearch with the new indexer and an alias swap, while the API serves.
+8. It ends with the same public health check as the deploy.
 
-It needs the newest dump's `DUMP_KEY__<dir>` in `secrets/prod.enc.env`, and refuses to start without it. It asks for confirmation, unless you run it with `-y`. For details, see `docs/deployment/environments.md`.
+The dump folder name is required, so a rollback is the same command with an older name. It needs the `DATA_*` values in `secrets/prod.enc.env` (the read-only token). It asks for confirmation, unless you run it with `-y`. For details, see `docs/deployment/environments.md`.
 
 **For a new dump together with code changes**, do these steps in this order:
 
-1. Release the version that holds the snapshot and the code into `main` (step 0), and let CI pass.
-2. Run `bun run db:reseed`. Between the swap and the end of its API rollout (about 30 seconds), the old API serves the new data. If the old API cannot read the new schema, its queries fail for those seconds.
+1. Release the version that holds the code for the new dump into `main` (step 0), and let CI pass.
+2. Run `bun run db:reseed <dump-folder>`. Between the swap and the end of its API rollout (about 30 seconds), the old API serves the new data. If the old API cannot read the new schema, its queries fail for those seconds.
 3. Run `bun run deploy` to roll out `web`. It also replaces `api` with the same build. No separate reindex is necessary, because the reseed already rebuilt search with the new indexer.
 4. Verify with `bun run api:conformance prod`. The home page's search filters read their options and counts from the API, so they follow the new dump automatically.
 

@@ -23,7 +23,7 @@ This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum AP
   - `architecture/`: the C4 model `workspace.dsl` and the diagrams that `bun run docs:diagrams` renders from it
   - `deployment/`: start at `docs/deployment/README.md`
   - `changelog/`: one file for each released version (`v1.md`, `v2.md`, and so on)
-- `data/`: versioned, encrypted snapshots (database dumps and avatar images). See `data/README.md`.
+- `data/`: the READMEs of the versioned snapshots (database dumps, avatar images, and feelings) in the private R2 bucket `qafiyah-data`, and the 100-poem sample. See `data/README.md`.
 - `well-known/`: templates for `robots.txt`, `llms.txt`, and `security.txt`. The API embeds `llms.api.md`, `robots.api.txt`, and `security.txt` (`apps/api/src/routes/site.rs`). `bun run well-known:generate` renders `llms.web.md`, `robots.web.txt`, and `security.txt` into `apps/web/src/lib/generated/well-known/`.
 - `secrets/`: SOPS-encrypted environment files. See `docs/deployment/secrets.md`.
 

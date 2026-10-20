@@ -230,7 +230,7 @@ Prometheus, Loki, Alloy, Grafana, postgres_exporter, elasticsearch_exporter, bla
 
 ### Accounts database backups
 
-`qafiyah_accounts` is a separate database in the same Postgres container. It holds the user records and the hashed API keys. It is outside the `data/db/` pipeline on purpose, because that pipeline gives the corpus to anyone who asks for a passphrase. So the accounts database has its own backup path:
+`qafiyah_accounts` is a separate database in the same Postgres container. It holds the user records and the hashed API keys. It is outside the `data/db/` pipeline on purpose, because that pipeline gives the corpus to anyone who asks for a token. So the accounts database has its own backup path:
 
 - `scripts/accounts/backup.sh` runs every day at 03:17 UTC, from a systemd timer on the VPS.
   - It runs `pg_dump` in the `db` container, and encrypts the dump with `age` to `ACCOUNTS_BACKUP_RECIPIENT`.

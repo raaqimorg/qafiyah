@@ -26,11 +26,13 @@ The observability containers follow their own conditions. `db-monitor-role` runs
 
 **First boot only:** on an empty data volume, Postgres restores the newest dump from `data/db/` through `scripts/db/init.sh`. This takes a few minutes. The `start_period` of the `db` healthcheck is 300 seconds. The `db` container is then renamed to `<container>-<dump-number>` (for example, `qafiyah-db-0019`), so `docker ps` shows which dump it runs. Later starts use the same volume, so the name stays until the next real restore. To wipe and seed again locally, run `bun run db:reset`.
 
-To ship a new Postgres or Elasticsearch dump to production, follow the ordered steps (`bun run db:reseed`) in `.claude/skills/deploy/SKILL.md`. A major version upgrade of `postgres` or `elasticsearch` needs a volume wipe; see `docs/deployment/troubleshooting.md`.
+The dumps live in the R2 bucket `qafiyah-data`, not in git. On a new server, run `./scripts/db/use-dump.sh <dump-folder>` before the first start. Otherwise the first boot restores the 100-poem sample.
+
+To ship a new Postgres or Elasticsearch dump to production, follow the ordered steps (`bun run db:reseed <dump-folder>`) in `.claude/skills/deploy/SKILL.md`. A major version upgrade of `postgres` or `elasticsearch` needs a volume wipe; see `docs/deployment/troubleshooting.md`.
 
 ## The server checkout
 
-The checkout at `/opt/qafiyah` leaves out the old dumps and the avatar snapshots. Every dump adds about 0.4 GB, and the server only restores the newest one. The site reads avatars from R2, never from `data/avatars/`. Without this, the disk fills up: during the version 6 release, Elasticsearch passed its 90% and 95% disk watermarks, and the reseed and the first deploy failed.
+The server holds only the dump in use. `bun run db:reseed` downloads it from R2 into `data/db/`, and deletes every other dump there. The checkout at `/opt/qafiyah` also leaves out the encrypted snapshots that git still holds. Every dump adds about 0.4 GB. The site reads avatars from R2, never from `data/avatars/`. Without this, the disk fills up: during the version 6 release, Elasticsearch passed its 90% and 95% disk watermarks, and the reseed and the first deploy failed.
 
 It is a non-cone sparse checkout. Show the current patterns on the server:
 
