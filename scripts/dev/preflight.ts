@@ -4,18 +4,18 @@ import net from 'node:net';
 
 import { err, ok, type Result } from 'neverthrow';
 
-import { DEV_API_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } from '@qafiyah/config';
+import { DEV_API_PORT, DEV_MCP_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } from '@qafiyah/config';
 
 const HOST = '127.0.0.1';
 
-const PORTS = { api: DEV_API_PORT, web: DEV_WEB_PORT } as const;
+const PORTS = { api: DEV_API_PORT, web: DEV_WEB_PORT, mcp: DEV_MCP_PORT } as const;
+const PORT_ENV_KEYS = { api: 'PORT', web: 'WEB_PORT', mcp: 'MCP_PORT' } as const;
 type PortName = keyof typeof PORTS;
 
 const isPortName = (value: string): value is PortName => value in PORTS;
 
 function effectivePort(name: PortName): number {
-  const envKey = name === 'api' ? 'PORT' : 'WEB_PORT';
-  return Number(process.env[envKey] ?? PORTS[name]);
+  return Number(process.env[PORT_ENV_KEYS[name]] ?? PORTS[name]);
 }
 
 type ProbeError = {

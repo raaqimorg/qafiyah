@@ -98,7 +98,11 @@ services:
       PORT: "8787"
       API_KEY_INTERNAL: ${API_KEY_INTERNAL:-}
       API_KEY_FULL: ${API_KEY_FULL:-}
+      API_KEY_MCP: ${API_KEY_MCP:-}
       ANON_REQUESTS: ${ANON_REQUESTS:-}
+      MCP_REQUESTS: ${MCP_REQUESTS:-}
+      MCP_BURST: ${MCP_BURST:-}
+      MCP_ADDRESS_REQUESTS: ${MCP_ADDRESS_REQUESTS:-}
       METRICS_PORT: "9464"
     networks:
       default:
@@ -107,6 +111,41 @@ services:
           - api-backend
     expose:
       - "8787"
+
+  mcp:
+    build:
+      context: .
+      dockerfile: apps/mcp/Dockerfile
+      network: host
+    restart: unless-stopped
+    stop_grace_period: 30s
+    <<: *default-logging
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      INTERNAL_API_URL: http://api-backend:8787
+      API_KEY_MCP: ${API_KEY_MCP:-}
+      TRUSTED_PROXIES: 172.27.0.0/24
+      MCP_ALLOWED_HOSTS: mcp.qafiyah.com
+      MCP_PORT: "8788"
+      METRICS_PORT: "9464"
+    networks:
+      backend:
+        aliases:
+          - mcp-backend
+      metrics:
+    expose:
+      - "8788"
 
   web:
     build:

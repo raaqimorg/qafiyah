@@ -31,7 +31,7 @@ bun run dev
 3. It starts Postgres and Elasticsearch with Docker Compose, and restores the dump on a new volume.
 4. It runs the search indexer once to fill Elasticsearch.
 5. It creates `apps/web/.env` if that file does not exist. The file holds only `PUBLIC_API_URL`, which points at the local API.
-6. It builds and starts the API (`cargo build -p qafiyah-api`), then the web app. The combined log gives each one a prefix and a color. To also start the inspector after the web app is ready, pass `--inspector`.
+6. It builds the API and the MCP server (`cargo build -p qafiyah-api -p qafiyah-mcp`), and starts the API, then the MCP server, then the web app. The combined log gives each one a prefix and a color. To also start the inspector after the web app is ready, pass `--inspector`.
 
 In a terminal, each step shows a live line with its elapsed time. Where there is something to report, the line also shows it:
 
@@ -52,15 +52,16 @@ With the 100-poem sample, the restore and the indexing take seconds, so the two 
 
 Default URLs:
 
-| Service       | URL                   |
-| ------------- | --------------------- |
-| Web           | http://localhost:4321 |
-| API           | http://localhost:8787 |
-| Inspector     | http://localhost:4322 |
-| Postgres      | localhost:5434        |
-| Elasticsearch | localhost:9201        |
+| Service       | URL                       |
+| ------------- | ------------------------- |
+| Web           | http://localhost:4321     |
+| API           | http://localhost:8787     |
+| MCP server    | http://localhost:8788/mcp |
+| Inspector     | http://localhost:4322     |
+| Postgres      | localhost:5434            |
+| Elasticsearch | localhost:9201            |
 
-The ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`). Each app also reads its port from an environment variable: `PORT` for the API, `WEB_PORT`, `INSPECTOR_PORT`, and `DEV_POSTGRES_PORT`. `--worktree` sets these variables with an offset (see "Working in a git worktree").
+The ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_MCP_PORT`, `DEV_INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`). Each app also reads its port from an environment variable: `PORT` for the API, `MCP_PORT` for the MCP server, `WEB_PORT`, `INSPECTOR_PORT`, and `DEV_POSTGRES_PORT`. `--worktree` sets these variables with an offset (see "Working in a git worktree").
 
 To stop every running process, press `Ctrl-C`. The runner sends SIGTERM, then SIGKILL after 5 seconds.
 
@@ -71,11 +72,11 @@ bun run dev:preflight   # check that the dev ports are free (bun run dev runs it
 bun run db:up           # start only Postgres and Elasticsearch (docker compose up -d --wait)
 bun run db:reset        # wipe the local Postgres volume and restore the dump again
 bun run down            # stop the Docker Compose stack
-bun run clean           # stop leftover astro and qafiyah-api processes from an earlier run
+bun run clean           # stop leftover astro, qafiyah-api, and qafiyah-mcp processes from an earlier run
 bun run reindex         # rebuild the indexer image, then rebuild the Elasticsearch indices from Postgres
 ```
 
-`bun run dev` records no metrics, because the API and the website run on the host without `METRICS_PORT` or an OTLP endpoint. To see the observability dashboards locally, run the full Docker stack:
+`bun run dev` records no metrics, because the API, the MCP server, and the website run on the host without `METRICS_PORT` or an OTLP endpoint. To see the observability dashboards locally, run the full Docker stack:
 
 - `bun run smoke:stack` runs it, and leaves nothing running at the end.
 - For a stack that stays up, see `apps/observability/AGENTS.md`.

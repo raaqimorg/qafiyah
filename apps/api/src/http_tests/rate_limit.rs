@@ -7,6 +7,8 @@ use axum::http::{HeaderValue, Request, StatusCode};
 use crate::auth::Keys;
 use crate::constants::VISITOR_REQUESTS;
 use crate::http_tests::empty_hits;
+use crate::rate_limit::McpLimits;
+use crate::state::AppState;
 use crate::test_support::{FakeEs, request, send, state_with};
 
 fn app(es: &FakeEs, anon: u32) -> axum::Router {
@@ -323,4 +325,114 @@ async fn a_refused_request_still_reports_the_quota_it_spent() {
     }
     let last = send(app(&es, 5), from("/v1/poems?page=0", "203.0.113.10", None)).await;
     assert_eq!(last.header("x-ratelimit-remaining"), Some("4"));
+}
+
+const WIDE: McpLimits = McpLimits {
+    requests: 1_000_000,
+    burst: 1_000_000,
+    address_requests: 500,
+};
+
+fn mcp_app(es: &FakeEs, key: &str, mcp: McpLimits) -> (AppState, axum::Router) {
+    let mut state = state_with(
+        es,
+        Keys::new(Some("internal".into()), Some("full".into())).with_mcp(Some(key.into())),
+        1,
+    );
+    state.mcp = mcp;
+    (state.clone(), crate::app(state))
+}
+
+#[tokio::test]
+async fn mcp_callers_are_counted_per_address_apart_from_visitors_and_anonymous_callers() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let (_, app) = mcp_app(&es, "mcp", WIDE);
+    let ceiling = WIDE.address_requests.to_string();
+    for (ip, remaining) in [
+        ("203.0.113.5", WIDE.address_requests - 1),
+        ("203.0.113.5", WIDE.address_requests - 2),
+        ("203.0.113.6", WIDE.address_requests - 1),
+    ] {
+        let sent = send(app.clone(), from("/v1/openapi.json", ip, Some("mcp"))).await;
+        assert_eq!(sent.status, StatusCode::OK, "{ip}");
+        assert_eq!(
+            sent.header("x-ratelimit-limit"),
+            Some(ceiling.as_str()),
+            "{ip}"
+        );
+        assert_eq!(
+            sent.header("x-ratelimit-remaining"),
+            Some(remaining.to_string().as_str()),
+            "{ip}"
+        );
+    }
+    let anonymous = send(app, from("/v1/openapi.json", "203.0.113.5", None)).await;
+    assert_eq!(anonymous.status, StatusCode::OK);
+    assert_eq!(anonymous.header("x-ratelimit-limit"), Some("1"));
+}
+
+#[tokio::test]
+async fn an_mcp_call_with_no_address_is_limited_never_unlimited() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let (_, app) = mcp_app(&es, "mcp", WIDE);
+    let sent = send(app, unforwarded("/v1/openapi.json", "mcp")).await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(
+        sent.header("x-ratelimit-limit"),
+        Some(WIDE.address_requests.to_string().as_str())
+    );
+}
+
+#[tokio::test]
+async fn an_untrusted_peer_cannot_choose_the_mcp_address() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let (_, app) = mcp_app(&es, "mcp", WIDE);
+    for (claimed, remaining) in [
+        ("203.0.113.10", WIDE.address_requests - 1),
+        ("203.0.113.11", WIDE.address_requests - 2),
+    ] {
+        let sent = send(app.clone(), from_peer("198.51.100.7", claimed, Some("mcp"))).await;
+        assert_eq!(sent.status, StatusCode::OK, "{claimed}");
+        assert_eq!(
+            sent.header("x-ratelimit-remaining"),
+            Some(remaining.to_string().as_str()),
+            "a claimed address must not buy a fresh bucket"
+        );
+    }
+}
+
+#[tokio::test]
+async fn the_mcp_hourly_total_refuses_over_http() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let (_, app) = mcp_app(
+        &es,
+        "mcp",
+        McpLimits {
+            requests: 2,
+            burst: 1_000_000,
+            address_requests: 1_000_000,
+        },
+    );
+    for (ip, status) in [
+        ("203.0.113.21", StatusCode::OK),
+        ("203.0.113.22", StatusCode::OK),
+        ("203.0.113.23", StatusCode::TOO_MANY_REQUESTS),
+    ] {
+        let sent = send(app.clone(), from("/v1/openapi.json", ip, Some("mcp"))).await;
+        assert_eq!(sent.status, status, "{ip}");
+    }
+}
+
+#[tokio::test]
+async fn an_mcp_call_never_touches_the_key_cache() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let key = "qaf_abcdefghijklmnopqrstuvwxyz012345";
+    let (state, app) = mcp_app(&es, key, WIDE);
+    let sent = send(app, from("/v1/openapi.json", "2001:db8:9:9::1", Some(key))).await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(
+        sent.header("x-ratelimit-limit"),
+        Some(WIDE.address_requests.to_string().as_str())
+    );
+    assert!(state.key_cache.is_empty());
 }

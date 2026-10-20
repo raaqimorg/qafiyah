@@ -27,16 +27,18 @@ import {
   authHeaders,
   CONCURRENCY,
   hostHeader,
+  MCP,
   SEARCH,
   STACK_API_KEY_FULL,
   STACK_API_KEY_INTERNAL,
+  STACK_API_KEY_MCP,
   STACK_GRAFANA_PASSWORD,
   STACK_SESSION_STATE_SECRET,
   SURFACE,
   WEB,
 } from './target';
 
-import type { SurfaceName } from './surfaces';
+import type { Host, SurfaceName } from './surfaces';
 import type { Check, Expectation, Probe } from './types';
 
 const ROOT = `${import.meta.dir}/../..`;
@@ -61,7 +63,7 @@ function probeSurfaces(probe: Probe): readonly SurfaceName[] {
   return ['origin', 'stack', 'prod'];
 }
 
-function probeHost(probe: Probe): 'web' | 'api' {
+function probeHost(probe: Probe): Host {
   if (probe.host) return probe.host;
   if (probe.url.startsWith(`${API}/v1`) || probe.url.startsWith(`${API}/healthz`)) return 'api';
   return 'web';
@@ -157,6 +159,7 @@ async function runProbe(probe: Probe): Promise<Outcome> {
   const started = performance.now();
   const init: RequestInit = {};
   if (probe.method) init.method = probe.method;
+  if (probe.body !== undefined) init.body = probe.body;
   if (probe.redirect) init.redirect = probe.redirect;
   const headers = { ...probeKeyHeaders(probe), ...probe.headers };
   if (SURFACE.name === 'stack') headers['Host'] = hostHeader(probeHost(probe));
@@ -400,7 +403,11 @@ type StartedSurface = { readonly stop: () => Promise<void>; readonly ownsProcess
 
 async function startSurface(): Promise<StartedSurface> {
   if (SURFACE.name === 'origin') {
-    if ((await answers(`${WEB}/`)) && (await answers(`${API}/`))) {
+    if (
+      (await answers(`${WEB}/`)) &&
+      (await answers(`${API}/`)) &&
+      (await answers(`${MCP}/healthz`))
+    ) {
       console.log(dim('reusing the dev server that is already running, and leaving it running'));
       return { stop: async () => {}, ownsProcesses: false };
     }
@@ -418,6 +425,7 @@ async function startSurface(): Promise<StartedSurface> {
       ANON_REQUESTS: '40',
       API_KEY_INTERNAL: process.env['API_KEY_INTERNAL'] ?? STACK_API_KEY_INTERNAL,
       API_KEY_FULL: process.env['API_KEY_FULL'] ?? STACK_API_KEY_FULL,
+      API_KEY_MCP: process.env['API_KEY_MCP'] ?? STACK_API_KEY_MCP,
       SESSION_STATE_SECRET: process.env['SESSION_STATE_SECRET'] ?? STACK_SESSION_STATE_SECRET,
       GRAFANA_ADMIN_PASSWORD: process.env['GRAFANA_ADMIN_PASSWORD'] ?? STACK_GRAFANA_PASSWORD,
     };
@@ -493,12 +501,14 @@ async function main() {
 
   if (SURFACE.name === 'origin') {
     process.stdout.write('Started smoking...');
-    const [webReady, apiReady] = await Promise.all([
+    const [webReady, apiReady, mcpReady] = await Promise.all([
       waitForServer(`${WEB}/`),
       waitForServer(`${API}/`),
+      waitForServer(`${MCP}/healthz`),
     ]);
     if (webReady.isErr()) return await bail(` ${describeUnready('web', webReady.error)}`);
     if (apiReady.isErr()) return await bail(` ${describeUnready('api', apiReady.error)}`);
+    if (mcpReady.isErr()) return await bail(` ${describeUnready('mcp', mcpReady.error)}`);
     process.stdout.write(' running...\n');
   }
 

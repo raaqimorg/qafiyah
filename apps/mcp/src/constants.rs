@@ -1,0 +1,9 @@
+pub const DEV_MCP_PORT: u16 = 8788;
+pub const PROD_SITE_URL: &str = "https://qafiyah.com";
+pub const API_V1_PREFIX: &str = "/v1";
+pub const API_KEY_HEADER: &str = "x-api-key";
+pub const CF_CONNECTING_IP_HEADER: &str = "cf-connecting-ip";
+pub const API_CALL_TIMEOUT_SECONDS: u64 = 8;
+pub const REQUEST_DEADLINE_SECONDS: u64 = 9;
+pub const MAX_REQUEST_BODY_BYTES: usize = 65_536;
+pub const MAX_POEM_CHARS: usize = 7_000;

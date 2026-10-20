@@ -6,6 +6,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - apps/api/**
+          - apps/mcp/**
           - crates/corpus/**
 
 "🗂️ indexer":

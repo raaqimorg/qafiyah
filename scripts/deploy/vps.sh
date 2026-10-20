@@ -60,7 +60,7 @@ git reset --hard FETCH_HEAD
 
 export SENTRY_RELEASE="$target"
 
-docker compose build api web search-indexer
+docker compose build api web search-indexer mcp
 
 docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway db-monitor-role postgres-exporter elasticsearch-exporter blackbox-exporter prometheus loki alloy grafana
 changed_config=$(git diff --name-only "$deployed" HEAD -- apps/edge-gateway apps/observability) ||
@@ -95,6 +95,7 @@ fi
 tag_db_container "$(docker compose ps -q db)"
 
 rollout api
+rollout mcp
 rollout web
 
 echo ""
@@ -103,6 +104,9 @@ curl -fsS -H 'Host: qafiyah.com' 'http://127.0.0.1:80/api/v1/poems/random?option
 echo "  apex search proxy ok"
 curl -fsS -H 'Host: api.qafiyah.com' 'http://127.0.0.1:80/v1/poems/random?option=slug' -o /dev/null
 echo "  api  random poem  ok"
+curl -fsS -H 'Host: mcp.qafiyah.com' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' 'http://127.0.0.1:80/mcp' -o /dev/null
+echo "  mcp  tools list   ok"
 
 echo ""
 echo "→ purging the Cloudflare cache (cached pages still point at the previous build's scripts)"

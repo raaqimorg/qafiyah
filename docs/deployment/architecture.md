@@ -10,23 +10,24 @@ Production is one small Linux VPS behind Cloudflare. **Nothing is reachable from
 
 - `qafiyah.com` and `www` go to `localhost:80`.
 - `api.qafiyah.com` goes to `localhost:80`.
+- `mcp.qafiyah.com` goes to `localhost:80`.
 - `ssh.qafiyah.com` goes to `ssh://localhost:22`.
 - Every other host gets 404.
 
 To see the tunnel's name and id, run `cloudflared tunnel list`.
 
-**The `edge-gateway` container is the only gateway.** Both hosts enter on `127.0.0.1:80`, which runs ModSecurity v3 with the OWASP CRS:
+**The `edge-gateway` container is the only gateway.** Every host enters on `127.0.0.1:80`, which runs ModSecurity v3 with the OWASP CRS:
 
 - It inspects every request, and proxies it to the web container's nginx over a dedicated `edge` network, as `web-edge:8080`.
-- It keeps the original `Host`, so the web nginx routes by it. The apex goes to the Astro server-side renderer. `api.*` goes to the `api` container over a dedicated `backend` network, as `api-backend:8787`.
-- Neither the web nginx nor the API has a host port. Both are reachable only inside their networks.
+- It keeps the original `Host`, so the web nginx routes by it. The apex goes to the Astro server-side renderer. `api.*` goes to the `api` container over a dedicated `backend` network, as `api-backend:8787`. `mcp.*` goes to the `mcp` container over the same network, as `mcp-backend:8788`, and only its `/mcp` path; every other path answers 404.
+- The web nginx, the API, and the MCP server have no host port. Each is reachable only inside its networks.
 - The tunnel configuration still points at `localhost:80`; the WAF did not change it.
 
 SSH clients connect with `ProxyCommand cloudflared access ssh --hostname ssh.qafiyah.com`.
 
 The trade-offs: there is no public port to fall back on, so if the tunnel is down, SSH is down too. The path also has one extra hop (edge gateway to web). So if the edge gateway crashes, the whole site is down until `restart: unless-stopped` starts it again.
 
-## The stack (`/opt/qafiyah`, `docker compose`, 14 containers)
+## The stack (`/opt/qafiyah`, `docker compose`, 15 containers)
 
 `docker-compose.yml` holds the definitive service definitions, the pinned image versions, and the ports.
 
@@ -35,13 +36,14 @@ The trade-offs: there is no public port to fall back on, so if the tunnel is dow
 | `qafiyah-edge-gateway`                                  | ModSecurity + OWASP CRS (edge gateway)   | `127.0.0.1:80`            | via tunnel       |
 | `qafiyah-web-N`                                         | Astro SSR + nginx (Host routing)         | none (`web:8080`)         | via edge-gateway |
 | `qafiyah-api-N`                                         | Rust / axum API (mounted at `/v1`)       | none (`api-backend:8787`) | via nginx        |
+| `qafiyah-mcp-N`                                         | Rust MCP server (at `/mcp`)              | none (`mcp-backend:8788`) | via nginx        |
 | `qafiyah-db` (renamed `qafiyah-db-<N>` after a restore) | PostgreSQL                               | `127.0.0.1:5433`          | **no**           |
 | `qafiyah-es`                                            | Elasticsearch                            | `127.0.0.1:9200`          | **no**           |
 | `qafiyah-search-indexer`                                | Postgres → Elasticsearch sync            | none (init job)           | **no**           |
 | `qafiyah-db-monitor-role`                               | ensures the `qafiyah_monitor` role       | none (init job)           | **no**           |
 | `qafiyah-postgres-exporter`                             | `pg_stat_statements` and Postgres health | none (`:9187`)            | **no**           |
 | `qafiyah-elasticsearch-exporter`                        | cluster health, heap, query totals       | none (`:9114`)            | **no**           |
-| `qafiyah-blackbox-exporter`                             | `/healthz` probes of api and web         | none (`:9115`)            | **no**           |
+| `qafiyah-blackbox-exporter`                             | `/healthz` probes of api, web, and mcp   | none (`:9115`)            | **no**           |
 | `qafiyah-prometheus`                                    | metrics store, scrapes, OTLP receiver    | none (`:9090`)            | **no**           |
 | `qafiyah-grafana`                                       | the seven dashboards (admin login)       | `127.0.0.1:3000`          | **no**           |
 | `qafiyah-loki`                                          | container logs, kept 7 days              | none (`:3100`)            | **no**           |
@@ -85,11 +87,13 @@ docker compose up -d --no-deps db elasticsearch search-indexer edge-gateway \
 #   docker stop/rm <old api id>                                      # remove the old one
 curl -fsS -H 'Host: qafiyah.com' 'http://127.0.0.1:80/api/v1/poems/random?option=slug' -o /dev/null   # edge smoke gate
 curl -fsS -H 'Host: api.qafiyah.com' 'http://127.0.0.1:80/v1/poems/random?option=slug' -o /dev/null
+curl -fsS -H 'Host: mcp.qafiyah.com' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' 'http://127.0.0.1:80/mcp' -o /dev/null
 docker compose ps
 docker builder prune -f --max-used-space 5GB   # cap the build cache so that it cannot fill the disk
 ```
 
-The three images build on the host network (`network: host` under `build:` in `docker-compose.yml`). On the default build network, a build step gets the server's upstream DNS servers with the two IPv6 servers first, but it has no IPv6 route. musl reads only the first three servers, so one IPv4 server had to answer every `apk add`, and builds failed at random with "DNS: transient error" (#261). On the host network, build steps use the server's own resolver.
+The four images build on the host network (`network: host` under `build:` in `docker-compose.yml`). On the default build network, a build step gets the server's upstream DNS servers with the two IPv6 servers first, but it has no IPv6 route. musl reads only the first three servers, so one IPv4 server had to answer every `apk add`, and builds failed at random with "DNS: transient error" (#261). On the host network, build steps use the server's own resolver.
 
 Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) does a final check:
 
@@ -100,7 +104,7 @@ Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) does a 
 
 After that, the script caps the Docker **build cache** at about 5 GB. It keeps the recent layers, so the next builds stay fast. It then prints a one-line summary of what else can be removed. This is the **only** thing that a deploy ever deletes, and it deletes only build cache. It never deletes images in use, containers, or named volumes, and it never touches the database or Elasticsearch data. To remove the rest by hand, run `docker system prune`, which also keeps the volumes. It also removes stopped containers, including the finished one-shot jobs.
 
-**Zero downtime.** The `rollout()` helper in `scripts/lib/rollout.sh` needs no plugin. `bun run deploy` rolls `api` and `web` with it, and `bun run db:reseed` rolls `api` after its database swap. It works like this:
+**Zero downtime.** The `rollout()` helper in `scripts/lib/rollout.sh` needs no plugin. `bun run deploy` rolls `api`, `mcp`, and `web` with it, and `bun run db:reseed` rolls `api` after its database swap. It works like this:
 
 1. It doubles the `web` or `api` replicas on the new image.
 2. It waits until the new replicas pass their healthcheck.

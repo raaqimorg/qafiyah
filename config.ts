@@ -25,6 +25,7 @@ export type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
 export const PROD_DOMAIN = 'qafiyah.com';
 export const PROD_SITE_URL = `https://${PROD_DOMAIN}`;
 export const PROD_API_URL = 'https://api.qafiyah.com';
+export const PROD_MCP_URL = `https://mcp.${PROD_DOMAIN}/mcp`;
 export const POSTHOG_PROXY_URL = `https://ix.${PROD_DOMAIN}`;
 export const CDN_URL = `https://cdn.${PROD_DOMAIN}`;
 
@@ -57,6 +58,7 @@ export const MAX_ACTIVE_KEYS_PER_USER = 2;
 
 export const DEV_WEB_PORT = 4321;
 export const DEV_API_PORT = 8787;
+export const DEV_MCP_PORT = 8788;
 export const DEV_POSTGRES_PORT = 5434;
 export const DEV_INSPECTOR_PORT = 4322;
 

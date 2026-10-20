@@ -5,6 +5,10 @@ services:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-5434}:5432"
   api:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-api
+  mcp:
+    container_name: qafiyah-dev${DEV_SUFFIX:-}-mcp
+    environment:
+      TRUSTED_PROXIES: 172.26.0.0/24
   web:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-web
   edge-gateway:
