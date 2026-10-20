@@ -170,12 +170,13 @@ pub fn cap_poem(response: &mut Value, max_chars: usize) {
 pub fn failure_text(failure: &Failure, subject: Subject) -> String {
     match failure {
         Failure::RateLimited {
+            retry_after: Some(1),
+        } => "Qafiyah is refusing more requests for now. Try again in 1 second.".into(),
+        Failure::RateLimited {
             retry_after: Some(seconds),
-        } => format!(
-            "Qafiyah is refusing more requests from this address for now. Try again in {seconds} seconds."
-        ),
+        } => format!("Qafiyah is refusing more requests for now. Try again in {seconds} seconds."),
         Failure::RateLimited { retry_after: None } => {
-            "Qafiyah is refusing more requests from this address for now. Try again later.".into()
+            "Qafiyah is refusing more requests for now. Try again later.".into()
         }
         Failure::BadRequest(Some(detail)) => {
             format!("The Qafiyah API refused a parameter: {detail}")
@@ -287,21 +288,16 @@ mod tests {
     }
 
     #[test]
-    fn a_refusal_without_retry_after_says_later() {
-        let later = failure_text(
-            &Failure::RateLimited { retry_after: None },
-            Subject::Catalog,
-        );
+    fn a_refusal_says_when_to_try_again_and_blames_no_address() {
+        let refusal =
+            |retry_after| failure_text(&Failure::RateLimited { retry_after }, Subject::Catalog);
+        let later = refusal(None);
         assert!(!later.chars().any(|c| c.is_ascii_digit()), "{later}");
-        assert!(
-            failure_text(
-                &Failure::RateLimited {
-                    retry_after: Some(30)
-                },
-                Subject::Catalog
-            )
-            .contains("30")
-        );
+        assert!(refusal(Some(30)).ends_with("in 30 seconds."));
+        assert!(refusal(Some(1)).ends_with("in 1 second."));
+        for text in [later, refusal(Some(30)), refusal(Some(1))] {
+            assert!(!text.contains("address"), "{text}");
+        }
     }
 
     #[test]

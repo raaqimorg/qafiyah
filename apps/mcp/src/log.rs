@@ -5,7 +5,7 @@ const PRODUCTION: &str = "production";
 
 pub fn default_directives(environment: &str) -> &'static str {
     if environment == PRODUCTION {
-        "warn"
+        "warn,rmcp=error"
     } else {
         "warn,qafiyah_mcp=debug"
     }
@@ -31,8 +31,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn production_logs_only_warnings_and_errors() {
-        assert_eq!(default_directives("production"), "warn");
+    fn production_logs_only_the_apps_warnings_and_every_error() {
+        assert_eq!(default_directives("production"), "warn,rmcp=error");
         assert_eq!(default_directives("development"), "warn,qafiyah_mcp=debug");
         assert_eq!(default_directives(""), "warn,qafiyah_mcp=debug");
     }

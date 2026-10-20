@@ -69,7 +69,13 @@ impl Api {
         if let Some(caller) = caller {
             request = request.header(CF_CONNECTING_IP_HEADER, caller.to_string());
         }
-        let response = request.send().await.map_err(|_| Failure::Unavailable)?;
+        let response = request.send().await.map_err(|error| {
+            if error.is_builder() {
+                Failure::BadRequest(None)
+            } else {
+                Failure::Unavailable
+            }
+        })?;
         match response.status() {
             StatusCode::OK => response
                 .text()
@@ -206,6 +212,16 @@ mod tests {
             fake.requests().await[0].path_and_query,
             "/v1/poems?era=jahili&era=abbasi"
         );
+    }
+
+    #[tokio::test]
+    async fn a_url_too_long_to_send_is_a_bad_request_and_is_never_sent() {
+        let fake = FakeApi::serving(StatusCode::OK, &[], "{}").await;
+        let reply = api(&fake.url, Duration::from_secs(2))
+            .get(&["search"], &[("q", "ب".repeat(12_000))], None)
+            .await;
+        assert_eq!(reply, Err(Failure::BadRequest(None)));
+        assert!(fake.requests().await.is_empty());
     }
 
     #[tokio::test]

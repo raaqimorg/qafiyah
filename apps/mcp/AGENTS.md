@@ -9,7 +9,7 @@ This is the read-only MCP server for qafiyah.com, in Rust with axum and the offi
 - `api.rs`: the one module that calls the API, and owns its wire format.
   - It sends `API_KEY_MCP` as `x-api-key`, the caller's address as `CF-Connecting-IP`, and no other header.
   - It builds each URL from percent-encoded path segments, and follows no redirects.
-  - It turns each answer into a `Reply` (a 200 body, or the `Location` of a 301) or a `Failure` (429, 400, 404, or anything else as `Unavailable`).
+  - It turns each answer into a `Reply` (a 200 body, or the `Location` of a 301) or a `Failure` (429, 400, 404, or anything else as `Unavailable`). A URL too long to send (over 64 KB, such as a search text of 11,000 letters) is a `BadRequest`, like a 400.
 - `slugs.rs`: the API's slug patterns. Poem and poet slugs are four ASCII letters. Term and feeling slugs are lowercase letters and hyphens, starting with a letter. A tool checks its path slug before the call, because a slug like `../../account/sessions` would change the route.
 - `results.rs`: shapes the API's JSON into tool results.
   - Every poem and poet in a result gets a `url` next to its `slug` (`https://qafiyah.com/poems/{slug}`, `/poets/{slug}`).
@@ -17,7 +17,7 @@ This is the read-only MCP server for qafiyah.com, in Rust with axum and the offi
   - It also holds the text of each tool error.
 - `tools.rs`: `Catalog`, the MCP server. Its nine tools are `search`, `list_poems`, `get_poem`, `random_poem`, `list_poets`, `get_poet`, `list_terms`, `list_feelings`, and `feeling_verses`. Each one is marked read-only, and its input schema follows the API's parameters.
 - `metrics.rs`: the native histogram `mcp_tool_call_duration_seconds`, by `tool` and `outcome`. Both labels come from fixed sets (the nine tool names, and `ok`, `bad_input`, `refused`, `not_found`, `unavailable`).
-- `log.rs`: `tracing` JSON lines. In production, only `warn` and `error`. The app writes a `warn` line only when the API fails; a refusal, a bad slug, or a 404 is a metric, never a log line.
+- `log.rs`: `tracing` JSON lines. In production, only `warn` and `error`, and only `error` from rmcp. rmcp writes a `warn` for each request that it refuses (an `Origin`, a `Host`, an unknown tool), so any client could write one line for each request. The app writes a `warn` line only when the API fails; a refusal, a bad slug, or a 404 is a metric, never a log line.
 - `lib.rs`: `app` mounts the MCP service at `/mcp` and `/healthz`, and answers 404 for every other path. `transport_config` sets the MCP transport.
 
 ## Settings
