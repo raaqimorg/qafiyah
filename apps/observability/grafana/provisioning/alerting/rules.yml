@@ -57,6 +57,32 @@ groups:
         annotations:
           summary: The website health probe has failed for 1 minute.
 
+      - uid: mcp-down
+        title: MCP down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max(probe_success{service="mcp"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, service: mcp }
+        annotations:
+          summary: The MCP server health probe has failed for 1 minute.
+
       - uid: postgres-down
         title: Postgres down
         condition: C
@@ -170,6 +196,70 @@ groups:
         labels: { severity: critical }
         annotations:
           summary: More than 5% of requests answered 5xx over the last 5 minutes.
+
+  - orgId: 1
+    name: mcp
+    folder: Qafiyah
+    interval: 20s
+    rules:
+      - uid: mcp-budget
+        title: MCP budget
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(mcp_rate_limit_admitted_total[1h])) / max(mcp_rate_limit_hourly_limit)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.8] }
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: mcp }
+        annotations:
+          summary: >-
+            MCP calls used more than 80% of the hourly MCP budget. Find the top client values of the
+            web nginx lines with host mcp.qafiyah.com in Loki, and block them with a Cloudflare custom
+            rule for that hostname. Under a flood, Loki holds a sample (Alloy keeps 10 web lines a
+            second), so the counts are not totals.
+
+      - uid: mcp-refusals
+        title: MCP refusals
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (histogram_count(sum(rate(mcp_tool_call_duration_seconds{outcome="refused"}[15m])))
+                / histogram_count(sum(rate(mcp_tool_call_duration_seconds[15m]))))
+                and on () (histogram_count(sum(increase(mcp_tool_call_duration_seconds[15m]))) >= 50)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, service: mcp }
+        annotations:
+          summary: More than 5% of MCP tool calls were refused by the rate limits over 15 minutes.
 
   - orgId: 1
     name: resources

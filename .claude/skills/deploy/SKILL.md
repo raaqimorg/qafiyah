@@ -44,7 +44,7 @@ bun run deploy        # scripts/deploy/vps.sh
 bun run api:conformance prod   # sends every documented API example to prod through Schemathesis (needs Docker)
 ```
 
-On the host, `docker compose ps -a` must show all 14 containers healthy, or exited with 0 for the one-shot jobs.
+On the host, `docker compose ps -a` must show all 15 containers healthy, or exited with 0 for the one-shot jobs.
 
 ## 2. Rolling back a bad deploy
 

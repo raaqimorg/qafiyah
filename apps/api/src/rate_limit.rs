@@ -27,12 +27,27 @@ pub enum Bucket {
     Visitor(IpAddr),
     VisitorBlock(Ipv6Addr),
     Unknown,
+    McpTotal,
+    McpBurst,
+    McpIp(IpAddr),
+    McpBlock(Ipv6Addr),
+    McpUnknown,
 }
 
 impl Bucket {
     fn is_per_address(self) -> bool {
-        matches!(self, Self::Ip(_) | Self::KeyedIp(_) | Self::Visitor(_))
+        matches!(
+            self,
+            Self::Ip(_) | Self::KeyedIp(_) | Self::Visitor(_) | Self::McpIp(_)
+        )
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct McpLimits {
+    pub requests: u32,
+    pub burst: u32,
+    pub address_requests: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -48,6 +63,7 @@ pub struct Outcome {
     pub sustained: Decision,
     pub reported: Decision,
     pub refused: Option<Decision>,
+    pub refused_by: Option<Bucket>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -102,6 +118,45 @@ fn visitor_limits(address: IpAddr) -> Vec<Limit> {
         });
     }
     limits
+}
+
+fn mcp_limits(address: Option<IpAddr>, mcp: McpLimits) -> Vec<Limit> {
+    let address = address.map(bucket_address);
+    let mut limits = vec![
+        Limit {
+            bucket: Bucket::McpTotal,
+            ceiling: mcp.requests,
+            window: WINDOW_SECONDS,
+        },
+        Limit {
+            bucket: Bucket::McpBurst,
+            ceiling: mcp.burst,
+            window: BURST_WINDOW_SECONDS,
+        },
+        Limit {
+            bucket: address.map_or(Bucket::McpUnknown, Bucket::McpIp),
+            ceiling: mcp.address_requests,
+            window: WINDOW_SECONDS,
+        },
+    ];
+    if let Some(IpAddr::V6(v6)) = address {
+        limits.push(Limit {
+            bucket: Bucket::McpBlock(slash_48(v6)),
+            ceiling: mcp.address_requests.saturating_mul(IPV6_BLOCK_MULTIPLIER),
+            window: WINDOW_SECONDS,
+        });
+    }
+    limits
+}
+
+fn mcp_limit_label(bucket: Bucket) -> &'static str {
+    if bucket == Bucket::McpTotal {
+        "hourly"
+    } else if bucket == Bucket::McpBurst {
+        "per_second"
+    } else {
+        "address"
+    }
 }
 
 fn limits_for(caller: Option<Caller>, address: Option<IpAddr>, anon: u32) -> Vec<Limit> {
@@ -229,11 +284,16 @@ impl Limiter {
             .map(|(_, decision)| *decision)
             .min_by_key(|decision| decision.remaining)
             .unwrap_or(sustained);
+        let refusal = limits
+            .iter()
+            .zip(decisions)
+            .find(|(_, decision)| !decision.allowed);
         Outcome {
             allowed,
             sustained,
             reported,
-            refused: decisions.into_iter().find(|decision| !decision.allowed),
+            refused: refusal.map(|(_, decision)| decision),
+            refused_by: refusal.map(|(limit, _)| limit.bucket),
         }
     }
 
@@ -292,24 +352,37 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
     }
 
     let now = now_seconds();
+    let mcp = state.keys.is_mcp(key);
     let caller = match key {
-        Some(key) if visitor.is_none() && crate::accounts::keys::is_well_formed(key) => state
-            .key_cache
-            .resolve(state.api_keys.as_ref(), key, now)
-            .await
-            .unwrap_or(None),
+        Some(key) if !mcp && visitor.is_none() && crate::accounts::keys::is_well_formed(key) => {
+            state
+                .key_cache
+                .resolve(state.api_keys.as_ref(), key, now)
+                .await
+                .unwrap_or(None)
+        }
         _ => None,
     };
 
-    let limits = match visitor {
-        Some(visitor) => visitor_limits(visitor),
-        None => limits_for(
-            caller,
-            client_ip::resolve_from(request.headers(), peer),
-            state.anon_requests,
-        ),
+    let limits = if mcp {
+        mcp_limits(client_ip::forwarded(request.headers(), peer), state.mcp)
+    } else {
+        match visitor {
+            Some(visitor) => visitor_limits(visitor),
+            None => limits_for(
+                caller,
+                client_ip::resolve_from(request.headers(), peer),
+                state.anon_requests,
+            ),
+        }
     };
     let outcome = state.limiter.check_all(&limits, now);
+    if mcp {
+        match outcome.refused_by {
+            None => state.metrics.record_mcp_admitted(),
+            Some(bucket) => state.metrics.record_mcp_refusal(mcp_limit_label(bucket)),
+        }
+    }
 
     if let Some(caller) = caller
         && outcome.allowed
@@ -962,6 +1035,10 @@ mod tests {
             Bucket::Ipv6Block("2001:db8:5::".parse().expect("an address")),
             Bucket::VisitorBlock("2001:db8:6::".parse().expect("an address")),
             Bucket::Unknown,
+            Bucket::McpTotal,
+            Bucket::McpBurst,
+            Bucket::McpBlock("2001:db8:7::".parse().expect("an address")),
+            Bucket::McpUnknown,
         ];
         for bucket in kept {
             windows.insert(
@@ -975,6 +1052,7 @@ mod tests {
         for bucket in [
             Bucket::Ip("192.0.2.1".parse().expect("an address")),
             Bucket::KeyedIp("192.0.2.2".parse().expect("an address")),
+            Bucket::McpIp("192.0.2.3".parse().expect("an address")),
         ] {
             windows.insert(
                 bucket,
@@ -993,6 +1071,88 @@ mod tests {
                 "{bucket:?}"
             );
         }
+    }
+
+    #[test]
+    fn an_mcp_call_carries_both_totals_then_its_address_limits() {
+        let mcp = McpLimits {
+            requests: 50,
+            burst: 5,
+            address_requests: 7,
+        };
+        let shape = |limits: Vec<Limit>| -> Vec<(Bucket, u32, i64)> {
+            limits
+                .iter()
+                .map(|limit| (limit.bucket, limit.ceiling, limit.window))
+                .collect()
+        };
+        let v6 = "2001:db8:1:2::9".parse().expect("an address");
+        assert_eq!(
+            shape(mcp_limits(Some(v6), mcp)),
+            vec![
+                (Bucket::McpTotal, 50, WINDOW_SECONDS),
+                (Bucket::McpBurst, 5, BURST_WINDOW_SECONDS),
+                (
+                    Bucket::McpIp("2001:db8:1:2::".parse().expect("an address")),
+                    7,
+                    WINDOW_SECONDS
+                ),
+                (
+                    Bucket::McpBlock("2001:db8:1::".parse().expect("an address")),
+                    70,
+                    WINDOW_SECONDS
+                ),
+            ]
+        );
+        let v4 = mcp_limits(Some("203.0.113.9".parse().expect("an address")), mcp);
+        assert_eq!(v4.len(), 3);
+        assert_eq!(
+            v4[2].bucket,
+            Bucket::McpIp("203.0.113.9".parse().expect("an address"))
+        );
+        let none = mcp_limits(None, mcp);
+        assert_eq!((none[2].bucket, none[2].ceiling), (Bucket::McpUnknown, 7));
+    }
+
+    #[test]
+    fn an_mcp_burst_refusal_names_its_bucket_and_spends_no_hourly_allowance() {
+        let limiter = Limiter::default();
+        let limits = mcp_limits(
+            None,
+            McpLimits {
+                requests: 3,
+                burst: 1,
+                address_requests: 100,
+            },
+        );
+        let first = limiter.check_all(&limits, 0);
+        assert!(first.allowed);
+        assert_eq!(first.refused_by, None);
+        let refused = limiter.check_all(&limits, 0);
+        assert!(!refused.allowed);
+        assert_eq!(refused.refused_by, Some(Bucket::McpBurst));
+        assert_eq!(refused.sustained.remaining, 2);
+        assert!(limiter.check_all(&limits, 1).allowed);
+    }
+
+    #[test]
+    fn the_mcp_hourly_total_refuses_across_addresses() {
+        let limiter = Limiter::default();
+        let mcp = McpLimits {
+            requests: 2,
+            burst: 100,
+            address_requests: 100,
+        };
+        for last in [1, 2] {
+            let address = IpAddr::from([203, 0, 113, last]);
+            assert!(
+                limiter
+                    .check_all(&mcp_limits(Some(address), mcp), 0)
+                    .allowed
+            );
+        }
+        let third = limiter.check_all(&mcp_limits(Some(IpAddr::from([203, 0, 113, 3])), mcp), 0);
+        assert_eq!(third.refused_by, Some(Bucket::McpTotal));
     }
 
     #[test]

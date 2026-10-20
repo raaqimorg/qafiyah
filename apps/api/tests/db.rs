@@ -33,6 +33,7 @@ use qafiyah_api::db::accounts_schema::users;
 use qafiyah_api::db::lower;
 use qafiyah_api::es::client::Es;
 use qafiyah_api::metrics::Metrics;
+use qafiyah_api::rate_limit::McpLimits;
 use qafiyah_api::state::AppState;
 
 pub const INTERNAL: &str = "internal-test-key";
@@ -112,6 +113,11 @@ pub async fn harness() -> Option<Harness> {
         Es::new(&es_url, metrics.clone()).expect("an Elasticsearch endpoint"),
         Keys::new(Some(INTERNAL.into()), Some(FULL.into())),
         1_000_000,
+        McpLimits {
+            requests: 1_000_000,
+            burst: 1_000_000,
+            address_requests: 1_000_000,
+        },
         metrics,
     );
     Some(Harness {

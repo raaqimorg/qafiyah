@@ -15,6 +15,7 @@ export type Probe = {
   readonly note: string;
   readonly expect?: Expectation;
   readonly method?: string;
+  readonly body?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly redirect?: 'manual' | 'follow';
   readonly check?: BodyCheck;

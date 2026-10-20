@@ -78,6 +78,7 @@ async fn serve(config: Config) {
     };
 
     let metrics = qafiyah_api::metrics::Metrics::default();
+    metrics.set_mcp_hourly_limit(config.mcp.requests);
     let es = match Es::new(&config.elasticsearch_url, metrics.clone()) {
         Ok(es) => es,
         Err(e) => {
@@ -119,6 +120,7 @@ async fn serve(config: Config) {
         es,
         config.keys,
         config.anon_requests,
+        config.mcp,
         metrics,
     );
     qafiyah_api::rate_limit::sweeper(state.limiter.clone());

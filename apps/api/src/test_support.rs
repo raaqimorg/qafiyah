@@ -6,15 +6,19 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Request, StatusCode};
 use axum::routing::post;
 use axum::{Json, Router};
-use prometheus_client::encoding::prometheus_protobuf::prometheus_data_model::MetricFamily;
+use prometheus_client::encoding::prometheus_protobuf::prometheus_data_model::{
+    Metric, MetricFamily,
+};
 use prost::Message;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use crate::auth::Keys;
+use crate::constants::{DEV_MCP_ADDRESS_REQUESTS, DEV_MCP_BURST, DEV_MCP_REQUESTS};
 use crate::es::client::Es;
 use crate::metrics::Metrics;
+use crate::rate_limit::McpLimits;
 use crate::state::AppState;
 
 const UNREACHABLE_POSTGRES: &str = "postgres://nobody:nothing@127.0.0.1:1/nothing";
@@ -88,6 +92,11 @@ pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
             .expect("a fake endpoint"),
         keys,
         anon_requests,
+        McpLimits {
+            requests: DEV_MCP_REQUESTS,
+            burst: DEV_MCP_BURST,
+            address_requests: DEV_MCP_ADDRESS_REQUESTS,
+        },
         metrics,
     )
 }
@@ -95,7 +104,7 @@ pub fn state_with(es: &FakeEs, keys: Keys, anon_requests: u32) -> AppState {
 pub fn state(es: &FakeEs) -> AppState {
     state_with(
         es,
-        Keys::new(Some("internal".into()), Some("full".into())),
+        Keys::new(Some("internal".into()), Some("full".into())).with_mcp(Some("mcp".into())),
         1_000_000,
     )
 }
@@ -187,6 +196,39 @@ pub async fn scrape(metrics: &Metrics) -> Vec<MetricFamily> {
         );
     }
     families
+}
+
+fn labelled<'a>(
+    families: &'a [MetricFamily],
+    name: &'a str,
+    labels: &'a [(&'a str, &'a str)],
+) -> impl Iterator<Item = &'a Metric> {
+    families
+        .iter()
+        .filter(move |family| family.name == name)
+        .flat_map(|family| &family.metric)
+        .filter(move |metric| {
+            labels.iter().all(|(key, value)| {
+                metric
+                    .label
+                    .iter()
+                    .any(|pair| pair.name == *key && pair.value == *value)
+            })
+        })
+}
+
+pub fn counter_value(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> f64 {
+    labelled(families, name, labels)
+        .filter_map(|metric| metric.counter.as_ref())
+        .map(|counter| counter.value)
+        .sum()
+}
+
+pub fn gauge_value(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> f64 {
+    labelled(families, name, labels)
+        .filter_map(|metric| metric.gauge.as_ref())
+        .map(|gauge| gauge.value)
+        .sum()
 }
 
 pub fn histogram_count(families: &[MetricFamily], name: &str, labels: &[(&str, &str)]) -> u64 {

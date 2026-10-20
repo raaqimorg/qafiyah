@@ -8,7 +8,7 @@ import { INLINE_LINK, TYPE } from '@/lib/constants/design-tokens';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { withBrand } from '@/lib/seo/meta-text';
 import { cn } from '@/lib/utils';
-import { API_V1_PREFIX } from '@qafiyah/config';
+import { API_V1_PREFIX, PROD_MCP_URL } from '@qafiyah/config';
 
 const TITLE = withBrand('للمطورين');
 const DESCRIPTION =
@@ -19,6 +19,9 @@ const OPENAPI_URL = `${API_URL}${API_V1_PREFIX}/openapi.json`;
 const LLMS_URL = `${API_URL}/llms.txt`;
 
 const PARAGRAPH = `${TYPE.body} text-text-muted leading-[1.8]`;
+const CODE_BLOCK =
+  'overflow-x-auto rounded-md bg-surface-sunken px-4 py-3 text-left font-mono text-sm text-text';
+const CLAUDE_CODE_COMMAND = `claude mcp add --transport http qafiyah ${PROD_MCP_URL}`;
 
 Astro.response.headers.set('Cache-Control', CACHE_HTML);
 ---
@@ -59,6 +62,27 @@ Astro.response.headers.set('Cache-Control', CACHE_HTML);
         حدود الاستخدام
       </h2>
       <RateLimits class={PARAGRAPH} />
+    </section>
+
+    <section class="flex flex-col gap-4" aria-labelledby="dev-mcp">
+      <h2 id="dev-mcp" class={`${TYPE.subheading} text-text`}>
+        لمساعدات الذكاء الاصطناعي (MCP)
+      </h2>
+      <p class={PARAGRAPH}>
+        يتيح خادم MCP لمساعدات الذكاء الاصطناعي، مثل Claude وChatGPT وCursor، أن تبحث في قافية
+        وتقتبس الأبيات كما وردت، مع رابط كل قصيدة. الخادم للقراءة فقط، ولا يحتاج إلى مفتاح.
+      </p>
+      <pre class={CODE_BLOCK} dir="ltr"><code>{PROD_MCP_URL}</code></pre>
+      <ul class={cn(PARAGRAPH, 'flex list-disc flex-col gap-2 ps-6')}>
+        <li>في Claude: أضف موصلًا مخصصًا (Custom connector) بهذا العنوان.</li>
+        <li>في ChatGPT: أضف موصلًا (Connector) بهذا العنوان.</li>
+        <li>
+          في Cursor: أضف الخادم إلى ملف <code dir="ltr">mcp.json</code>، والعنوان في الحقل
+          <code dir="ltr">url</code>.
+        </li>
+        <li>في Claude Code: شغّل هذا الأمر.</li>
+      </ul>
+      <pre class={CODE_BLOCK} dir="ltr"><code>{CLAUDE_CODE_COMMAND}</code></pre>
     </section>
   </div>
 </Layout>

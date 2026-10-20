@@ -11,6 +11,14 @@ scrape_configs:
         port: 9464
         refresh_interval: 15s
 
+  - job_name: mcp
+    scrape_native_histograms: true
+    dns_sd_configs:
+      - names: [mcp]
+        type: A
+        port: 9464
+        refresh_interval: 15s
+
   - job_name: postgres
     static_configs:
       - targets: [postgres-exporter:9187]
@@ -30,6 +38,9 @@ scrape_configs:
       - targets: [http://web:8080/healthz]
         labels:
           service: web
+      - targets: [http://mcp:8788/healthz]
+        labels:
+          service: mcp
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

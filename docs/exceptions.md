@@ -60,9 +60,9 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The web container runs two processes and is also the API's public ingress
 
-- **What:** the web image runs nginx and Bun side by side under a shell loop that polls every 5 seconds. That nginx also carries the `api.qafiyah.com` server block (routing, the `/account` 404, and the API CSP).
+- **What:** the web image runs nginx and Bun side by side under a shell loop that polls every 5 seconds. That nginx also carries the `api.qafiyah.com` server block (routing, the `/account` 404, and the API CSP), and the `mcp.qafiyah.com` server block (only `/mcp`, with its own request rate and connection limits).
 - **Where:** `apps/web/Dockerfile`, `apps/web/docker-entrypoint.sh`, `apps/web/nginx.conf`, `apps/web/nginx-csp-api.conf`, `docker-compose.yml` (`web` networks and `depends_on`), `docs/deployment/architecture.md`, `docs/topology.md`
-- **Why it's unusual:** requests pass through Cloudflare, the edge-gateway nginx, the web nginx, then Bun or the API. A change to the edge behavior of the API needs a new web image. A crash of the Astro process also takes `api.qafiyah.com` down. The `while kill -0 ...; sleep 5` loop is a homemade supervisor. `web` also waits for `db` (`depends_on`), but it never talks to Postgres.
+- **Why it's unusual:** requests pass through Cloudflare, the edge-gateway nginx, the web nginx, then Bun or the API. A change to the edge behavior of the API needs a new web image. A crash of the Astro process also takes `api.qafiyah.com` and `mcp.qafiyah.com` down. The `while kill -0 ...; sleep 5` loop is a homemade supervisor. `web` also waits for `db` (`depends_on`), but it never talks to Postgres.
 - **Normal approach:** one process for each container. Route each hostname to its own service at the existing edge gateway (or with cloudflared ingress rules), and remove the `db` dependency of `web`.
 - **Status:** Needs review
 
@@ -512,8 +512,8 @@ The API is not only a thin database connector. The crate has no doc comments bey
 ### Client address comes from proxy headers only behind the web nginx
 
 - **What:** `client_ip.rs` resolves the caller from `CF-Connecting-IP`, falling back to the last `X-Forwarded-For` hop, and to a single shared bucket when neither is present. For an internal-key request, `forwarded` reads only `CF-Connecting-IP`, and a missing header means no visitor limit rather than a shared bucket.
-- **Where:** `apps/api/src/client_ip.rs`
-- **Why:** the headers are honored only when the immediate peer of the connection is on the dedicated `backend` network. Only the API and the web container are on that network. The web nginx sets the header for `api.qafiyah.com`, and its Astro proxy sets it for website visitors. A caller outside that subnet is counted by its own peer address. So a lateral container on the default bridge cannot forge the header.
+- **Where:** `apps/api/src/client_ip.rs`, `apps/mcp/src/forwarding.rs`, `apps/mcp/src/config.rs`
+- **Why:** the headers are honored only when the immediate peer of the connection is on the dedicated `backend` network. Only the API, the web container, and the MCP server are on that network. The web nginx sets the header for `api.qafiyah.com` and `mcp.qafiyah.com`, and its Astro proxy sets it for website visitors. The MCP server applies the same peer check before it forwards an address to the API: it trusts `CF-Connecting-IP` only from a peer in `TRUSTED_PROXIES`, which each Compose file sets to that environment's `backend` subnet. It reads that list from the environment, so the entry "API configuration is read three ways, and trusted proxy subnets are compiled in" stays as it is. A caller outside that subnet is counted by its own peer address. So a lateral container on the default bridge cannot forge the header.
 - **Normal approach:** trust the forwarding headers from any peer behind a single reverse proxy.
 - **Date:** 2025-04-13
 
@@ -558,7 +558,9 @@ The API is not only a thin database connector. The crate has no doc comments bey
 - **What:** `API_KEY_INTERNAL` and `API_KEY_FULL` skip every limit, and never touch the accounts database. Every caller gets the same response body (no scope, no capping, no `Vary: x-api-key`).
   - One exception: an internal-key request that carries a visitor address, forwarded by a trusted peer, counts against that visitor. The website's search proxy sets that address.
   - The visitor limit is `VISITOR_REQUESTS` an hour for each /64 or IPv4 address, and ten times that for each /48, in buckets separate from those of anonymous callers.
-- **Where:** `apps/api/src/auth.rs`, `apps/api/src/rate_limit.rs`, `apps/api/src/client_ip.rs`
+  - The MCP key (`API_KEY_MCP`) is neither internal nor unlimited. It never touches the accounts database either, and the account routes refuse it. Its calls count against the caller's address that the MCP server forwards, and against an hourly and a per-second total for all MCP calls (`MCP_REQUESTS` and `MCP_BURST`). The address limit is `MCP_ADDRESS_REQUESTS` (600) an hour for each /64 or IPv4 address, and ten times that for each /48, in buckets of their own, with one shared bucket when there is no address.
+  - With the default limits, one address can spend at most 3% of the hourly total. But 34 IPv4 addresses, or 4 IPv6 /48s, can spend all of it. MCP then refuses every caller until the next hour starts. The `MCP budget` alert reports this, and the response is a Cloudflare block of the top addresses (`apps/observability/AGENTS.md`).
+- **Where:** `apps/api/src/auth.rs`, `apps/api/src/rate_limit.rs`, `apps/api/src/client_ip.rs`, `apps/api/src/config.rs`
 - **Why:** an accounts outage harms the portal, not the website. During such an outage, a keyed caller falls back to the anonymous bucket, and is not refused. This matches the crawler policy that the API serves from `well-known/robots.api.txt`. The visitor limit exists because the proxy's only other limit for each visitor, nginx's `limit_req`, counts the exact address. So an IPv6 visitor could rotate inside a /64 without a limit. Only a forwarded address counts, never the connection's own. So the site's server-side renders stay unlimited, and crawlers are never limited.
 - **Normal approach:** resolve every key, internal ones included, through the same accounts lookup and plan limits.
 - **Date:** 2026-06-30, visitor limit 2026-09-28

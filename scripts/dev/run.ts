@@ -1,6 +1,12 @@
 #!/usr/bin/env bun
 
-import { DEV_API_PORT, DEV_INSPECTOR_PORT, DEV_POSTGRES_PORT, DEV_WEB_PORT } from '@qafiyah/config';
+import {
+  DEV_API_PORT,
+  DEV_INSPECTOR_PORT,
+  DEV_MCP_PORT,
+  DEV_POSTGRES_PORT,
+  DEV_WEB_PORT,
+} from '@qafiyah/config';
 
 import { checkPrerequisites } from './doctor';
 import { blocksDev, formatReport } from './doctor-report';
@@ -321,14 +327,27 @@ function readNumber(record: JsonRecord, key: string): number | undefined {
 
 type Watched = { proc: Subprocess; ready: Promise<void>; streaming: Promise<void> };
 
-const API_FAILURE_STAGES = new Set(['env', 'runtime', 'boot_db', 'boot_es', 'bind', 'serve']);
-const API_PREFIX = magenta('api');
+const SERVICE_FAILURE_STAGES = new Set([
+  'env',
+  'runtime',
+  'boot_db',
+  'boot_es',
+  'boot_api',
+  'bind',
+  'bind_metrics',
+  'serve',
+]);
 
-function startApi(): Watched {
+function startService(
+  name: 'api' | 'mcp',
+  binary: string,
+  env: Record<string, string | undefined>
+): Watched {
+  const prefix = name === 'api' ? magenta(name) : yellow(name);
   const started = Date.now();
-  const proc = Bun.spawn(['./target/debug/qafiyah-api'], {
+  const proc = Bun.spawn([binary], {
     cwd: ROOT,
-    env: process.env,
+    env,
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -340,7 +359,7 @@ function startApi(): Watched {
   const onLine = (raw: string): void => {
     const parsed = tryParseJson(raw);
     if (!parsed) {
-      say(`${API_PREFIX} │ ${raw}`);
+      say(`${prefix} │ ${raw}`);
       return;
     }
     const stage = readString(parsed, 'stage');
@@ -349,20 +368,20 @@ function startApi(): Watched {
       if (port !== undefined && !readyDone) {
         readyDone = true;
         say(
-          `${green('✓')} api ready → ${cyan(`http://localhost:${port}`)} ${dim(`(${formatMs(Date.now() - started)})`)}`
+          `${green('✓')} ${name} ready → ${cyan(`http://localhost:${port}`)} ${dim(`(${formatMs(Date.now() - started)})`)}`
         );
         resolveReady();
       }
       return;
     }
     if (stage === 'draining' || stage === 'stopped') return;
-    if (stage !== undefined && API_FAILURE_STAGES.has(stage)) {
-      say(`${red('✗')} api ${stage}: ${readString(parsed, 'error') ?? 'unknown error'}`);
+    if (stage !== undefined && SERVICE_FAILURE_STAGES.has(stage)) {
+      say(`${red('✗')} ${name} ${stage}: ${readString(parsed, 'error') ?? 'unknown error'}`);
       return;
     }
     const kind = readString(parsed, 'kind');
     if (kind === 'completed') {
-      if (VERBOSE) say(`${API_PREFIX} │ ${raw}`);
+      if (VERBOSE) say(`${prefix} │ ${raw}`);
       return;
     }
     if (kind === 'completed_error') {
@@ -370,10 +389,10 @@ function startApi(): Watched {
       const method = readString(parsed, 'method');
       const path = readString(parsed, 'path');
       const duration = readNumber(parsed, 'duration_ms');
-      say(`${API_PREFIX} │ ${red(String(status))} ${method} ${path} (${duration}ms)`);
+      say(`${prefix} │ ${red(String(status))} ${method} ${path} (${duration}ms)`);
       return;
     }
-    say(`${API_PREFIX} │ ${raw}`);
+    say(`${prefix} │ ${raw}`);
   };
   const streaming = Promise.all([
     readLines(proc.stdout, onLine),
@@ -562,6 +581,7 @@ if (isolating && identity.isWorktree) {
   process.env['DEV_POSTGRES_PORT'] = String(DEV_POSTGRES_PORT + offset);
   process.env['WEB_BASE_URL'] = `http://localhost:${DEV_WEB_PORT + offset}`;
   process.env['INTERNAL_API_URL'] = `http://localhost:${DEV_API_PORT + offset}`;
+  process.env['MCP_PORT'] = String(DEV_MCP_PORT + offset);
 }
 
 await ensureRootEnvFile(identity);
@@ -613,23 +633,31 @@ process.env['DATABASE_URL_ACCOUNTS'] = urls.accounts;
 
 await printReclaimable();
 await preflightStage('api');
-await runStage('api build', ['cargo', 'build', '-p', 'qafiyah-api'], {
+await preflightStage('mcp');
+await runStage('api and mcp build', ['cargo', 'build', '-p', 'qafiyah-api', '-p', 'qafiyah-mcp'], {
   progress: cargoProgress(),
 });
 
-const api = startApi();
+const api = startService('api', './target/debug/qafiyah-api', process.env);
 await waitReady(api, 'api');
+const mcp = startService('mcp', './target/debug/qafiyah-mcp', {
+  ...process.env,
+  INTERNAL_API_URL: `http://localhost:${DEV_API_PORT + offset}`,
+  MCP_PORT: String(DEV_MCP_PORT + offset),
+});
+await waitReady(mcp, 'mcp', [api]);
 const web = startWeb();
-await waitReady(web, 'web', [api]);
+await waitReady(web, 'web', [api, mcp]);
 
 const allProcs: { name: string; watched: Watched }[] = [
   { name: 'api', watched: api },
+  { name: 'mcp', watched: mcp },
   { name: 'web', watched: web },
 ];
 
 if (WITH_INSPECTOR) {
   const inspector = startInspector();
-  await waitReady(inspector, 'inspector', [api, web]);
+  await waitReady(inspector, 'inspector', [api, mcp, web]);
   allProcs.push({ name: 'inspector', watched: inspector });
 }
 

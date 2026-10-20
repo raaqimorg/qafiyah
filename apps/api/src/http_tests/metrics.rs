@@ -1,7 +1,14 @@
 use axum::http::StatusCode;
 
 use crate::http_tests::empty_hits;
-use crate::test_support::{FakeEs, histogram_count, request, scrape, send, state};
+use axum::body::Body;
+use axum::http::Request;
+
+use crate::auth::Keys;
+use crate::rate_limit::McpLimits;
+use crate::test_support::{
+    FakeEs, counter_value, gauge_value, histogram_count, request, scrape, send, state, state_with,
+};
 
 const REQUESTS: &str = "http_server_request_duration_seconds";
 
@@ -135,4 +142,70 @@ async fn a_failed_search_is_timed_too() {
     assert!(sent.status.is_server_error(), "{}", sent.status);
     let families = scrape(&state.metrics).await;
     assert_eq!(histogram_count(&families, SEARCHES, &[]), 1);
+}
+
+fn mcp_call(ip: &str) -> Request<Body> {
+    Request::builder()
+        .uri("/v1/openapi.json")
+        .header("cf-connecting-ip", ip)
+        .header("x-api-key", "mcp")
+        .body(Body::empty())
+        .expect("a request")
+}
+
+#[tokio::test]
+async fn mcp_admissions_and_refusals_are_counted_by_the_limit_that_refused() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let mut state = state_with(
+        &es,
+        Keys::new(Some("internal".into()), Some("full".into())).with_mcp(Some("mcp".into())),
+        1,
+    );
+    state.mcp = McpLimits {
+        requests: 1,
+        burst: 100,
+        address_requests: 100,
+    };
+    let app = crate::app(state.clone());
+    assert_eq!(
+        send(app.clone(), mcp_call("203.0.113.1")).await.status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        send(app, mcp_call("203.0.113.2")).await.status,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    let families = scrape(&state.metrics).await;
+    assert_eq!(
+        counter_value(&families, "mcp_rate_limit_admitted_total", &[]),
+        1.0
+    );
+    assert_eq!(
+        counter_value(
+            &families,
+            "mcp_rate_limit_refusals_total",
+            &[("limit", "hourly")]
+        ),
+        1.0
+    );
+    assert_eq!(
+        counter_value(
+            &families,
+            "mcp_rate_limit_refusals_total",
+            &[("limit", "address")]
+        ),
+        0.0
+    );
+}
+
+#[tokio::test]
+async fn the_hourly_mcp_limit_is_exported() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let state = state(&es);
+    state.metrics.set_mcp_hourly_limit(20_000);
+    let families = scrape(&state.metrics).await;
+    assert_eq!(
+        gauge_value(&families, "mcp_rate_limit_hourly_limit", &[]),
+        20_000.0
+    );
 }

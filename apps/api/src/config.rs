@@ -1,5 +1,10 @@
 use crate::auth::Keys;
-use crate::constants::{DEFAULT_ANON_REQUESTS, DEV_ANON_REQUESTS, UNKNOWN_ENVIRONMENT};
+use crate::constants::{
+    DEFAULT_ANON_REQUESTS, DEFAULT_MCP_ADDRESS_REQUESTS, DEFAULT_MCP_BURST, DEFAULT_MCP_REQUESTS,
+    DEV_ANON_REQUESTS, DEV_MCP_ADDRESS_REQUESTS, DEV_MCP_BURST, DEV_MCP_REQUESTS,
+    UNKNOWN_ENVIRONMENT,
+};
+use crate::rate_limit::McpLimits;
 
 pub struct Config {
     pub database_url: String,
@@ -10,6 +15,7 @@ pub struct Config {
     pub environment: String,
     pub keys: Keys,
     pub anon_requests: u32,
+    pub mcp: McpLimits,
 }
 
 const PRODUCTION: &str = "production";
@@ -25,15 +31,24 @@ fn required_in_production(
     Ok(value)
 }
 
-fn anon_requests(configured: Option<&str>, environment: &str) -> u32 {
+fn ceiling(configured: Option<&str>, environment: &str, production: u32, otherwise: u32) -> u32 {
     if let Some(value) = configured.and_then(|v| v.parse().ok()) {
         return value;
     }
     if environment == PRODUCTION {
-        DEFAULT_ANON_REQUESTS
+        production
     } else {
-        DEV_ANON_REQUESTS
+        otherwise
     }
+}
+
+fn anon_requests(configured: Option<&str>, environment: &str) -> u32 {
+    ceiling(
+        configured,
+        environment,
+        DEFAULT_ANON_REQUESTS,
+        DEV_ANON_REQUESTS,
+    )
 }
 
 impl Config {
@@ -50,6 +65,7 @@ impl Config {
             required_in_production("API_KEY_INTERNAL", lookup("API_KEY_INTERNAL"), &environment)?;
         let full_key =
             required_in_production("API_KEY_FULL", lookup("API_KEY_FULL"), &environment)?;
+        let mcp_key = required_in_production("API_KEY_MCP", lookup("API_KEY_MCP"), &environment)?;
         let required = |name: &str| lookup(name).ok_or_else(|| format!("{name} is required"));
         let metrics_port = lookup("METRICS_PORT")
             .map(|value| {
@@ -66,8 +82,28 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(default_port),
             metrics_port,
-            keys: Keys::new(internal_key, full_key),
+            keys: Keys::new(internal_key, full_key).with_mcp(mcp_key),
             anon_requests: anon_requests(lookup("ANON_REQUESTS").as_deref(), &environment),
+            mcp: McpLimits {
+                requests: ceiling(
+                    lookup("MCP_REQUESTS").as_deref(),
+                    &environment,
+                    DEFAULT_MCP_REQUESTS,
+                    DEV_MCP_REQUESTS,
+                ),
+                burst: ceiling(
+                    lookup("MCP_BURST").as_deref(),
+                    &environment,
+                    DEFAULT_MCP_BURST,
+                    DEV_MCP_BURST,
+                ),
+                address_requests: ceiling(
+                    lookup("MCP_ADDRESS_REQUESTS").as_deref(),
+                    &environment,
+                    DEFAULT_MCP_ADDRESS_REQUESTS,
+                    DEV_MCP_ADDRESS_REQUESTS,
+                ),
+            },
             environment,
         })
     }
@@ -170,11 +206,87 @@ mod tests {
             Some("API_KEY_FULL is required when ENVIRONMENT=production".into())
         );
         with_internal.push(("API_KEY_FULL", "f"));
+        with_internal.push(("API_KEY_MCP", "m"));
         with_internal.push(("PORT", "not-a-port"));
         let config = Config::from_vars(vars(&with_internal), 8787).expect("a prod config");
         assert_eq!(config.anon_requests, DEFAULT_ANON_REQUESTS);
         assert_eq!(config.port, 8787, "an unparsable PORT falls back");
         assert!(config.keys.is_internal(Some("i")) && config.keys.is_unlimited(Some("f")));
+    }
+
+    const PRODUCTION_VARS: [(&str, &str); 6] = [
+        ("DATABASE_URL", "x"),
+        ("DATABASE_URL_ACCOUNTS", "y"),
+        ("ELASTICSEARCH_URL", "z"),
+        ("ENVIRONMENT", "production"),
+        ("API_KEY_INTERNAL", "i"),
+        ("API_KEY_FULL", "f"),
+    ];
+
+    #[test]
+    fn production_refuses_a_missing_mcp_key() {
+        assert_eq!(
+            Config::from_vars(vars(&PRODUCTION_VARS), 1).err(),
+            Some("API_KEY_MCP is required when ENVIRONMENT=production".into())
+        );
+        let mut with_mcp = PRODUCTION_VARS.to_vec();
+        with_mcp.push(("API_KEY_MCP", "m"));
+        let config = Config::from_vars(vars(&with_mcp), 1).expect("a prod config");
+        assert!(config.keys.is_mcp(Some("m")));
+    }
+
+    #[test]
+    fn the_mcp_ceilings_are_strict_in_production_unlimited_elsewhere_and_overridable() {
+        let mut production = PRODUCTION_VARS.to_vec();
+        production.push(("API_KEY_MCP", "m"));
+        let strict = Config::from_vars(vars(&production), 1).expect("a prod config");
+        assert_eq!(
+            strict.mcp,
+            McpLimits {
+                requests: DEFAULT_MCP_REQUESTS,
+                burst: DEFAULT_MCP_BURST,
+                address_requests: DEFAULT_MCP_ADDRESS_REQUESTS
+            }
+        );
+        assert_eq!(
+            strict.mcp,
+            McpLimits {
+                requests: 20_000,
+                burst: 20,
+                address_requests: 600
+            }
+        );
+
+        let dev = Config::from_vars(
+            vars(&[
+                ("DATABASE_URL", "x"),
+                ("DATABASE_URL_ACCOUNTS", "y"),
+                ("ELASTICSEARCH_URL", "z"),
+            ]),
+            1,
+        )
+        .expect("a dev config");
+        assert_eq!(
+            dev.mcp,
+            McpLimits {
+                requests: DEV_MCP_REQUESTS,
+                burst: DEV_MCP_BURST,
+                address_requests: DEV_MCP_ADDRESS_REQUESTS
+            }
+        );
+
+        production.push(("MCP_REQUESTS", "500"));
+        production.push(("MCP_BURST", "5"));
+        production.push(("MCP_ADDRESS_REQUESTS", "50"));
+        let explicit = Config::from_vars(vars(&production), 1).expect("a prod config");
+        assert_eq!(
+            explicit.mcp,
+            McpLimits {
+                requests: 500,
+                burst: 5,
+                address_requests: 50
+            }
+        );
     }
 
     #[test]

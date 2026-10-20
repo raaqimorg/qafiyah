@@ -1,0 +1,37 @@
+[package]
+name = "qafiyah-mcp"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = "0.8"
+ipnet = "2"
+prometheus-client = { version = "0.25.1", default-features = false, features = [
+  "prometheus_protobuf",
+  "protobuf-protox",
+] }
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+rmcp = { version = "3.5.1", features = [
+  "server",
+  "macros",
+  "schemars",
+  "transport-streamable-http-server",
+] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net"] }
+tower = { version = "0.5", features = ["timeout"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter", "fmt"] }
+url = "2"
+
+[dev-dependencies]
+http-body-util = "0.1"
+prost = "0.14"
+tokio = { version = "1", features = ["sync", "time", "test-util"] }
+tower = { version = "0.5", features = ["util"] }

@@ -3,8 +3,12 @@
 rollout() {
   svc="$1"
   old=$(docker compose ps -q "$svc")
-  n_old=$(printf '%s\n' "$old" | grep -c .)
-  [ "$n_old" -ge 1 ] || { echo "✗ rollout $svc: nothing running"; exit 1; }
+  n_old=$(printf '%s\n' "$old" | grep -c . || true)
+  if [ "$n_old" -lt 1 ]; then
+    echo "→ starting $svc (nothing of it was running)"
+    docker compose up -d --no-deps --wait "$svc"
+    return
+  fi
   target=$((2 * n_old))
   echo "→ rolling $svc ($n_old -> $target -> $n_old)"
   docker compose up -d --no-deps --no-recreate --scale "$svc=$target" "$svc"

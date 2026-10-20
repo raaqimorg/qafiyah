@@ -10,21 +10,21 @@ The diagrams follow the [C4 model](https://c4model.com). They all come from one 
 
 ![System context: readers, API developers, and the maintainer, and the external systems Qafiyah depends on](architecture/generated/structurizr/context.gen.svg)
 
-Readers and API developers reach Qafiyah through Cloudflare. Poet avatars come directly from the part of Qafiyah that Cloudflare hosts (`cdn.qafiyah.com`). Browser error reports go directly to Sentry. Page views go to PostHog through its managed proxy (`ix.qafiyah.com`). Developers sign in with Google or GitHub.
+Readers, API developers, and AI assistants reach Qafiyah through Cloudflare. Assistants call the MCP server at `mcp.qafiyah.com`. Poet avatars come directly from the part of Qafiyah that Cloudflare hosts (`cdn.qafiyah.com`). Browser error reports go directly to Sentry. Page views go to PostHog through its managed proxy (`ix.qafiyah.com`). Developers sign in with Google or GitHub.
 
 ## Containers
 
-![Containers: the edge gateway, website, API, databases, search index, search indexer, and avatar store](architecture/generated/structurizr/containers.gen.svg)
+![Containers: the edge gateway, website, API, MCP server, databases, search index, search indexer, and avatar store](architecture/generated/structurizr/containers.gen.svg)
 
 Everything except the avatar store runs in one `docker compose` project on the VPS. The project has five networks:
 
 - `edge`: the edge gateway and the website.
-- `backend`: the website and the API.
+- `backend`: the website, the API, and the MCP server.
 - `default`: the API, Postgres, Elasticsearch, the search indexer, the monitor-role job, the three exporters, and Prometheus.
 - `observability`: Prometheus, Grafana, Loki, and Alloy.
-- `metrics`: the website, Prometheus, and the blackbox exporter. It carries the website's metrics push and its health probe.
+- `metrics`: the website, the MCP server, Prometheus, and the blackbox exporter. It carries the website's metrics push, the MCP server's metrics, and their health probes.
 
-The website shares no network with Postgres or Elasticsearch. The API trusts forwarded visitor addresses only from `backend`, and only the website and the API are on that network.
+The website shares no network with Postgres or Elasticsearch. The API trusts forwarded visitor addresses only from `backend`, and only the website, the API, and the MCP server are on that network. The MCP server forwards a caller's address only when it came from the website's nginx (`TRUSTED_PROXIES`).
 
 Three hosts never touch the VPS, the WAF, or the Compose stack:
 
@@ -104,13 +104,14 @@ There are three independent stores, with different roles:
 | --------------------- | ------------------------------------------- | --------------------------------------- |
 | `apps/api`            | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
 | `apps/search-indexer` | Rust                                        | `crates/elasticsearch`, `crates/corpus` |
+| `apps/mcp`            | Rust                                        | nothing                                 |
 | `apps/web`            | TypeScript (Astro + React)                  | `packages/tsconfig`, `config.ts`        |
 | `apps/inspector`      | TypeScript, dev-only                        | `packages/tsconfig`, `config.ts`        |
 | `apps/edge-gateway`   | nginx config                                | nothing                                 |
 | `apps/observability`  | Prometheus, Loki, Alloy, and Grafana config | nothing                                 |
 
 - Turborepo runs the TypeScript workspace (`apps/*` and `packages/*`).
-- A separate Cargo workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `crates/elasticsearch`, `crates/corpus`).
+- A separate Cargo workspace covers the Rust side (`apps/api`, `apps/search-indexer`, `apps/mcp`, `crates/elasticsearch`, `crates/corpus`).
 - `apps/edge-gateway` is configuration only, with no build step: an nginx image and a template override.
 - `apps/observability` is also configuration only: the Prometheus, Loki, Alloy, and Grafana images, with their configuration and dashboards.
 

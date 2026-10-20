@@ -59,6 +59,11 @@ Each list returns every term with its counts. Each item takes the term's slug.
 - [GET /v1/feelings/{slug}]({BASE}/feelings/alhuzn): One feeling, with the count of verses in its whole branch
 - [GET /v1/feelings/{slug}/verses]({BASE}/feelings/alhuzn/verses): Classical verses that express the feeling or a feeling below it, 30 a page, the strongest first. Params: `page`.
 
+## MCP
+
+- MCP server: `https://mcp.qafiyah.com/mcp`, over Streamable HTTP, with no sign-in. Its nine read-only tools call this API: `search`, `list_poems`, `get_poem`, `random_poem`, `list_poets`, `get_poet`, `list_terms`, `list_feelings`, and `feeling_verses`. Every poem and poet in a result carries its {SITE} link.
+- MCP calls are counted for each caller's address, apart from this API's anonymous and keyed limits.
+
 ## Links
 
 - [Website]({SITE})

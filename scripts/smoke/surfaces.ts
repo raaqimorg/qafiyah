@@ -2,6 +2,7 @@ import {
   DEV_API_PORT,
   DEV_EDGE_PORT,
   DEV_GRAFANA_PORT,
+  DEV_MCP_PORT,
   DEV_WEB_PORT,
   PROD_API_URL,
   PROD_DOMAIN,
@@ -12,10 +13,11 @@ import { resolveWorktreeIdentity } from '../dev/worktree';
 
 export type SurfaceName = 'origin' | 'stack' | 'prod';
 
-export type Host = 'web' | 'api';
+export type Host = 'web' | 'api' | 'mcp';
 
 export const STACK_API_KEY_FULL = 'dev-stack-full';
 export const STACK_API_KEY_INTERNAL = 'dev-stack-internal';
+export const STACK_API_KEY_MCP = 'dev-stack-mcp';
 export const STACK_SESSION_STATE_SECRET = 'dev-stack-session-secret';
 export const STACK_GRAFANA_PASSWORD = 'dev-stack-grafana';
 
@@ -23,14 +25,21 @@ export type Surface = {
   readonly name: SurfaceName;
   readonly web: string;
   readonly api: string;
+  readonly mcp: string;
   readonly edgePort: number;
   readonly grafana: string | null;
   readonly manageServer: boolean;
   readonly prodOnly: boolean;
 };
 
+const HOST_HEADERS: Readonly<Record<Host, string>> = {
+  web: PROD_DOMAIN,
+  api: `api.${PROD_DOMAIN}`,
+  mcp: `mcp.${PROD_DOMAIN}`,
+};
+
 export function hostHeader(host: Host): string {
-  return host === 'web' ? PROD_DOMAIN : `api.${PROD_DOMAIN}`;
+  return HOST_HEADERS[host];
 }
 
 export async function resolveSurface(): Promise<Surface> {
@@ -55,6 +64,7 @@ export async function resolveSurface(): Promise<Surface> {
       name: 'origin',
       web: `http://localhost:${DEV_WEB_PORT + offset}`,
       api: `http://localhost:${DEV_API_PORT + offset}`,
+      mcp: `http://localhost:${DEV_MCP_PORT + offset}`,
       edgePort: DEV_EDGE_PORT + offset,
       grafana: null,
       manageServer: true,
@@ -66,6 +76,7 @@ export async function resolveSurface(): Promise<Surface> {
       name: 'stack',
       web: `http://localhost:${DEV_EDGE_PORT + offset}`,
       api: `http://localhost:${DEV_EDGE_PORT + offset}`,
+      mcp: `http://localhost:${DEV_EDGE_PORT + offset}`,
       edgePort: DEV_EDGE_PORT + offset,
       grafana: `http://localhost:${DEV_GRAFANA_PORT + offset}`,
       manageServer: true,
@@ -77,6 +88,7 @@ export async function resolveSurface(): Promise<Surface> {
       name: 'prod',
       web: PROD_SITE_URL,
       api: PROD_API_URL,
+      mcp: `https://mcp.${PROD_DOMAIN}`,
       edgePort: 443,
       grafana: null,
       manageServer: false,

@@ -7,6 +7,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY apps/search-indexer apps/search-indexer
 COPY apps/api/Cargo.toml apps/api/Cargo.toml
 RUN mkdir -p apps/api/src && echo 'fn main() {}' > apps/api/src/main.rs
+COPY apps/mcp/Cargo.toml apps/mcp/Cargo.toml
+RUN mkdir -p apps/mcp/src && echo 'fn main() {}' > apps/mcp/src/main.rs
 COPY crates crates
 RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git \

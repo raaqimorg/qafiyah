@@ -5,6 +5,7 @@ import {
   resolveSurface,
   STACK_API_KEY_FULL,
   STACK_API_KEY_INTERNAL,
+  STACK_API_KEY_MCP,
   STACK_GRAFANA_PASSWORD,
   STACK_SESSION_STATE_SECRET,
   type Surface,
@@ -13,6 +14,7 @@ import {
 export {
   STACK_API_KEY_FULL,
   STACK_API_KEY_INTERNAL,
+  STACK_API_KEY_MCP,
   STACK_GRAFANA_PASSWORD,
   STACK_SESSION_STATE_SECRET,
 };
@@ -22,6 +24,7 @@ export const TARGET = { name: SURFACE.name, manageServer: SURFACE.manageServer }
 
 export const WEB = SURFACE.web;
 export const API = SURFACE.api;
+export const MCP = SURFACE.mcp;
 export const SEARCH = `${API}${API_V1_PREFIX}/search`;
 
 function resolveApiKey(): string | undefined {

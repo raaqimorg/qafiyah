@@ -3,6 +3,7 @@ use subtle::ConstantTimeEq;
 pub struct Keys {
     internal: Option<String>,
     full: Option<String>,
+    mcp: Option<String>,
 }
 
 fn constant_time_eq(a: &str, b: &str) -> bool {
@@ -16,7 +17,15 @@ fn matches(key: &str, expected: Option<&String>) -> bool {
 
 impl Keys {
     pub fn new(internal: Option<String>, full: Option<String>) -> Self {
-        Self { internal, full }
+        Self {
+            internal,
+            full,
+            mcp: None,
+        }
+    }
+
+    pub fn with_mcp(self, mcp: Option<String>) -> Self {
+        Self { mcp, ..self }
     }
 
     pub fn is_unlimited(&self, key: Option<&str>) -> bool {
@@ -27,6 +36,10 @@ impl Keys {
 
     pub fn is_internal(&self, key: Option<&str>) -> bool {
         key.is_some_and(|key| matches(key, self.internal.as_ref()))
+    }
+
+    pub fn is_mcp(&self, key: Option<&str>) -> bool {
+        key.is_some_and(|key| matches(key, self.mcp.as_ref()))
     }
 }
 
@@ -62,6 +75,23 @@ mod tests {
         assert!(!keys.is_internal(Some("full")));
         assert!(!keys.is_internal(Some("wrong")));
         assert!(!keys.is_internal(None));
+    }
+
+    #[test]
+    fn only_the_mcp_key_is_mcp_and_it_is_neither_unlimited_nor_internal() {
+        let keys = keys().with_mcp(Some("mcp".into()));
+        assert!(keys.is_mcp(Some("mcp")));
+        assert!(!keys.is_mcp(Some("internal")));
+        assert!(!keys.is_mcp(Some("full")));
+        assert!(!keys.is_mcp(None));
+        assert!(!keys.is_unlimited(Some("mcp")));
+        assert!(!keys.is_internal(Some("mcp")));
+    }
+
+    #[test]
+    fn an_unconfigured_mcp_key_never_matches() {
+        assert!(!keys().is_mcp(Some("anything")));
+        assert!(!keys().with_mcp(Some(String::new())).is_mcp(Some("")));
     }
 
     #[test]

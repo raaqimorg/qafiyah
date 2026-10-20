@@ -93,6 +93,7 @@ jobs:
                 - "!scripts/check/**"
                 - "!scripts/docs/**"
               - "!apps/web/**"
+              - "!apps/mcp/**"
               - "!apps/inspector/**"
               - "!apps/edge-gateway/**"
               - "!apps/observability/**"
