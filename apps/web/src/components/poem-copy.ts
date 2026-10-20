@@ -1,3 +1,41 @@
+import { formatPoemCopySignature } from '@/lib/constants/copy';
+import { MAX_HIGHLIGHT_TERM_LENGTH, MAX_HIGHLIGHT_TERMS } from '@/lib/highlight';
+import { poemHighlightUrl } from '@/lib/urls';
+
+export type PoemCopy = {
+  readonly text: string;
+  readonly url: string;
+};
+
+function splitHighlightLine(text: string): readonly string[] {
+  const terms: string[] = [];
+  let phrase = '';
+  for (const word of text.trim().match(/\S+\s*/gu) ?? []) {
+    if (word.trimEnd().length > MAX_HIGHLIGHT_TERM_LENGTH) {
+      if (phrase !== '') terms.push(phrase.trimEnd());
+      phrase = '';
+      continue;
+    }
+    const next = phrase + word;
+    if (next.trimEnd().length > MAX_HIGHLIGHT_TERM_LENGTH) {
+      terms.push(phrase.trimEnd());
+      phrase = word;
+    } else {
+      phrase = next;
+    }
+  }
+  if (phrase !== '') terms.push(phrase.trimEnd());
+  return terms;
+}
+
+export function poemSelectionUrl(canonicalUrl: string, lines: readonly string[]): string {
+  const highlights = [...new Set(lines.flatMap((line) => splitHighlightLine(line)))].slice(
+    0,
+    MAX_HIGHLIGHT_TERMS
+  );
+  return poemHighlightUrl(canonicalUrl, highlights);
+}
+
 function getSelectedLineText(range: Range, line: HTMLParagraphElement): string {
   if (!range.intersectsNode(line)) return '';
 
@@ -13,11 +51,12 @@ function getSelectedLineText(range: Range, line: HTMLParagraphElement): string {
   return overlap.toString().trim();
 }
 
-export function getPoemCopyText(
+export function getPoemCopy(
   selection: Selection | null,
   container: HTMLElement,
-  signature: string
-): string | null {
+  poetName: string,
+  canonicalUrl: string
+): PoemCopy | null {
   if (selection === null || selection.isCollapsed || selection.rangeCount !== 1) return null;
   const range = selection.getRangeAt(0);
   if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
@@ -28,7 +67,11 @@ export function getPoemCopyText(
       [...verse.querySelectorAll('p')]
         .map((line) => {
           const text = getSelectedLineText(range, line);
-          return { text, isFullLine: text !== '' && text === line.textContent.trim() };
+          return {
+            text,
+            source: line.dataset['copyText'] ?? line.textContent.trim(),
+            isFullLine: text !== '' && text === line.textContent.trim(),
+          };
         })
         .filter((line) => line.text !== '')
     )
@@ -37,5 +80,11 @@ export function getPoemCopyText(
   const text = selectedVerses
     .map((verse) => verse.map((line) => line.text).join('\n'))
     .join('\n\n');
-  return `${text}\n\n${signature}`;
+  const url = poemSelectionUrl(
+    canonicalUrl,
+    selectedVerses.flatMap((verse) =>
+      verse.filter((line) => line.isFullLine).map((line) => line.source)
+    )
+  );
+  return { text: `${text}\n\n${formatPoemCopySignature(poetName, url)}`, url };
 }

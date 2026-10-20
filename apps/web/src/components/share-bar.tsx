@@ -16,6 +16,8 @@ import { shareIntent, shareUrl, type ShareNetwork } from '@/lib/urls';
 import { cn } from '@/lib/utils';
 import { PROD_SITE_URL } from '@qafiyah/config';
 
+import type { PoemCopy } from '@/components/poem-copy';
+
 type ShareBarProps = {
   readonly path: string;
   readonly className?: string;
@@ -167,7 +169,7 @@ type ShareButtonProps = {
   readonly eraName: string;
   readonly verses: readonly (readonly string[])[];
   readonly poemRef: RefObject<HTMLElement | null>;
-  readonly signature: string;
+  readonly canonicalUrl: string;
   readonly path: string;
 };
 
@@ -178,10 +180,10 @@ export function ShareButton({
   verses,
   path,
   poemRef,
-  signature,
+  canonicalUrl,
 }: ShareButtonProps) {
   const [verseCount, setVerseCount] = useState(0);
-  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selectedPoem, setSelectedPoem] = useState<PoemCopy | null>(null);
   const [hasShareFailed, setHasShareFailed] = useState(false);
   const isSharingRef = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -189,11 +191,12 @@ export function ShareButton({
   const header = `${title}\n${poetName} (${eraName})`;
   const verseBlocks = verses.slice(0, verseCount).map((entry) => entry.join('\n'));
   const body = verseBlocks.length > 0 ? `${header}\n\n${verseBlocks.join('\n\n')}` : header;
-  const url = `${PROD_SITE_URL}${path}`;
-  const fullText = selectedText ?? `${body}\n\n${url}`;
-  const handleSelectionShare = async (text: string) => {
+  const url = selectedPoem?.url ?? `${PROD_SITE_URL}${path}`;
+  const fullText = selectedPoem?.text ?? `${body}\n\n${url}`;
+  const handleSelectionShare = async (copy: PoemCopy) => {
     if (isSharingRef.current) return;
-    setSelectedText(text);
+    const { text } = copy;
+    setSelectedPoem(copy);
     setHasShareFailed(false);
     if (typeof navigator.share === 'function') {
       isSharingRef.current = true;
@@ -216,7 +219,7 @@ export function ShareButton({
     <>
       <IconButton
         onClick={() => {
-          setSelectedText(null);
+          setSelectedPoem(null);
           setHasShareFailed(false);
           dialogRef.current?.showModal();
         }}
@@ -228,20 +231,21 @@ export function ShareButton({
       </IconButton>
       <PoemSelectionShare
         poemRef={poemRef}
-        signature={signature}
+        poetName={poetName}
+        canonicalUrl={canonicalUrl}
         dialogRef={dialogRef}
         onSelectionClear={() => {
-          if (selectedText !== null) dialogRef.current?.close();
+          if (selectedPoem !== null) dialogRef.current?.close();
         }}
-        onShare={(text) => {
-          void handleSelectionShare(text);
+        onShare={(copy) => {
+          void handleSelectionShare(copy);
         }}
       />
       <dialog
         ref={dialogRef}
         onPointerDown={(event) => {
           if (
-            selectedText !== null &&
+            selectedPoem !== null &&
             event.target instanceof Element &&
             event.target.closest('button, a') !== null
           ) {
@@ -249,7 +253,7 @@ export function ShareButton({
           }
         }}
         aria-label={
-          selectedText === null ? SHARE_BUTTON_TEXTS.label : POEM_SELECTION_SHARE_TEXTS.title
+          selectedPoem === null ? SHARE_BUTTON_TEXTS.label : POEM_SELECTION_SHARE_TEXTS.title
         }
         className="m-auto max-h-[calc(100dvh-2rem)] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-md border border-border bg-surface-raised p-4 text-text backdrop:bg-black/20"
       >
@@ -269,7 +273,7 @@ export function ShareButton({
             {POEM_SELECTION_SHARE_TEXTS.shareFailed}
           </p>
         )}
-        {selectedText === null && (
+        {selectedPoem === null && (
           <div className="mt-3 flex items-center justify-between">
             <span className="text-xs text-text-muted">
               {SHARE_BUTTON_TEXTS.verses} {toArabicDigits(verseCount)}
@@ -299,7 +303,7 @@ export function ShareButton({
             <a
               key={link.network}
               href={shareIntent(link.network, {
-                body: selectedText ?? body,
+                body: selectedPoem?.text ?? body,
                 title,
                 url,
                 text: fullText,

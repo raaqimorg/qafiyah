@@ -641,7 +641,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
 
 - **What:** copying one complete hemistich or line appends `{poet} | قافية: {url}` after a blank line.
 - **Where:** `components/poem-display.tsx`, `components/poem-copy.ts`, `lib/constants/copy.ts`
-- **Why:** issue #304 requests attribution so copied verses keep a link to their source. Smaller selections keep the browser's default copy behavior. Copied text separates hemistichs with one newline and verses with two.
+- **Why:** issue #304 requests attribution so copied verses keep a link to their source. Smaller selections keep the browser's default copy behavior. Copied text separates hemistichs with one newline and verses with two. Signature links reuse search highlights to jump to the copied lines.
 - **Normal approach:** copy the selected text without additions, and offer a separate control to copy an attributed quotation.
 - **Date:** 2026-10-15
 

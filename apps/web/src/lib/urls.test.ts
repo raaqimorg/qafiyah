@@ -5,6 +5,7 @@ import {
   dbDumpsUrl,
   githubUrl,
   poemUrl,
+  poemHighlightUrl,
   poetAvatarUrl,
   poetsUrl,
   isCanonical,
@@ -206,4 +207,19 @@ describe('sharing selected verses', () => {
       expect(intent.searchParams.get('text')).toBe(text);
     }
   );
+});
+
+describe('poemHighlightUrl', () => {
+  it('shares the same highlight format for relative and canonical poem URLs', () => {
+    const highlights = ['يا ليت', 'هذا, النص'];
+    expect(poemHighlightUrl('https://qafiyah.com/poems/TnKK', highlights)).toBe(
+      `https://qafiyah.com${poemUrl('TnKK', highlights)}`
+    );
+  });
+
+  it('removes stale fragments and skips blank highlights', () => {
+    expect(poemHighlightUrl('https://qafiyah.com/poems/TnKK#h=old', [' '])).toBe(
+      'https://qafiyah.com/poems/TnKK'
+    );
+  });
 });

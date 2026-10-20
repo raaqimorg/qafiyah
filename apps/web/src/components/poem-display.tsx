@@ -10,11 +10,10 @@ import {
   useState,
 } from 'react';
 
-import { getPoemCopyText } from '@/components/poem-copy';
+import { getPoemCopy } from '@/components/poem-copy';
 import { PoemToolbar } from '@/components/poem-toolbar';
 import { ShareButton } from '@/components/share-bar';
 import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
-import { formatPoemCopySignature } from '@/lib/constants/copy';
 import {
   CLASSICAL_LAYOUT_POEM_TYPES,
   FREE_VERSE_POEM_TYPE,
@@ -101,13 +100,17 @@ export function PoemDisplay({
   sharePath,
 }: PoemDisplayProps) {
   const poemRef = useRef<HTMLElement>(null);
-  const signature = formatPoemCopySignature(poet.name, canonicalUrl);
   const handleCopy = (event: ClipboardEvent<HTMLElement>) => {
     if (event.defaultPrevented) return;
     const container = event.currentTarget;
-    const text = getPoemCopyText(container.ownerDocument.getSelection(), container, signature);
-    if (text === null) return;
-    event.clipboardData.setData('text/plain', text);
+    const copy = getPoemCopy(
+      container.ownerDocument.getSelection(),
+      container,
+      poet.name,
+      canonicalUrl
+    );
+    if (copy === null) return;
+    event.clipboardData.setData('text/plain', copy.text);
     event.preventDefault();
   };
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
@@ -170,7 +173,7 @@ export function PoemDisplay({
             verses={verses}
             path={sharePath}
             poemRef={poemRef}
-            signature={signature}
+            canonicalUrl={canonicalUrl}
           />
         </PoemToolbar>
       </header>
@@ -209,6 +212,7 @@ export function PoemDisplay({
                         // oxlint-disable-next-line react/no-array-index-key -- parts keep their order within the stored row and can repeat
                         key={`${partIndex}|${part}`}
                         style={{ fontSize: `${fontScale}em` }}
+                        data-copy-text={showTashkeel ? undefined : part}
                         lang="ar"
                         dir="rtl"
                         className={cn(

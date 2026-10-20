@@ -1,27 +1,29 @@
 import { Share2 } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
 
-import { getPoemCopyText } from '@/components/poem-copy';
+import { getPoemCopy, type PoemCopy } from '@/components/poem-copy';
 import { Button } from '@/components/ui/button';
 import { POEM_SELECTION_SHARE_TEXTS } from '@/lib/constants/copy';
 
 type SelectedPoem = {
-  readonly text: string;
+  readonly copy: PoemCopy;
   readonly top: number;
   readonly left: number;
 };
 
 type PoemSelectionShareProps = {
   readonly poemRef: RefObject<HTMLElement | null>;
-  readonly signature: string;
+  readonly poetName: string;
+  readonly canonicalUrl: string;
   readonly dialogRef: RefObject<HTMLDialogElement | null>;
-  readonly onShare: (text: string) => void;
+  readonly onShare: (copy: PoemCopy) => void;
   readonly onSelectionClear: () => void;
 };
 
 export function PoemSelectionShare({
   poemRef,
-  signature,
+  poetName,
+  canonicalUrl,
   dialogRef,
   onShare,
   onSelectionClear,
@@ -36,8 +38,8 @@ export function PoemSelectionShare({
         setSelection(null);
         return;
       }
-      const text = getPoemCopyText(currentSelection, container, signature);
-      if (text === null) {
+      const copy = getPoemCopy(currentSelection, container, poetName, canonicalUrl);
+      if (copy === null) {
         setSelection(null);
         onSelectionClear();
         return;
@@ -66,9 +68,9 @@ export function PoemSelectionShare({
       const top = lastLine.bottom + 16;
       const left = Math.max(viewportLeft + 8, (viewportLeft + viewportRight) / 2 - 80);
       setSelection((current) =>
-        current?.text === text && current.top === top && current.left === left
+        current?.copy.text === copy.text && current.top === top && current.left === left
           ? current
-          : { text, top, left }
+          : { copy, top, left }
       );
     };
     const dialog = dialogRef.current;
@@ -87,7 +89,7 @@ export function PoemSelectionShare({
       document.removeEventListener('scroll', updateSelection, true);
       window.removeEventListener('resize', updateSelection);
     };
-  }, [poemRef, signature, dialogRef, onSelectionClear]);
+  }, [poemRef, poetName, canonicalUrl, dialogRef, onSelectionClear]);
 
   const positionStyle: CSSProperties & Record<'--selection-top' | '--selection-left', string> = {
     '--selection-top': `${selection?.top ?? 0}px`,
@@ -101,7 +103,7 @@ export function PoemSelectionShare({
         className="min-h-11 w-40 shadow-lg"
         onPointerDown={(event) => event.preventDefault()}
         onClick={() => {
-          onShare(selection.text);
+          onShare(selection.copy);
         }}
       >
         <Share2 aria-hidden="true" />

@@ -138,8 +138,12 @@ export function poetAvatarUrl(slug: string): string {
 }
 
 export function poemUrl(slug: string, highlights?: readonly string[]): string {
-  const base = `/poems/${slug}`;
-  const terms = highlights?.map((term) => term.trim()).filter(Boolean) ?? [];
+  return poemHighlightUrl(`/poems/${slug}`, highlights ?? []);
+}
+
+export function poemHighlightUrl(url: string, highlights: readonly string[]): string {
+  const base = url.split('#')[0] ?? url;
+  const terms = highlights.map((term) => term.trim()).filter(Boolean);
   if (terms.length === 0) return base;
   return `${base}#h=${terms.map((term) => encodeURIComponent(term)).join(',')}`;
 }
