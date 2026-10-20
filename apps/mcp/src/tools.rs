@@ -384,7 +384,7 @@ impl Catalog {
 
     #[tool(
         name = "get_poem",
-        description = "Get one poem of Qafiyah's catalog by its four-letter slug, with its verses, poet, era, meter, rhyme, and theme. Get valid slugs from list_terms, list_poets, or search first. Quote verses exactly as the result gives them, and give the poem's url.",
+        description = "Get one poem of Qafiyah's catalog by its four-letter slug, with its verses, poet, era, meter, rhyme, and theme. Get valid slugs from search, list_poems, or random_poem first. Quote verses exactly as the result gives them, and give the poem's url.",
         annotations(read_only_hint = true)
     )]
     async fn get_poem(

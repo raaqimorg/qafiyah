@@ -3,8 +3,6 @@ use serde_json::Value;
 use crate::api::Failure;
 use crate::constants::PROD_SITE_URL;
 
-const SLUG_SOURCES: &str = "Get valid slugs from list_terms, list_poets, or search.";
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Poem,
@@ -28,6 +26,16 @@ impl Subject {
             Self::Term => "term",
             Self::Feeling => "feeling",
             Self::Catalog => "catalog entry",
+        }
+    }
+
+    fn slug_sources(self) -> &'static str {
+        match self {
+            Self::Poem => "Get valid slugs from search, list_poems, or random_poem.",
+            Self::Poet => "Get valid slugs from list_poets or search.",
+            Self::Term => "Get valid slugs from list_terms.",
+            Self::Feeling => "Get valid slugs from list_feelings.",
+            Self::Catalog => "Get valid slugs from list_terms, list_poets, or search.",
         }
     }
 }
@@ -182,7 +190,11 @@ pub fn failure_text(failure: &Failure, subject: Subject) -> String {
             format!("The Qafiyah API refused a parameter: {detail}")
         }
         Failure::BadRequest(None) => "The Qafiyah API refused a parameter.".into(),
-        Failure::NotFound => format!("No {} has that slug. {SLUG_SOURCES}", subject.noun()),
+        Failure::NotFound => format!(
+            "No {} has that slug. {}",
+            subject.noun(),
+            subject.slug_sources()
+        ),
         Failure::Unavailable => {
             "The Qafiyah catalog is unavailable for the moment. Try again shortly.".into()
         }
@@ -197,8 +209,9 @@ pub fn bad_slug_text(slug: &str, subject: Subject) -> String {
         }
     };
     format!(
-        "\"{slug}\" is not a valid {} slug. {rule} {SLUG_SOURCES}",
-        subject.noun()
+        "\"{slug}\" is not a valid {} slug. {rule} {}",
+        subject.noun(),
+        subject.slug_sources()
     )
 }
 
@@ -301,12 +314,40 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_slug_says_where_to_find_valid_ones() {
-        let text = failure_text(&Failure::NotFound, Subject::Poet);
-        assert!(text.contains("poet"), "{text}");
-        for tool in ["list_terms", "list_poets", "search"] {
-            assert!(text.contains(tool), "{text}");
+    fn a_missing_slug_names_the_tools_that_give_its_kind_of_slug() {
+        for (subject, tools, others) in [
+            (
+                Subject::Poem,
+                &["search", "list_poems", "random_poem"][..],
+                &["list_terms", "list_feelings"][..],
+            ),
+            (
+                Subject::Poet,
+                &["list_poets", "search"],
+                &["list_terms", "list_feelings"],
+            ),
+            (
+                Subject::Feeling,
+                &["list_feelings"],
+                &["list_terms", "list_poets", "search"],
+            ),
+        ] {
+            let text = failure_text(&Failure::NotFound, subject);
+            assert!(text.contains(subject.noun()), "{text}");
+            for tool in tools {
+                assert!(text.contains(tool), "{text}");
+            }
+            for tool in others {
+                assert!(!text.contains(tool), "{text}");
+            }
         }
+    }
+
+    #[test]
+    fn a_bad_feeling_slug_points_to_list_feelings() {
+        let text = bad_slug_text("A/b", Subject::Feeling);
+        assert!(text.contains("list_feelings"), "{text}");
+        assert!(!text.contains("list_terms"), "{text}");
     }
 
     #[test]
