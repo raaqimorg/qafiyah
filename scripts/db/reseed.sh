@@ -2,36 +2,42 @@
 set -euo pipefail
 
 source ./scripts/lib/remote.sh
+source ./scripts/data/r2.sh
+
+usage() {
+  echo "usage: $0 [-y|--yes] <dump-folder>, for example 0047_25_10_2026" >&2
+  exit 1
+}
 
 assume_yes=false
-case "${1:-}" in
-  -y | --yes) assume_yes=true ;;
-  "") ;;
-  *)
-    echo "usage: $0 [-y|--yes]" >&2
-    exit 1
-    ;;
-esac
+folder=""
+for arg in "$@"; do
+  case "${arg}" in
+    -y | --yes) assume_yes=true ;;
+    *)
+      [[ -z "${folder}" ]] || usage
+      folder="${arg}"
+      ;;
+  esac
+done
+[[ -n "${folder}" ]] || usage
+data_check_name db "${folder}"
 
-echo "→ Building api and search-indexer from origin/main, then restoring the newest dump beside ${REMOTE_HOST}'s corpus database and swapping it in (the API keeps serving; qafiyah_accounts is untouched)."
+echo "→ Building api and search-indexer from origin/main, then restoring ${folder} beside ${REMOTE_HOST}'s corpus database and swapping it in (the API keeps serving; qafiyah_accounts is untouched)."
 if [[ "$assume_yes" != true ]]; then
   read -r -p "  Continue? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || { echo "  aborted"; exit 1; }
 fi
 
-remote_exec ./scripts/lib/tag-db-container.sh ./scripts/lib/rollout.sh <<'REMOTE'
+{
+  printf 'folder=%q\n' "${folder}"
+  cat <<'REMOTE'
 set -euo pipefail
 cd "$REMOTE_DIR"
 git fetch --depth 1 origin main
 git reset --hard FETCH_HEAD
 ./scripts/secrets/pull.sh prod
-./scripts/db/resolve-dump.sh
-newest=$(find data/db -mindepth 1 -maxdepth 1 -type d ! -name '0000_default' | sort | tail -1)
-if ! compgen -G "${newest}/*.dump" >/dev/null && ! compgen -G "${newest}/*.dump.part-??" >/dev/null; then
-  echo "✗ ${newest} is still encrypted: add DUMP_KEY__$(basename "${newest}") to secrets/prod.enc.env" >&2
-  exit 1
-fi
-echo "  newest dump: ${newest}"
+./scripts/db/use-dump.sh "${folder}"
 SENTRY_RELEASE=$(git rev-parse --short HEAD)
 export SENTRY_RELEASE
 docker compose build api search-indexer
@@ -43,7 +49,8 @@ echo ""
 echo "=== prod status ==="
 docker compose ps
 echo ""
-echo "✓ restored ${newest} ($(git rev-parse --short HEAD))"
+echo "✓ restored ${folder} ($(git rev-parse --short HEAD))"
 REMOTE
+} | remote_exec ./scripts/lib/tag-db-container.sh ./scripts/lib/rollout.sh
 
 check_public_health
