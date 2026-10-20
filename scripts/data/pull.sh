@@ -15,7 +15,11 @@ if [[ $# -eq 0 ]]; then
     echo "[data-pull] no R2 token in .env, nothing to download" >&2
     exit 0
   fi
-  newest="$(data_r2 "${PWD}" lsf -R --files-only --include '/*/SHA256SUMS' "r2:${DATA_BUCKET}/db" | LC_ALL=C sort | tail -1)"
+  listing="$(data_r2 "${PWD}" lsf -R --files-only --include '/*/SHA256SUMS' "r2:${DATA_BUCKET}/db/")" || {
+    echo "[data-pull] cannot list r2:${DATA_BUCKET}/db/ (check the network and the DATA_* values in .env)" >&2
+    exit 1
+  }
+  newest="$(printf '%s\n' "${listing}" | LC_ALL=C sort | tail -1)"
   if [[ -z "${newest}" ]]; then
     echo "[data-pull] the bucket holds no complete db/ folder" >&2
     exit 1

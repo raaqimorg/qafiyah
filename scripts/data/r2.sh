@@ -49,6 +49,9 @@ data_r2() {
 
 data_complete_in_bucket() {
   local listing
-  listing="$(data_r2 "${PWD}" lsf --files-only --include /SHA256SUMS "r2:${DATA_BUCKET}/$1/$2/")" || exit 1
+  listing="$(data_r2 "${PWD}" lsf --files-only --include /SHA256SUMS "r2:${DATA_BUCKET}/$1/$2/")" || {
+    echo "[data] cannot list r2:${DATA_BUCKET}/$1/$2/ (check the network and the DATA_* values in .env)" >&2
+    exit 1
+  }
   [[ "${listing}" == "SHA256SUMS" ]]
 }
