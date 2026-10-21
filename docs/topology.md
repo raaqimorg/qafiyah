@@ -132,6 +132,7 @@ The conventions are in `docs/code-conventions.md`, `docs/typescript-conventions.
   - A change to the website only skips `db`.
   - A path on no skip list runs every phase. A manual run (`workflow_dispatch`) runs them all.
 - The Docker phases run on the committed 100-poem sample, so they need no secrets and no R2 token.
+- The `Changes` job checks out without file contents (`filter: blob:none`). It fetches up to 100 commits to find the changed files, and the git history still holds about 6 GB of old snapshots. A full fetch takes longer than the job's 5-minute limit.
 
 Two other workflows run on pull requests:
 
