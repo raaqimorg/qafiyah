@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 
 import { reportViolations } from '../lib/report';
 import { ROOT } from '../lib/root';
-import { IGNORED_DIRS as BUILD_DIRS } from '../lib/walk';
+import { IGNORED_DIRS as BUILD_DIRS, toPosixPath } from '../lib/walk';
 
 const IGNORED_DIRS = new Set([
   ...BUILD_DIRS,
@@ -102,7 +102,7 @@ const violations: Violation[] = [];
 function walk(dir: string): void {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    const rel = relative(ROOT, full);
+    const rel = toPosixPath(relative(ROOT, full));
     const s = statSync(full);
     if (s.isDirectory()) {
       if (IGNORED_DIRS.has(entry)) continue;

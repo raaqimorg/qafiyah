@@ -44,7 +44,7 @@ import {
 } from '@qafiyah/config';
 
 import { ROOT } from '../lib/root';
-import { walkFiles } from '../lib/walk';
+import { toPosixPath, walkFiles } from '../lib/walk';
 
 const SCAN_DIRS = ['apps/web/src', 'apps/inspector/src', 'scripts'];
 
@@ -84,7 +84,7 @@ for (const dir of SCAN_DIRS) {
       for (const match of content.matchAll(rule.re)) {
         const line = content.slice(0, match.index ?? 0).split('\n').length;
         violations.push({
-          file: relative(ROOT, file),
+          file: toPosixPath(relative(ROOT, file)),
           line,
           match: match[0],
           name: rule.name,

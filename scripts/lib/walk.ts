@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 const SOURCE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.astro'] as const;
 
@@ -18,6 +18,10 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   'target',
 ]);
 
+export function toPosixPath(path: string, separator = sep): string {
+  return path.split(separator).join('/');
+}
+
 type WalkOptions = {
   readonly exts?: readonly string[];
   readonly ignoredDirs?: ReadonlySet<string>;
@@ -31,6 +35,6 @@ export function* walkFiles(dir: string, options: WalkOptions = {}): Generator<st
     if (ignored.has(entry)) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) yield* walkFiles(full, options);
-    else if (exts.some((ext) => entry.endsWith(ext))) yield full;
+    else if (exts.some((ext) => entry.endsWith(ext))) yield toPosixPath(full);
   }
 }
