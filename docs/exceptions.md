@@ -26,14 +26,6 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** root tasks become turbo tasks, and the workflow calls them directly as separate jobs.
 - **Status:** Needs review
 
-### Full database dumps are committed to git under a homemade key scheme
-
-- **What:** every Postgres dump is committed as openssl-encrypted parts of 45 MB, with a hand-built key manifest. In October 2026, HEAD holds 90 parts (about 3.5 GB), and `.git` is about 3.5 GB.
-- **Where:** `data/README.md`, `data/db/`, `data/feelings/`, `scripts/db/split-dump.sh`, `scripts/db/encrypt-dump.sh`, `scripts/db/resolve-dump.sh`, `scripts/dev/set-dump-key.sh`, `scripts/dev/check-dump-key.sh`
-- **Why it's unusual:** encrypted blobs never delta-compress, so every clone and every VPS fetch carries every version forever, and pushes already need the `pack.useSparse=false` workaround. The manifest "hash" is `openssl enc -P` with a salt hard-coded in two scripts. Passphrases go on the command line as `-pass "pass:..."`, where `ps` can read them. The "newest dump" lookup is repeated in six scripts.
-- **Normal approach:** dumps published as GitHub Release assets or R2 objects (R2 already holds avatars and backups) and downloaded by `db:up`. If encryption stays, use `age`, or at least `-pass env:VAR`.
-- **Status:** Needs review
-
 ### Deploys build images on the production VPS over SSH
 
 - **What:** `bun run deploy` joins shell files, uploads them over SSH to a temporary file on the host, and runs that file there with stdin from `/dev/null`. It runs `git reset --hard`, builds every image on the 8 GB production server, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` in the same way before it restores.
@@ -116,7 +108,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### `bun run dev` is a custom process supervisor that reads its children's output
 
-- **What:** `scripts/dev/run.ts` (560 lines) starts cargo, turbo, astro, and the inspector. It decides readiness and status by regex-matching their stdout, the API's JSON log fields, and `resolve-dump.sh`'s stderr.
+- **What:** `scripts/dev/run.ts` (560 lines) starts cargo, turbo, astro, and the inspector. It decides readiness and status by regex-matching their stdout, the API's JSON log fields, and `scripts/data/pull.sh`'s stderr.
 - **Where:** `scripts/dev/run.ts`, `scripts/dev/clean.sh`, `scripts/smoke/run.ts`, `apps/web/package.json` (`dev`)
 - **Why it's unusual:** startup depends on the exact words of other programs' output: Astro's "Local" banner, turbo's banners, shell log lines, and field names in `apps/api/src/log.rs`. So a reworded line breaks `dev`, the smoke phase, and the gate, with no clear error. Leftovers are killed with `pkill -f "${ROOT}.*astro"`. A local `bun run ci` stack run stops the shared `qafiyah-dev` project, then starts again only the dev `db` and `elasticsearch` containers that were running. A dev server that uses them loses them while the stack phase runs.
 - **Normal approach:** a `dev` script in `apps/api/package.json` (`cargo watch -x run`) supervised by `turbo run dev`, or `docker compose watch`, with readiness checked through `/healthz`.
@@ -200,8 +192,8 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 ### `.env` is read by five different parsers
 
 - **What:** five readers parse the root `.env`: bash `source`, Docker Compose, Bun's auto-load, a grep regex, and a custom dotenv parser. Dev passwords are hard-coded in four places.
-- **Where:** `scripts/db/resolve-dump.sh`, `scripts/lib/tag-db-container.sh`, `scripts/db/encrypt-dump.sh`, `scripts/dev/set-dump-key.sh`, `scripts/dev/compose.sh`, `scripts/secrets/dotenv.ts`, `scripts/secrets/schema.ts`, `scripts/dev/run.ts`, `scripts/dev/service-urls.ts`, `scripts/deploy/build-images.ts`, `scripts/smoke/surfaces.ts`
-- **Why it's unusual:** the parsers disagree on quotes and `$`. A `DUMP_KEY__*` passphrase with a space or a `$` works in Compose, but `source .env` changes it. The custom parser refuses `export FOO=` lines, which `compose.sh` accepts on purpose. `schema.ts` adds one more registry of variable names.
+- **Where:** `scripts/data/pull.sh`, `scripts/data/push.sh`, `scripts/lib/tag-db-container.sh`, `scripts/dev/compose.sh`, `scripts/secrets/dotenv.ts`, `scripts/secrets/schema.ts`, `scripts/dev/run.ts`, `scripts/dev/service-urls.ts`, `scripts/deploy/build-images.ts`, `scripts/smoke/surfaces.ts`
+- **Why it's unusual:** the parsers disagree on quotes and `$`. A value with a space or a `$` works in Compose, but `source .env` changes it. The custom parser refuses `export FOO=` lines, which `compose.sh` accepts on purpose. `schema.ts` adds one more registry of variable names.
 - **Normal approach:** one `.env.example` (or `${VAR:-default}` once in `docker-compose.dev.yml`) for dev defaults, and one loader instead of `source .env`.
 - **Status:** Needs review
 
