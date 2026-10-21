@@ -4,7 +4,7 @@ import { DEV_API_PORT, DEV_MCP_PORT } from '@qafiyah/config';
 
 import { checkPrerequisites } from './doctor';
 import { blocksDev, formatReport } from './doctor-report';
-import { dumpStageLine } from './dump-stage';
+import { dumpChoice, holdsDump, SAMPLE_DUMP } from './dump-stage';
 import {
   cargoProgress,
   composeProgress,
@@ -155,22 +155,40 @@ async function runStage(label: string, cmd: string[], options: StageOptions = {}
 }
 
 async function dumpStage(): Promise<void> {
+  const choice = dumpChoice(process.argv);
+  if (choice.kind === 'invalid') {
+    console.error(red(choice.reason));
+    process.exit(1);
+  }
+  if (choice.kind === 'sample') {
+    console.log(`${bold('▶')} dump... ${green('✓')} the 100-poem sample (${SAMPLE_DUMP})`);
+    return;
+  }
+  process.env['DEV_DUMP'] = choice.folder;
   const stage = startStage('dump');
   const start = Date.now();
-  const proc = Bun.spawn(['./scripts/data/pull.sh'], {
-    cwd: ROOT,
-    env: process.env,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  });
-  const stderr = await new Response(proc.stderr).text();
-  const code = await proc.exited;
+  if (!holdsDump(`${ROOT}/data/db/${choice.folder}`)) {
+    const proc = Bun.spawn(['./scripts/data/pull.sh', `db/${choice.folder}`], {
+      cwd: ROOT,
+      env: process.env,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    });
+    const stderr = await new Response(proc.stderr).text();
+    if ((await proc.exited) !== 0) {
+      stage.end();
+      console.log(`${red('✗')} ${dim(`(${formatMs(Date.now() - start)})`)}`);
+      console.error(stderr.trim());
+      process.exit(1);
+    }
+  }
   stage.end();
-  const ms = Date.now() - start;
-  const line = dumpStageLine(code, stderr);
-  const mark = line.ok ? green('✓') : yellow('⚠');
-  console.log(`${mark} ${line.text} ${dim(`(${formatMs(ms)})`)}`);
-  if (!line.ok && stderr.trim()) console.error(dim(stderr.trim()));
+  console.log(
+    `${green('✓')} ${choice.folder}, restored on a fresh database ${dim(`(${formatMs(Date.now() - start)})`)}`
+  );
+  console.log(
+    dim(`  to switch an existing database, run bun run db:reset --dump ${choice.folder}`)
+  );
 }
 
 async function preflightStage(target: string): Promise<void> {

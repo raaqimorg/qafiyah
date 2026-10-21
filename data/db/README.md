@@ -19,7 +19,7 @@ Each folder holds one `qafiyah_public_{YYYYMMDD}_{HHMMSS}.dump` and a `SHA256SUM
 
 ## Fallback sample dataset
 
-`data/db/0000_default/` is a small sample: 100 poems, with everything that they refer to. It is always committed, and needs no token. It lets `bun run dev` work at once for anyone who has no token. "Restore (local development)" below explains how it is picked.
+`data/db/0000_default/` is a small sample: 100 poems, with everything that they refer to. It is always committed, and needs no token. `bun run dev` restores it by default, for anyone, with or without a token. "Restore (local development)" below explains how to pick a full dump instead.
 
 All 100 poems are from the Jahili (pre-Islamic) era, the oldest in the corpus. So the sample is a small, self-contained subset that can ship in git. Every taxonomy table (eras, meters, rhymes, themes, and so on) stays complete. They are category labels, not corpus content, and the filters of the UI need the full set.
 
@@ -38,18 +38,21 @@ After you change the fixtures, generate both files again with `scripts/db/create
 
 ## Restore (local development)
 
-The database seeds itself. `bun run dev` downloads the newest dump (`bun run data:pull`), then starts Postgres in Docker, which restores the newest local dump on a new volume.
+The database seeds itself. `bun run dev` starts Postgres in Docker, which restores the `data/db/0000_default/` sample on a new volume. It downloads nothing, even with a token, and it uses the sample even when a full dump is on disk. `docker-compose.dev.yml` mounts only the chosen folder at `/dumps`, so `scripts/db/init.sh` picks it by the same rule as in production.
 
-- With the four `DATA_*` values in `.env`, the newest dump downloads once (about 370 MB). A new dump in the bucket downloads at the next `bun run dev`.
-- With no values, nothing downloads, and the small `data/db/0000_default/` sample is restored.
-- If the download fails (no network, or a wrong token), `bun run dev` warns and goes on with the newest local dump, or the sample.
+For data work, pick a full dump by its folder. It needs the four `DATA_*` values in `.env` to download (about 370 MB, once):
 
-`bun run db:up` and `bun run db:reset` never download. They restore the newest local dump. Run `bun run data:pull` first to get the newest one.
+- `bun run dev --dump 0046_15_10_2026` downloads the dump if it is missing, and restores it on a new volume.
+- `bun run db:reset --dump 0046_15_10_2026` does the same, and wipes the existing volume first.
+- `bun run db:reset` goes back to the sample.
 
-To restore again on an existing volume:
+An existing volume keeps its data until `db:reset`. `bun run data:pull` names the newest dump in the bucket.
+
+To wipe the volume and restore again:
 
 ```bash
-bun run db:up       # or: bun run db:reset to wipe the volume and seed it again
+bun run db:reset                          # the sample
+bun run db:reset --dump 0046_15_10_2026   # a full dump
 ```
 
 ## Restore (manual or external use)

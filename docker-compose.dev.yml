@@ -3,6 +3,12 @@ services:
     container_name: qafiyah-dev-db
     ports: !override
       - "127.0.0.1:${DEV_POSTGRES_PORT:-5434}:5432"
+    volumes: !override
+      - db_data:/var/lib/postgresql
+      - ./data/db/${DEV_DUMP:-0000_default}:/dumps/${DEV_DUMP:-0000_default}:ro
+      - ./scripts/db/sql:/docker-entrypoint-initdb.d/sql:ro
+      - ./scripts/db/init.sh:/docker-entrypoint-initdb.d/10-restore.sh:ro
+      - ./scripts/db/accounts-init.sh:/docker-entrypoint-initdb.d/20-accounts.sh:ro
   api:
     container_name: qafiyah-dev-api
     build:

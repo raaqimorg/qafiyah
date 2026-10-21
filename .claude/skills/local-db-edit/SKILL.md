@@ -30,7 +30,7 @@ Its last line names the newest dump in the bucket (`using db/{dump}`), and it do
 ```
 
 - If it prints the number of `{dump}`, continue.
-- If it prints an older number, run `bun run db:reset`, then check again.
+- If it prints an older number, or the sample's `0000`, run `bun run db:reset --dump {dump}`, then check again. `bun run dev` alone always restores the sample on a new volume.
 - If `data:pull` says that there is no R2 token, stop. Ask the user for the `DATA_*` values first.
 
 ## 2. Record the "before" state

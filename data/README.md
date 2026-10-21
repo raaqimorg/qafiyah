@@ -1,8 +1,8 @@
 # Data
 
-The versioned snapshots of the data live in the private R2 bucket `qafiyah-data`, not in git. This directory holds their READMEs, and the small sample that `bun run dev` restores without access to the bucket.
+The versioned snapshots of the data live in the private R2 bucket `qafiyah-data`, not in git. This directory holds their READMEs, and the small sample that `bun run dev` restores by default.
 
-- `db/`: PostgreSQL dumps. Scripts handle them (`bun run db:reset`, `bun run db:reseed`). `bun run dev` downloads the newest one, and seeds itself from it. See `db/README.md` and `db/MAINTAINERS_GUIDE.md`.
+- `db/`: PostgreSQL dumps. Scripts handle them (`bun run db:reset`, `bun run db:reseed`). `bun run dev --dump <folder>` downloads one and seeds itself from it. See `db/README.md` and `db/MAINTAINERS_GUIDE.md`.
 - `avatars/`: zips of the poet avatar images. R2 serves a copy at `cdn.qafiyah.com`. See `avatars/README.md`.
 - `feelings/`: the feelings that a language model gave each classical verse, the input of `feeling_verses`. See `feelings/README.md`.
 
@@ -32,7 +32,7 @@ bun run data:pull db/0046_15_10_2026           # one dump
 bun run data:pull avatars/0001_09_10_2026      # one avatar snapshot
 ```
 
-It checks `SHA256SUMS` after each download. `bun run dev` runs the first command for you.
+It checks `SHA256SUMS` after each download. `bun run dev --dump <folder>` and `bun run db:reset --dump <folder>` run the second command for you.
 
 Without a clone, use [rclone](https://rclone.org), then check the files:
 
