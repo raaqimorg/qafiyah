@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,9 +9,8 @@ import { err, ok, type Result } from 'neverthrow';
 import { ROOT } from '../lib/root';
 
 import { SECRETS_ENVIRONMENTS, type SecretsEnvironment } from './schema';
-import { checkDecryptedValues, checkEncryptedNames, dumpDirectories } from './validate';
+import { checkDecryptedValues, checkEncryptedNames } from './validate';
 
-const DUMPS_DIR = join(ROOT, 'data/db');
 const AGE_KEY_PATHS = [
   join(homedir(), '.config/sops/age/keys.txt'),
   join(homedir(), 'Library/Application Support/sops/age/keys.txt'),
@@ -25,18 +24,6 @@ function hasAgeKey(): boolean {
   const keyFile = process.env['SOPS_AGE_KEY_FILE'];
   if (process.env['SOPS_AGE_KEY']) return true;
   return keyFile ? existsSync(keyFile) : AGE_KEY_PATHS.some((path) => existsSync(path));
-}
-
-function listDumpDirs(): readonly string[] {
-  const tracked = Bun.spawnSync(['git', 'ls-files', '-z', '--', 'data/db'], { cwd: ROOT });
-  if (tracked.exitCode !== 0) {
-    console.error(`git ls-files failed: ${tracked.stderr.toString().trim()}`);
-    process.exit(1);
-  }
-  const onDisk = readdirSync(DUMPS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-  return dumpDirectories(tracked.stdout.toString().split('\0'), onDisk);
 }
 
 async function decrypt(path: string): Promise<Result<string, string>> {
@@ -56,15 +43,14 @@ async function decrypt(path: string): Promise<Result<string, string>> {
 
 async function checkEnvironment(
   env: SecretsEnvironment,
-  dumpDirs: readonly string[],
   canDecrypt: boolean
 ): Promise<readonly string[] | undefined> {
   const path = join(ROOT, `secrets/${env}.enc.env`);
   if (!existsSync(path)) return undefined;
-  const names = checkEncryptedNames(env, await Bun.file(path).text(), dumpDirs);
+  const names = checkEncryptedNames(env, await Bun.file(path).text());
   if (names.length > 0 || !canDecrypt) return names;
   return (await decrypt(path)).match(
-    (text) => checkDecryptedValues(env, text, dumpDirs),
+    (text) => checkDecryptedValues(env, text),
     (problem) => [problem]
   );
 }
@@ -80,11 +66,10 @@ const environments =
     ? requested.filter((arg) => isSecretsEnvironment(arg))
     : SECRETS_ENVIRONMENTS;
 
-const dumpDirs = listDumpDirs();
 const canDecrypt = hasAgeKey();
 let failed = false;
 for (const env of environments) {
-  const problems = await checkEnvironment(env, dumpDirs, canDecrypt);
+  const problems = await checkEnvironment(env, canDecrypt);
   if (problems === undefined || problems.length === 0) continue;
   failed = true;
   console.error(`secrets/${env}.enc.env:`);

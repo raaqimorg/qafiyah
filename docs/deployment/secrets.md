@@ -46,7 +46,6 @@ bun run secrets:check         # check both files against scripts/secrets/schema.
 The check runs at these points:
 
 - after every `secrets:edit` (an invalid save opens the editor again)
-- in `dump:key:set`
 - before `secrets:pull` writes the dev `.env`
 - in `bun run ci`, which the pre-push hook and GitHub Actions run
 
