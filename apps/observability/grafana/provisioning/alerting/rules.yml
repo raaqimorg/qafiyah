@@ -276,7 +276,7 @@ groups:
             model:
               refId: A
               instant: true
-              expr: max by (name) (container_memory_working_set_bytes{name!=""}) / max by (name) (container_spec_memory_limit_bytes{name!=""} > 0)
+              expr: max by (name) (container_memory_rss{name!=""}) / max by (name) (container_spec_memory_limit_bytes{name!=""} > 0)
           - refId: C
             datasourceUid: __expr__
             model:
