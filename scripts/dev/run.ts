@@ -11,7 +11,7 @@ import {
 import { checkPrerequisites } from './doctor';
 import { blocksDev, formatReport } from './doctor-report';
 import { dumpStageLine } from './dump-stage';
-import { ensureEnvFileFrom } from './env-file';
+import { ensureEnvFileFrom, loadEnvFile } from './env-file';
 import {
   cargoProgress,
   composeProgress,
@@ -221,7 +221,9 @@ async function ensureWebEnvFile(effectiveApiPort: number): Promise<void> {
 async function ensureRootEnvFile(identity: WorktreeIdentity): Promise<void> {
   if (!identity.isWorktree) return;
   const primaryRoot = await primaryCheckoutRoot();
-  await ensureEnvFileFrom(`${ROOT}/.env`, `${primaryRoot}/.env`);
+  if ((await ensureEnvFileFrom(`${ROOT}/.env`, `${primaryRoot}/.env`)) === 'created') {
+    await loadEnvFile(`${ROOT}/.env`, process.env);
+  }
 }
 
 async function printReclaimable(): Promise<void> {
@@ -520,17 +522,6 @@ async function shutdown(children: Watched[]): Promise<void> {
   console.log(green('✓ stopped'));
 }
 
-process.env['LANG'] = 'en_US.UTF-8';
-process.env['POSTGRES_PASSWORD'] ??= 'qafiyah';
-process.env['ELASTIC_PASSWORD'] ??= 'qafiyah-dev-es';
-process.env['ES_READER_PASSWORD'] ??= 'qafiyah-dev-reader';
-process.env['PG_READER_PASSWORD'] ??= 'qafiyah-dev-pg-reader';
-process.env['PG_ACCOUNTS_PASSWORD'] ??= 'qafiyah-dev-pg-accounts';
-process.env['PG_MONITOR_PASSWORD'] ??= 'qafiyah-dev-pg-monitor';
-process.env['ES_MONITOR_PASSWORD'] ??= 'qafiyah-dev-es-monitor';
-process.env['GRAFANA_ADMIN_PASSWORD'] ??= 'qafiyah-dev-grafana';
-process.env['INTERNAL_API_KEY'] = process.env['API_KEY_INTERNAL'] ?? '';
-
 const identity = await resolveWorktreeIdentity();
 if (WORKTREE_FLAG && !identity.isWorktree) {
   console.error(
@@ -560,6 +551,17 @@ if (isolating && identity.isWorktree) {
 }
 
 await ensureRootEnvFile(identity);
+
+process.env['LANG'] = 'en_US.UTF-8';
+process.env['POSTGRES_PASSWORD'] ??= 'qafiyah';
+process.env['ELASTIC_PASSWORD'] ??= 'qafiyah-dev-es';
+process.env['ES_READER_PASSWORD'] ??= 'qafiyah-dev-reader';
+process.env['PG_READER_PASSWORD'] ??= 'qafiyah-dev-pg-reader';
+process.env['PG_ACCOUNTS_PASSWORD'] ??= 'qafiyah-dev-pg-accounts';
+process.env['PG_MONITOR_PASSWORD'] ??= 'qafiyah-dev-pg-monitor';
+process.env['ES_MONITOR_PASSWORD'] ??= 'qafiyah-dev-es-monitor';
+process.env['GRAFANA_ADMIN_PASSWORD'] ??= 'qafiyah-dev-grafana';
+process.env['INTERNAL_API_KEY'] = process.env['API_KEY_INTERNAL'] ?? '';
 
 const withWorktreeFlag = (cmd: string[]): string[] => (isolating ? [...cmd, '--worktree'] : cmd);
 

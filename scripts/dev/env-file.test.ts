@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ensureEnvFileFrom } from './env-file';
+import { ensureEnvFileFrom, loadEnvFile } from './env-file';
 
 let dir: string;
 
@@ -47,5 +47,35 @@ describe('ensureEnvFileFrom', () => {
 
     expect(result).toBe('skipped');
     expect(await Bun.file(target).exists()).toBe(false);
+  });
+});
+
+describe('loadEnvFile', () => {
+  test('sets each key of the file that the environment does not have yet', async () => {
+    const path = join(dir, '.env');
+    await Bun.write(path, 'PG_ACCOUNTS_PASSWORD=from-file\nAPI_KEY_INTERNAL="quoted value"\n');
+    const env: Record<string, string | undefined> = {};
+
+    await loadEnvFile(path, env);
+
+    expect(env).toEqual({ PG_ACCOUNTS_PASSWORD: 'from-file', API_KEY_INTERNAL: 'quoted value' });
+  });
+
+  test('keeps a value that the environment already has', async () => {
+    const path = join(dir, '.env');
+    await Bun.write(path, 'PG_ACCOUNTS_PASSWORD=from-file\n');
+    const env: Record<string, string | undefined> = { PG_ACCOUNTS_PASSWORD: 'from-shell' };
+
+    await loadEnvFile(path, env);
+
+    expect(env['PG_ACCOUNTS_PASSWORD']).toBe('from-shell');
+  });
+
+  test('does nothing when the file does not exist', async () => {
+    const env: Record<string, string | undefined> = {};
+
+    await loadEnvFile(join(dir, 'missing.env'), env);
+
+    expect(env).toEqual({});
   });
 });
