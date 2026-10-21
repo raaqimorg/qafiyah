@@ -92,11 +92,11 @@ There are three independent stores, with different roles:
 - **Elasticsearch** is a derived search index. `search-indexer` rebuilds it fully from Postgres. Nothing backs it up directly. `bun run reindex` or `bun run reindex:prod` makes it again from Postgres when necessary.
 - **R2** is object storage for poet avatar images. It is independent of Postgres: `poet.has_avatar` refers to an image, but Postgres does not store it.
 
-`data/` keeps copies of the data that is hard to make again:
+`data/` holds the READMEs of the data that is hard to make again. The snapshots themselves live in the private R2 bucket `qafiyah-data`, and `bun run data:pull` downloads them:
 
-- `data/db/`: versioned, encrypted Postgres dump snapshots. Scripts handle them (`bun run db:reset`, `bun run db:reseed`, and the database seeds itself). See `data/db/README.md` and `data/db/MAINTAINERS_GUIDE.md`.
-- `data/avatars/`: versioned, encrypted snapshots of the avatar zip. They use the same directory names and encryption as `data/db/`. But they are manual today, with no dedicated scripts. See `data/avatars/README.md`.
-- `data/feelings/`: versioned, encrypted snapshots of the feelings that a language model gave each classical verse. Their encryption is manual, like the avatars. See `data/feelings/README.md`.
+- `data/db/`: versioned Postgres dump snapshots, and the committed 100-poem sample. Scripts handle them (`bun run dev`, `bun run db:reset`, `bun run db:reseed`, and the database seeds itself). See `data/db/README.md` and `data/db/MAINTAINERS_GUIDE.md`.
+- `data/avatars/`: versioned snapshots of the avatar zip, with the same directory names as `data/db/`. See `data/avatars/README.md`.
+- `data/feelings/`: versioned snapshots of the feelings that a language model gave each classical verse. See `data/feelings/README.md`.
 
 ## Codebase topology
 

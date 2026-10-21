@@ -73,9 +73,9 @@ Every response, including an error, reports `x-ratelimit-limit`, `x-ratelimit-re
 
 ## Data
 
-Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. This repo keeps versioned snapshots: database dumps in [`data/db/`](data/db/README.md), avatar archives in [`data/avatars/`](data/avatars/README.md), and the verse feelings in [`data/feelings/`](data/feelings/README.md).
+Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. Versioned snapshots live in a private R2 bucket: database dumps ([`data/db/`](data/db/README.md)), avatar archives ([`data/avatars/`](data/avatars/README.md)), and the verse feelings ([`data/feelings/`](data/feelings/README.md)).
 
-The 100-poem sample that `bun run dev` restores is plain text. The full snapshots are encrypted, but they are free for anyone. To get a passphrase, email [dumps@qafiyah.com](mailto:dumps@qafiyah.com) or [avatars@qafiyah.com](mailto:avatars@qafiyah.com) and say what you plan to build. The passphrase comes back quickly, with no vetting. The encryption only lets us withdraw a record later, because a plaintext file pushed to a public repo stays in every clone. For details, see [`data/README.md`](data/README.md).
+The 100-poem sample that `bun run dev` restores is in this repo. The full snapshots are free for anyone. To get a read-only token, email [dumps@qafiyah.com](mailto:dumps@qafiyah.com) or [avatars@qafiyah.com](mailto:avatars@qafiyah.com) and say what you plan to build. The token comes back quickly, with no vetting. The private bucket only lets us withdraw a record later, because we know where each copy went. For details, see [`data/README.md`](data/README.md).
 
 ## How it works
 

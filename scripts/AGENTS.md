@@ -14,6 +14,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
 | `check/`      | repo-shape checks and the wrappers for the external linters (see below)                                     | `check:*`                                                                                                                          |
 | `dev/`        | the local stack (see below)                                                                                 | `dev`, `doctor`, `dev:preflight`, `db:up`, `db:reset`, `up`, `down`, `clean`, `dump:key:*`, `agents:link`, `quota`, `rust:test:db` |
 | `db/`         | the dump lifecycle, the Diesel schemas, and the SQL functions (see below)                                   | `db:reseed`, `db:schema`, `db:schema:check` (see below for the rest)                                                               |
+| `data/`       | the download and upload of the snapshots in the R2 bucket `qafiyah-data` (`data/README.md`)                 | `data:pull`, `data:push`                                                                                                           |
 | `es/`         | Elasticsearch: reindex (dev and prod), live-index snapshot and diff, the query-builder drift snapshot       | `reindex`, `reindex:prod`, `es:*`                                                                                                  |
 | `docs/`       | the C4 diagrams (see below)                                                                                 | `docs:diagrams`, `docs:diagrams:check`                                                                                             |
 | `openapi/`    | the OpenAPI document snapshot, and the generated TypeScript client types                                    | `openapi:*`                                                                                                                        |
@@ -43,7 +44,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - worktree isolation, and the `CLAUDE.md` and `GEMINI.md` symlinks
   - a rate-limit probe, and the runner for the database-backed API and indexer tests
 - `db/` holds these parts:
-  - the dump lifecycle: resolve and decrypt, restore (on the first boot, and beside the live database by `db:reseed`, which then swaps it in), split, encrypt, the fallback sample, and the before and after state diffs
+  - the dump lifecycle: restore (on the first boot, and beside the live database by `db:reseed`, which then swaps it in), `use-dump.sh` (download one dump, and delete the others, on the server), the fallback sample, and the before and after state diffs
   - `diesel-schema.ts`, which writes the Diesel schemas (`crates/corpus`, and the API's accounts) from the dev databases
   - `sql/`: the refresh functions and the sample query
 

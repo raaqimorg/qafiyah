@@ -61,6 +61,10 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
     format: 'text',
     isSecret: true,
   },
+  DATA_R2_ENDPOINT: { presence: prodRequired, format: 'url', isSecret: false },
+  DATA_BUCKET: { presence: prodRequired, format: 'text', isSecret: false },
+  DATA_R2_ACCESS_KEY_ID: { presence: prodRequired, format: 'text', isSecret: true },
+  DATA_R2_SECRET_ACCESS_KEY: { presence: prodRequired, format: 'text', isSecret: true },
   CLOUDFLARE_ZONE_ID: { presence: prodRequired, format: 'text', isSecret: false },
   CLOUDFLARE_CACHE_PURGE_TOKEN: { presence: prodRequired, format: 'text', isSecret: true },
   CLOUDFLARE_API_TOKEN: { presence: devOptional, format: 'text', isSecret: true },
@@ -76,6 +80,7 @@ export const PAIRED_KEYS: readonly (readonly [string, string])[] = [
   ['OAUTH_GITHUB_CLIENT_ID', 'OAUTH_GITHUB_CLIENT_SECRET'],
   ['ACCOUNTS_BACKUP_BUCKET', 'ACCOUNTS_BACKUP_RECIPIENT'],
   ['ACCOUNTS_BACKUP_R2_ACCESS_KEY_ID', 'ACCOUNTS_BACKUP_R2_SECRET_ACCESS_KEY'],
+  ['DATA_R2_ACCESS_KEY_ID', 'DATA_R2_SECRET_ACCESS_KEY'],
 ];
 
 export const PUBLIC_ASSETS_BUCKET = 'qafiyah-assets';

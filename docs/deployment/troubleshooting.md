@@ -32,7 +32,7 @@ docker compose run --rm -e SEARCH_INDEXER_FORCE=true search-indexer
 
 A new major image refuses to start on the data of the old volume. So `db` or `elasticsearch` restarts in a loop, `--wait` never finishes, and nothing else starts. To confirm, run `docker compose logs db` or `docker compose logs elasticsearch`.
 
-The corpus comes from the dumps, so you can wipe its volume and let it seed again. On a new volume, Postgres restores the newest dump from `data/db/`, and the search indexer rebuilds Elasticsearch.
+The corpus comes from the dumps, so you can wipe its volume and let it seed again. On a new volume, Postgres restores the newest dump in `data/db/`, and the search indexer rebuilds Elasticsearch. Before the wipe, check that `data/db/` on the server still holds the dump in use. If not, run `./scripts/db/use-dump.sh <dump-folder>` first.
 
 **The Postgres volume also holds the accounts database** (`qafiyah_accounts`, with the users and their API keys). A wipe deletes it. So for a Postgres upgrade, do these steps:
 

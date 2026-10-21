@@ -32,7 +32,7 @@ The run read every verse once, on 2026-10-14, from dump `0045_12_10_2026`.
 - The first pass left out verses that describe, narrate, praise or blame a quality, give wisdom, pray, or mock, unless someone in the verse feels something.
 - A second pass asked a yes or no question for each rating of 2. The run kept every rating of 3, each confirmed rating of 2, and no rating of 1.
 - The result is 158,387 verses with 193,035 feelings.
-- The results are kept, encrypted, in `data/feelings/0000_14_10_2026/` (`data/feelings/README.md`).
+- The results are kept in the snapshot `feelings/0000_14_10_2026` of the R2 bucket `qafiyah-data` (`data/feelings/README.md`).
 
 The feelings that the first pass gave, and what the run kept:
 
@@ -59,7 +59,7 @@ These count verse texts. A text that appears in several rows counts once.
 
 1. `export` writes the verse rows to classify (`verses.jsonl`), with the filters above and one row for each verse, and the feelings (`feelings.jsonl`).
 2. `classify <results.json>` asks DeepSeek about each verse text that the results file does not hold yet, and adds the answers to it.
-   - Decrypt the newest snapshot in `data/feelings/` first, and give its path. Then the run pays only for the verses that are new since then.
+   - Download and unzip the newest feelings snapshot first (`data/feelings/README.md`, "Restore"), and give its path. Then the run pays only for the verses that are new since then.
    - Set `DEEPSEEK_API_KEY` first.
    - The prompts are in `scripts/corpus/feeling-prompts.ts`, and the short description of each feeling is in `scripts/corpus/feeling-descriptions.json`.
    - It does not start, and it stops, during DeepSeek's peak hours (weekdays, 01:00 to 04:00 and 06:00 to 10:00 UTC). It also stops after $15 at off-peak prices. Run it again to resume: it keeps its progress in `classify.jsonl` and `verify.jsonl` until it is done.
@@ -71,7 +71,7 @@ Apply the transaction to the dev database:
 ./scripts/dev/compose.sh exec -T db psql -v ON_ERROR_STOP=1 -U qafiyah -d qafiyah < reports/corpus/feelings/feelings.sql
 ```
 
-After a run that added verses, save the results as a new snapshot in `data/feelings/` (`data/feelings/README.md`), and make a new dump.
+After a run that added verses, save the results as a new feelings snapshot (`data/feelings/README.md`, "Save a snapshot"), and make a new dump.
 
 ## Changing the tree
 
