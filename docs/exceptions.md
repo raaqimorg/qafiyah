@@ -30,7 +30,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 - **What:** `bun run deploy` joins shell files, uploads them over SSH to a temporary file on the host, and runs that file there with stdin from `/dev/null`. It runs `git reset --hard`, builds every image on the 8 GB production server, and rolls replicas with a custom `rollout()`. `bun run db:reseed` builds `api` and `search-indexer` in the same way before it restores.
 - **Where:** `scripts/deploy/vps.sh`, `scripts/lib/remote.sh`, `scripts/lib/rollout.sh`, `scripts/db/reseed.sh`, `scripts/es/reindex-prod.sh`, `.github/workflows/images.yml`, `.claude/skills/deploy/SKILL.md`, `docs/deployment/architecture.md`
-- **Why it's unusual:** release Rust builds (`lto = true`, one codegen unit) and the Astro build compete with the live stack for memory. This is why the docs keep swap. With no registry, a rollback means a revert of `main` and a new build. The Images workflow builds each image and discards it. `rollout()` copies the docker-rollout plugin, with fixed timings: a health deadline of 150 seconds, and a settle time of 7 seconds.
+- **Why it's unusual:** release Rust builds (thin LTO, `Cargo.toml`) and the Astro build compete with the live stack for memory. This is why the docs keep swap. With no registry, a rollback means a revert of `main` and a new build. The Images workflow builds each image and discards it. `rollout()` copies the docker-rollout plugin, with fixed timings: a health deadline of 150 seconds, and a settle time of 7 seconds.
 - **Normal approach:** CI builds on merge and pushes SHA-tagged images to GHCR, the VPS runs `docker compose pull` and `docker rollout` (or Kamal), and rollback redeploys the previous tag.
 - **Status:** Needs review
 

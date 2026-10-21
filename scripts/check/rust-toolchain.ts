@@ -30,7 +30,11 @@ if (unknownKeys.length > 0) {
   process.exit(1);
 }
 
-const DOCKERFILES = ['apps/api/Dockerfile', 'apps/search-indexer/Dockerfile'];
+const DOCKERFILES = [
+  'apps/api/Dockerfile',
+  'apps/mcp/Dockerfile',
+  'apps/search-indexer/Dockerfile',
+];
 const drift: string[] = [];
 
 for (const file of DOCKERFILES) {

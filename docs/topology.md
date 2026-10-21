@@ -132,6 +132,8 @@ The conventions are in `docs/code-conventions.md`, `docs/typescript-conventions.
   - A change to the website only skips `db`.
   - A path on no skip list runs every phase. A manual run (`workflow_dispatch`) runs them all.
 - The Docker phases run on the committed 100-poem sample, so they need no secrets and no R2 token.
+- The Rust images build their dependencies in a layer of their own, with cargo-chef (`apps/*/Dockerfile`). The GitHub Actions cache keeps that layer, so a code change compiles only the workspace crates. Only a change to `Cargo.lock` or a manifest builds the dependencies again.
+- CI builds the dev profile without debug info (`CARGO_PROFILE_DEV_DEBUG=0`), so its `target/` and its cache stay small.
 - The `Changes` job checks out without file contents (`filter: blob:none`), so its fetch of up to 100 commits to find the changed files stays small.
 
 Two other workflows run on pull requests:

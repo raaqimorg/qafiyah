@@ -1,19 +1,24 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1.99-alpine AS build
-RUN apk add --no-cache musl-dev
+FROM rust:1.99-alpine AS chef
+RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked --version 0.1.78
 WORKDIR /build
+
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY apps/api apps/api
+COPY apps/mcp apps/mcp
+COPY apps/search-indexer apps/search-indexer
+COPY crates crates
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS build
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --locked --package qafiyah-mcp --recipe-path recipe.json
 COPY Cargo.toml Cargo.lock ./
 COPY apps/mcp apps/mcp
-COPY apps/api/Cargo.toml apps/api/Cargo.toml
-RUN mkdir -p apps/api/src && echo 'fn main() {}' > apps/api/src/main.rs
-COPY apps/search-indexer/Cargo.toml apps/search-indexer/Cargo.toml
-RUN mkdir -p apps/search-indexer/src && echo 'fn main() {}' > apps/search-indexer/src/main.rs
 COPY crates crates
-RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git \
-    --mount=type=cache,id=cargo-target,sharing=locked,target=/build/target \
-    cargo build --release --locked --package qafiyah-mcp \
+RUN cargo build --release --locked --package qafiyah-mcp \
     && cp target/release/qafiyah-mcp /qafiyah-mcp
 
 FROM alpine:3.24 AS runtime

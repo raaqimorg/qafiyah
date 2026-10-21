@@ -19,6 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CARGO_PROFILE_DEV_DEBUG: "0"
   ACTIONLINT_VERSION: 1.7.12
   ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
   HADOLINT_VERSION: 2.15.1
