@@ -51,6 +51,7 @@ The database and the search index are behind traits, so the dependencies point i
   - A closing `request` event gets its level from the production rule: `error` for 5xx, `warn` over 2 seconds, and `debug` for the rest.
   - `record_results` records a result count, and logs `info` "found nothing" at zero.
   - `tower-http`'s request-id layers set and return `x-request-id`.
+- `auth.rs` and `rate_limit.rs` decide each caller's limits. `API_KEY_INTERNAL` and `API_KEY_FULL` skip them. `API_KEY_MCP`, the key of the MCP server (`apps/mcp`), does not: its calls count against the caller's address that the MCP server forwards (`MCP_ADDRESS_REQUESTS`, 600 an hour), and against an hourly and a per-second total of all MCP calls (`MCP_REQUESTS` and `MCP_BURST`). Every other key comes from the accounts database. `docs/deployment/environments.md` ("Rate limiting and API keys") has the numbers, and `docs/exceptions.md` has the reasons.
 - The layers:
   - `cors`, the request-id and trace layers, and `error` wrap every route. `rate_limit` wraps the whole `/v1` nest.
   - Inside `error`, a 6-second deadline (`REQUEST_DEADLINE_SECONDS`, tower's `TimeoutLayer` behind axum's `HandleErrorLayer`) answers 503 to a request that runs longer. This is above the 5-second query and search timeouts, and below the website's 8-second proxy timeout and 10-second render timeout.

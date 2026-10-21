@@ -40,6 +40,8 @@ Install the [GitHub CLI](https://cli.github.com) (`gh`), and run `gh auth login`
 
 The repo's `AGENTS.md` points agents to [`pull-requests.md`](../docs/pull-requests.md), which holds the same rules as this file.
 
+To let your agent read the catalog itself, for example to check a poem or a verse, add the MCP server at `https://mcp.qafiyah.com/mcp` (`README.md`, "MCP server").
+
 If the local setup fails and your agent finds a way around it, `AGENTS.md` tells it to report the gap as an issue, after it asks you. So the fix reaches every contributor, not only your machine.
 
 ## Keeping your email private

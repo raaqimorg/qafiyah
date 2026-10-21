@@ -40,7 +40,7 @@ After you change the fixtures, generate both files again with `scripts/db/create
 
 The database seeds itself. `bun run dev` starts Postgres in Docker, which restores the `data/db/0000_default/` sample on a new volume. It downloads nothing, even with a token, and it uses the sample even when a full dump is on disk. `docker-compose.dev.yml` mounts only the chosen folder at `/dumps`, so `scripts/db/init.sh` picks it by the same rule as in production.
 
-For data work, pick a full dump by its folder. It needs the four `DATA_*` values in `.env` to download (about 370 MB, once):
+For data work, pick a full dump by its folder. It needs the four `DATA_*` values in `.env` to download (about 390 MB, once):
 
 - `bun run dev --dump 0046_15_10_2026` downloads the dump if it is missing, and restores it on a new volume.
 - `bun run db:reset --dump 0046_15_10_2026` does the same, and wipes the existing volume first.

@@ -4,7 +4,7 @@
 
 The API is Rust and axum (`apps/api/Dockerfile`). It is a static musl binary in an alpine image of about 15 MB. It runs as a **non-root** user (`api`), with `tini` as PID 1.
 
-- Its environment is the `api` service block in `docker-compose.yml`. `apps/api/src/config.rs` reads it, and refuses to start in production without the two `API_KEY_*` values.
+- Its environment is the `api` service block in `docker-compose.yml`. `apps/api/src/config.rs` reads it, and refuses to start in production without the three `API_KEY_*` values.
 - The healthcheck calls `GET /healthz`. This is a 200 that never touches the database and is outside the `/v1` rate limiter, so the probe never limits itself.
 - The web container reaches the API over the dedicated `backend` network, as `api-backend:8787`. This network is also the only source that the API trusts for `CF-Connecting-IP`.
 
@@ -24,6 +24,17 @@ The API is Rust and axum (`apps/api/Dockerfile`). It is a static musl binary in 
 The metrics in `apps/observability` hold the latency and the request count of every request, for each route, with percentiles. The log line adds the details of a slow or failed request.
 
 **Checking a deploy.** `bun run api:conformance` (or `api:conformance prod`) runs Schemathesis in Docker against a running API. It sends every documented operation its documented examples. Each one must answer 2xx, with a status, content type, headers, and body that match the committed OpenAPI document. This is the check after a deploy in `.claude/skills/deploy/SKILL.md`.
+
+## MCP server (`apps/mcp`)
+
+The MCP server is Rust, axum, and rmcp (`apps/mcp/Dockerfile`), in an alpine image. It runs as a **non-root** user (`mcp`), with `tini` as PID 1, on a read-only root file system.
+
+- Its environment is the `mcp` service block in `docker-compose.yml`. It refuses to start in production without `API_KEY_MCP`, `TRUSTED_PROXIES`, or `MCP_ALLOWED_HOSTS`.
+- The web container's nginx serves `mcp.qafiyah.com`, and passes `/mcp` to `mcp-backend:8788` on the `backend` network. It limits each address to 600 requests a minute, and a request body to 64 KB.
+- The MCP server calls the API at `api-backend:8787`, with `API_KEY_MCP`. Its calls have their own limits (`docs/deployment/environments.md`, "Environment keys").
+- The healthcheck calls `GET /healthz`. Prometheus reads its metrics on port 9464, on the `metrics` network.
+
+`apps/mcp/AGENTS.md` covers the tools, the settings, and the time limits.
 
 ## Postgres connections
 

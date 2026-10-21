@@ -15,18 +15,18 @@
 <p align="center">
   <a href="https://qafiyah.com"><img alt="Live site" src="https://img.shields.io/website?url=https%3A%2F%2Fqafiyah.com&label=qafiyah.com"></a>
   <a href="https://api.qafiyah.com/v1/docs"><img alt="API docs" src="https://img.shields.io/badge/api-docs-green.svg"></a>
-  <a href="data/db"><img alt="Data snapshot 0039, 6 October 2026" src="https://img.shields.io/badge/data%20snapshot-0039%20(2026--10--06)-lightgrey.svg"></a>
+  <a href="data/db"><img alt="Data snapshot 0046, 15 October 2026" src="https://img.shields.io/badge/data%20snapshot-0046%20(2026--10--15)-lightgrey.svg"></a>
   <a href="LICENSE"><img alt="Code: MIT" src="https://img.shields.io/badge/code-MIT-blue.svg"></a>
   <a href="data/LICENSE"><img alt="Data: CC0 1.0" src="https://img.shields.io/badge/data-CC0%201.0-blue.svg"></a>
 </p>
 
-Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://qafiyah.com), you can search every verse for a word or a phrase. You can also browse by poet, meter, rhyme, era, and theme. The code, the data, and a free JSON API are all public, and [contributions are welcome](#contributing).
+Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://qafiyah.com), you can search every verse for a word or a phrase. You can also browse by poet, meter, rhyme, era, and theme. The code, the data, a free JSON API, and an MCP server for AI assistants are all public, and [contributions are welcome](#contributing).
 
 |   Poems |    Verses |  Poets | Meters | Rhymes | Eras | Themes | Collections |
 | ------: | --------: | -----: | -----: | -----: | ---: | -----: | ----------: |
-| 349,059 | 5,888,903 | 17,342 |     44 |     36 |   12 |     10 |           1 |
+| 340,795 | 5,850,742 | 17,341 |     44 |     36 |   12 |     10 |           1 |
 
-<sub>From snapshot <code>0039_06_10_2026</code>. Verses counts each stored line of a poem. Poets, eras, and meters each count one "unknown" entry for unattributed records.</sub>
+<sub>From snapshot <code>0046_15_10_2026</code>. Verses counts each stored line of a poem. Poets, eras, and meters each count one "unknown" entry for unattributed records.</sub>
 
 <p align="center">
   <img src=".github/readme_screenshot_home.webp" alt="The Qafiyah home page: a search box over the whole corpus" width="49%">
@@ -42,6 +42,8 @@ Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://
 ```bash
 curl "https://api.qafiyah.com/v1/poems/random?option=lines"
 ```
+
+**Ask an AI assistant.** Add the [MCP server](#mcp-server) to Claude, ChatGPT, or any other MCP client.
 
 **Run it locally.** You need [Bun](https://bun.sh) 1.4.2, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), [rustup](https://rustup.rs), and Bash 4 or later. Install Bun first, then run:
 
@@ -71,6 +73,16 @@ To create a key, sign in with Google or GitHub on the [developers page](https://
 
 Every response, including an error, reports `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset`. A refused request gets 429, and a temporarily overloaded API answers 503. Both come with `Retry-After`. Errors are RFC 9457 problem+json, and the `detail` of a 400 names the wrong parameter.
 
+## MCP server
+
+`https://mcp.qafiyah.com/mcp` lets AI assistants search the catalog and quote it, with a link to each poem on qafiyah.com. It needs no key and no sign-up. It has nine read-only tools: `search`, `list_poems`, `get_poem`, `random_poem`, `list_poets`, `get_poet`, `list_terms`, `list_feelings`, and `feeling_verses`.
+
+- In Claude, add a custom connector with that URL.
+- In ChatGPT, add a connector with that URL.
+- In Claude Code, run `claude mcp add --transport http qafiyah https://mcp.qafiyah.com/mcp`.
+
+Each address can make 600 calls an hour. The [developers page](https://qafiyah.com/developers) has the same steps in Arabic, and [`apps/mcp/AGENTS.md`](apps/mcp/AGENTS.md) describes the server.
+
 ## Data
 
 Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. Versioned snapshots live in a private R2 bucket: database dumps ([`data/db/`](data/db/README.md)), avatar archives ([`data/avatars/`](data/avatars/README.md)), and the verse feelings ([`data/feelings/`](data/feelings/README.md)).
@@ -79,14 +91,17 @@ The 100-poem sample that `bun run dev` restores is in this repo. The full snapsh
 
 ## How it works
 
-A request enters through Cloudflare, passes the web application firewall, and reaches the web app or the API. The web app renders pages on the server, and it calls the API to do so. The API reads records from Postgres and searches Elasticsearch.
+A request enters through Cloudflare, passes the web application firewall, and reaches the web app, the API, or the MCP server. The web app renders pages on the server, and it calls the API to do so. The MCP server calls the API for each tool. The API reads records from Postgres and searches Elasticsearch.
 
 ```mermaid
 flowchart LR
     browser["Browser"] --> cf["Cloudflare edge + Tunnel"]
+    assistant["AI assistant"] --> cf
     cf --> edge["edge-gateway<br/>nginx + ModSecurity CRS"]
-    edge -->|"qafiyah.com<br/>api.qafiyah.com"| web["web<br/>nginx + Astro SSR + React islands"]
+    edge -->|"qafiyah.com<br/>api.qafiyah.com<br/>mcp.qafiyah.com"| web["web<br/>nginx + Astro SSR + React islands"]
     web -->|"api.qafiyah.com<br/>+ SSR /v1 fetch"| api["api<br/>Rust, axum"]
+    web -->|"mcp.qafiyah.com"| mcp["mcp<br/>Rust, axum, rmcp"]
+    mcp --> api
     api --> db[("Postgres")]
     api --> es[("Elasticsearch")]
     indexer["search-indexer<br/>one-shot job"] --> db
@@ -94,16 +109,17 @@ flowchart LR
     browser -->|"browser errors"| sentry[("Sentry")]
 ```
 
-| Part                                                     | Role                                                                                | Built with                                |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
-| [`apps/web`](apps/web/AGENTS.md)                         | Server-rendered pages, with React islands for search, the random poem, and settings | Astro, React, Tailwind CSS, Bun, PostHog  |
-| [`apps/api`](apps/api/AGENTS.md)                         | Read-only `/v1` API, its OpenAPI contract generated from the code                   | Rust, axum, Diesel, utoipa, PostgreSQL 18 |
-| [`apps/search-indexer`](apps/search-indexer/AGENTS.md)   | One-shot job that builds a fresh index from Postgres and swaps the alias            | Rust, Diesel, Elasticsearch 9             |
-| [`crates/elasticsearch`](crates/elasticsearch/AGENTS.md) | Index schema, Arabic analyzers, and client shared by the two above                  | Rust                                      |
-| [`crates/corpus`](crates/corpus/AGENTS.md)               | Diesel schema of the corpus database, shared by the API and the indexer             | Rust, Diesel                              |
-| [`apps/edge-gateway`](apps/edge-gateway/AGENTS.md)       | Web application firewall in front of everything, configuration only                 | nginx, OWASP ModSecurity CRS              |
-| [`apps/inspector`](apps/inspector/AGENTS.md)             | Dev-only report of the metadata on every page type                                  | TypeScript                                |
-| [`scripts/`](scripts/AGENTS.md)                          | Repo tooling and the CI gate, one `bun run` name per entry point                    | Bun, Turborepo, oxlint, oxfmt, vitest     |
+| Part                                                     | Role                                                                                                 | Built with                                |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| [`apps/web`](apps/web/AGENTS.md)                         | Server-rendered pages, with React islands for search, the random poem, the poem toolbar, and sharing | Astro, React, Tailwind CSS, Bun, PostHog  |
+| [`apps/api`](apps/api/AGENTS.md)                         | Read-only `/v1` API, its OpenAPI contract generated from the code                                    | Rust, axum, Diesel, utoipa, PostgreSQL 18 |
+| [`apps/mcp`](apps/mcp/AGENTS.md)                         | MCP server for AI assistants, nine read-only tools over the API                                      | Rust, axum, rmcp                          |
+| [`apps/search-indexer`](apps/search-indexer/AGENTS.md)   | One-shot job that builds a fresh index from Postgres and swaps the alias                             | Rust, Diesel, Elasticsearch 9             |
+| [`crates/elasticsearch`](crates/elasticsearch/AGENTS.md) | Index schema, Arabic analyzers, and client shared by the two above                                   | Rust                                      |
+| [`crates/corpus`](crates/corpus/AGENTS.md)               | Diesel schema of the corpus database, shared by the API and the indexer                              | Rust, Diesel                              |
+| [`apps/edge-gateway`](apps/edge-gateway/AGENTS.md)       | Web application firewall in front of everything, configuration only                                  | nginx, OWASP ModSecurity CRS              |
+| [`apps/inspector`](apps/inspector/AGENTS.md)             | Dev-only report of the metadata on every page type                                                   | TypeScript                                |
+| [`scripts/`](scripts/AGENTS.md)                          | Repo tooling and the CI gate, one `bun run` name per entry point                                     | Bun, Turborepo, oxlint, oxfmt, vitest     |
 
 Search reads Arabic the way people do. Hamza forms, alif maqsura, and ta marbuta fold to their base letters. Matching ignores diacritics, and the display keeps them. An exact title always ranks above scattered matches. For the full account, see [`docs/search.md`](docs/search.md).
 
@@ -144,7 +160,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 - [`docs/code-conventions.md`](docs/code-conventions.md) and the TypeScript, Rust, testing, and pull request files next to it: how to write code, tests, docs, and commits.
 - [`docs/identity.md`](docs/identity.md): canonical name, description, organization, and links.
 - [`AGENTS.md`](AGENTS.md) and each component's `AGENTS.md`: the repo layout and the shape of each component. They are written for AI agents, and they are useful to anyone.
-- [`data/README.md`](data/README.md): the encrypted database and avatar snapshots.
+- [`data/README.md`](data/README.md): the database, avatar, and feelings snapshots, and the 100-poem sample.
 
 </details>
 

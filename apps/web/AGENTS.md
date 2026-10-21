@@ -7,6 +7,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
 - `pages/` holds the file-based routes.
   - `.astro` files render HTML. `.xml.ts` and `.txt.ts` files generate the sitemaps, `robots.txt`, and `llms.txt`.
   - List and detail pages fetch through `lib/server/*`. When the result is "not found", they call `Astro.rewrite('/404')`.
+  - `developers.astro` is the developers page. It links to the sign-in for an API key (the keys live in `account/`), and shows how to add the MCP server to Claude, ChatGPT, and Claude Code.
 - `lib/server/` is for the server only.
   - `client.ts` is `apiServer`, with the internal API URL.
   - `unwrap.ts` holds `safeCall`, `unwrap`, and `getOrNull`. Every fetcher below is built from this pattern: retry, not found, or throw.

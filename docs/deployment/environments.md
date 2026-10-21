@@ -101,6 +101,7 @@ The rate limiting rule is a flood guard far above what a visitor sends:
 **The API** applies the hourly buckets above to callers of `api.qafiyah.com`:
 
 - The website's server-side calls carry `API_KEY_INTERNAL` and skip the buckets.
+- The MCP server's calls carry `API_KEY_MCP`, and count in buckets of their own ("Environment keys" below).
 - The website's browser proxy also sends the visitor's address as `CF-Connecting-IP`, from the `X-Real-IP` that nginx sets. This covers `/api/v1/search`, `/api/v1/poems/random`, and, for a request that names exactly one poet, `/api/v1/poems` and `/api/v1/poems/facets`.
 - The API counts those requests for each visitor: `VISITOR_REQUESTS` (3,600, nginx's steady rate) an hour for each /64 or IPv4 address, and ten times that for each /48. These buckets are separate from those of anonymous callers.
 - Only an address that the web container forwards counts. Page renders forward none, so they stay unlimited.
@@ -110,10 +111,11 @@ The rate limiting rule is a flood guard far above what a visitor sends:
 
 ### Environment keys (they skip the limiter)
 
-The API's environment holds two keys, each generated with `openssl rand -hex 32`. The API checks them before it reads the accounts database:
+The API's environment holds three keys, each generated with `openssl rand -hex 32`. The API checks them before it reads the accounts database:
 
 - `API_KEY_INTERNAL` (secret): unlimited, and the only key that opens `/account`. The web server-side renderer and the same-origin search proxy send it. A proxied request that carries a visitor's address counts against that visitor (above).
 - `API_KEY_FULL` (secret): unlimited on `/v1` only. It is for trusted server clients, smoke tests, and admin tooling. It does **not** open `/account`, so a leak costs corpus reads, never account administration.
+- `API_KEY_MCP` (secret): the key of the MCP server at `mcp.qafiyah.com`. It is **not** unlimited. Its calls count against the caller's address that the MCP server forwards: `MCP_ADDRESS_REQUESTS` (600) an hour for each /64 or IPv4 address, and ten times that for each /48. They also count against a total for all MCP calls: `MCP_REQUESTS` (20,000) an hour and `MCP_BURST` (20) a second. It does not open `/account`. The `mcp` service in `docker-compose.yml` takes it from the same variable.
 
 These keys do not touch `qafiyah_accounts` on purpose. So an outage of the accounts database harms only the developer portal, never the website.
 
