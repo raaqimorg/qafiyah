@@ -1,6 +1,7 @@
 services:
   api:
     build:
+      network: host
       cache_from:
         - type=gha,scope=api
       cache_to:
@@ -8,6 +9,7 @@ services:
 
   web:
     build:
+      network: host
       cache_from:
         - type=gha,scope=web
       cache_to:
@@ -15,7 +17,12 @@ services:
 
   search-indexer:
     build:
+      network: host
       cache_from:
         - type=gha,scope=search-indexer
       cache_to:
         - type=gha,scope=search-indexer,mode=max
+
+  mcp:
+    build:
+      network: host

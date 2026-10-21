@@ -5,12 +5,18 @@ services:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-5434}:5432"
   api:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-api
+    build:
+      network: default
   mcp:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-mcp
+    build:
+      network: default
     environment:
       TRUSTED_PROXIES: 172.26.0.0/24
   web:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-web
+    build:
+      network: default
   edge-gateway:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-edge-gateway
     environment:
@@ -26,6 +32,8 @@ services:
     mem_limit: 3g
   search-indexer:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-search-indexer
+    build:
+      network: default
   db-monitor-role:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-db-monitor-role
   postgres-exporter:

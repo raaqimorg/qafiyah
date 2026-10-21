@@ -93,7 +93,7 @@ docker compose ps
 docker builder prune -f --max-used-space 5GB   # cap the build cache so that it cannot fill the disk
 ```
 
-The four images build on the host network (`network: host` under `build:` in `docker-compose.yml`). On the default build network, a build step gets the server's upstream DNS servers with the two IPv6 servers first, but it has no IPv6 route. musl reads only the first three servers, so one IPv4 server had to answer every `apk add`, and builds failed at random with "DNS: transient error" (#261). On the host network, build steps use the server's own resolver.
+On the server and in CI, the four images build on the host network (`network: host` under `build:` in `docker-compose.yml`). Local builds use the default build network (`docker-compose.dev.yml`). On the default build network, a build step gets the server's upstream DNS servers with the two IPv6 servers first, but it has no IPv6 route. musl reads only the first three servers, so one IPv4 server had to answer every `apk add`, and builds failed at random with "DNS: transient error" (#261). On the host network, build steps use the server's own resolver.
 
 Back on the dev machine, `check_public_health` (`scripts/lib/remote.sh`) does a final check:
 
