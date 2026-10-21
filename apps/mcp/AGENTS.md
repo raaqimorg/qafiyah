@@ -22,14 +22,14 @@ This is the read-only MCP server for qafiyah.com, in Rust with axum and the offi
 
 ## Settings
 
-| Variable            | Compose                   | `bun run dev`                           | Production                 |
-| ------------------- | ------------------------- | --------------------------------------- | -------------------------- |
-| `INTERNAL_API_URL`  | `http://api-backend:8787` | `http://localhost:8787` (worktree port) | required                   |
-| `API_KEY_MCP`       | from the secrets          | from the dev secrets                    | required                   |
-| `TRUSTED_PROXIES`   | the `backend` subnet      | unset (no peer is trusted)              | required                   |
-| `MCP_ALLOWED_HOSTS` | `mcp.qafiyah.com`         | unset (rmcp's loopback hosts)           | required                   |
-| `MCP_PORT`          | `8788`                    | `DEV_MCP_PORT` (8788) plus the offset   | defaults to `DEV_MCP_PORT` |
-| `METRICS_PORT`      | `9464`                    | unset (no metrics listener)             | optional                   |
+| Variable            | Compose                   | `bun run dev`                 | Production                 |
+| ------------------- | ------------------------- | ----------------------------- | -------------------------- |
+| `INTERNAL_API_URL`  | `http://api-backend:8787` | `http://localhost:8787`       | required                   |
+| `API_KEY_MCP`       | from the secrets          | from the dev secrets          | required                   |
+| `TRUSTED_PROXIES`   | the `backend` subnet      | unset (no peer is trusted)    | required                   |
+| `MCP_ALLOWED_HOSTS` | `mcp.qafiyah.com`         | unset (rmcp's loopback hosts) | required                   |
+| `MCP_PORT`          | `8788`                    | `DEV_MCP_PORT` (8788)         | defaults to `DEV_MCP_PORT` |
+| `METRICS_PORT`      | `9464`                    | unset (no metrics listener)   | optional                   |
 
 Under `ENVIRONMENT=production`, the app refuses to start without `API_KEY_MCP`, `TRUSTED_PROXIES`, or `MCP_ALLOWED_HOSTS`. Each one would otherwise fail without an error: every request refused for its `Host`, every caller in one shared bucket, or every call in the API's anonymous limits.
 

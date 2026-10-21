@@ -41,7 +41,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - `run.ts` (`bun run dev`), and the Compose wrapper with the default dev credentials
   - the prerequisites check (`doctor.ts`, `bun run doctor`): each tool and its minimum version, in three groups (to run the site, to commit, optional). `bun run dev` runs the first two groups first. The checks take an injected `probe`, so the tests spawn nothing (`doctor-checks.ts`)
   - the port preflight, and the database reset
-  - worktree isolation, and the `CLAUDE.md` and `GEMINI.md` symlinks
+  - the `CLAUDE.md` and `GEMINI.md` symlinks
   - a rate-limit probe, and the runner for the database-backed API and indexer tests
 - `db/` holds these parts:
   - the dump lifecycle: restore (on the first boot, and beside the live database by `db:reseed`, which then swaps it in), `use-dump.sh` (download one dump, and delete the others, on the server), the fallback sample, and the before and after state diffs

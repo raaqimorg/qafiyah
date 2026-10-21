@@ -412,10 +412,7 @@ async function startSurface(): Promise<StartedSurface> {
       return { stop: async () => {}, ownsProcesses: false };
     }
     const log = Bun.file('/tmp/dev-server.log');
-    const devCommand = process.argv.includes('--worktree')
-      ? ['bun', 'run', 'dev', '--worktree']
-      : ['bun', 'run', 'dev'];
-    const dev = Bun.spawn(devCommand, { cwd: ROOT, stdout: log, stderr: log });
+    const dev = Bun.spawn(['bun', 'run', 'dev'], { cwd: ROOT, stdout: log, stderr: log });
     return { stop: () => shutdownDev(dev), ownsProcesses: true };
   }
   if (SURFACE.name === 'stack') {
@@ -631,12 +628,7 @@ async function main() {
   } else {
     console.log(`\n${cyan('\u2014')} ${bold('openapi conformance')} ${cyan('\u2014')}`);
     const conformance = Bun.spawn(
-      [
-        'bun',
-        'scripts/api/conformance.ts',
-        SURFACE.name === 'prod' ? 'prod' : 'dev',
-        ...(process.argv.includes('--worktree') ? ['--worktree'] : []),
-      ],
+      ['bun', 'scripts/api/conformance.ts', SURFACE.name === 'prod' ? 'prod' : 'dev'],
       { cwd: ROOT, stdout: 'inherit', stderr: 'inherit' }
     );
     conformanceCode = await conformance.exited;

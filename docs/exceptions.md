@@ -114,22 +114,11 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** a `dev` script in `apps/api/package.json` (`cargo watch -x run`) supervised by `turbo run dev`, or `docker compose watch`, with readiness checked through `/healthz`.
 - **Status:** Needs review
 
-### Worktree isolation is layered over Compose and applied inconsistently
-
-- **What:** a `--worktree` flag hashes the worktree name into port offsets and a Compose project suffix across about eight scripts. `compose.sh` turns it on automatically in a linked worktree, while `run.ts`, `db-test.ts`, the smoke scripts, and `conformance.ts` honor only the explicit flag.
-- **Where:** `scripts/dev/worktree.ts`, `scripts/dev/compose.sh`, `scripts/dev/run.ts`, `scripts/ci.ts`, `scripts/smoke/surfaces.ts`, `scripts/api/conformance.ts`, `scripts/dev/db-test.ts`, `docker-compose.dev.yml`, `docs/development.md`
-- **Why it's unusual:** Compose already isolates each project. The repo overrides that with a fixed `COMPOSE_PROJECT_NAME`, `container_name`, and volume names, then builds isolation again on top.
-  - In a worktree without the flag, `compose.sh` starts the database and Elasticsearch on offset ports. But `run.ts` points the API at offset 0, which is the containers of the primary checkout.
-  - `docs/development.md` says that the flag is never implied, and `compose.sh` contradicts that.
-  - The fixed dev subnets also stop two worktrees from running full stacks at the same time.
-- **Normal approach:** let Compose scope by project (no `container_name` or fixed volume names in dev). Keep the ports of each checkout in its own `.env`, or read them with `docker compose port`.
-- **Status:** Needs review
-
 ### Smoke and contract tests run on a bespoke HTTP test framework
 
 - **What:** `scripts/smoke/` (about 2,600 lines) is its own test runner, with a probe DSL, suites, surfaces, verdicts, a concurrency pool, retries, latency budgets, and a reporter.
 - **Where:** `scripts/smoke/`
-- **Why it's unusual:** it gives up filtering, watch mode, standard reporters, and `test.each`, and the reinvented pieces drift. The "p95" over five samples is the maximum. `target.ts` can call `process.exit` at import time. `surfaces.ts` takes the first argument that is not `--worktree` as the target. So, from a reading of the code, `bun run smoke:dev --suite search` fails as an unknown target.
+- **Why it's unusual:** it gives up filtering, watch mode, standard reporters, and `test.each`, and the reinvented pieces drift. The "p95" over five samples is the maximum. `target.ts` can call `process.exit` at import time. `surfaces.ts` takes the first argument as the target. So, from a reading of the code, `bun run smoke:dev --suite search` fails as an unknown target.
 - **Normal approach:** `bun test` with `describe.each`/`test.each` over the probe tables (or Hurl for black-box HTTP). OpenAPI conformance already uses the standard tool, Schemathesis (`scripts/api/conformance.ts`).
 - **Status:** Needs review
 

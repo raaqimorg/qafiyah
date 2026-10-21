@@ -134,7 +134,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 <summary><b>Documentation map</b></summary>
 <br>
 
-- [`docs/development.md`](docs/development.md): how to run the stack locally, everyday commands, worktrees, and committing.
+- [`docs/development.md`](docs/development.md): how to run the stack locally, everyday commands, and committing.
 - [`docs/topology.md`](docs/topology.md): a diagram-first map of the whole system, both code and production. It is drawn from the C4 model in [`docs/architecture/workspace.dsl`](docs/architecture/workspace.dsl).
 - [`docs/deployment/README.md`](docs/deployment/README.md): the production entry point.
 - [`docs/changelog/`](docs/changelog/): what each released version changed, one file per version.

@@ -7,13 +7,7 @@ const DEV_PASSWORD_DEFAULTS = {
   ELASTIC_PASSWORD: 'qafiyah-dev-es',
 } as const;
 
-export function serviceUrls({
-  env,
-  offset,
-}: {
-  readonly env: Readonly<Record<string, string | undefined>>;
-  readonly offset: number;
-}): {
+export function serviceUrls(env: Readonly<Record<string, string | undefined>>): {
   readonly database: string;
   readonly accounts: string;
   readonly elasticsearch: string;
@@ -24,12 +18,10 @@ export function serviceUrls({
   const esReader = env['ES_READER_PASSWORD'] ?? DEV_PASSWORD_DEFAULTS.ES_READER_PASSWORD;
   const esAdmin = env['ELASTIC_PASSWORD'] ?? DEV_PASSWORD_DEFAULTS.ELASTIC_PASSWORD;
   const database = env['POSTGRES_DB'] ?? 'qafiyah';
-  const pgPort = DEV_POSTGRES_PORT + offset;
-  const esPort = DEV_ES_PORT + offset;
   return {
-    database: `postgresql://qafiyah_api:${reader}@localhost:${pgPort}/${database}`,
-    accounts: `postgresql://qafiyah_accounts:${accounts}@localhost:${pgPort}/qafiyah_accounts`,
-    elasticsearch: `http://qafiyah_api:${esReader}@localhost:${esPort}`,
-    elasticsearchAdmin: `http://elastic:${esAdmin}@localhost:${esPort}`,
+    database: `postgresql://qafiyah_api:${reader}@localhost:${DEV_POSTGRES_PORT}/${database}`,
+    accounts: `postgresql://qafiyah_accounts:${accounts}@localhost:${DEV_POSTGRES_PORT}/qafiyah_accounts`,
+    elasticsearch: `http://qafiyah_api:${esReader}@localhost:${DEV_ES_PORT}`,
+    elasticsearchAdmin: `http://elastic:${esAdmin}@localhost:${DEV_ES_PORT}`,
   };
 }

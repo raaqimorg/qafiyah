@@ -5,7 +5,7 @@
   "ignore": ["apps/web/src/lib/generated/openapi/schema.gen.ts"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/dev/worktree.ts", "scripts/**/*.test.ts"]
+      "entry": ["scripts/**/*.test.ts"]
     }
   }
 }

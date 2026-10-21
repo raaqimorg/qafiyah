@@ -16,9 +16,9 @@ afterEach(async () => {
 });
 
 describe('walkFiles', () => {
-  test('skips the worktrees under .worktrees', async () => {
+  test('skips the ignored folders, such as node_modules', async () => {
     await Bun.write(join(dir, 'apps/web/main.ts'), '');
-    await Bun.write(join(dir, '.worktrees/feature/apps/web/main.ts'), '');
+    await Bun.write(join(dir, 'apps/web/node_modules/astro/index.ts'), '');
 
     expect([...walkFiles(dir)]).toEqual([join(dir, 'apps/web/main.ts')]);
   });

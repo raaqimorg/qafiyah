@@ -9,8 +9,6 @@ import {
   PROD_SITE_URL,
 } from '@qafiyah/config';
 
-import { resolveWorktreeIdentity } from '../dev/worktree';
-
 export type SurfaceName = 'origin' | 'stack' | 'prod';
 
 export type Host = 'web' | 'api' | 'mcp';
@@ -42,30 +40,18 @@ export function hostHeader(host: Host): string {
   return HOST_HEADERS[host];
 }
 
-export async function resolveSurface(): Promise<Surface> {
-  const positional = process.argv.slice(2).find((arg) => arg !== '--worktree');
+export function resolveSurface(): Surface {
+  const positional = process.argv[2];
   const raw = (positional ?? process.env['SMOKE_TARGET'] ?? 'origin').toLowerCase();
   const requested = raw.startsWith('--') ? raw.slice(2) : raw;
-
-  let offset = 0;
-  if (process.argv.includes('--worktree')) {
-    const identity = await resolveWorktreeIdentity();
-    if (!identity.isWorktree) {
-      console.error(
-        '--worktree passed but this is the primary checkout, nothing to isolate against'
-      );
-      process.exit(2);
-    }
-    offset = identity.offset;
-  }
 
   if (requested === 'origin' || requested === 'dev' || requested === 'local') {
     return {
       name: 'origin',
-      web: `http://localhost:${DEV_WEB_PORT + offset}`,
-      api: `http://localhost:${DEV_API_PORT + offset}`,
-      mcp: `http://localhost:${DEV_MCP_PORT + offset}`,
-      edgePort: DEV_EDGE_PORT + offset,
+      web: `http://localhost:${DEV_WEB_PORT}`,
+      api: `http://localhost:${DEV_API_PORT}`,
+      mcp: `http://localhost:${DEV_MCP_PORT}`,
+      edgePort: DEV_EDGE_PORT,
       grafana: null,
       manageServer: true,
       prodOnly: false,
@@ -74,11 +60,11 @@ export async function resolveSurface(): Promise<Surface> {
   if (requested === 'stack') {
     return {
       name: 'stack',
-      web: `http://localhost:${DEV_EDGE_PORT + offset}`,
-      api: `http://localhost:${DEV_EDGE_PORT + offset}`,
-      mcp: `http://localhost:${DEV_EDGE_PORT + offset}`,
-      edgePort: DEV_EDGE_PORT + offset,
-      grafana: `http://localhost:${DEV_GRAFANA_PORT + offset}`,
+      web: `http://localhost:${DEV_EDGE_PORT}`,
+      api: `http://localhost:${DEV_EDGE_PORT}`,
+      mcp: `http://localhost:${DEV_EDGE_PORT}`,
+      edgePort: DEV_EDGE_PORT,
+      grafana: `http://localhost:${DEV_GRAFANA_PORT}`,
       manageServer: true,
       prodOnly: false,
     };

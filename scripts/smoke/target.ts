@@ -19,7 +19,7 @@ export {
   STACK_SESSION_STATE_SECRET,
 };
 
-export const SURFACE: Surface = await resolveSurface();
+export const SURFACE: Surface = resolveSurface();
 export const TARGET = { name: SURFACE.name, manageServer: SURFACE.manageServer } as const;
 
 export const WEB = SURFACE.web;

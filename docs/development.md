@@ -61,7 +61,7 @@ Default URLs:
 | Postgres      | localhost:5434            |
 | Elasticsearch | localhost:9201            |
 
-The ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_MCP_PORT`, `DEV_INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`). Each app also reads its port from an environment variable: `PORT` for the API, `MCP_PORT` for the MCP server, `WEB_PORT`, `INSPECTOR_PORT`, and `DEV_POSTGRES_PORT`. `--worktree` sets these variables with an offset (see "Working in a git worktree").
+The ports come from `config.ts` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_MCP_PORT`, `DEV_INSPECTOR_PORT`, `DEV_POSTGRES_PORT`, `DEV_ES_PORT`, `DEV_EDGE_PORT`). Each app also reads its port from an environment variable: `PORT` for the API, `MCP_PORT` for the MCP server, `WEB_PORT`, `INSPECTOR_PORT`, and `DEV_POSTGRES_PORT`.
 
 To stop every running process, press `Ctrl-C`. The runner sends SIGTERM, then SIGKILL after 5 seconds.
 
@@ -122,23 +122,6 @@ The smoke runs leave your dev environment as they found it:
 `rust:test:db` starts the dev Postgres and Elasticsearch, and runs the one-shot indexer. It then runs `apps/api/tests/db.rs` and the indexer's tests, with the same connection strings that `bun run dev` uses. Without the `QAFIYAH_TEST_*` variables, the database-backed tests skip themselves. That is why plain `cargo test` needs no infrastructure. The API under test keeps its 5 second statement timeout. The harness's own checks, some of which scan the whole corpus, run on a separate pool with 60 seconds (#233).
 
 Run `bun run ci` before you open a pull request, because it is the full gate. GitHub Actions runs the same gate, and skips a Docker phase when the change touches nothing that the phase uses (`docs/topology.md`, "CI/CD topology"). If Docker is not available, `bun run ci --no-docker` skips the Docker steps: the diagram check, the database-backed tests, and both smoke runs. `bun run ci --docker-only` runs only those steps. The stack smoke builds the three images through `compose up --build`, so a full run also proves that every image builds.
-
-## Working in a git worktree
-
-You may work in a git worktree, not the primary checkout (for example, under `.worktrees/`). To isolate it from a dev stack that already runs in the primary checkout, **pass `--worktree` to `dev`, `db:reset`, and `reindex`**:
-
-```bash
-bun run dev --worktree
-./scripts/dev/db-reset.sh --worktree
-./scripts/es/reindex.sh --worktree
-bun run smoke:dev --worktree     # against a --worktree dev server
-```
-
-Without `--worktree`, a worktree uses the same Docker Compose project name and ports as the primary checkout. So if you run `dev` in both at the same time, they collide. With `--worktree`, the Compose project name and every port get an offset that comes from the worktree's directory name. This covers Postgres, Elasticsearch, the edge gateway, the API, the web app, and the inspector. Several worktrees can then run their own dev stacks side by side.
-
-Being in a worktree does not turn on `--worktree`. `scripts/dev/worktree.ts` only _detects_ a worktree. Nothing isolates the ports or the Compose project unless you pass the flag. If you pass `--worktree` in the primary checkout, the command fails with "nothing to isolate against".
-
-On the first `bun run dev --worktree`, the worktree gets a copy of the primary checkout's root `.env`, unless it already has one. `apps/web/.env` is generated with the worktree's own API port.
 
 ## Committing
 

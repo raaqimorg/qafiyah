@@ -2,7 +2,6 @@
 
 import { API_KEY_HEADER, API_V1_PREFIX, DEV_API_PORT, PROD_API_URL } from '@qafiyah/config';
 
-import { resolveWorktreeIdentity } from '../dev/worktree';
 import { ROOT } from '../lib/root';
 
 const SCHEMATHESIS_IMAGE = 'schemathesis/schemathesis:4.29.1';
@@ -18,20 +17,10 @@ const CHECKS = [
 
 const target = process.argv.includes('prod') ? 'prod' : 'dev';
 
-let offset = 0;
-if (process.argv.includes('--worktree')) {
-  const identity = await resolveWorktreeIdentity();
-  if (!identity.isWorktree) {
-    console.error('--worktree passed but this is the primary checkout, nothing to isolate against');
-    process.exit(2);
-  }
-  offset = identity.offset;
-}
-
 const base =
   target === 'prod'
     ? `${PROD_API_URL}${API_V1_PREFIX}`
-    : `http://host.docker.internal:${DEV_API_PORT + offset}${API_V1_PREFIX}`;
+    : `http://host.docker.internal:${DEV_API_PORT}${API_V1_PREFIX}`;
 const apiKey = process.env['SMOKE_API_KEY'] ?? process.env['API_KEY_FULL'];
 
 const schemathesis = Bun.spawn(

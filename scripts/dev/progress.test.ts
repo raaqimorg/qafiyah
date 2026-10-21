@@ -38,12 +38,6 @@ describe('composeProgress', () => {
     expect(progress(' Container qafiyah-dev-db-0037 Healthy ')).toBe('db healthy · es waiting');
   });
 
-  test('names a worktree container by its service too', () => {
-    expect(composeProgress()(' Container qafiyah-dev-qafiyah-wt-75-db Started ')).toBe(
-      'db started'
-    );
-  });
-
   test("shows the database's init phase from its log, shortening paths", () => {
     const progress = composeProgress();
     progress(' Container qafiyah-dev-es Healthy ');

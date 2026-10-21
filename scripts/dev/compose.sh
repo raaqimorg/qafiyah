@@ -18,36 +18,9 @@ dev_default PG_MONITOR_PASSWORD qafiyah-dev-pg-monitor
 dev_default ES_MONITOR_PASSWORD qafiyah-dev-es-monitor
 dev_default GRAFANA_ADMIN_PASSWORD qafiyah-dev-grafana
 
-worktree_flag=false
-args=()
-for arg in "$@"; do
-  case "$arg" in
-    --worktree | -w) worktree_flag=true ;;
-    *) args+=("$arg") ;;
-  esac
-done
-
-in_linked_worktree() {
-  local git_dir common_dir
-  git_dir="$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)" || return 1
-  common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
-  [[ -n "${git_dir}" && "${git_dir}" != "${common_dir}" ]]
-}
-
-if [[ "${worktree_flag}" == false ]] && in_linked_worktree; then
-  worktree_flag=true
-fi
-
-if [[ "${worktree_flag}" == true ]]; then
-  env_output="$(bun scripts/dev/worktree.ts --env)" || exit 1
-  set -a
-  eval "$env_output"
-  set +a
-else
-  export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-qafiyah-dev}"
-fi
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-qafiyah-dev}"
 
 files=(-f docker-compose.yml -f docker-compose.dev.yml)
 [[ -n "${COMPOSE_CI_FILE:-}" ]] && files+=(-f "${COMPOSE_CI_FILE}")
 
-exec docker compose "${files[@]}" "${args[@]}"
+exec docker compose "${files[@]}" "$@"

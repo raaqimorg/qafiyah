@@ -81,7 +81,7 @@ const slugsOf = (rows: readonly Record<string, unknown>[], take: number): string
   rows.slice(0, take).map((row) => String(row['slug']));
 
 async function specialSlugs(): Promise<Target[]> {
-  const sql = new SQL(serviceUrls({ env: process.env, offset: 0 }).database);
+  const sql = new SQL(serviceUrls(process.env).database);
   const column = async (query: string): Promise<string[]> => {
     const rows: readonly { readonly slug: string }[] = await sql.unsafe(query);
     return rows.map((row) => row.slug);

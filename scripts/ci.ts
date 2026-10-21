@@ -2,7 +2,6 @@
 
 import { selectPhases, type Phase, type Task } from './ci/phases';
 import { killGroup, spawnGroup } from './ci/process-group';
-import { resolveWorktreeIdentity } from './dev/worktree';
 
 import type { Subprocess } from 'bun';
 
@@ -31,16 +30,6 @@ const bold = paint(1);
 const green = paint(32);
 const red = paint(31);
 const yellow = paint(33);
-
-const identity = await resolveWorktreeIdentity();
-if (identity.isWorktree && !args.includes('--worktree')) {
-  console.warn(
-    yellow(
-      `running in worktree '${identity.slug}' without --worktree, ports and containers will collide with the primary checkout`
-    )
-  );
-}
-const smokeArgs = identity.isWorktree ? ['--worktree'] : [];
 
 const STATIC: Task[] = [
   { name: 'lint', cmd: ['bun', 'run', 'lint:check'] },
@@ -93,17 +82,17 @@ const PHASES: readonly Phase[] = [
   },
   {
     name: 'db',
-    tasks: [{ name: 'db', cmd: ['bun', 'run', 'rust:test:db', ...smokeArgs] }],
+    tasks: [{ name: 'db', cmd: ['bun', 'run', 'rust:test:db'] }],
     kind: 'docker',
   },
   {
     name: 'origin',
-    tasks: [{ name: 'origin', cmd: ['bun', 'run', 'smoke:dev', ...smokeArgs] }],
+    tasks: [{ name: 'origin', cmd: ['bun', 'run', 'smoke:dev'] }],
     kind: 'docker',
   },
   {
     name: 'stack',
-    tasks: [{ name: 'stack', cmd: ['bun', 'run', 'smoke:stack', ...smokeArgs] }],
+    tasks: [{ name: 'stack', cmd: ['bun', 'run', 'smoke:stack'] }],
     kind: 'docker',
   },
 ];
