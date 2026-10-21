@@ -18,6 +18,9 @@ function isolatedEnv(): Record<string, string | undefined> {
     GIT_AUTHOR_EMAIL: 'test@example.test',
     GIT_COMMITTER_NAME: 'test',
     GIT_COMMITTER_EMAIL: 'test@example.test',
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'maintenance.auto',
+    GIT_CONFIG_VALUE_0: 'false',
   };
 }
 
@@ -71,11 +74,9 @@ function pushOf(sha: string): number {
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), 'forbidden-terms-'));
   work = join(root, 'work');
-  gitIn(root, ['init', '-q', '--bare', 'remote.git']);
   gitIn(root, ['init', '-q', '-b', 'main', 'work']);
-  git(['remote', 'add', 'origin', join(root, 'remote.git')]);
   git(['commit', '--allow-empty', '-q', '-m', 'base']);
-  git(['push', '-q', 'origin', 'main']);
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
   setTerms(TERMS);
 });
 

@@ -18,6 +18,9 @@ function isolatedEnv(email = ALLOWED): Record<string, string | undefined> {
     GIT_AUTHOR_EMAIL: email,
     GIT_COMMITTER_NAME: 'test',
     GIT_COMMITTER_EMAIL: email,
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'maintenance.auto',
+    GIT_CONFIG_VALUE_0: 'false',
   };
 }
 
@@ -50,12 +53,10 @@ function prePush(localSha: string, remoteSha: string): number {
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), 'commit-identity-'));
   work = join(root, 'work');
-  gitIn(root, ['init', '-q', '--bare', 'remote.git']);
   gitIn(root, ['init', '-q', '-b', 'main', 'work']);
   git(['config', '--local', 'qafiyah.allowedEmail', ALLOWED]);
-  git(['remote', 'add', 'origin', join(root, 'remote.git')]);
   commit('base');
-  git(['push', '-q', 'origin', 'main']);
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
 });
 
 afterAll(() => {
@@ -83,7 +84,7 @@ describe('the pre-push commit identity guard', () => {
   test('refuses a new commit made under another email', () => {
     git(['switch', '-q', '-c', 'feature', 'main']);
     const pushed = commit('feature work');
-    git(['push', '-q', 'origin', 'feature']);
+    git(['update-ref', 'refs/remotes/origin/feature', 'HEAD']);
     const foreign = commit('foreign work', OTHER);
     expect(prePush(foreign, pushed)).toBe(1);
     git(['reset', '-q', '--hard', pushed]);
@@ -92,10 +93,9 @@ describe('the pre-push commit identity guard', () => {
   test('accepts a branch that merged commits another identity already put on the remote', () => {
     git(['switch', '-q', 'main']);
     commit('merged on the server', OTHER);
-    git(['push', '-q', 'origin', 'main']);
+    git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
     git(['switch', '-q', 'feature']);
     const pushed = git(['rev-parse', 'HEAD']);
-    git(['fetch', '-q', 'origin']);
     git(['merge', '-q', '--no-edit', 'origin/main']);
     expect(prePush(git(['rev-parse', 'HEAD']), pushed)).toBe(0);
   });
