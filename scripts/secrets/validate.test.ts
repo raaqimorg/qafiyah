@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
-import { checkDecryptedValues, checkEncryptedNames, dumpDirectories } from './validate';
+import { checkDecryptedValues, checkEncryptedNames } from './validate';
 
 const HEX_A = 'a'.repeat(64);
 const HEX_B = 'b'.repeat(64);
 const HEX_C = 'c'.repeat(64);
 const HEX_D = 'd'.repeat(64);
-const DUMP_DIRS = ['0028_21_09_2026'];
 
 const VALID_PROD = [
   'POSTGRES_PASSWORD=postgres-password-0001',
@@ -48,126 +47,119 @@ function withLine(base: string, key: string, value: string | undefined): string 
 
 describe('checkDecryptedValues', () => {
   test('a complete prod file has no problems', () => {
-    expect(checkDecryptedValues('prod', VALID_PROD, DUMP_DIRS)).toEqual([]);
+    expect(checkDecryptedValues('prod', VALID_PROD)).toEqual([]);
   });
 
   test('a key set twice is reported with both lines', () => {
     const text = `${VALID_PROD}\nAPI_KEY_FULL=${HEX_B}`;
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'API_KEY_FULL is set 2 times (lines 11, 31)'
     );
   });
 
   test('a misspelled key is rejected as unknown', () => {
     const text = `${VALID_PROD}\nAPI_KEY_INTRENAL=x`;
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'API_KEY_INTRENAL is not a known key (add it to scripts/secrets/schema.ts)'
     );
   });
 
   test('a required prod key that is missing or empty is reported', () => {
     const text = withLine(VALID_PROD, 'SESSION_STATE_SECRET', '');
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'SESSION_STATE_SECRET is required in prod'
     );
   });
 
   test('prod requires the data bucket keys', () => {
     const text = withLine(VALID_PROD, 'DATA_R2_ENDPOINT', undefined);
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'DATA_R2_ENDPOINT is required in prod'
-    );
+    expect(checkDecryptedValues('prod', text)).toContain('DATA_R2_ENDPOINT is required in prod');
   });
 
   test('dev does not require prod-only keys', () => {
-    expect(checkDecryptedValues('dev', 'POSTGRES_PASSWORD=qafiyah', DUMP_DIRS)).toEqual([]);
+    expect(checkDecryptedValues('dev', 'POSTGRES_PASSWORD=qafiyah')).toEqual([]);
   });
 
   test('a key forbidden in an environment is rejected there', () => {
     const text = `${VALID_PROD}\nANON_REQUESTS=60`;
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'ANON_REQUESTS must not be set in prod'
-    );
+    expect(checkDecryptedValues('prod', text)).toContain('ANON_REQUESTS must not be set in prod');
   });
 
   test('the Telegram alert keys are required in prod', () => {
     const text = withLine(VALID_PROD, 'TELEGRAM_CHAT_ID', undefined);
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
-      'TELEGRAM_CHAT_ID is required in prod'
-    );
+    expect(checkDecryptedValues('prod', text)).toContain('TELEGRAM_CHAT_ID is required in prod');
   });
 
   test('the Telegram alert keys are refused in dev, so a dev stack never sends alerts', () => {
-    expect(
-      checkDecryptedValues('dev', 'TELEGRAM_BOT_TOKEN=123456:telegram-bot-token', DUMP_DIRS)
-    ).toContain('TELEGRAM_BOT_TOKEN must not be set in dev');
+    expect(checkDecryptedValues('dev', 'TELEGRAM_BOT_TOKEN=123456:telegram-bot-token')).toContain(
+      'TELEGRAM_BOT_TOKEN must not be set in dev'
+    );
   });
 
   test('ENVIRONMENT must be exactly production in prod', () => {
     const text = withLine(VALID_PROD, 'ENVIRONMENT', 'Production');
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       "ENVIRONMENT must be exactly 'production'"
     );
   });
 
   test('a generated key that is not 64 hex characters is rejected', () => {
     const text = withLine(VALID_PROD, 'API_KEY_INTERNAL', 'short');
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'API_KEY_INTERNAL must be 64 lowercase hex characters (openssl rand -hex 32)'
     );
   });
 
   test('a short password is rejected in prod only', () => {
     const text = withLine(VALID_PROD, 'POSTGRES_PASSWORD', 'qafiyah');
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'POSTGRES_PASSWORD must be at least 16 characters in prod'
     );
-    expect(checkDecryptedValues('dev', 'POSTGRES_PASSWORD=qafiyah', DUMP_DIRS)).toEqual([]);
+    expect(checkDecryptedValues('dev', 'POSTGRES_PASSWORD=qafiyah')).toEqual([]);
   });
 
   test('an Elasticsearch password with a URL-reserved character is rejected', () => {
     for (const reserved of ['ab@cd', 'a/b', 'a#b', 'a?b', 'a:b', 'a b', 'a%b']) {
       const text = withLine(VALID_PROD, 'ES_READER_PASSWORD', `password-long-enough-${reserved}`);
-      expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+      expect(checkDecryptedValues('prod', text)).toContain(
         'ES_READER_PASSWORD must contain only URL-safe characters (letters, digits, and . _ ~ -)'
       );
     }
     const safe = withLine(VALID_PROD, 'ES_READER_PASSWORD', 'password-long-enough.url_safe~1');
-    expect(checkDecryptedValues('prod', safe, DUMP_DIRS)).toEqual([]);
+    expect(checkDecryptedValues('prod', safe)).toEqual([]);
   });
 
   test('two secrets holding the same value are reported without the value', () => {
     const text = withLine(VALID_PROD, 'API_KEY_FULL', HEX_A);
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'API_KEY_INTERNAL and API_KEY_FULL hold the same value'
     );
   });
 
   test('half of a credential pair is reported', () => {
     const text = 'OAUTH_GITHUB_CLIENT_ID=github-id';
-    expect(checkDecryptedValues('dev', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('dev', text)).toContain(
       'OAUTH_GITHUB_CLIENT_ID and OAUTH_GITHUB_CLIENT_SECRET must be set together'
     );
   });
 
   test('half of the data bucket credential pair is reported', () => {
     const text = 'DATA_R2_ACCESS_KEY_ID=r2-data-access-key-id-13';
-    expect(checkDecryptedValues('dev', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('dev', text)).toContain(
       'DATA_R2_ACCESS_KEY_ID and DATA_R2_SECRET_ACCESS_KEY must be set together'
     );
   });
 
   test('the backup bucket cannot be the public assets bucket', () => {
     const text = withLine(VALID_PROD, 'ACCOUNTS_BACKUP_BUCKET', 'qafiyah-assets');
-    expect(checkDecryptedValues('prod', text, DUMP_DIRS)).toContain(
+    expect(checkDecryptedValues('prod', text)).toContain(
       'ACCOUNTS_BACKUP_BUCKET must not be the public qafiyah-assets bucket'
     );
   });
 
-  test('a dump key must name an existing dump directory', () => {
-    expect(checkDecryptedValues('dev', 'DUMP_KEY__0028_21_09_2026=p', DUMP_DIRS)).toEqual([]);
-    expect(checkDecryptedValues('dev', 'DUMP_KEY__0029_21_09_2026=p', DUMP_DIRS)).toContain(
-      'DUMP_KEY__0029_21_09_2026 has no matching data/db/0029_21_09_2026 directory'
+  test('a DUMP_KEY__ key is unknown', () => {
+    expect(checkDecryptedValues('dev', 'DUMP_KEY__0046_15_10_2026=p')).toContain(
+      'DUMP_KEY__0046_15_10_2026 is not a known key (add it to scripts/secrets/schema.ts)'
     );
   });
 });
@@ -175,37 +167,19 @@ describe('checkDecryptedValues', () => {
 describe('checkEncryptedNames', () => {
   test('sops metadata lines are ignored and encrypted values pass', () => {
     const text = 'POSTGRES_PASSWORD=ENC[AES256_GCM,data:x]\nsops_version=3.13.3';
-    expect(checkEncryptedNames('dev', text, DUMP_DIRS)).toEqual([]);
+    expect(checkEncryptedNames('dev', text)).toEqual([]);
   });
 
   test('a value committed in plaintext is reported', () => {
     const text = 'POSTGRES_PASSWORD=hunter2\nsops_version=3.13.3';
-    expect(checkEncryptedNames('dev', text, DUMP_DIRS)).toContain(
+    expect(checkEncryptedNames('dev', text)).toContain(
       'POSTGRES_PASSWORD (line 1) is stored unencrypted'
     );
   });
 
   test('missing required keys are caught without decrypting', () => {
-    expect(checkEncryptedNames('prod', 'sops_version=3.13.3', DUMP_DIRS)).toContain(
+    expect(checkEncryptedNames('prod', 'sops_version=3.13.3')).toContain(
       'API_KEY_INTERNAL is required in prod'
     );
-  });
-});
-
-describe('dumpDirectories', () => {
-  test('a dump directory counts when git tracks it but a sparse checkout left it off disk', () => {
-    expect(
-      dumpDirectories(['data/db/0031_23_09_2026/CHANGES.md.enc', 'data/db/README.md'], [])
-    ).toEqual(['0031_23_09_2026']);
-  });
-
-  test('a dump directory counts when it is on disk but not committed yet', () => {
-    expect(dumpDirectories([], ['0037_01_10_2026'])).toEqual(['0037_01_10_2026']);
-  });
-
-  test('the fallback sample is not a dump directory', () => {
-    expect(
-      dumpDirectories(['data/db/0000_default/manifest.json'], ['0000_default', '0031_23_09_2026'])
-    ).toEqual(['0031_23_09_2026']);
   });
 });

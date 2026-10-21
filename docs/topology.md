@@ -131,7 +131,7 @@ The conventions are in `docs/code-conventions.md`, `docs/typescript-conventions.
   - A push that touches only these files runs the gate alone: docs, agent guides, repo templates, lint configuration that only the gate reads, or encrypted files (secrets, production dumps, avatars).
   - A change to the website only skips `db`.
   - A path on no skip list runs every phase. A manual run (`workflow_dispatch`) runs them all.
-- Every job does a sparse checkout. It leaves out the encrypted production dumps, avatars, and feelings (about 3.7 GB in October 2026). It keeps the committed 100-poem sample that the Docker phases run on, so they need no secrets.
+- The Docker phases run on the committed 100-poem sample, so they need no secrets and no R2 token.
 
 Two other workflows run on pull requests:
 

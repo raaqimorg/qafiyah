@@ -243,7 +243,7 @@ For the site, a poet with `poets.is_hidden` set does not exist:
 - Their old slugs stop redirecting.
 - They are not in any list, search result, sitemap, random poem, related-poems list, or taxonomy count.
 
-The rows stay in the database, so unhiding the poet brings everything back. Hiding is an editorial choice. A removal request needs a deletion, because the encrypted dumps go to anyone who asks.
+The rows stay in the database, so unhiding the poet brings everything back. Hiding is an editorial choice. A removal request needs a deletion, because the dumps go to anyone who asks.
 
 `poems.is_hidden` is a copy of the poet's flag. The composite foreign key `(poet_id, is_hidden) REFERENCES poets (id, is_hidden) ON UPDATE CASCADE` keeps it equal, the same arrangement as `era_id`.
 

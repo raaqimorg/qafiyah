@@ -1,7 +1,5 @@
 import { type DotenvEntry, parseDotenv } from './dotenv';
 import {
-  DUMP_KEY_PATTERN,
-  DUMP_KEY_SPEC,
   KEY_SPECS,
   type KeySpec,
   PAIRED_KEYS,
@@ -13,8 +11,6 @@ import {
 
 const SOPS_METADATA_PREFIX = 'sops_';
 const ENCRYPTED_VALUE_PREFIX = 'ENC[';
-const DUMPS_PATH_PREFIX = 'data/db/';
-const DEFAULT_DUMP_DIR = '0000_default';
 
 type FormatCheck = (value: string, env: SecretsEnvironment) => string | undefined;
 
@@ -42,13 +38,7 @@ const FORMAT_CHECKS: Readonly<Record<SecretFormat, FormatCheck>> = {
   production: (value) => (value === 'production' ? undefined : "must be exactly 'production'"),
 };
 
-function specFor(key: string, dumpDirs: readonly string[]): KeySpec | string {
-  const dump = DUMP_KEY_PATTERN.exec(key);
-  if (dump) {
-    return dumpDirs.includes(dump[1] ?? '')
-      ? DUMP_KEY_SPEC
-      : `${key} has no matching data/db/${dump[1]} directory`;
-  }
+function specFor(key: string): KeySpec | string {
   return KEY_SPECS[key] ?? `${key} is not a known key (add it to scripts/secrets/schema.ts)`;
 }
 
@@ -56,7 +46,6 @@ function structuralProblems(
   env: SecretsEnvironment,
   entries: readonly DotenvEntry[],
   malformedLines: readonly number[],
-  dumpDirs: readonly string[],
   isSet: (entry: DotenvEntry) => boolean
 ): string[] {
   const problems = malformedLines.map((line) => `line ${line} is not KEY=value`);
@@ -66,7 +55,7 @@ function structuralProblems(
   for (const [key, lines] of linesByKey) {
     if (lines.length > 1)
       problems.push(`${key} is set ${lines.length} times (lines ${lines.join(', ')})`);
-    const spec = specFor(key, dumpDirs);
+    const spec = specFor(key);
     if (typeof spec === 'string') problems.push(spec);
     else if (spec.presence[env] === 'forbidden') problems.push(`${key} must not be set in ${env}`);
   }
@@ -80,39 +69,22 @@ function structuralProblems(
   return problems;
 }
 
-export function checkEncryptedNames(
-  env: SecretsEnvironment,
-  text: string,
-  dumpDirs: readonly string[]
-): readonly string[] {
+export function checkEncryptedNames(env: SecretsEnvironment, text: string): readonly string[] {
   const parsed = parseDotenv(text);
   const entries = parsed.entries.filter(({ key }) => !key.startsWith(SOPS_METADATA_PREFIX));
   const plaintext = entries
     .filter(({ value }) => !value.startsWith(ENCRYPTED_VALUE_PREFIX))
     .map(({ key, line }) => `${key} (line ${line}) is stored unencrypted`);
-  return [
-    ...plaintext,
-    ...structuralProblems(env, entries, parsed.malformedLines, dumpDirs, () => true),
-  ];
+  return [...plaintext, ...structuralProblems(env, entries, parsed.malformedLines, () => true)];
 }
 
-export function checkDecryptedValues(
-  env: SecretsEnvironment,
-  text: string,
-  dumpDirs: readonly string[]
-): readonly string[] {
+export function checkDecryptedValues(env: SecretsEnvironment, text: string): readonly string[] {
   const { entries, malformedLines } = parseDotenv(text);
-  const problems = structuralProblems(
-    env,
-    entries,
-    malformedLines,
-    dumpDirs,
-    ({ value }) => value !== ''
-  );
+  const problems = structuralProblems(env, entries, malformedLines, ({ value }) => value !== '');
   const values = new Map(entries.filter(({ value }) => value !== '').map((e) => [e.key, e.value]));
 
   for (const [key, value] of values) {
-    const spec = specFor(key, dumpDirs);
+    const spec = specFor(key);
     if (typeof spec === 'string') continue;
     const formatProblem = FORMAT_CHECKS[spec.format](value, env);
     if (formatProblem) problems.push(`${key} ${formatProblem}`);
@@ -130,7 +102,7 @@ export function checkDecryptedValues(
 
   const secretKeysByValue = new Map<string, string[]>();
   for (const [key, value] of values) {
-    const spec = specFor(key, dumpDirs);
+    const spec = specFor(key);
     if (typeof spec === 'string' || !spec.isSecret) continue;
     secretKeysByValue.set(value, [...(secretKeysByValue.get(value) ?? []), key]);
   }
@@ -139,18 +111,4 @@ export function checkDecryptedValues(
   }
 
   return problems;
-}
-
-export function dumpDirectories(
-  trackedPaths: readonly string[],
-  directoriesOnDisk: readonly string[]
-): readonly string[] {
-  const tracked = trackedPaths
-    .filter((path) => path.startsWith(DUMPS_PATH_PREFIX))
-    .map((path) => path.slice(DUMPS_PATH_PREFIX.length).split('/'))
-    .filter((segments) => segments.length > 1)
-    .map(([directory]) => directory ?? '');
-  return [...new Set([...tracked, ...directoriesOnDisk])].filter(
-    (directory) => directory !== '' && directory !== DEFAULT_DUMP_DIR
-  );
 }

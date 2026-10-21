@@ -25,10 +25,6 @@ const prodRequired = { dev: 'optional', prod: 'required' } as const;
 const devOnly = { dev: 'optional', prod: 'forbidden' } as const;
 const prodOnly = { dev: 'forbidden', prod: 'required' } as const;
 
-export const DUMP_KEY_PATTERN = /^DUMP_KEY__(\d{4}_\d{2}_\d{2}_\d{4})$/;
-
-export const DUMP_KEY_SPEC: KeySpec = { presence: devOptional, format: 'text', isSecret: true };
-
 export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   POSTGRES_USER: { presence: devOptional, format: 'text', isSecret: false },
   POSTGRES_DB: { presence: devOptional, format: 'text', isSecret: false },
@@ -70,9 +66,6 @@ export const KEY_SPECS: Readonly<Record<string, KeySpec>> = {
   CLOUDFLARE_API_TOKEN: { presence: devOptional, format: 'text', isSecret: true },
   TELEGRAM_BOT_TOKEN: { presence: prodOnly, format: 'text', isSecret: true },
   TELEGRAM_CHAT_ID: { presence: prodOnly, format: 'text', isSecret: false },
-  AVATAR_KEY__0000_19_09_2026: { presence: devOptional, format: 'text', isSecret: true },
-  AVATAR_KEY__0001_09_10_2026: { presence: devOptional, format: 'text', isSecret: true },
-  FEELINGS_KEY__0000_14_10_2026: { presence: devOptional, format: 'text', isSecret: true },
 };
 
 export const PAIRED_KEYS: readonly (readonly [string, string])[] = [

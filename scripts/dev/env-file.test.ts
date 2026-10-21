@@ -19,24 +19,24 @@ describe('ensureEnvFileFrom', () => {
   test('copies the source into the target when the target is missing', async () => {
     const source = join(dir, 'source.env');
     const target = join(dir, 'target.env');
-    await Bun.write(source, 'DUMP_KEY__example=secret\n');
+    await Bun.write(source, 'EXAMPLE_KEY=secret\n');
 
     const result = await ensureEnvFileFrom(target, source);
 
     expect(result).toBe('created');
-    expect(await Bun.file(target).text()).toBe('DUMP_KEY__example=secret\n');
+    expect(await Bun.file(target).text()).toBe('EXAMPLE_KEY=secret\n');
   });
 
   test('leaves an existing target untouched', async () => {
     const source = join(dir, 'source.env');
     const target = join(dir, 'target.env');
-    await Bun.write(source, 'DUMP_KEY__example=secret\n');
-    await Bun.write(target, 'DUMP_KEY__existing=keep-me\n');
+    await Bun.write(source, 'EXAMPLE_KEY=secret\n');
+    await Bun.write(target, 'EXISTING_KEY=keep-me\n');
 
     const result = await ensureEnvFileFrom(target, source);
 
     expect(result).toBe('skipped');
-    expect(await Bun.file(target).text()).toBe('DUMP_KEY__existing=keep-me\n');
+    expect(await Bun.file(target).text()).toBe('EXISTING_KEY=keep-me\n');
   });
 
   test('skips when the source does not exist', async () => {
