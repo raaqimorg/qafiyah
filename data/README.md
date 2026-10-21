@@ -61,11 +61,3 @@ The lock refuses every delete, so a removal takes three steps:
 1. Remove the lock rule of the prefix: `wrangler r2 bucket lock remove qafiyah-data --name <category>-forever`.
 2. Delete the object.
 3. Add the rule again: `wrangler r2 bucket lock add qafiyah-data <category>-forever <category>/ --retention-indefinite`.
-
-## Moving or renaming anything here
-
-Push that commit with `git -c pack.useSparse=false push`.
-
-Git's sparse pack algorithm is on by default. It packs every blob under a renamed path again. So a directory rename here builds a pack of several GB, even when the real diff is a few KB. GitHub refuses it with `pack exceeds maximum allowed size (2.00 GiB)`. For example, the move from `dumps/` to `data/db/` made a 2.6 GB pack with the sparse algorithm on, and a 14 KB pack with it off.
-
-Only the push that carries the rename has this problem. It goes away when the old snapshots leave the git history.

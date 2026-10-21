@@ -128,11 +128,11 @@ The conventions are in `docs/code-conventions.md`, `docs/typescript-conventions.
   - `stack`: the stack smoke.
 - A fourth phase, `diagrams` (`bun run docs:diagrams:check`), runs only when `docs/architecture/` or `scripts/docs/` changes. It renders the diagrams on this page again, and compares them with the committed SVGs.
 - A `changes` job compares the changed files with a skip list for each phase, with `dorny/paths-filter`.
-  - A push that touches only these files runs the gate alone: docs, agent guides, repo templates, lint configuration that only the gate reads, or encrypted files (secrets, production dumps, avatars).
+  - A push that touches only these files runs the gate alone: docs, agent guides, repo templates, lint configuration that only the gate reads, or the encrypted secrets.
   - A change to the website only skips `db`.
   - A path on no skip list runs every phase. A manual run (`workflow_dispatch`) runs them all.
 - The Docker phases run on the committed 100-poem sample, so they need no secrets and no R2 token.
-- The `Changes` job checks out without file contents (`filter: blob:none`). It fetches up to 100 commits to find the changed files, and the git history still holds about 6 GB of old snapshots. A full fetch takes longer than the job's 5-minute limit.
+- The `Changes` job checks out without file contents (`filter: blob:none`), so its fetch of up to 100 commits to find the changed files stays small.
 
 Two other workflows run on pull requests:
 
