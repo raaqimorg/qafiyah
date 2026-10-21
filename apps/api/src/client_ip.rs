@@ -1,9 +1,9 @@
-use std::net::{IpAddr, Ipv4Addr};
-use std::sync::OnceLock;
+use std::net::IpAddr;
 
 use axum::http::HeaderMap;
+use ipnet::IpNet;
 
-use crate::constants::{CF_CONNECTING_IP_HEADER, TRUSTED_PROXY_NETWORKS};
+use crate::constants::CF_CONNECTING_IP_HEADER;
 
 const X_FORWARDED_FOR: &str = "x-forwarded-for";
 
@@ -11,67 +11,26 @@ pub fn resolve(headers: &HeaderMap) -> Option<IpAddr> {
     cloudflare(headers).or_else(|| last_forwarded_hop(headers))
 }
 
-pub fn resolve_from(headers: &HeaderMap, peer: Option<IpAddr>) -> Option<IpAddr> {
+pub fn resolve_from(
+    headers: &HeaderMap,
+    peer: Option<IpAddr>,
+    trusted: &[IpNet],
+) -> Option<IpAddr> {
     match peer {
-        Some(peer) if !is_trusted_proxy(peer) => Some(peer),
+        Some(peer) if !is_trusted_proxy(peer, trusted) => Some(peer),
         _ => resolve(headers),
     }
 }
 
-pub fn forwarded(headers: &HeaderMap, peer: Option<IpAddr>) -> Option<IpAddr> {
+pub fn forwarded(headers: &HeaderMap, peer: Option<IpAddr>, trusted: &[IpNet]) -> Option<IpAddr> {
     match peer {
-        Some(peer) if !is_trusted_proxy(peer) => None,
+        Some(peer) if !is_trusted_proxy(peer, trusted) => None,
         _ => cloudflare(headers),
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-struct Cidr {
-    base: u32,
-    mask: u32,
-}
-
-impl Cidr {
-    fn parse(input: &str) -> Option<Self> {
-        let (address, prefix) = input.split_once('/')?;
-        let prefix: u32 = prefix.parse().ok()?;
-        let ip: Ipv4Addr = address.parse().ok()?;
-        if prefix > 32 {
-            return None;
-        }
-        let mask = if prefix == 0 {
-            0
-        } else {
-            u32::MAX.wrapping_shl(32u32.saturating_sub(prefix))
-        };
-        Some(Self {
-            base: u32::from(ip) & mask,
-            mask,
-        })
-    }
-
-    fn contains(self, ip: IpAddr) -> bool {
-        match ip {
-            IpAddr::V4(ipv4) => (u32::from(ipv4) & self.mask) == self.base,
-            IpAddr::V6(_) => false,
-        }
-    }
-}
-
-fn trusted_networks() -> &'static [Cidr] {
-    static NETWORKS: OnceLock<Vec<Cidr>> = OnceLock::new();
-    NETWORKS.get_or_init(|| {
-        TRUSTED_PROXY_NETWORKS
-            .iter()
-            .filter_map(|network| Cidr::parse(network))
-            .collect()
-    })
-}
-
-pub fn is_trusted_proxy(peer: IpAddr) -> bool {
-    trusted_networks()
-        .iter()
-        .any(|network| network.contains(peer))
+fn is_trusted_proxy(peer: IpAddr, trusted: &[IpNet]) -> bool {
+    trusted.iter().any(|network| network.contains(&peer))
 }
 
 fn cloudflare(headers: &HeaderMap) -> Option<IpAddr> {
@@ -97,6 +56,10 @@ fn last_forwarded_hop(headers: &HeaderMap) -> Option<IpAddr> {
 mod tests {
     use super::*;
     use axum::http::{HeaderMap, HeaderValue};
+
+    fn production() -> Vec<IpNet> {
+        vec!["172.27.0.0/24".parse().expect("a network")]
+    }
 
     fn headers(pairs: &[(&'static str, &str)]) -> HeaderMap {
         let mut map = HeaderMap::new();
@@ -179,62 +142,85 @@ mod tests {
     fn a_trusted_peer_keeps_the_header_address() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
         let peer = "172.27.0.9".parse::<IpAddr>().ok();
-        assert_eq!(resolve_from(&map, peer), "203.0.113.7".parse().ok());
+        assert_eq!(
+            resolve_from(&map, peer, &production()),
+            "203.0.113.7".parse().ok()
+        );
     }
 
     #[test]
     fn an_untrusted_peer_is_bucketed_on_its_own_address() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
         let peer = "172.18.0.4".parse::<IpAddr>().ok();
-        assert_eq!(resolve_from(&map, peer), peer);
+        assert_eq!(resolve_from(&map, peer, &production()), peer);
     }
 
     #[test]
     fn a_missing_peer_falls_back_to_the_header() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
-        assert_eq!(resolve_from(&map, None), "203.0.113.7".parse().ok());
+        assert_eq!(
+            resolve_from(&map, None, &production()),
+            "203.0.113.7".parse().ok()
+        );
     }
 
     #[test]
     fn a_forwarded_address_is_read_from_a_trusted_peer_or_a_missing_one() {
         let map = headers(&[("cf-connecting-ip", "2001:db8::7")]);
         let peer = "172.27.0.9".parse::<IpAddr>().ok();
-        assert_eq!(forwarded(&map, peer), "2001:db8::7".parse().ok());
-        assert_eq!(forwarded(&map, None), "2001:db8::7".parse().ok());
+        assert_eq!(
+            forwarded(&map, peer, &production()),
+            "2001:db8::7".parse().ok()
+        );
+        assert_eq!(
+            forwarded(&map, None, &production()),
+            "2001:db8::7".parse().ok()
+        );
     }
 
     #[test]
     fn an_untrusted_peer_never_forwards_an_address_not_even_its_own() {
         let map = headers(&[("cf-connecting-ip", "2001:db8::7")]);
         let peer = "127.0.0.1".parse::<IpAddr>().ok();
-        assert_eq!(forwarded(&map, peer), None);
-        assert_eq!(forwarded(&HeaderMap::new(), peer), None);
+        assert_eq!(forwarded(&map, peer, &production()), None);
+        assert_eq!(forwarded(&HeaderMap::new(), peer, &production()), None);
     }
 
     #[test]
     fn a_forwarded_address_is_never_read_from_x_forwarded_for() {
         let map = headers(&[("x-forwarded-for", "2001:db8::7")]);
         let peer = "172.27.0.9".parse::<IpAddr>().ok();
-        assert_eq!(forwarded(&map, peer), None);
+        assert_eq!(forwarded(&map, peer, &production()), None);
     }
 
     #[test]
     fn a_trusted_peer_without_a_forwarding_header_forwards_nothing() {
         let peer = "172.27.0.9".parse::<IpAddr>().ok();
-        assert_eq!(forwarded(&HeaderMap::new(), peer), None);
+        assert_eq!(forwarded(&HeaderMap::new(), peer, &production()), None);
     }
 
     #[test]
-    fn the_dev_backend_subnet_is_also_trusted() {
+    fn a_peer_outside_the_configured_ranges_is_not_trusted() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
-        let peer = "172.26.0.5".parse::<IpAddr>().ok();
-        assert_eq!(resolve_from(&map, peer), "203.0.113.7".parse().ok());
+        let dev_backend = "172.26.0.5".parse::<IpAddr>().ok();
+        assert_eq!(resolve_from(&map, dev_backend, &production()), dev_backend);
+        assert_eq!(forwarded(&map, dev_backend, &production()), None);
     }
 
     #[test]
-    fn an_ipv6_peer_is_never_a_trusted_proxy() {
+    fn with_no_configured_ranges_no_peer_is_trusted() {
+        let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
+        let peer = "172.27.0.9".parse::<IpAddr>().ok();
+        assert_eq!(resolve_from(&map, peer, &[]), peer);
+        assert_eq!(forwarded(&map, peer, &[]), None);
+    }
+
+    #[test]
+    fn an_ipv6_peer_is_trusted_only_inside_a_configured_ipv6_range() {
         let map = headers(&[("cf-connecting-ip", "203.0.113.7")]);
         let peer = "2001:db8::1".parse::<IpAddr>().ok();
-        assert_eq!(resolve_from(&map, peer), peer);
+        assert_eq!(resolve_from(&map, peer, &production()), peer);
+        let ipv6: Vec<IpNet> = vec!["2001:db8::/32".parse().expect("a network")];
+        assert_eq!(resolve_from(&map, peer, &ipv6), "203.0.113.7".parse().ok());
     }
 }

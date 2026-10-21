@@ -1,3 +1,5 @@
+use ipnet::IpNet;
+
 use crate::auth::Keys;
 use crate::constants::{
     DEFAULT_ANON_REQUESTS, DEFAULT_MCP_ADDRESS_REQUESTS, DEFAULT_MCP_BURST, DEFAULT_MCP_REQUESTS,
@@ -16,6 +18,7 @@ pub struct Config {
     pub keys: Keys,
     pub anon_requests: u32,
     pub mcp: McpLimits,
+    pub trusted_proxies: Vec<IpNet>,
 }
 
 const PRODUCTION: &str = "production";
@@ -51,6 +54,26 @@ fn anon_requests(configured: Option<&str>, environment: &str) -> u32 {
     )
 }
 
+fn trusted_proxies(value: Option<&str>, environment: &str) -> Result<Vec<IpNet>, String> {
+    let ranges = value
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|range| !range.is_empty())
+        .map(|range| {
+            range.parse::<IpNet>().map_err(|_| {
+                format!(
+                    "TRUSTED_PROXIES must be a comma-separated list of CIDR ranges, not {range}"
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if environment == PRODUCTION && ranges.is_empty() {
+        return Err("TRUSTED_PROXIES is required when ENVIRONMENT=production".to_string());
+    }
+    Ok(ranges)
+}
+
 impl Config {
     pub fn from_env(default_port: u16) -> Result<Self, String> {
         Self::from_vars(|name| std::env::var(name).ok(), default_port)
@@ -66,6 +89,7 @@ impl Config {
         let full_key =
             required_in_production("API_KEY_FULL", lookup("API_KEY_FULL"), &environment)?;
         let mcp_key = required_in_production("API_KEY_MCP", lookup("API_KEY_MCP"), &environment)?;
+        let trusted_proxies = trusted_proxies(lookup("TRUSTED_PROXIES").as_deref(), &environment)?;
         let required = |name: &str| lookup(name).ok_or_else(|| format!("{name} is required"));
         let metrics_port = lookup("METRICS_PORT")
             .map(|value| {
@@ -104,6 +128,7 @@ impl Config {
                     DEV_MCP_ADDRESS_REQUESTS,
                 ),
             },
+            trusted_proxies,
             environment,
         })
     }
@@ -207,6 +232,7 @@ mod tests {
         );
         with_internal.push(("API_KEY_FULL", "f"));
         with_internal.push(("API_KEY_MCP", "m"));
+        with_internal.push(("TRUSTED_PROXIES", "172.27.0.0/24"));
         with_internal.push(("PORT", "not-a-port"));
         let config = Config::from_vars(vars(&with_internal), 8787).expect("a prod config");
         assert_eq!(config.anon_requests, DEFAULT_ANON_REQUESTS);
@@ -214,14 +240,59 @@ mod tests {
         assert!(config.keys.is_internal(Some("i")) && config.keys.is_unlimited(Some("f")));
     }
 
-    const PRODUCTION_VARS: [(&str, &str); 6] = [
+    const PRODUCTION_VARS: [(&str, &str); 7] = [
         ("DATABASE_URL", "x"),
         ("DATABASE_URL_ACCOUNTS", "y"),
         ("ELASTICSEARCH_URL", "z"),
         ("ENVIRONMENT", "production"),
         ("API_KEY_INTERNAL", "i"),
         ("API_KEY_FULL", "f"),
+        ("TRUSTED_PROXIES", "172.27.0.0/24"),
     ];
+
+    #[test]
+    fn production_refuses_a_missing_or_blank_trusted_proxy_list() {
+        for value in [None, Some(" , ")] {
+            let pairs: Vec<(&str, &str)> = PRODUCTION_VARS
+                .into_iter()
+                .filter(|(name, _)| *name != "TRUSTED_PROXIES")
+                .chain([("API_KEY_MCP", "m")])
+                .chain(value.map(|value| ("TRUSTED_PROXIES", value)))
+                .collect();
+            assert_eq!(
+                Config::from_vars(vars(&pairs), 1).err(),
+                Some("TRUSTED_PROXIES is required when ENVIRONMENT=production".into()),
+                "{value:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn trusted_proxies_are_a_comma_separated_list_of_cidr_ranges() {
+        let base = [
+            ("DATABASE_URL", "x"),
+            ("DATABASE_URL_ACCOUNTS", "y"),
+            ("ELASTICSEARCH_URL", "z"),
+        ];
+        let unset = Config::from_vars(vars(&base), 1).expect("a dev config");
+        assert!(unset.trusted_proxies.is_empty());
+        let mut listed = base.to_vec();
+        listed.push(("TRUSTED_PROXIES", "172.27.0.0/24, 2001:db8::/32"));
+        let config = Config::from_vars(vars(&listed), 1).expect("a config");
+        assert_eq!(
+            config.trusted_proxies,
+            vec![
+                "172.27.0.0/24".parse::<IpNet>().expect("a network"),
+                "2001:db8::/32".parse::<IpNet>().expect("a network"),
+            ]
+        );
+        for bad in ["172.27.0.0/33", "nonsense"] {
+            let mut pairs = base.to_vec();
+            pairs.push(("TRUSTED_PROXIES", bad));
+            let error = Config::from_vars(vars(&pairs), 1).err().expect("a refusal");
+            assert!(error.contains("TRUSTED_PROXIES"), "{error}");
+        }
+    }
 
     #[test]
     fn production_refuses_a_missing_mcp_key() {

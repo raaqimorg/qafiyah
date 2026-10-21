@@ -7,6 +7,8 @@ services:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-api
     build:
       network: default
+    environment:
+      TRUSTED_PROXIES: 172.26.0.0/24
   mcp:
     container_name: qafiyah-dev${DEV_SUFFIX:-}-mcp
     build:

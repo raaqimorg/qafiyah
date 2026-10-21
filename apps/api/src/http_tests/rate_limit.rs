@@ -12,11 +12,14 @@ use crate::state::AppState;
 use crate::test_support::{FakeEs, request, send, state_with};
 
 fn app(es: &FakeEs, anon: u32) -> axum::Router {
-    crate::app(state_with(
-        es,
-        Keys::new(Some("internal".into()), Some("full".into())),
-        anon,
-    ))
+    crate::app(
+        state_with(
+            es,
+            Keys::new(Some("internal".into()), Some("full".into())),
+            anon,
+        )
+        .with_trusted_proxies(vec!["172.26.0.0/24".parse().expect("a network")]),
+    )
 }
 
 fn from(path: &str, ip: &str, key: Option<&str>) -> Request<Body> {
@@ -435,4 +438,21 @@ async fn an_mcp_call_never_touches_the_key_cache() {
         Some(WIDE.address_requests.to_string().as_str())
     );
     assert!(state.key_cache.is_empty());
+}
+
+#[tokio::test]
+async fn without_trusted_proxies_the_web_container_cannot_forward_a_visitor() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let app = crate::app(state_with(
+        &es,
+        Keys::new(Some("internal".into()), Some("full".into())),
+        1,
+    ));
+    let sent = send(
+        app,
+        from_peer("172.26.0.5", "2001:db8:9:9::1", Some("internal")),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(sent.header("x-ratelimit-limit"), None);
 }

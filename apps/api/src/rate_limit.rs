@@ -342,7 +342,7 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(peer)| peer.ip());
     let visitor = if state.keys.is_internal(key) {
-        client_ip::forwarded(request.headers(), peer)
+        client_ip::forwarded(request.headers(), peer, &state.trusted_proxies)
     } else {
         None
     };
@@ -365,13 +365,16 @@ pub async fn layer(State(state): State<AppState>, request: Request, next: Next) 
     };
 
     let limits = if mcp {
-        mcp_limits(client_ip::forwarded(request.headers(), peer), state.mcp)
+        mcp_limits(
+            client_ip::forwarded(request.headers(), peer, &state.trusted_proxies),
+            state.mcp,
+        )
     } else {
         match visitor {
             Some(visitor) => visitor_limits(visitor),
             None => limits_for(
                 caller,
-                client_ip::resolve_from(request.headers(), peer),
+                client_ip::resolve_from(request.headers(), peer, &state.trusted_proxies),
                 state.anon_requests,
             ),
         }

@@ -81,4 +81,3 @@ pub const UNAVAILABLE_RETRY_AFTER_SECONDS: u64 = 2;
 pub const PG_LOCK_TIMEOUT_SECONDS: u64 = 2;
 pub const PG_POOL_MAX_CONNECTIONS: usize = 20;
 pub const PG_ACCOUNTS_POOL_MAX_CONNECTIONS: usize = 5;
-pub const TRUSTED_PROXY_NETWORKS: [&str; 2] = ["172.27.0.0/24", "172.26.0.0/24"];

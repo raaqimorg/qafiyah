@@ -1905,6 +1905,7 @@ dependencies = [
  "form_urlencoded",
  "futures-util",
  "http-body-util",
+ "ipnet",
  "prometheus-client",
  "prost",
  "qafiyah-corpus",

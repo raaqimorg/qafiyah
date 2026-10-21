@@ -122,7 +122,8 @@ async fn serve(config: Config) {
         config.anon_requests,
         config.mcp,
         metrics,
-    );
+    )
+    .with_trusted_proxies(config.trusted_proxies);
     qafiyah_api::rate_limit::sweeper(state.limiter.clone());
     qafiyah_api::accounts::usage::flusher(
         state.usage.clone(),

@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use ipnet::IpNet;
+
 use crate::accounts::cache::KeyCache;
 use crate::accounts::keys::KeyRepository;
 use crate::accounts::sessions::SessionRepository;
@@ -39,6 +41,7 @@ pub struct AppState {
     pub usage: Arc<UsageRecorder>,
     pub anon_requests: u32,
     pub mcp: McpLimits,
+    pub trusted_proxies: Arc<[IpNet]>,
     pub metrics: Metrics,
 }
 
@@ -67,7 +70,15 @@ impl AppState {
             usage: Arc::new(UsageRecorder::default()),
             anon_requests,
             mcp,
+            trusted_proxies: Arc::default(),
             metrics,
+        }
+    }
+
+    pub fn with_trusted_proxies(self, trusted_proxies: Vec<IpNet>) -> Self {
+        Self {
+            trusted_proxies: trusted_proxies.into(),
+            ..self
         }
     }
 }

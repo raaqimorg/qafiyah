@@ -139,7 +139,7 @@ To change a plan, run `update plans set requests = 1000 where slug = 'free';`. T
 
 `ENVIRONMENT` matters more than it seems. If it is ever not exactly `production`, the limiter stops working without a message. So `secrets:check` requires it to be exactly `production` in `secrets/prod.enc.env`. An empty internal key would put the site's own server-side renderer in the anonymous bucket of 60 an hour. So in production, the API does not start without `API_KEY_INTERNAL` and `API_KEY_FULL`, and the web container does not start without `INTERNAL_API_KEY` and `SESSION_STATE_SECRET`.
 
-The client address comes from `X-Forwarded-For`, where Cloudflare adds the visitor as the last entry (see `services.md`). The web container's nginx reads it and sends it again as `CF-Connecting-IP` over the dedicated `backend` network. The API accepts that header only from the `backend` subnet (`client_ip.rs`). So a container on the default bridge is counted by its own address, not by a forged header.
+The client address comes from `X-Forwarded-For`, where Cloudflare adds the visitor as the last entry (see `services.md`). The web container's nginx reads it and sends it again as `CF-Connecting-IP` over the dedicated `backend` network. The API accepts that header only from a peer in `TRUSTED_PROXIES`, which each Compose file sets to that environment's `backend` subnet (`client_ip.rs`). The API refuses to start in production without it. So a container on the default bridge is counted by its own address, not by a forged header.
 
 ### Issued keys
 

@@ -141,12 +141,12 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Normal approach:** the API publishes its contract limits through the OpenAPI document, which already generates the TypeScript types. Anything else shared lives in one JSON or TOML file that Rust reads with `include_str!` and TypeScript imports.
 - **Status:** Needs review
 
-### API configuration is read three ways, and trusted proxy subnets are compiled in
+### API configuration is read three ways
 
-- **What:** `Config::from_vars` is injected and tested, `sentry::Config::from_env` reads `std::env` directly, and `main.rs` reads `ENVIRONMENT` once more to start logging before `Config` exists. The trusted proxy networks are a compile-time constant parsed by a hand-written CIDR parser.
-- **Where:** `apps/api/src/config.rs`, `apps/api/src/sentry.rs`, `apps/api/src/main.rs`, `apps/api/src/constants.rs::TRUSTED_PROXY_NETWORKS`, `apps/api/src/client_ip.rs`, `docker-compose.yml`, `docker-compose.dev.yml`, `apps/web/nginx.conf`, `scripts/dev/worktree.ts`
-- **Why it's unusual:** it breaks the repo's own "no globals/singletons" rule. The `172.26` to `172.29` subnets appear in four places with no sync check, and production images also trust the dev subnets. If a Compose subnet changes, nginx becomes an untrusted peer and every public caller shares one anonymous bucket, with no error anywhere. The approved `client_ip` entry covers the trust policy, not compiling the ranges in.
-- **Normal approach:** one `Config`, passed into `AppState` and the layers. The trusted proxies come from an environment variable (for example `TRUSTED_PROXIES`), parsed by the `ipnet` crate.
+- **What:** `Config::from_vars` is injected and tested, `sentry::Config::from_env` reads `std::env` directly, and `main.rs` reads `ENVIRONMENT` once more to start logging before `Config` exists.
+- **Where:** `apps/api/src/config.rs`, `apps/api/src/sentry.rs`, `apps/api/src/main.rs`
+- **Why it's unusual:** it breaks the repo's own "no globals/singletons" rule.
+- **Normal approach:** one `Config`, passed into `AppState` and the layers.
 - **Status:** Needs review
 
 ### JSON-LD builders validate their own output at runtime and throw
@@ -504,8 +504,8 @@ The API is not only a thin database connector. The crate has no doc comments bey
 ### Client address comes from proxy headers only behind the web nginx
 
 - **What:** `client_ip.rs` resolves the caller from `CF-Connecting-IP`, falling back to the last `X-Forwarded-For` hop, and to a single shared bucket when neither is present. For an internal-key request, `forwarded` reads only `CF-Connecting-IP`, and a missing header means no visitor limit rather than a shared bucket.
-- **Where:** `apps/api/src/client_ip.rs`, `apps/mcp/src/forwarding.rs`, `apps/mcp/src/config.rs`
-- **Why:** the headers are honored only when the immediate peer of the connection is on the dedicated `backend` network. Only the API, the web container, and the MCP server are on that network. The web nginx sets the header for `api.qafiyah.com` and `mcp.qafiyah.com`, and its Astro proxy sets it for website visitors. The MCP server applies the same peer check before it forwards an address to the API: it trusts `CF-Connecting-IP` only from a peer in `TRUSTED_PROXIES`, which each Compose file sets to that environment's `backend` subnet. It reads that list from the environment, so the entry "API configuration is read three ways, and trusted proxy subnets are compiled in" stays as it is. A caller outside that subnet is counted by its own peer address. So a lateral container on the default bridge cannot forge the header.
+- **Where:** `apps/api/src/client_ip.rs`, `apps/api/src/config.rs`, `apps/mcp/src/forwarding.rs`, `apps/mcp/src/config.rs`, `docker-compose.yml`, `docker-compose.dev.yml`
+- **Why:** the headers are honored only when the immediate peer of the connection is in `TRUSTED_PROXIES`, which each Compose file sets to that environment's dedicated `backend` subnet (#353). The API and the MCP server refuse to start in production without it, and `bun run dev` leaves it unset, so no peer is trusted there. Only the API, the web container, and the MCP server are on that network. The web nginx sets the header for `api.qafiyah.com` and `mcp.qafiyah.com`, and its Astro proxy sets it for website visitors. The MCP server applies the same peer check before it forwards an address to the API. A caller outside that subnet is counted by its own peer address. So a lateral container on the default bridge cannot forge the header.
 - **Normal approach:** trust the forwarding headers from any peer behind a single reverse proxy.
 - **Date:** 2025-04-13
 

@@ -103,6 +103,7 @@ services:
       MCP_REQUESTS: ${MCP_REQUESTS:-}
       MCP_BURST: ${MCP_BURST:-}
       MCP_ADDRESS_REQUESTS: ${MCP_ADDRESS_REQUESTS:-}
+      TRUSTED_PROXIES: 172.27.0.0/24
       METRICS_PORT: "9464"
     networks:
       default:
