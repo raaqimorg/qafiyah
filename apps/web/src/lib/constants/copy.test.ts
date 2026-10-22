@@ -15,6 +15,10 @@ describe('formatPoemQuote', () => {
     ).toBe('صدر الأول\nعجز الأول\nصدر الثاني\n\nhttps://qafiyah.com/poems/rHUD');
   });
 
+  it('puts the poet under the selected text for sharing', () => {
+    expect(formatPoemQuote('صدر البيت\nعجز البيت', 'شاعر')).toBe('صدر البيت\nعجز البيت\n\nشاعر');
+  });
+
   it('trims the blank space a selection carries at its ends', () => {
     expect(formatPoemQuote('\n صدر البيت \n', 'https://qafiyah.com/poems/rHUD')).toBe(
       'صدر البيت\n\nhttps://qafiyah.com/poems/rHUD'

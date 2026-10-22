@@ -204,7 +204,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The whole poem hydrates as a React island for the reading toolbar and a private `#h=` fragment
 
-- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The client-side needs are the reading toolbar (font size, spacing, and tashkeel, which reset on every load, the theme toggle, the copy poem button, and the share sheet), the link on copied selections, and highlighting from a homemade `#h=term1,term2` fragment.
+- **What:** `PoemDisplay` renders the title, byline, and every verse as a `client:idle` island. The client-side needs are the reading toolbar (font size, spacing, and tashkeel, which reset on every load, the theme toggle, the copy poem button, and the share sheet), the link and the share button on copied selections, and highlighting from a homemade `#h=term1,term2` fragment.
 - **Where:** `apps/web/src/pages/poems/[slug].astro`, `apps/web/src/components/poem-display.tsx`, `apps/web/src/components/poem-toolbar.tsx`, `apps/web/src/lib/urls.ts`, `apps/web/src/lib/highlight.ts`
 - **Why it's unusual:** the verses ship twice, as HTML and as serialized props. The scale is applied twice: an inline `fontSize` on every hemistich, and a `--poem-scale` variable.
 - **Normal approach:** render the poem statically in Astro, and keep a small island for the toolbar. Highlight with Text Fragments (`#:~:text=`), or with a small script that uses the CSS Custom Highlight API.
@@ -620,13 +620,16 @@ The API is not only a thin database connector. The crate has no doc comments bey
 
 Paths are relative to `apps/web/src/` unless they start at the repo root.
 
-### Copied poem selections end with the poem's link
+### Copied poem selections end with the poem's link, and offer a share button
 
-- **What:** copying any text inside the poem copies the selected lines, one on each line, then a blank line and the poem's link. The copy poem button in the toolbar is separate. It copies the whole poem, the poet, and the link.
-- **Where:** `components/poem-display.tsx`, `components/poem-copy.ts`, `lib/constants/copy.ts`
-- **Why:** issue #304 requests attribution so copied verses keep a link to their source. Most readers select and copy a few lines, and do not use the button. The link is the plain poem URL, with no highlight fragment and no other text.
-- **Normal approach:** copy the selected text without additions, and offer a separate control to copy an attributed quotation.
-- **Date:** 2026-10-15
+- **What:** copying any text inside the poem copies the selected lines, one on each line, then a blank line and the poem's link. After the copy, a share button shows under the last verse that the copy covers. It opens the share sheet with the copied lines, the poet, and the poem's link. The next press anywhere else, or Escape, hides it. A copy of more than 500 characters shows no button. The copy poem button in the toolbar is separate. It copies the whole poem, the poet, and the link.
+- **Where:** `components/poem-display.tsx`, `components/poem-copy.ts`, `components/quote-share-button.tsx`, `components/share-sheet.tsx`, `lib/constants/copy.ts`, `lib/constants/config.ts` (`SHARE_QUOTE_MAX_LENGTH`)
+- **Why:** issue #304 requests attribution so copied verses keep a link to their source. Most readers select and copy a few lines, and do not use the button. The link is the plain poem URL, with no highlight fragment and no other text. Issue #381 adds the share button:
+  - The share button follows the copy, not the selection, so a reader who selects text only to read it sees nothing new.
+  - The button sits inside the verse row, so it moves with the font size, the spacing, and the window without any position math.
+  - Telegram refuses a share link of more than about 4,000 characters. That is about 700 Arabic letters with tashkeel, so the cap is 500.
+- **Normal approach:** copy the selected text without additions, and offer a separate control to copy an attributed quotation. Sites that share quotations show the button when the reader selects text, not after a copy.
+- **Date:** 2026-10-15, updated 2026-10-22
 
 ### Two API clients, and no key ever reaches the browser
 

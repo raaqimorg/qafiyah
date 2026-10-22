@@ -1,12 +1,22 @@
 'use client';
 
-import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { getPoemSelectionText } from '@/components/poem-copy';
+import { getPoemSelectionText, lastSelectedRow } from '@/components/poem-copy';
 import { PoemToolbar } from '@/components/poem-toolbar';
+import { QuoteShareButton } from '@/components/quote-share-button';
 import { ShareButton } from '@/components/share-button';
+import { ShareSheet } from '@/components/share-sheet';
 import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
-import { SITE_URL } from '@/lib/constants/config';
+import { SHARE_QUOTE_MAX_LENGTH, SITE_URL } from '@/lib/constants/config';
 import { formatPoemQuote, formatPoemText, SHARE_TEXTS } from '@/lib/constants/copy';
 import {
   CLASSICAL_LAYOUT_POEM_TYPES,
@@ -91,13 +101,25 @@ export function PoemDisplay({
   poemType,
   sharePath,
 }: PoemDisplayProps) {
+  const columnRef = useRef<HTMLDivElement>(null);
+  const quoteSheetRef = useRef<HTMLDialogElement>(null);
+  const [quote, setQuote] = useState<string | null>(null);
+  const [quoteRow, setQuoteRow] = useState<number | null>(null);
   const handleCopy = (event: ClipboardEvent<HTMLElement>) => {
     if (event.defaultPrevented) return;
     const container = event.currentTarget;
-    const text = getPoemSelectionText(container.ownerDocument.getSelection(), container);
-    if (text === null) return;
+    const selection = container.ownerDocument.getSelection();
+    const text = getPoemSelectionText(selection, container);
+    if (selection === null || text === null) return;
     event.clipboardData.setData('text/plain', formatPoemQuote(text, `${SITE_URL}${sharePath}`));
     event.preventDefault();
+    const rows = columnRef.current?.children;
+    const row =
+      rows === undefined || text.length > SHARE_QUOTE_MAX_LENGTH
+        ? null
+        : lastSelectedRow(selection.getRangeAt(0), rows);
+    if (row !== null) setQuote(text);
+    setQuoteRow(row);
   };
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
@@ -168,6 +190,7 @@ export function PoemDisplay({
       <div className="relative flex w-full flex-col items-center justify-between">
         <article className="flex w-full flex-col items-center p-6 md:p-8" onCopy={handleCopy}>
           <div
+            ref={columnRef}
             className={cn(
               'flex w-full flex-col text-verse font-normal',
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
@@ -184,7 +207,7 @@ export function PoemDisplay({
                   // oxlint-disable-next-line react/no-array-index-key -- rows keep their stored order and a refrain repeats the same text
                   key={`${index}|${entry.join('|')}`}
                   className={cn(
-                    'flex w-full flex-col items-center justify-center text-center',
+                    'relative flex w-full flex-col items-center justify-center text-center',
                     HEMISTICH_GAP,
                     isClassical && 'items-stretch'
                   )}
@@ -206,11 +229,28 @@ export function PoemDisplay({
                       </p>
                     );
                   })}
+                  {quoteRow === index && (
+                    <QuoteShareButton
+                      onShare={() => {
+                        setQuoteRow(null);
+                        quoteSheetRef.current?.showModal();
+                      }}
+                      onDismiss={() => setQuoteRow(null)}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
         </article>
+        {quote !== null && (
+          <ShareSheet
+            ref={quoteSheetRef}
+            title={SHARE_TEXTS.quoteTitle}
+            body={formatPoemQuote(quote, poet.name)}
+            path={sharePath}
+          />
+        )}
       </div>
     </>
   );
