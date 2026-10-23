@@ -3,6 +3,9 @@ import { posthog } from 'posthog-js';
 
 const LOW_SIGNAL_REJECTION_MAX_LENGTH = 3;
 
+const MEETS_BUILD_TARGET =
+  typeof Object.hasOwn === 'function' && typeof Array.prototype.at === 'function';
+
 function isLowSignalRejection(event) {
   const values = event.exception?.values;
   if (!values || values.length === 0) {
@@ -18,7 +21,7 @@ function isLowSignalRejection(event) {
 
 Sentry.init({
   dsn: 'https://acbece4802d36f6e2904c8d673635c0d@o4511571113148416.ingest.us.sentry.io/4511594177560576',
-  enabled: Boolean(import.meta.env.PUBLIC_SENTRY_RELEASE),
+  enabled: Boolean(import.meta.env.PUBLIC_SENTRY_RELEASE) && MEETS_BUILD_TARGET,
   environment: import.meta.env.DEV ? 'development' : 'production',
   tracesSampleRate: 0.1,
   integrations: [
@@ -33,7 +36,11 @@ Sentry.init({
     urlQueryParams: false,
     frameContextLines: 7,
   },
+  allowUrls: [/\/_astro\//],
   ignoreErrors: [
+    /Object Not Found Matching Id/,
+    /View transition was skipped because document visibility state is hidden/,
+    /Transition was aborted because of invalid state/,
     /__firefox__/,
     /__gCrWeb/,
     /window\.webkit\.messageHandlers/,
