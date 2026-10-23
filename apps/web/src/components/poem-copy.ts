@@ -1,17 +1,15 @@
-export function getPoemSelectionText(
+export function getPoemSelectionRange(
   selection: Selection | null,
   container: HTMLElement
-): string | null {
+): Range | null {
   if (selection === null || selection.isCollapsed || selection.rangeCount !== 1) return null;
   const range = selection.getRangeAt(0);
-  if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
-    return null;
-  }
-  const text = selection.toString().trim();
-  return text === '' ? null : text;
+  return container.contains(range.startContainer) && container.contains(range.endContainer)
+    ? range
+    : null;
 }
 
-function selectedTextIn(range: Range, node: Node): string {
+export function rangeInside(range: Range, node: Node): Range {
   const part = document.createRange();
   part.selectNodeContents(node);
   if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) {
@@ -20,13 +18,28 @@ function selectedTextIn(range: Range, node: Node): string {
   if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) {
     part.setEnd(range.endContainer, range.endOffset);
   }
-  return part.toString();
+  return part;
 }
 
-export function lastSelectedRow(range: Range, rows: HTMLCollection): number | null {
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows.item(index);
-    if (row !== null && selectedTextIn(range, row).trim() !== '') return index;
+function selectedHemistichs(range: Range, verse: Element): string {
+  return [...verse.querySelectorAll('p')]
+    .filter((line) => range.intersectsNode(line))
+    .map((line) => rangeInside(range, line).toString().trim())
+    .filter((line) => line !== '')
+    .join('\n');
+}
+
+export function selectedVerses(range: Range, column: HTMLElement): string {
+  return [...column.children]
+    .map((verse) => selectedHemistichs(range, verse))
+    .filter((verse) => verse !== '')
+    .join('\n\n');
+}
+
+export function lastSelectedVerse(range: Range, column: HTMLElement): Element | null {
+  for (let index = column.children.length - 1; index >= 0; index -= 1) {
+    const verse = column.children.item(index);
+    if (verse !== null && selectedHemistichs(range, verse) !== '') return verse;
   }
   return null;
 }

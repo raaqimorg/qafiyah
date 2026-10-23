@@ -20,6 +20,7 @@ export const SSR_RETRY_MAX_DELAY_MS = 300;
 export const SSR_FETCH_TIMEOUT_MS = 10_000;
 
 export const SHARE_QUOTE_MAX_LENGTH = 500;
+export const SHARE_BUTTON_DELAY_MS = 300;
 
 export const POSTHOG_KEY = 'phc_m925vSZaBCkXApwManQBMvCvtU6tHJVErNJiRr5ier8L';
 export const POSTHOG_HOST = POSTHOG_PROXY_URL;

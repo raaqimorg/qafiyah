@@ -144,7 +144,7 @@ describe('PoemDisplay', () => {
     expect(rows.map((row) => row[1])).toEqual(['تلقرام', 'واتس', 'فيسبوك', 'تويتر']);
   });
 
-  it('renders one share dialog and no share button for copied verses before a copy', () => {
+  it('renders one share dialog and no share button for selected verses before a selection', () => {
     const { html } = render([['صدر', 'عجز']]);
     expect(html.match(/<dialog/g)).toHaveLength(1);
     expect(html).not.toContain('مشاركة الأبيات');
