@@ -10,6 +10,7 @@ export const routingProbes: readonly Probe[] = [
   { url: `${WEB}/about`, note: 'about page', expect: 'ok', surfaces: ALL },
   { url: `${WEB}/developers`, note: 'developers page', expect: 'ok', surfaces: ALL },
   { url: `${WEB}/login`, note: 'login page', expect: 'ok', surfaces: ALL },
+  { url: `${WEB}/sponsorship`, note: 'sponsorship page', expect: 'ok', surfaces: ALL },
   {
     url: `${WEB}/does-not-exist`,
     note: 'unknown path maps to 404',

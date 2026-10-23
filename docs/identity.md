@@ -44,6 +44,7 @@ The code and the documentation are under the [MIT](../LICENSE) license. The data
 - Contact: mail@qafiyah.com
 - Support (problems with the site or the data): issues@qafiyah.com
 - API questions: api@qafiyah.com
+- Sponsorship: sponsors@qafiyah.com
 - Security contact: security@qafiyah.com
 - Code of conduct concerns: conduct@qafiyah.com
 - Dump and feelings snapshot tokens: dumps@qafiyah.com (see `data/db/README.md` and `data/feelings/README.md`)

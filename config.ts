@@ -51,6 +51,7 @@ export const SUPPORT_EMAIL = `issues@${PROD_DOMAIN}`;
 export const CONTACT_EMAIL = `mail@${PROD_DOMAIN}`;
 export const SECURITY_EMAIL = `security@${PROD_DOMAIN}`;
 export const API_EMAIL = `api@${PROD_DOMAIN}`;
+export const SPONSORS_EMAIL = `sponsors@${PROD_DOMAIN}`;
 
 export const API_V1_PREFIX = '/v1';
 export const API_RANDOM_POEM_PATH = `${API_V1_PREFIX}/poems/random`;
