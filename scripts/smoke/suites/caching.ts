@@ -38,10 +38,17 @@ export const cachingProbes: readonly Probe[] = [
     surfaces: ALL,
   },
   {
-    url: `${WEB}/meters/altawil?page=02`,
-    note: 'a padded page number redirects to the canonical page URL',
+    url: `${WEB}/meters/altawil?cursor=a&cursor=b`,
+    note: 'a repeated cursor redirects to the canonical page URL',
     redirect: 'manual',
-    checks: [isStatus(301), headerIncludes('Location', '/meters/altawil?page=2')],
+    checks: [isStatus(301), headerIncludes('Location', '/meters/altawil?cursor=a')],
+    surfaces: ALL,
+  },
+  {
+    url: `${WEB}/meters/altawil?page=2`,
+    note: 'an old page number redirects to the first page',
+    redirect: 'manual',
+    checks: [isStatus(301), headerIncludes('Location', '/meters/altawil')],
     surfaces: ALL,
   },
   {

@@ -4,7 +4,13 @@ use utoipa::ToSchema;
 use utoipa::openapi::schema::{ArrayBuilder, ObjectBuilder, Schema, Type};
 use utoipa::openapi::{Ref, RefOr};
 
-use crate::constants::{MAX_FILTER_SLUGS, MAX_QUERY_LENGTH, MAX_TERM_SLUG_LENGTH};
+use crate::constants::{
+    ES_MAX_RESULT_WINDOW, MAX_CURSOR_LENGTH, MAX_FILTER_SLUGS, MAX_QUERY_LENGTH,
+    MAX_TERM_SLUG_LENGTH,
+};
+use crate::cursor::{self, Key};
+use crate::domain::paging::Cursor;
+use crate::domain::search::PoetPosition;
 
 const FOUR_LETTERS: &str = "must be four letters, a to z or A to Z";
 
@@ -71,40 +77,79 @@ impl<'de> Deserialize<'de> for TransliteratedSlug {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Page<const MAX: u32>(u32);
+pub const NOT_A_CURSOR: &str = "must be the `next` or `prev` value of a page of this list";
 
-pub type AnyPage = Page<{ u32::MAX }>;
+fn cursor_schema() -> RefOr<Schema> {
+    ObjectBuilder::new()
+        .schema_type(Type::String)
+        .max_length(Some(MAX_CURSOR_LENGTH))
+        .pattern(Some("^[A-Za-z0-9_-]+$"))
+        .into()
+}
 
-impl<const MAX: u32> Page<MAX> {
+fn cursor_text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let raw = String::deserialize(deserializer)?;
+    if raw.len() > MAX_CURSOR_LENGTH {
+        return Err(de::Error::custom(NOT_A_CURSOR));
+    }
+    Ok(raw)
+}
+
+#[derive(Debug)]
+pub struct PageCursor<K>(Cursor<K>);
+
+impl<K: Key> PageCursor<K> {
     pub fn parse(raw: &str) -> Result<Self, String> {
-        let canonical = raw.starts_with(|first: char| ('1'..='9').contains(&first))
-            && raw.bytes().all(|byte| byte.is_ascii_digit());
-        match raw.parse::<u32>() {
-            Ok(page) if canonical && page <= MAX => Ok(Self(page)),
-            _ => Err(format!(
-                "must be a whole number from 1 to {MAX}, without a sign or leading zeros"
-            )),
-        }
+        cursor::decode(raw)
+            .map(Self)
+            .ok_or_else(|| NOT_A_CURSOR.to_string())
     }
 
-    pub fn get(self) -> u32 {
+    pub fn into_inner(self) -> Cursor<K> {
         self.0
     }
 }
 
-impl<'de, const MAX: u32> Deserialize<'de> for Page<MAX> {
+impl<'de, K: Key> Deserialize<'de> for PageCursor<K> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Self::parse(&String::deserialize(deserializer)?).map_err(de::Error::custom)
+        Self::parse(&cursor_text(deserializer)?).map_err(de::Error::custom)
     }
 }
 
-impl<const MAX: u32> utoipa::PartialSchema for Page<MAX> {
+impl<K> utoipa::PartialSchema for PageCursor<K> {
     fn schema() -> RefOr<Schema> {
-        ObjectBuilder::new()
-            .schema_type(Type::String)
-            .pattern(Some("^[1-9][0-9]*$"))
-            .into()
+        cursor_schema()
+    }
+}
+
+pub type IdCursor = PageCursor<i32>;
+pub type PoetCursor = PageCursor<PoetPosition>;
+
+#[derive(Debug, Clone, Copy)]
+pub struct SearchCursor<const PAGE_SIZE: u32>(u32);
+
+impl<const PAGE_SIZE: u32> SearchCursor<PAGE_SIZE> {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        cursor::decode_offset(raw)
+            .filter(|offset| offset.saturating_add(PAGE_SIZE) <= ES_MAX_RESULT_WINDOW)
+            .map(Self)
+            .ok_or_else(|| NOT_A_CURSOR.to_string())
+    }
+
+    pub fn offset(self) -> u32 {
+        self.0
+    }
+}
+
+impl<'de, const PAGE_SIZE: u32> Deserialize<'de> for SearchCursor<PAGE_SIZE> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::parse(&cursor_text(deserializer)?).map_err(de::Error::custom)
+    }
+}
+
+impl<const PAGE_SIZE: u32> utoipa::PartialSchema for SearchCursor<PAGE_SIZE> {
+    fn schema() -> RefOr<Schema> {
+        cursor_schema()
     }
 }
 
@@ -242,9 +287,9 @@ pub struct NoParams {}
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub struct SlugsParams {
-    /// Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
-    #[param(inline, example = "1")]
-    pub page: Option<AnyPage>,
+    /// The `next` or `prev` value of a page of slugs. Leave it out for the first page.
+    #[param(inline, example = "eyJhZnRlciI6MX0")]
+    pub cursor: Option<IdCursor>,
 }
 
 #[cfg(test)]
@@ -307,33 +352,25 @@ mod tests {
     }
 
     #[test]
-    fn a_page_is_a_canonical_whole_number_up_to_its_maximum() {
-        assert_eq!(Page::<500>::parse("7").unwrap().get(), 7);
-        assert_eq!(Page::<500>::parse("500").unwrap().get(), 500);
-        assert_eq!(
-            Page::<500>::parse("501").unwrap_err(),
-            "must be a whole number from 1 to 500, without a sign or leading zeros"
-        );
-        assert_eq!(AnyPage::parse("4294967295").unwrap().get(), u32::MAX);
-        for raw in [
-            "",
-            "0",
-            "01",
-            "007",
-            "-0",
-            "-1",
-            "+5",
-            "5.0",
-            "1e2",
-            "0x10",
-            " 5 ",
-            "٢",
-            "x",
-            "4294967296",
-            "99999999999999999999",
-        ] {
-            assert!(AnyPage::parse(raw).is_err(), "{raw}");
-        }
+    fn a_cursor_parameter_reads_only_a_cursor_that_a_page_gave_out() {
+        let next = cursor::encode(Cursor::After(1264));
+        assert!(matches!(
+            PageCursor::<i32>::parse(&next).unwrap().into_inner(),
+            Cursor::After(1264)
+        ));
+        assert_eq!(PageCursor::<i32>::parse("2").unwrap_err(), NOT_A_CURSOR);
+        let long = "A".repeat(MAX_CURSOR_LENGTH + 1);
+        assert!(serde_html_form::from_str::<SlugsParams>(&format!("cursor={long}")).is_err());
+    }
+
+    #[test]
+    fn a_search_cursor_stays_inside_the_result_window() {
+        let last = cursor::encode_offset(ES_MAX_RESULT_WINDOW - 20);
+        assert_eq!(SearchCursor::<20>::parse(&last).unwrap().offset(), 9980);
+        let past = cursor::encode_offset(ES_MAX_RESULT_WINDOW - 19);
+        assert_eq!(SearchCursor::<20>::parse(&past).unwrap_err(), NOT_A_CURSOR);
+        let poems = cursor::encode(Cursor::After(1));
+        assert!(SearchCursor::<20>::parse(&poems).is_err());
     }
 
     #[test]
@@ -381,8 +418,8 @@ mod tests {
     #[test]
     fn each_value_type_documents_the_rule_it_checks() {
         assert_eq!(
-            serde_json::to_value(Page::<500>::schema()).unwrap(),
-            json!({ "type": "string", "pattern": "^[1-9][0-9]*$" })
+            serde_json::to_value(PageCursor::<i32>::schema()).unwrap(),
+            json!({ "type": "string", "maxLength": 512, "pattern": "^[A-Za-z0-9_-]+$" })
         );
         assert_eq!(
             serde_json::to_value(SearchText::schema()).unwrap(),
@@ -406,6 +443,6 @@ mod tests {
     #[test]
     fn no_params_accepts_only_an_empty_query() {
         assert!(serde_html_form::from_str::<NoParams>("").is_ok());
-        assert!(serde_html_form::from_str::<NoParams>("page=2").is_err());
+        assert!(serde_html_form::from_str::<NoParams>("cursor=x").is_err());
     }
 }

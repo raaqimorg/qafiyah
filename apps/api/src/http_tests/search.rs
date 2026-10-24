@@ -11,7 +11,7 @@ fn one_poem_and_one_poet() -> serde_json::Value {
             "slug": "TnKK", "title": "t", "titleDisplay": "T", "content": "a*b\nc",
             "poetNameDisplay": "P", "poetSlug": "yoFB", "poetHasAvatar": false,
             "poetIsAnonymous": false, "meterName": "m", "meterSlug": "altawil", "eraName": "e", "eraSlug": "abbasi",
-            "name": "n", "nameDisplay": "N", "poemsCount": 7
+            "id": 3, "name": "n", "nameDisplay": "N", "nameSort": "n", "poemsCount": 7
         },
         "highlight": { "content": ["a*<mark>b</mark>\nc"] }
     } ] } })
@@ -22,7 +22,10 @@ async fn a_search_asks_both_indices_concurrently_and_returns_two_envelopes() {
     let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
     let sent = send(
         app_with(&es),
-        request("GET", "/v1/search?q=%D8%AD%D8%A8&poemsPage=2"),
+        request(
+            "GET",
+            "/v1/search?q=%D8%AD%D8%A8&poemsCursor=eyJvZmZzZXQiOjIwfQ",
+        ),
     )
     .await;
     assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
@@ -32,8 +35,10 @@ async fn a_search_asks_both_indices_concurrently_and_returns_two_envelopes() {
     assert_eq!(body["poems"]["data"][0]["title"], "T");
     assert_eq!(body["poems"]["data"][0]["snippet"], "a*<mark>b</mark>");
     assert_eq!(body["poems"]["data"][0]["poet"]["hasAvatar"], false);
-    assert_eq!(body["poems"]["pagination"]["page"], 2);
-    assert_eq!(body["poems"]["pagination"]["pageSize"], 20);
+    assert_eq!(body["poems"]["total"], 1);
+    assert!(body["poems"]["next"].is_null());
+    assert_eq!(body["poems"]["prev"], "eyJvZmZzZXQiOjB9");
+    assert!(body["poets"]["prev"].is_null());
     assert_eq!(body["poets"]["data"][0]["type"], "poet");
     assert_eq!(body["poets"]["data"][0]["name"], "N");
     let asked = es.requests().await;
@@ -59,22 +64,45 @@ async fn a_types_filter_skips_the_other_index_entirely() {
 }
 
 #[tokio::test]
-async fn the_poets_list_browses_by_poem_count_with_the_wide_window() {
+async fn the_poets_list_asks_for_one_poet_more_than_a_page_and_counts_them_all() {
     let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
-    let sent = send(app_with(&es), request("GET", "/v1/poets?page=2&era=abbasi")).await;
+    let sent = send(app_with(&es), request("GET", "/v1/poets?era=abbasi")).await;
     assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
     let body = sent.json();
     assert_eq!(body["data"][0]["poemsCount"], 7);
-    assert_eq!(body["pagination"]["pageSize"], 30);
+    assert_eq!(body["total"], 1);
+    assert!(body["next"].is_null() && body["prev"].is_null());
     let asked = es.requests().await;
     assert_eq!(asked[0].0, "poets");
-    assert_eq!(asked[0].1["from"], 30);
-    assert_eq!(asked[0].1["track_total_hits"], 50_000);
+    assert_eq!(asked[0].1["size"], 31);
+    assert_eq!(asked[0].1["track_total_hits"], true);
+    assert!(asked[0].1.get("from").is_none());
     assert_eq!(
         asked[0].1["query"]["bool"]["filter"][0]["terms"]["eraSlug"],
         json!(["abbasi"])
     );
     assert!(asked[0].1.get("highlight").is_none());
+}
+
+#[tokio::test]
+async fn a_poets_list_cursor_continues_after_its_poet() {
+    let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
+    let sent = send(
+        app_with(&es),
+        request(
+            "GET",
+            "/v1/poets?cursor=eyJhZnRlciI6eyJwb2Vtc0NvdW50Ijo3LCJuYW1lU29ydCI6Im4iLCJpZCI6M319",
+        ),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+    let body = sent.json();
+    assert!(body["next"].is_null());
+    assert_eq!(
+        body["prev"],
+        "eyJiZWZvcmUiOnsicG9lbXNDb3VudCI6NywibmFtZVNvcnQiOiJuIiwiaWQiOjN9fQ"
+    );
+    assert_eq!(es.requests().await[0].1["search_after"], json!([7, "n", 3]));
 }
 
 #[tokio::test]

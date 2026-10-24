@@ -1,4 +1,4 @@
-import { formatArabicCount, toArabicDigits } from '@/lib/arabic';
+import { formatArabicCount } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
 import { SITE_NAME_AR, type SocialImage } from '@/lib/constants/site-meta';
 import { POEMS_NOUN_FORMS, POETS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
@@ -20,17 +20,15 @@ import {
   sanitizeMetaText,
   UNKNOWN_ENTITY_NAME,
   withBrand,
-  withPageNumber,
 } from '@/lib/seo/meta-text';
 import { poetAvatarImage } from '@/lib/seo/social-images';
 import { poemUrl, poetsUrl, poetUrl } from '@/lib/urls';
 
-import type { Poet } from '@/lib/server/poets';
+import type { PoemsList } from '@/lib/server/poems';
+import type { Poet, PoetsList } from '@/lib/server/poets';
 import type { Ok } from '@/lib/server/types';
 
 type EraOption = Ok<'/eras'>['data'][number];
-type PoetsListItem = Ok<'/poets'>['data'][number];
-type PoetsPagination = Ok<'/poets'>['pagination'];
 type PoemRow = Ok<'/poems'>['data'][number];
 
 const POET_DESCRIPTION_TARGET_LENGTH = 160;
@@ -53,22 +51,19 @@ export type PoetsIndexView = {
 };
 
 export function buildPoetsIndexView(input: {
-  readonly poets: readonly PoetsListItem[];
-  readonly pagination: PoetsPagination;
+  readonly page: PoetsList;
+  readonly cursor: string | undefined;
   readonly activeEra: EraOption | undefined;
   readonly queryFilter: string | undefined;
   readonly eraParam: string | undefined;
 }): PoetsIndexView {
-  const { poets, pagination, activeEra, queryFilter, eraParam } = input;
-  const pageNumber = pagination.page;
-  const totalPoets = pagination.totalItems;
+  const { page, cursor, activeEra, queryFilter, eraParam } = input;
+  const poets = page.data;
   const isFiltered = Boolean(activeEra ?? queryFilter);
 
-  const pag = derivePagination(pagination, (p) =>
-    poetsUrl({ page: p, era: eraParam, q: queryFilter })
-  );
+  const pag = derivePagination(page, (c) => poetsUrl({ era: eraParam, q: queryFilter, cursor: c }));
 
-  const poetsLabel = formatArabicCount({ count: totalPoets, nounForms: POETS_NOUN_FORMS });
+  const poetsLabel = formatArabicCount({ count: page.total, nounForms: POETS_NOUN_FORMS });
 
   let heading: string;
   if (activeEra) {
@@ -81,13 +76,13 @@ export function buildPoetsIndexView(input: {
 
   const emptyText = isFiltered ? 'لا يوجد شعراء مطابقون' : 'لا يوجد المزيد من الشعراء';
 
-  const title = withBrand(withPageNumber('شعراء العرب ودواوينهم', pageNumber));
+  const title = withBrand('شعراء العرب ودواوينهم');
   const description = `صفحة الشعراء على ${SITE_NAME_AR}. تصفح دواوين الشعراء من العصر الجاهلي إلى المعاصر.`;
 
   const collectionJsonLd = collectionPageNode({
     name: 'قائمة الشعراء',
-    url: `${SITE_URL}${poetsUrl({ page: pageNumber })}`,
-    description: `قائمة بجميع الشعراء في موقع ${SITE_NAME_AR} - الصفحة ${toArabicDigits(pageNumber)} من ${toArabicDigits(pag.totalPages)}`,
+    url: `${SITE_URL}${poetsUrl({ cursor })}`,
+    description: `قائمة بجميع الشعراء في موقع ${SITE_NAME_AR}`,
     isPartOf: websiteRef(),
     mainEntity: buildItemList(
       poets.map((poet) =>
@@ -191,17 +186,17 @@ function describePoetWithoutBio(
 
 export function buildPoetLayout(input: {
   readonly poet: Poet;
-  readonly poems: readonly PoemRow[];
-  readonly pagination: { readonly page: number; readonly totalPages: number };
+  readonly page: PoemsList;
   readonly filters?: PoetFilterSelection | undefined;
 }): PoetLayoutView {
-  const { poet, poems, pagination, filters = NO_POET_FILTERS } = input;
+  const { poet, page, filters = NO_POET_FILTERS } = input;
+  const poems = page.data;
   const slug = poet.slug;
-  const pag = derivePagination(pagination, (p) => poetUrl(slug, { page: p, ...filters }));
+  const pag = derivePagination(page, (c) => poetUrl(slug, { ...filters, cursor: c }));
 
   const poemsLabel = formatArabicCount({ count: poet.poemsCount, nounForms: POEMS_NOUN_FORMS });
 
-  const title = withBrand(withPageNumber(`ديوان ${poet.name}`, pagination.page));
+  const title = withBrand(`ديوان ${poet.name}`);
   const knownEra = poet.era.name === UNKNOWN_ENTITY_NAME ? undefined : poet.era.name;
   const subtitle = [poemsLabel, knownEra, pickAdditiveNickname(poet)]
     .filter((part): part is string => part !== undefined)

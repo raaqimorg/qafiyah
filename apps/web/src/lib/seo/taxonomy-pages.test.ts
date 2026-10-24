@@ -8,6 +8,16 @@ import {
   type TaxonomyTermLoad,
 } from './taxonomy-pages';
 
+const pageOf = (
+  data: TaxonomyTermLoad['page']['data'],
+  cursors: { next?: string; prev?: string } = {}
+): TaxonomyTermLoad['page'] => ({
+  data,
+  total: data.length,
+  next: cursors.next ?? null,
+  prev: cursors.prev ?? null,
+});
+
 const poems = [
   {
     title: 'البردة',
@@ -15,14 +25,14 @@ const poems = [
     poet: { name: 'المتنبي', slug: 'mutanabbi' },
     meter: { name: 'الكامل', slug: 'alkamil' },
   },
-] as unknown as TaxonomyTermLoad['poems'];
+] as unknown as TaxonomyTermLoad['page']['data'];
 
 describe('buildTaxonomyTermView', () => {
   it('renders the meters term page strings, with the poet as the card subtitle', () => {
     const { layout, body } = buildTaxonomyTermView('meters', {
       term: { name: 'الطويل', slug: 'altaweel', poemsCount: 12 },
-      poems,
-      pagination: { page: 1, totalPages: 3 },
+      cursor: undefined,
+      page: pageOf(poems, { next: 'n' }),
     });
 
     expect(layout.title).toBe('بحر الطويل: قصائده وشعراؤه | قافية');
@@ -33,37 +43,30 @@ describe('buildTaxonomyTermView', () => {
     expect((layout.jsonLd[0] as { name: string }).name).toBe('قصائد بحر الطويل');
     expect(body.heading).toBe('قصائد بحر الطويل (١٢ قصيدة)');
     expect(body.items[0]?.subtitle).toBe('المتنبي');
-    expect(body.pagination.hasPrevPage).toBe(false);
-    expect(body.pagination.hasNextPage).toBe(true);
+    expect(body.pagination.prevUrl).toBeUndefined();
+    expect(body.pagination.nextUrl).toBe('/meters/altaweel?cursor=n');
+    expect(layout.nextUrl).toBe('/meters/altaweel?cursor=n');
   });
 
   it('renders the rhymes heading without a prefix and uses the meter as the card subtitle', () => {
     const { body, layout } = buildTaxonomyTermView('rhymes', {
       term: { name: 'الراء', slug: 'r', poemsCount: 5 },
-      poems,
-      pagination: { page: 2, totalPages: 4 },
+      cursor: 'c',
+      page: pageOf(poems, { next: 'n', prev: 'p' }),
     });
 
     expect(body.heading).toBe('الراء (٥ قصائد)');
     expect(body.items[0]?.subtitle).toBe('الكامل');
-    expect(layout.canonical).toBe('/rhymes/r?page=2');
-  });
-
-  it('adds the page number to the title from page 2 on', () => {
-    const { layout } = buildTaxonomyTermView('rhymes', {
-      term: { name: 'الراء', slug: 'r', poemsCount: 5 },
-      poems,
-      pagination: { page: 2, totalPages: 4 },
-    });
-
-    expect(layout.title).toBe('قصائد على روي الراء، الصفحة ٢ | قافية');
+    expect(layout.canonical).toBe('/rhymes/r?cursor=c');
+    expect(layout.prevUrl).toBe('/rhymes/r?cursor=p');
+    expect(layout.title).toBe('قصائد على روي الراء | قافية');
   });
 
   it('names the sample poem with its poet as the subject, so the name keeps its form', () => {
     const { layout } = buildTaxonomyTermView('rhymes', {
       term: { name: 'الراء', slug: 'r', poemsCount: 5 },
-      poems,
-      pagination: { page: 1, totalPages: 1 },
+      cursor: undefined,
+      page: pageOf(poems),
     });
 
     expect(layout.description).toContain('منها «البردة» نظمها المتنبي');
@@ -89,12 +92,12 @@ describe('buildTaxonomyTermView', () => {
         poet: { name: 'المتنبي', slug: 'mutanabbi', isAnonymous: false },
         meter: {},
       },
-    ] as unknown as TaxonomyTermLoad['poems'];
+    ] as unknown as TaxonomyTermLoad['page']['data'];
 
     const { layout } = buildTaxonomyTermView('meters', {
       term: { name: 'الطويل', slug: 'altaweel', poemsCount: 2 },
-      poems: poemsWithUnknownPoet,
-      pagination: { page: 1, totalPages: 1 },
+      cursor: undefined,
+      page: pageOf(poemsWithUnknownPoet),
     });
 
     expect(layout.description).not.toContain('غير معروف');
@@ -107,8 +110,8 @@ describe('buildTaxonomyTermView', () => {
     (section) => {
       const { layout } = buildTaxonomyTermView(section, {
         term: { name: 'ب', slug: 'x', poemsCount: 1 },
-        poems: [],
-        pagination: { page: 1, totalPages: 1 },
+        cursor: undefined,
+        page: pageOf([]),
       });
       expect(layout.description.length).toBeGreaterThanOrEqual(60);
     }

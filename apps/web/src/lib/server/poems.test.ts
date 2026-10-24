@@ -33,7 +33,6 @@ const POEM_ROW = {
   poet: { name: 'ش', slug: 'poet-x' },
   meter: { name: 'م', slug: 'meter-x' },
 };
-const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
 
 describe('getPoem', () => {
   beforeEach(() => {
@@ -73,15 +72,14 @@ describe('listPoems', () => {
     get.mockReset();
   });
 
-  it('maps poems and pagination on success', async () => {
-    get.mockResolvedValue(ok({ data: [POEM_ROW], pagination: PAGINATION }));
-    const result = await listPoems({ poetSlugs: ['poet-x' as PoetSlug] }, 1);
-    expect(result?.poems).toHaveLength(1);
-    expect(result?.pagination.totalPages).toBe(1);
+  it('returns the page with its cursors on success', async () => {
+    const page = { data: [POEM_ROW], total: 31, next: 'n', prev: 'p' };
+    get.mockResolvedValue(ok(page));
+    expect(await listPoems({ poetSlugs: ['poet-x' as PoetSlug] }, 'c')).toEqual(page);
     expect(get).toHaveBeenCalledWith('/poems', {
       params: {
         query: {
-          page: '1',
+          cursor: 'c',
           poet: ['poet-x'],
           era: [],
           theme: [],
@@ -93,16 +91,22 @@ describe('listPoems', () => {
     });
   });
 
-  it('returns null when page is past the last page', async () => {
-    get.mockResolvedValue(
-      ok({ data: [], pagination: { page: 99, pageSize: 30, totalPages: 1, totalItems: 1 } })
-    );
-    expect(await listPoems({}, 99)).toBeNull();
+  it('sends no cursor for the first page', async () => {
+    get.mockResolvedValue(ok({ data: [], total: 0, next: null, prev: null }));
+    expect((await listPoems({}, undefined))?.data).toEqual([]);
+    expect(get.mock.calls[0]?.[1].params.query).not.toHaveProperty('cursor');
+  });
+
+  it('returns null when a cursor leads past the last poem, or the API refuses it', async () => {
+    get.mockResolvedValue(ok({ data: [], total: 1, next: null, prev: null }));
+    expect(await listPoems({}, 'c')).toBeNull();
+    get.mockResolvedValue(failure(400));
+    expect(await listPoems({}, 'bad')).toBeNull();
   });
 
   it('rethrows on a 500', async () => {
     get.mockResolvedValue(failure(500));
-    await expect(listPoems({}, 1)).rejects.toThrow();
+    await expect(listPoems({}, undefined)).rejects.toThrow();
   });
 });
 

@@ -267,7 +267,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "حب",
@@ -655,7 +655,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "قفا نبك من",
@@ -930,7 +930,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "هذا",
@@ -1178,7 +1178,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "ماء",
@@ -1246,7 +1246,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "",
@@ -1314,7 +1314,7 @@
         "collectionSlugs": [],
         "eraSlugs": [],
         "meterSlugs": [],
-        "page": 4,
+        "offset": 60,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "",
@@ -1411,7 +1411,7 @@
         "eraSlugs": [],
         "exact": true,
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "يا رب",
@@ -1607,7 +1607,7 @@
         "eraSlugs": [],
         "exact": true,
         "meterSlugs": [],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "قفا نبك من",
@@ -1874,7 +1874,7 @@
           "jahili"
         ],
         "meterSlugs": [],
-        "page": 2,
+        "offset": 20,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "دمع",
@@ -1971,7 +1971,7 @@
         "meterSlugs": [
           "altawil"
         ],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [
           "amudi"
         ],
@@ -2086,12 +2086,250 @@
         "meterSlugs": [
           "alkamil"
         ],
-        "page": 1,
+        "offset": 0,
         "poemTypeSlugs": [],
         "poetSlugs": [],
         "q": "صبر",
         "rhymeSlugs": [],
         "themeSlugs": []
+      }
+    }
+  ],
+  "poetList": [
+    {
+      "body": {
+        "query": {
+          "bool": {
+            "filter": [],
+            "must": [
+              {
+                "match_all": {}
+              }
+            ]
+          }
+        },
+        "size": 31,
+        "sort": [
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
+        "track_total_hits": true
+      },
+      "note": "the first page, most poems first",
+      "params": {
+        "eraSlugs": [],
+        "q": ""
+      }
+    },
+    {
+      "body": {
+        "query": {
+          "bool": {
+            "filter": [],
+            "must": [
+              {
+                "match_all": {}
+              }
+            ]
+          }
+        },
+        "search_after": [
+          40,
+          "زهير",
+          120
+        ],
+        "size": 31,
+        "sort": [
+          {
+            "poemsCount": "desc"
+          },
+          {
+            "nameSort": "asc"
+          },
+          {
+            "id": "asc"
+          }
+        ],
+        "track_total_hits": true
+      },
+      "note": "the page after a poet",
+      "params": {
+        "after": {
+          "id": 120,
+          "nameSort": "زهير",
+          "poemsCount": 40
+        },
+        "eraSlugs": [],
+        "q": ""
+      }
+    },
+    {
+      "body": {
+        "query": {
+          "function_score": {
+            "boost_mode": "multiply",
+            "field_value_factor": {
+              "factor": 0.01,
+              "field": "poemsCount",
+              "missing": 0,
+              "modifier": "log2p"
+            },
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "terms": {
+                      "eraSlug": [
+                        "abbasi"
+                      ]
+                    }
+                  },
+                  {
+                    "bool": {
+                      "minimum_should_match": 1,
+                      "should": [
+                        {
+                          "multi_match": {
+                            "fields": [
+                              "name.autocomplete",
+                              "name.stemmed",
+                              "nickname.autocomplete",
+                              "nickname.stemmed"
+                            ],
+                            "operator": "and",
+                            "query": "المتنبي",
+                            "type": "cross_fields"
+                          }
+                        },
+                        {
+                          "match": {
+                            "name": {
+                              "fuzziness": "AUTO:4,7",
+                              "operator": "and",
+                              "prefix_length": 1,
+                              "query": "المتنبي"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": 1,
+                "should": [
+                  {
+                    "term": {
+                      "name.exact": {
+                        "boost": 12,
+                        "value": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "name": {
+                        "boost": 6,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.autocomplete": {
+                        "boost": 2,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name.stemmed": {
+                        "boost": 3,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "name": {
+                        "boost": 1,
+                        "fuzziness": "AUTO:4,7",
+                        "fuzzy_rewrite": "top_terms_boost_50",
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match_phrase": {
+                      "nickname": {
+                        "boost": 6,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.autocomplete": {
+                        "boost": 2,
+                        "query": "المتنبي"
+                      }
+                    }
+                  },
+                  {
+                    "match": {
+                      "nickname.stemmed": {
+                        "boost": 3,
+                        "query": "المتنبي"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "search_after": [
+          12.5,
+          3,
+          "متنبي",
+          9
+        ],
+        "size": 31,
+        "sort": [
+          {
+            "_score": "asc"
+          },
+          {
+            "poemsCount": "asc"
+          },
+          {
+            "nameSort": "desc"
+          },
+          {
+            "id": "desc"
+          }
+        ],
+        "track_total_hits": true
+      },
+      "note": "a query and an era, the page before a poet",
+      "params": {
+        "before": {
+          "id": 9,
+          "nameSort": "متنبي",
+          "poemsCount": 3,
+          "score": 12.5
+        },
+        "eraSlugs": [
+          "abbasi"
+        ],
+        "q": "المتنبي"
       }
     }
   ],
@@ -2235,7 +2473,7 @@
       "note": "text query, default ranking",
       "params": {
         "eraSlugs": [],
-        "page": 1,
+        "offset": 0,
         "q": "أحمد"
       }
     },
@@ -2263,200 +2501,8 @@
       "note": "browse by id, no text",
       "params": {
         "eraSlugs": [],
-        "page": 1,
+        "offset": 0,
         "q": ""
-      }
-    },
-    {
-      "body": {
-        "from": 0,
-        "query": {
-          "bool": {
-            "filter": [],
-            "must": [
-              {
-                "match_all": {}
-              }
-            ]
-          }
-        },
-        "size": 30,
-        "sort": [
-          {
-            "poemsCount": "desc"
-          },
-          {
-            "nameSort": "asc"
-          },
-          {
-            "id": "asc"
-          }
-        ],
-        "track_total_hits": 50000
-      },
-      "note": "the /poets list: sorted by poem count, no highlight, poem page size",
-      "params": {
-        "eraSlugs": [],
-        "page": 1,
-        "pageSize": 30,
-        "q": "",
-        "sort": "poemsCount",
-        "window": 50000
-      }
-    },
-    {
-      "body": {
-        "from": 60,
-        "query": {
-          "function_score": {
-            "boost_mode": "multiply",
-            "field_value_factor": {
-              "factor": 0.01,
-              "field": "poemsCount",
-              "missing": 0,
-              "modifier": "log2p"
-            },
-            "query": {
-              "bool": {
-                "filter": [
-                  {
-                    "terms": {
-                      "eraSlug": [
-                        "abbasi"
-                      ]
-                    }
-                  },
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "multi_match": {
-                            "fields": [
-                              "name.autocomplete",
-                              "name.stemmed",
-                              "nickname.autocomplete",
-                              "nickname.stemmed"
-                            ],
-                            "operator": "and",
-                            "query": "المتنبي",
-                            "type": "cross_fields"
-                          }
-                        },
-                        {
-                          "match": {
-                            "name": {
-                              "fuzziness": "AUTO:4,7",
-                              "operator": "and",
-                              "prefix_length": 1,
-                              "query": "المتنبي"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ],
-                "minimum_should_match": 1,
-                "should": [
-                  {
-                    "term": {
-                      "name.exact": {
-                        "boost": 12,
-                        "value": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match_phrase": {
-                      "name": {
-                        "boost": 6,
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match": {
-                      "name.autocomplete": {
-                        "boost": 2,
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match": {
-                      "name.stemmed": {
-                        "boost": 3,
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match": {
-                      "name": {
-                        "boost": 1,
-                        "fuzziness": "AUTO:4,7",
-                        "fuzzy_rewrite": "top_terms_boost_50",
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match_phrase": {
-                      "nickname": {
-                        "boost": 6,
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match": {
-                      "nickname.autocomplete": {
-                        "boost": 2,
-                        "query": "المتنبي"
-                      }
-                    }
-                  },
-                  {
-                    "match": {
-                      "nickname.stemmed": {
-                        "boost": 3,
-                        "query": "المتنبي"
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "size": 30,
-        "sort": [
-          {
-            "_score": "desc"
-          },
-          {
-            "poemsCount": "desc"
-          },
-          {
-            "nameSort": "asc"
-          },
-          {
-            "id": "asc"
-          }
-        ],
-        "track_total_hits": 50000
-      },
-      "note": "the /poets list with a query and an era",
-      "params": {
-        "eraSlugs": [
-          "abbasi"
-        ],
-        "page": 3,
-        "pageSize": 30,
-        "q": "المتنبي",
-        "sort": "poemsCount",
-        "window": 50000
       }
     },
     {
@@ -2500,7 +2546,7 @@
       "params": {
         "eraSlugs": [],
         "exact": true,
-        "page": 1,
+        "offset": 0,
         "q": "المتنبي"
       }
     },
@@ -2643,7 +2689,7 @@
       "note": "search section, no highlight",
       "params": {
         "eraSlugs": [],
-        "page": 2,
+        "offset": 20,
         "q": "حب"
       }
     }

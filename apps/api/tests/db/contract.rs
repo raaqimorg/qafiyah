@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
 use axum::http::StatusCode;
+use qafiyah_api::cursor;
 use qafiyah_api::db::poems::PgPoems;
 use qafiyah_api::db::taxonomy::PgTaxonomy;
+use qafiyah_api::domain::paging::Cursor;
 use qafiyah_api::domain::poems::PoemRepository;
 use qafiyah_api::domain::taxonomy::TaxonomyRepository;
 use serde_json::Value;
@@ -13,26 +15,13 @@ async fn h() -> Option<Harness> {
     harness().await
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "a missing pagination field is a failed test"
-)]
-fn total_pages(body: &Value) -> u64 {
-    body.get("pagination")
-        .and_then(|pagination| pagination.get("totalPages"))
-        .and_then(Value::as_u64)
-        .expect("totalPages")
+#[expect(clippy::expect_used, reason = "a missing total is a failed test")]
+fn total(body: &Value) -> u64 {
+    body.get("total").and_then(Value::as_u64).expect("total")
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "a missing pagination field is a failed test"
-)]
-fn total_items(body: &Value) -> u64 {
-    body.get("pagination")
-        .and_then(|pagination| pagination.get("totalItems"))
-        .and_then(Value::as_u64)
-        .expect("totalItems")
+fn after(id: i64) -> String {
+    cursor::encode(Cursor::After(i32::try_from(id).unwrap_or(i32::MAX)))
 }
 
 #[tokio::test]
@@ -52,10 +41,10 @@ async fn every_list_operation_returns_an_envelope_whose_counts_agree() {
         let data = body["data"].as_array().expect("data");
         assert!(!data.is_empty(), "{path} is empty on this dump");
         assert_eq!(
-            total_items(&body),
-            u64::try_from(data.len()).expect("fits u64")
+            body.as_object().map(|envelope| envelope.len()),
+            Some(1),
+            "{path} has only data"
         );
-        assert_eq!(total_pages(&body), 1);
         assert!(
             data.iter()
                 .all(|row| row["poemsCount"].as_i64().is_some() && row["slug"].as_str().is_some())
@@ -92,21 +81,38 @@ async fn poems_paginate_consistently_with_the_count_and_the_slug_stream() {
         .as_u64()
         .expect("total");
     let page1 = h.get("/v1/poems").await.json();
-    assert_eq!(total_items(&page1), count);
-    assert_eq!(page1["pagination"]["pageSize"], 30);
-    assert_eq!(total_pages(&page1), count.div_ceil(30).max(1));
+    assert_eq!(total(&page1), count);
+    assert_eq!(
+        page1["data"].as_array().map(Vec::len),
+        Some(usize::try_from(count.min(30)).expect("fits usize"))
+    );
+    assert!(page1["prev"].is_null());
+    assert_eq!(page1["next"].is_string(), count > 30);
     let past = h
-        .get(&format!("/v1/poems?page={}", total_pages(&page1) + 1))
+        .get(&format!("/v1/poems?cursor={}", after(i64::from(i32::MAX))))
         .await;
     assert_eq!(
         past.status,
         StatusCode::OK,
-        "a page past the last is empty, not an error (pinned)"
+        "a cursor past the last poem gives an empty page, not an error (pinned)"
     );
-    assert!(past.json()["data"].as_array().expect("data").is_empty());
+    let past = past.json();
+    assert!(past["data"].as_array().expect("data").is_empty());
+    assert!(past["next"].is_null() && past["prev"].is_null());
+    for wrong in ["2", "eyJvZmZzZXQiOjIwfQ", "e30", "not%20a%20cursor"] {
+        let refused = h.get(&format!("/v1/poems?cursor={wrong}")).await;
+        assert_eq!(refused.status, StatusCode::BAD_REQUEST, "{wrong}");
+        assert!(
+            refused.json()["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("`cursor`")),
+            "{wrong}: {}",
+            refused.body
+        );
+    }
     let slugs = h.get("/v1/poems/slugs").await.json();
-    assert_eq!(total_items(&slugs), count);
-    assert_eq!(slugs["pagination"]["pageSize"], 45_000);
+    assert_eq!(total(&slugs), count);
+    assert_eq!(slugs["next"].is_string(), count > 45_000);
     let listed: Vec<&str> = slugs["data"]
         .as_array()
         .expect("slugs")
@@ -242,7 +248,7 @@ async fn every_sampled_poem_returns_as_many_entries_as_its_verse_count() {
 async fn every_poem_facet_narrows_the_list_to_a_subset_of_the_unfiltered_total() {
     let Some(h) = h().await else { return };
     let unfiltered = h.get("/v1/poems").await.json();
-    let total = total_items(&unfiltered);
+    let unfiltered_total = total(&unfiltered);
     let first = unfiltered["data"][0].clone();
     let poet = first["poet"]["slug"].as_str().expect("poet").to_string();
     let meter = first["meter"]["slug"].as_str().expect("meter").to_string();
@@ -272,8 +278,8 @@ async fn every_poem_facet_narrows_the_list_to_a_subset_of_the_unfiltered_total()
         let sent = h.get(&format!("/v1/poems?{query}")).await;
         assert_eq!(sent.status, StatusCode::OK, "{query}: {}", sent.body);
         let body = sent.json();
-        let filtered = total_items(&body);
-        assert!(filtered <= total, "{query}");
+        let filtered = total(&body);
+        assert!(filtered <= unfiltered_total, "{query}");
         if query == format!("poet={poet}") {
             assert!(filtered >= 1);
             assert!(
@@ -290,7 +296,7 @@ async fn every_poem_facet_narrows_the_list_to_a_subset_of_the_unfiltered_total()
         .await
         .json();
     let once = h.get(&format!("/v1/poems?meter={meter}")).await.json();
-    assert_eq!(total_items(&twice), total_items(&once));
+    assert_eq!(total(&twice), total(&once));
 }
 
 #[tokio::test]
@@ -307,7 +313,7 @@ async fn a_poem_filter_that_matches_nothing_lists_an_empty_page() {
         let sent = h.get(&format!("/v1/poems?{query}")).await;
         assert_eq!(sent.status, StatusCode::OK, "{query}: {}", sent.body);
         let body = sent.json();
-        assert_eq!(total_items(&body), 0, "{query}");
+        assert_eq!(total(&body), 0, "{query}");
         assert_eq!(body["data"].as_array().map(Vec::len), Some(0), "{query}");
     }
 }
@@ -325,7 +331,7 @@ async fn two_meters_list_the_poems_of_either_one() {
     let (a, b) = (slug(0), slug(1));
     let total = |query: String| {
         let h = &h;
-        async move { total_items(&h.get(&format!("/v1/poems?{query}")).await.json()) }
+        async move { total(&h.get(&format!("/v1/poems?{query}")).await.json()) }
     };
     let either = total(format!("meter={a}&meter={b}")).await;
     let sum = total(format!("meter={a}")).await + total(format!("meter={b}")).await;
@@ -353,7 +359,12 @@ async fn poets_are_listed_by_count_readable_by_slug_and_streamed_for_sitemaps() 
     assert_eq!(detail.json()["data"]["slug"], slug);
     assert_eq!(h.get("/v1/poets/zzzz").await.status, StatusCode::NOT_FOUND);
     let stream = h.get("/v1/poets/slugs").await.json();
-    assert_eq!(stream["pagination"]["pageSize"], 45_000);
+    assert!(
+        stream["data"]
+            .as_array()
+            .is_some_and(|slugs| slugs.len() <= 45_000)
+    );
+    assert!(stream["prev"].is_null());
     assert!(
         stream["data"]
             .as_array()
@@ -422,7 +433,7 @@ async fn a_poets_facets_partition_its_poems_and_narrow_under_each_other() {
         .await
         .json()["data"]
         .clone();
-    let matching = total_items(
+    let matching = total(
         &h.get(&format!("/v1/poems?poet={poet}&meter={meter}"))
             .await
             .json(),
@@ -481,10 +492,7 @@ async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
         )
         .await;
     let stream = h.get("/v1/poets/slugs").await.json();
-    assert_eq!(
-        total_items(&stream),
-        u64::try_from(with_poems).expect("fits u64")
-    );
+    assert_eq!(total(&stream), u64::try_from(with_poems).expect("fits u64"));
     let empty: Option<String> = h
         .text(
             "SELECT pt.slug AS value FROM public.poets pt WHERE NOT EXISTS \
@@ -550,7 +558,18 @@ async fn search_returns_both_envelopes_with_the_documented_hit_shape() {
     assert_eq!(body["q"], "حب");
     for (section, kind) in [("poems", "poem"), ("poets", "poet")] {
         let envelope = &body[section];
-        assert_eq!(envelope["pagination"]["pageSize"], 20, "{section}");
+        assert!(
+            envelope["data"]
+                .as_array()
+                .is_some_and(|hits| hits.len() <= 20),
+            "{section}"
+        );
+        assert!(envelope["prev"].is_null(), "{section}");
+        assert_eq!(
+            envelope["next"].is_string(),
+            total(envelope) > 20,
+            "{section}"
+        );
         for hit in envelope["data"].as_array().expect("hits") {
             assert_eq!(hit["type"], kind);
             assert!(hit["slug"].as_str().is_some_and(|s| s.len() == 4));
@@ -577,7 +596,7 @@ async fn search_returns_both_envelopes_with_the_documented_hit_shape() {
         ))
         .await
         .json();
-    assert!(total_items(&filtered["poems"]) <= total_items(&body["poems"]));
+    assert!(total(&filtered["poems"]) <= total(&body["poems"]));
     let empty = h.get("/v1/search").await.json();
     assert_eq!(empty["q"], "");
     assert!(empty["poems"]["data"].as_array().is_some());
@@ -742,7 +761,7 @@ async fn a_hidden_poet_and_their_poems_are_not_found_or_listed() {
         StatusCode::NOT_FOUND
     );
     let listed = h.get(&format!("/v1/poems?poet={poet}")).await.json();
-    assert_eq!(total_items(&listed), 0);
+    assert_eq!(total(&listed), 0);
     assert_eq!(
         h.get(&format!("/v1/poems/facets?poet={poet}")).await.status,
         StatusCode::NOT_FOUND
@@ -753,7 +772,7 @@ async fn a_hidden_poet_and_their_poems_are_not_found_or_listed() {
 async fn a_single_term_total_from_the_stats_table_equals_a_live_count_of_primaries() {
     let Some(h) = h().await else { return };
     let body = h.get("/v1/poems?theme=almutafarriqat").await.json();
-    let stats_total = total_items(&body);
+    let stats_total = total(&body);
     let live: i64 = h
         .count(
             "SELECT count(*) AS value FROM public.poems p JOIN public.themes t ON t.id = p.theme_id \
@@ -773,7 +792,7 @@ async fn the_unfiltered_total_and_the_poem_count_equal_a_live_count_of_primaries
             &[],
         )
         .await;
-    let listed = total_items(&h.get("/v1/poems").await.json());
+    let listed = total(&h.get("/v1/poems").await.json());
     let counted = h.get("/v1/poems/count").await.json()["data"]["total"].as_i64();
     assert_eq!(i64::try_from(listed).unwrap_or(-2), live);
     assert_eq!(counted, Some(live));
@@ -813,7 +832,7 @@ async fn a_total_over_several_values_of_one_filter_equals_a_live_count_of_primar
             )
             .await;
         assert_eq!(
-            i64::try_from(total_items(&body)).unwrap_or(-2),
+            i64::try_from(total(&body)).unwrap_or(-2),
             live,
             "{param}: {slugs:?}"
         );
@@ -920,7 +939,7 @@ async fn a_planner_sensitive_list_is_never_kept_as_a_prepared_statement() {
     };
     let poems = PgPoems::new(pool.clone());
     for _ in 0..6 {
-        poems.list(&facets, 1, 30).await.expect("a list");
+        poems.list(&facets, None, 30).await.expect("a list");
     }
     PgTaxonomy::new(pool.clone())
         .list_counted(qafiyah_api::domain::taxonomy::Counted::Meters)
@@ -1009,77 +1028,85 @@ async fn listed_slugs(h: &Harness, query: &str) -> Vec<String> {
         .collect()
 }
 
-async fn page_holding(h: &Harness, unshown: &str) -> Option<i64> {
-    let first = h
-        .text(
-            &format!(
-                "SELECT id::text AS value FROM public.poems WHERE {unshown} ORDER BY id LIMIT 1"
-            ),
-            &[],
-        )
-        .await?;
-    let before = h
-        .count(
-            &format!("SELECT count(*) AS value FROM public.poems WHERE {SHOWN} AND id < $1::int"),
-            &[&first],
-        )
-        .await;
-    Some(before.div_euclid(30).saturating_add(1))
+async fn first_unshown(h: &Harness, unshown: &str) -> Option<i64> {
+    h.text(
+        &format!("SELECT id::text AS value FROM public.poems WHERE {unshown} ORDER BY id LIMIT 1"),
+        &[],
+    )
+    .await
+    .and_then(|id| id.parse().ok())
+}
+
+async fn shown_slugs_after(h: &Harness, filter: &str, params: &[&str], id: i64) -> Vec<String> {
+    let at = id.to_string();
+    let mut values = params.to_vec();
+    values.push(&at);
+    h.texts(
+        &format!(
+            "SELECT slug AS value FROM public.poems WHERE {SHOWN} {filter} \
+             AND id > ${}::int ORDER BY id LIMIT 30",
+            values.len()
+        ),
+        &values,
+    )
+    .await
 }
 
 #[tokio::test]
 async fn a_list_page_is_the_next_thirty_shown_primary_poems_in_id_order() {
     let Some(h) = h().await else { return };
-    let mut pages = vec![1];
+    let mut starts = vec![0];
     for unshown in ["recension_of_id IS NOT NULL", "is_hidden"] {
-        if let Some(page) = page_holding(&h, unshown).await {
-            pages.push(page);
+        if let Some(id) = first_unshown(&h, unshown).await {
+            starts.push(id.saturating_sub(5));
         }
     }
-    for page in pages {
-        let offset = ((page - 1) * 30).to_string();
-        let expected = h
-            .texts(
-                &format!(
-                    "SELECT slug AS value FROM public.poems WHERE {SHOWN} \
-                     ORDER BY id LIMIT 30 OFFSET $1::int"
-                ),
-                &[&offset],
-            )
-            .await;
-        assert!(!expected.is_empty(), "page {page}");
-        assert_eq!(
-            listed_slugs(&h, &format!("page={page}")).await,
-            expected,
-            "page {page}"
-        );
+    for start in starts {
+        let expected = shown_slugs_after(&h, "", &[], start).await;
+        assert!(!expected.is_empty(), "after {start}");
+        let query = if start == 0 {
+            String::new()
+        } else {
+            format!("cursor={}", after(start))
+        };
+        assert_eq!(listed_slugs(&h, &query).await, expected, "after {start}");
     }
-    let altawil = h
-        .count(
-            &format!(
-                "SELECT count(*) AS value FROM public.poems WHERE {SHOWN} \
-                 AND meter_id = (SELECT id FROM public.meters WHERE slug = $1)"
-            ),
-            &["altawil"],
-        )
-        .await;
-    let page: i64 = if altawil > 30 { 2 } else { 1 };
-    let offset = ((page - 1) * 30).to_string();
-    let expected = h
-        .texts(
-            &format!(
-                "SELECT slug AS value FROM public.poems WHERE {SHOWN} \
-                 AND meter_id = (SELECT id FROM public.meters WHERE slug = $1) \
-                 ORDER BY id LIMIT 30 OFFSET $2::int"
-            ),
-            &["altawil", &offset],
-        )
-        .await;
-    assert!(!expected.is_empty(), "altawil page {page}");
-    assert_eq!(
-        listed_slugs(&h, &format!("meter=altawil&page={page}")).await,
-        expected
-    );
+    let altawil = "AND meter_id = (SELECT id FROM public.meters WHERE slug = $1)";
+    let first = shown_slugs_after(&h, altawil, &["altawil"], 0).await;
+    assert_eq!(listed_slugs(&h, "meter=altawil").await, first);
+    let sent = h.get("/v1/poems?meter=altawil").await.json();
+    if let Some(next) = sent["next"].as_str() {
+        let last = h
+            .text(
+                "SELECT id::text AS value FROM public.poems WHERE slug = $1",
+                &[first.last().map_or("", String::as_str)],
+            )
+            .await
+            .and_then(|id| id.parse().ok())
+            .unwrap_or_default();
+        let expected = shown_slugs_after(&h, altawil, &["altawil"], last).await;
+        assert!(!expected.is_empty(), "the second altawil page");
+        let second = h
+            .get(&format!("/v1/poems?meter=altawil&cursor={next}"))
+            .await
+            .json();
+        let listed: Vec<String> = second["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|poem| poem["slug"].as_str().map(str::to_string))
+            .collect();
+        assert_eq!(listed, expected);
+        let back = h
+            .get(&format!(
+                "/v1/poems?meter=altawil&cursor={}",
+                second["prev"].as_str().unwrap_or_default()
+            ))
+            .await
+            .json();
+        assert_eq!(back["data"], sent["data"], "prev returns the first page");
+        assert!(back["prev"].is_null(), "the first page has no prev");
+    }
 }
 
 #[tokio::test]
@@ -1186,13 +1213,30 @@ async fn a_feeling_page_lists_each_verse_of_its_branch_once_and_matches_its_coun
     let count = core["verseCount"].as_u64().expect("verseCount");
     assert_eq!(i64::try_from(count).unwrap_or(-1), live);
     let first = h.get(&format!("/v1/feelings/{slug}/verses")).await.json();
-    assert_eq!(total_items(&first), count);
-    let last_page = total_pages(&first);
+    assert_eq!(total(&first), count);
+    let before_last = count.saturating_sub(1) / 30 * 30;
     let last = h
-        .get(&format!("/v1/feelings/{slug}/verses?page={last_page}"))
+        .get(&format!(
+            "/v1/feelings/{slug}/verses?cursor={}",
+            after(i64::try_from(before_last).unwrap_or(0))
+        ))
         .await
         .json();
-    let expected_last = count - (last_page - 1) * 30;
+    assert!(last["next"].is_null());
+    if before_last > 0 {
+        let prev = last["prev"].as_str().expect("prev");
+        let before = h
+            .get(&format!("/v1/feelings/{slug}/verses?cursor={prev}"))
+            .await
+            .json();
+        assert_eq!(before["data"].as_array().map(Vec::len), Some(30));
+        assert_eq!(
+            before["next"].as_str(),
+            Some(after(i64::try_from(before_last).unwrap_or(0)).as_str())
+        );
+        assert_eq!(before["prev"].is_null(), before_last == 30);
+    }
+    let expected_last = count - before_last;
     for (page, expected) in [(&first, count.min(30)), (&last, expected_last)] {
         let data = page["data"].as_array().expect("data");
         assert_eq!(u64::try_from(data.len()).unwrap_or(0), expected);

@@ -7,15 +7,18 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use qafiyah_api::constants::{POEMS_PER_PAGE, POETS_LIST_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE};
-use qafiyah_api::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
-use qafiyah_api::es::query::{poem_search_body, poet_search_body};
+use qafiyah_api::constants::SEARCH_POEMS_PER_PAGE;
+use qafiyah_api::domain::paging::Cursor;
+use qafiyah_api::domain::search::{
+    PoemSearchParams, PoetListParams, PoetPosition, PoetSearchParams,
+};
+use qafiyah_api::es::query::{poem_search_body, poet_list_body, poet_search_body};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PoemCase {
     q: &'static str,
-    page: u32,
+    offset: u32,
     poet_slugs: &'static [&'static str],
     era_slugs: &'static [&'static str],
     meter_slugs: &'static [&'static str],
@@ -31,21 +34,36 @@ struct PoemCase {
 #[serde(rename_all = "camelCase")]
 struct PoetCase {
     q: &'static str,
-    page: u32,
+    offset: u32,
     era_slugs: &'static [&'static str],
     #[serde(skip_serializing_if = "Option::is_none")]
-    page_size: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    sort: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     exact: Option<bool>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Position {
     #[serde(skip_serializing_if = "Option::is_none")]
-    window: Option<u32>,
+    score: Option<f64>,
+    poems_count: i64,
+    name_sort: &'static str,
+    id: i32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ListCase {
+    q: &'static str,
+    era_slugs: &'static [&'static str],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    after: Option<Position>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    before: Option<Position>,
 }
 
 const NO_SLUGS: PoemCase = PoemCase {
     q: "",
-    page: 1,
+    offset: 0,
     poet_slugs: &[],
     era_slugs: &[],
     meter_slugs: &[],
@@ -89,7 +107,7 @@ const POEMS: &[(&str, PoemCase)] = &[
     (
         "browse, later page",
         PoemCase {
-            page: 4,
+            offset: 60,
             ..NO_SLUGS
         },
     ),
@@ -113,7 +131,7 @@ const POEMS: &[(&str, PoemCase)] = &[
         "text plus one filter",
         PoemCase {
             q: "دمع",
-            page: 2,
+            offset: 20,
             era_slugs: &["jahili"],
             ..NO_SLUGS
         },
@@ -144,12 +162,9 @@ const POEMS: &[(&str, PoemCase)] = &[
 
 const BROWSE: PoetCase = PoetCase {
     q: "",
-    page: 1,
+    offset: 0,
     era_slugs: &[],
-    page_size: None,
-    sort: None,
     exact: None,
-    window: None,
 };
 
 const POETS: &[(&str, PoetCase)] = &[
@@ -162,27 +177,6 @@ const POETS: &[(&str, PoetCase)] = &[
     ),
     ("browse by id, no text", PoetCase { ..BROWSE }),
     (
-        "the /poets list: sorted by poem count, no highlight, poem page size",
-        PoetCase {
-            page_size: Some(POEMS_PER_PAGE),
-            sort: Some("poemsCount"),
-            window: Some(POETS_LIST_MAX_RESULT_WINDOW),
-            ..BROWSE
-        },
-    ),
-    (
-        "the /poets list with a query and an era",
-        PoetCase {
-            q: "المتنبي",
-            page: 3,
-            era_slugs: &["abbasi"],
-            page_size: Some(POEMS_PER_PAGE),
-            sort: Some("poemsCount"),
-            window: Some(POETS_LIST_MAX_RESULT_WINDOW),
-            ..BROWSE
-        },
-    ),
-    (
         "exact name",
         PoetCase {
             q: "المتنبي",
@@ -194,8 +188,45 @@ const POETS: &[(&str, PoetCase)] = &[
         "search section, no highlight",
         PoetCase {
             q: "حب",
-            page: 2,
+            offset: 20,
             ..BROWSE
+        },
+    ),
+];
+
+const FIRST: ListCase = ListCase {
+    q: "",
+    era_slugs: &[],
+    after: None,
+    before: None,
+};
+
+const POET_LIST: &[(&str, ListCase)] = &[
+    ("the first page, most poems first", FIRST),
+    (
+        "the page after a poet",
+        ListCase {
+            after: Some(Position {
+                score: None,
+                poems_count: 40,
+                name_sort: "زهير",
+                id: 120,
+            }),
+            ..FIRST
+        },
+    ),
+    (
+        "a query and an era, the page before a poet",
+        ListCase {
+            q: "المتنبي",
+            era_slugs: &["abbasi"],
+            before: Some(Position {
+                score: Some(12.5),
+                poems_count: 3,
+                name_sort: "متنبي",
+                id: 9,
+            }),
+            ..FIRST
         },
     ),
 ];
@@ -207,7 +238,7 @@ fn owned(values: &[&str]) -> Vec<String> {
 fn poem_entry(note: &str, case: &PoemCase) -> Value {
     let body = poem_search_body(&PoemSearchParams {
         q: case.q.to_string(),
-        page: case.page,
+        offset: case.offset,
         page_size: SEARCH_POEMS_PER_PAGE,
         poet_slugs: owned(case.poet_slugs),
         era_slugs: owned(case.era_slugs),
@@ -222,18 +253,36 @@ fn poem_entry(note: &str, case: &PoemCase) -> Value {
 }
 
 fn poet_entry(note: &str, case: &PoetCase) -> Value {
-    let defaults = PoetSearchParams::default();
     let body = poet_search_body(&PoetSearchParams {
         q: case.q.to_string(),
-        page: case.page,
+        offset: case.offset,
         era_slugs: owned(case.era_slugs),
-        page_size: case.page_size.unwrap_or(defaults.page_size),
-        sort: match case.sort {
-            Some("poemsCount") => PoetSort::PoemsCount,
-            _ => PoetSort::Id,
-        },
         exact: case.exact.unwrap_or_default(),
-        window: case.window.unwrap_or(defaults.window),
+        ..PoetSearchParams::default()
+    });
+    json!({ "note": note, "params": case, "body": body })
+}
+
+fn position(at: &Position) -> PoetPosition {
+    PoetPosition {
+        score: at.score,
+        poems_count: at.poems_count,
+        name_sort: at.name_sort.to_string(),
+        id: at.id,
+    }
+}
+
+fn poet_list_entry(note: &str, case: &ListCase) -> Value {
+    let cursor = match (&case.after, &case.before) {
+        (Some(at), _) => Some(Cursor::After(position(at))),
+        (None, Some(at)) => Some(Cursor::Before(position(at))),
+        (None, None) => None,
+    };
+    let body = poet_list_body(&PoetListParams {
+        q: case.q.to_string(),
+        era_slugs: owned(case.era_slugs),
+        cursor,
+        ..PoetListParams::default()
     });
     json!({ "note": note, "params": case, "body": body })
 }
@@ -247,6 +296,10 @@ fn query_vectors() -> Value {
         "poets": POETS
             .iter()
             .map(|(note, case)| poet_entry(note, case))
+            .collect::<Vec<_>>(),
+        "poetList": POET_LIST
+            .iter()
+            .map(|(note, case)| poet_list_entry(note, case))
             .collect::<Vec<_>>(),
     })
 }

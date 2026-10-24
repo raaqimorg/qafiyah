@@ -7,8 +7,18 @@ use crate::db::corpus::{
 };
 use crate::db::{PgPool, int, present};
 use crate::domain::feelings::{Feeling, FeelingRepository, FeelingVerse};
+use crate::domain::paging::{self, Cursor, Slice};
 use crate::domain::poems::PoemLink;
 use crate::domain::{PoetBrief, StoreError, Term};
+
+fn rank_window(cursor: Option<&Cursor<i32>>, page_size: u32) -> (i32, i32) {
+    let span = i32::try_from(paging::fetch_limit(page_size)).unwrap_or(i32::MAX);
+    match cursor {
+        Some(Cursor::Before(rank)) => (rank.saturating_sub(span).max(1), rank.saturating_sub(1)),
+        Some(Cursor::After(rank)) => (rank.saturating_add(1), rank.saturating_add(span)),
+        None => (1, span),
+    }
+}
 
 pub struct PgFeelings {
     pool: PgPool,
@@ -120,19 +130,12 @@ impl FeelingRepository for PgFeelings {
     async fn verses(
         &self,
         feeling_id: i32,
-        page: u32,
+        cursor: Option<&Cursor<i32>>,
         page_size: u32,
-    ) -> Result<Vec<FeelingVerse>, StoreError> {
-        let first = i64::from(page.saturating_sub(1))
-            .saturating_mul(i64::from(page_size))
-            .saturating_add(1);
-        let Ok(first_rank) = i32::try_from(first) else {
-            return Ok(Vec::new());
-        };
-        let last_rank = i32::try_from(first.saturating_add(i64::from(page_size)).saturating_sub(1))
-            .unwrap_or(i32::MAX);
+    ) -> Result<Slice<FeelingVerse, i32>, StoreError> {
+        let (first, last) = rank_window(cursor, page_size);
         let mut conn = self.pool.get().await?;
-        Ok(feeling_branch_verses::table
+        let query = feeling_branch_verses::table
             .inner_join(
                 feelings::table.on(feelings::id.eq(feeling_branch_verses::verse_feeling_id)),
             )
@@ -146,26 +149,31 @@ impl FeelingRepository for PgFeelings {
             .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
             .inner_join(eras::table.on(eras::id.eq(poems::era_id)))
             .filter(feeling_branch_verses::feeling_id.eq(feeling_id))
-            .filter(feeling_branch_verses::rank.between(first_rank, last_rank))
-            .order(feeling_branch_verses::rank.asc())
             .select((
-                verses::content,
-                feeling_branch_verses::position,
-                feelings::name,
-                feelings::slug,
-                poems::title,
-                poems::slug,
-                poets::name,
-                poets::slug,
-                poets::has_avatar,
-                poets::is_anonymous,
-                eras::name,
-                eras::slug,
+                feeling_branch_verses::rank,
+                (
+                    verses::content,
+                    feeling_branch_verses::position,
+                    feelings::name,
+                    feelings::slug,
+                    poems::title,
+                    poems::slug,
+                    poets::name,
+                    poets::slug,
+                    poets::has_avatar,
+                    poets::is_anonymous,
+                    eras::name,
+                    eras::slug,
+                ),
             ))
-            .load::<VerseRow>(&mut conn)
-            .await?
-            .into_iter()
-            .map(verse)
-            .collect())
+            .filter(feeling_branch_verses::rank.between(first, last))
+            .into_boxed();
+        let query = if cursor.is_some_and(Cursor::is_before) {
+            query.order(feeling_branch_verses::rank.desc())
+        } else {
+            query.order(feeling_branch_verses::rank.asc())
+        };
+        let rows = query.load::<(i32, VerseRow)>(&mut conn).await?;
+        Ok(paging::slice(rows, cursor, page_size, |(rank, _)| *rank).map(|(_, row)| verse(row)))
     }
 }

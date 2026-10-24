@@ -6,6 +6,7 @@ use crate::db::corpus::{eras, poet_aliases, poet_stats, poets};
 use crate::db::{PgPool, int};
 use crate::domain::StoreError;
 use crate::domain::Term;
+use crate::domain::paging::{self, Cursor, Slice};
 use crate::domain::poets::{PoetProfile, PoetRepository, PoetSlug};
 
 pub struct PgPoets {
@@ -92,19 +93,25 @@ impl PoetRepository for PgPoets {
         int(total)
     }
 
-    async fn list_slugs(&self, page: u32, page_size: u32) -> Result<Vec<PoetSlug>, StoreError> {
+    async fn list_slugs(
+        &self,
+        cursor: Option<&Cursor<i32>>,
+        page_size: u32,
+    ) -> Result<Slice<PoetSlug, i32>, StoreError> {
         let mut conn = self.pool.get().await?;
-        Ok(poets::table
+        let query = poets::table
             .inner_join(poet_stats::table.on(poet_stats::id.eq(poets::id)))
             .filter(poet_stats::poems_count.gt(0))
-            .order(poets::slug.asc())
-            .select((poets::slug, poets::has_avatar))
-            .limit(i64::from(page_size))
-            .offset(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
-            .load::<(String, bool)>(&mut conn)
-            .await?
-            .into_iter()
-            .map(|(slug, has_avatar)| PoetSlug { slug, has_avatar })
-            .collect())
+            .select((poets::id, poets::slug, poets::has_avatar))
+            .limit(paging::fetch_limit(page_size))
+            .into_boxed();
+        let query = match cursor {
+            None => query.order(poets::id.asc()),
+            Some(Cursor::After(id)) => query.filter(poets::id.gt(*id)).order(poets::id.asc()),
+            Some(Cursor::Before(id)) => query.filter(poets::id.lt(*id)).order(poets::id.desc()),
+        };
+        let rows = query.load::<(i32, String, bool)>(&mut conn).await?;
+        Ok(paging::slice(rows, cursor, page_size, |(id, _, _)| *id)
+            .map(|(_, slug, has_avatar)| PoetSlug { slug, has_avatar }))
     }
 }

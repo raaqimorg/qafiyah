@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::constants::{ES_MAX_RESULT_WINDOW, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
+use crate::constants::{POEMS_PER_PAGE, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
 use crate::domain::StoreError;
+use crate::domain::paging::{Cursor, Slice};
 use crate::domain::{PoetBrief, Term};
 use crate::js;
 
@@ -36,7 +37,7 @@ pub struct Page<T> {
 
 pub struct PoemSearchParams {
     pub q: String,
-    pub page: u32,
+    pub offset: u32,
     pub page_size: u32,
     pub poet_slugs: Vec<String>,
     pub era_slugs: Vec<String>,
@@ -52,7 +53,7 @@ impl Default for PoemSearchParams {
     fn default() -> Self {
         Self {
             q: String::new(),
-            page: 1,
+            offset: 0,
             page_size: SEARCH_POEMS_PER_PAGE,
             poet_slugs: Vec::new(),
             era_slugs: Vec::new(),
@@ -66,32 +67,48 @@ impl Default for PoemSearchParams {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum PoetSort {
-    Id,
-    PoemsCount,
-}
-
 pub struct PoetSearchParams {
     pub q: String,
-    pub page: u32,
+    pub offset: u32,
     pub era_slugs: Vec<String>,
     pub page_size: u32,
-    pub sort: PoetSort,
     pub exact: bool,
-    pub window: u32,
 }
 
 impl Default for PoetSearchParams {
     fn default() -> Self {
         Self {
             q: String::new(),
-            page: 1,
+            offset: 0,
             era_slugs: Vec::new(),
             page_size: SEARCH_POETS_PER_PAGE,
-            sort: PoetSort::Id,
             exact: false,
-            window: ES_MAX_RESULT_WINDOW,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PoetPosition {
+    pub score: Option<f64>,
+    pub poems_count: i64,
+    pub name_sort: String,
+    pub id: i32,
+}
+
+pub struct PoetListParams {
+    pub q: String,
+    pub era_slugs: Vec<String>,
+    pub cursor: Option<Cursor<PoetPosition>>,
+    pub page_size: u32,
+}
+
+impl Default for PoetListParams {
+    fn default() -> Self {
+        Self {
+            q: String::new(),
+            era_slugs: Vec::new(),
+            cursor: None,
+            page_size: POEMS_PER_PAGE,
         }
     }
 }
@@ -100,7 +117,10 @@ impl Default for PoetSearchParams {
 pub trait SearchIndex: Send + Sync {
     async fn search_poems(&self, params: &PoemSearchParams) -> Result<Page<PoemHit>, StoreError>;
     async fn search_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetHit>, StoreError>;
-    async fn list_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetListing>, StoreError>;
+    async fn list_poets(
+        &self,
+        params: &PoetListParams,
+    ) -> Result<(Slice<PoetListing, PoetPosition>, u32), StoreError>;
 }
 
 const MARK_OPEN: &str = "<mark>";

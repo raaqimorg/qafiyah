@@ -225,7 +225,7 @@ When two poet rows are one person, `merge_poet(keep, absorb)` does these steps:
 
 1. It moves all of the absorbed poet's poems.
 2. It fills the survivor's empty fields (and an unknown era) from the absorbed poet.
-3. It deletes the absorbed poet, and records its slug in `poet_aliases`. So `GET /v1/poets/<old slug>` answers `301` to the survivor, and the website redirects the page, with its `?page`.
+3. It deletes the absorbed poet, and records its slug in `poet_aliases`. So `GET /v1/poets/<old slug>` answers `301` to the survivor, and the website redirects the page, with its query string.
 
 It refuses these merges:
 

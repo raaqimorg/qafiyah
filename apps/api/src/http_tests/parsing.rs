@@ -1,22 +1,27 @@
 use axum::http::StatusCode;
 
+use crate::constants::ES_MAX_RESULT_WINDOW;
+use crate::cursor;
+use crate::domain::paging::Cursor;
 use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send};
 
 #[tokio::test]
-async fn page_zero_and_overflow_are_refused_before_any_backend_call() {
+async fn a_cursor_no_page_gave_out_is_refused_before_any_backend_call() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    let poems = cursor::encode(Cursor::After(1264));
+    let past_window = cursor::encode_offset(ES_MAX_RESULT_WINDOW);
     for path in [
-        "/v1/poems?page=0",
-        "/v1/poems?page=4294967296",
-        "/v1/poems/slugs?page=0",
-        "/v1/poets/slugs?page=0",
-        "/v1/poets?page=1667",
-        "/v1/poets?page=0",
-        "/v1/search?poemsPage=501",
-        "/v1/search?poetsPage=0",
+        "/v1/poems?page=0".to_string(),
+        "/v1/poems?cursor=0".to_string(),
+        "/v1/poems/slugs?cursor=".to_string(),
+        format!("/v1/poems?cursor={past_window}"),
+        format!("/v1/poets?cursor={poems}"),
+        format!("/v1/poets/slugs?cursor={past_window}"),
+        format!("/v1/search?poemsCursor={past_window}"),
+        format!("/v1/search?poetsCursor={poems}"),
     ] {
-        let sent = send(app_with(&es), request("GET", path)).await;
+        let sent = send(app_with(&es), request("GET", &path)).await;
         assert_eq!(sent.status, StatusCode::BAD_REQUEST, "{path}");
     }
     assert!(es.requests().await.is_empty());
@@ -148,28 +153,48 @@ async fn the_poets_section_ignores_poet_slugs_and_repeated_types_are_harmless() 
 #[tokio::test]
 async fn the_poems_list_refuses_what_it_does_not_read_and_names_it() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    let poems = "expected one of `page`, `poet`, `era`, `theme`, `meter`, `rhyme`, `collection`";
-    let page = "must be a whole number from 1 to";
+    let poems = "expected one of `cursor`, `poet`, `era`, `theme`, `meter`, `rhyme`, `collection`";
+    let cursor = "must be the `next` or `prev` value of a page of this list";
     for (path, detail) in [
         (
-            "/v1/poems?Page=2",
-            format!("Invalid query parameter `Page`: unknown field `Page`, {poems}"),
+            "/v1/poems?page=2",
+            format!("Invalid query parameter `page`: unknown field `page`, {poems}"),
         ),
         (
             "/v1/poems?era=",
             "Invalid query parameter `era[0]`: must be a lowercase slug of letters and hyphens, at most 64 characters".to_string(),
         ),
         (
-            "/v1/poems?page=01",
-            format!("Invalid query parameter `page`: {page} 4294967295, without a sign or leading zeros"),
+            "/v1/poems?cursor=2",
+            format!("Invalid query parameter `cursor`: {cursor}"),
         ),
         (
-            "/v1/poets?page=1667",
-            format!("Invalid query parameter `page`: {page} 1666, without a sign or leading zeros"),
+            "/v1/poets?cursor=eyJhZnRlciI6MX0",
+            format!("Invalid query parameter `cursor`: {cursor}"),
+        ),
+        (
+            "/v1/poets?q=x&cursor=eyJhZnRlciI6eyJwb2Vtc0NvdW50Ijo3LCJuYW1lU29ydCI6Im4iLCJpZCI6M319",
+            format!("Invalid query parameter `cursor`: {cursor}"),
+        ),
+        (
+            "/v1/poets?cursor=eyJhZnRlciI6eyJzY29yZSI6Mi4wLCJwb2Vtc0NvdW50Ijo3LCJuYW1lU29ydCI6Im4iLCJpZCI6M319",
+            format!("Invalid query parameter `cursor`: {cursor}"),
+        ),
+        (
+            "/v1/search?poemsCursor=eyJhZnRlciI6MX0",
+            format!("Invalid query parameter `poemsCursor`: {cursor}"),
+        ),
+        (
+            "/v1/search?poetsCursor=eyJvZmZzZXQiOjk5ODF9",
+            format!("Invalid query parameter `poetsCursor`: {cursor}"),
+        ),
+        (
+            &format!("/v1/poems/slugs?cursor={}", "A".repeat(513)),
+            format!("Invalid query parameter `cursor`: {cursor}"),
         ),
         (
             "/v1/poems/slugs?pages=2",
-            "Invalid query parameter `pages`: unknown field `pages`, expected `page`".to_string(),
+            "Invalid query parameter `pages`: unknown field `pages`, expected `cursor`".to_string(),
         ),
     ] {
         let sent = send(app_with(&es), request("GET", path)).await;
@@ -182,15 +207,15 @@ async fn the_poems_list_refuses_what_it_does_not_read_and_names_it() {
 #[tokio::test]
 async fn empty_pairs_in_a_query_string_are_nothing_but_an_empty_value_is_still_a_value() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    for path in ["/v1/poets?", "/v1/poets?&page=2&"] {
+    for path in ["/v1/poets?", "/v1/poets?&era=abbasi&"] {
         let sent = send(app_with(&es), request("GET", path)).await;
         assert_eq!(sent.status, StatusCode::OK, "{path}: {}", sent.body);
     }
-    let empty = send(app_with(&es), request("GET", "/v1/poets?page=")).await;
+    let empty = send(app_with(&es), request("GET", "/v1/poets?cursor=")).await;
     assert_eq!(empty.status, StatusCode::BAD_REQUEST);
     assert_eq!(
         empty.json()["detail"],
-        "Invalid query parameter `page`: must be a whole number from 1 to 1666, without a sign or leading zeros"
+        "Invalid query parameter `cursor`: must be the `next` or `prev` value of a page of this list"
     );
 }
 
@@ -198,7 +223,7 @@ async fn empty_pairs_in_a_query_string_are_nothing_but_an_empty_value_is_still_a
 async fn an_operation_that_takes_no_parameters_refuses_any() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     for path in [
-        "/v1/eras?page=2",
+        "/v1/eras?cursor=x",
         "/v1/meters?x=1",
         "/v1/rhymes?x=1",
         "/v1/themes?x=1",
