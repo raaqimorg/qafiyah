@@ -353,9 +353,14 @@ mod tests {
     #[test]
     fn a_bad_request_carries_the_detail_when_there_is_one() {
         let text = failure_text(
-            &Failure::BadRequest(Some("page must be a positive integer".into())),
+            &Failure::BadRequest(Some(
+                "must be the `next` or `prev` value of a page of this list".into(),
+            )),
             Subject::Catalog,
         );
-        assert!(text.contains("page must be a positive integer"), "{text}");
+        assert!(
+            text.contains("must be the `next` or `prev` value of a page of this list"),
+            "{text}"
+        );
     }
 }

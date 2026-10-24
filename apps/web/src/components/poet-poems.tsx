@@ -1,7 +1,7 @@
-import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useQueryStates } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { CardList } from '@/components/card-list';
 import { IslandErrorBoundary } from '@/components/island-error-boundary';
@@ -14,7 +14,7 @@ import { formatArabicCount } from '@/lib/arabic';
 import { TYPE } from '@/lib/constants/design-tokens';
 import { POEMS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { createListQueryClient } from '@/lib/list-query-client';
-import { derivePagination } from '@/lib/pagination';
+import { derivePagination, reachedFirstPage } from '@/lib/pagination';
 import { canonicalPoetFilters, hasPoetFilters, type PoetFilterSelection } from '@/lib/poet-filters';
 import {
   canonicalPoetSearch,
@@ -32,11 +32,11 @@ import type React from 'react';
 
 type PoetListState = {
   readonly filters: PoetFilterSelection;
-  readonly page: number;
+  readonly cursor: string | undefined;
 };
 
-function toListState({ meter, rhyme, theme, page }: PoetSearchValues): PoetListState {
-  return { filters: { meter, rhyme, theme }, page };
+function toListState({ meter, rhyme, theme, cursor }: PoetSearchValues): PoetListState {
+  return { filters: { meter, rhyme, theme }, cursor: cursor ?? undefined };
 }
 
 type Props = {
@@ -46,12 +46,12 @@ type Props = {
   readonly facets: PoetFacets | undefined;
 };
 
-const poemsKey = (slug: string, { filters, page }: PoetListState) =>
-  ['poet-poems', slug, filters, page] as const;
+const poemsKey = (slug: string, { filters, cursor }: PoetListState) =>
+  ['poet-poems', slug, filters, cursor] as const;
 const facetsKey = (slug: string, { filters }: PoetListState) =>
   ['poet-facets', slug, filters] as const;
 
-async function fetchPoems(slug: string, { filters, page }: PoetListState): Promise<PoemsPage> {
+async function fetchPoems(slug: string, { filters, cursor }: PoetListState): Promise<PoemsPage> {
   const { data, response } = await apiBrowser.GET('/poems', {
     params: {
       query: {
@@ -59,7 +59,7 @@ async function fetchPoems(slug: string, { filters, page }: PoetListState): Promi
         meter: [...filters.meter],
         rhyme: [...filters.rhyme],
         theme: [...filters.theme],
-        page,
+        ...(cursor === undefined ? {} : { cursor }),
       },
     },
   });
@@ -92,9 +92,10 @@ function canFilter(facets: PoetFacets | undefined, isFiltered: boolean): facets 
 
 function PoetPoemsList({ poetSlug, facets: serverFacets }: Props) {
   const [params, setParams] = useQueryStates(poetSearchParsers, { history: 'push' });
+  const queryClient = useQueryClient();
   const capturePageview = usePageviews();
   const state = toListState(params);
-  const pageUrl = poetUrl(poetSlug, { page: state.page, ...state.filters });
+  const pageUrl = poetUrl(poetSlug, { ...state.filters, cursor: state.cursor });
 
   const show = async (requested: PoetSearchValues): Promise<boolean> => {
     const filters = canonicalPoetFilters(requested);
@@ -141,23 +142,34 @@ function PoetPoemsList({ poetSlug, facets: serverFacets }: Props) {
   });
 
   const poems = poemsQuery.data;
+  const firstPage =
+    poems !== undefined && !poemsQuery.isPlaceholderData && reachedFirstPage(state.cursor, poems)
+      ? poems
+      : undefined;
+  const { filters } = state;
+  useEffect(() => {
+    if (firstPage === undefined) return;
+    queryClient.setQueryData(poemsKey(poetSlug, { filters, cursor: undefined }), firstPage);
+    void setParams({ cursor: null }, { history: 'replace' });
+  }, [firstPage, filters, poetSlug, queryClient, setParams]);
+
   if (poems === undefined) return null;
 
   const isFiltered = hasPoetFilters(state.filters);
   const facets = facetsQuery.data;
   const isBusy = poemsQuery.isPlaceholderData || facetsQuery.isPlaceholderData;
-  const pag = derivePagination(poems.pagination, (page) =>
-    poetUrl(poetSlug, { page, ...state.filters })
-  );
+  const pag = derivePagination(poems, (cursor) => poetUrl(poetSlug, { ...state.filters, cursor }));
 
-  const countText = formatArabicCount({
-    count: poems.pagination.totalItems,
-    nounForms: POEMS_NOUN_FORMS,
-  });
+  const countText = formatArabicCount({ count: poems.total, nounForms: POEMS_NOUN_FORMS });
   const emptyText = isFiltered ? 'لا توجد قصائد مطابقة.' : 'لا توجد قصائد لهذا الشاعر.';
 
   const handleApply = (next: PoetFilterSelection) => {
-    void show({ meter: [...next.meter], rhyme: [...next.rhyme], theme: [...next.theme], page: 1 });
+    void show({
+      meter: [...next.meter],
+      rhyme: [...next.rhyme],
+      theme: [...next.theme],
+      cursor: null,
+    });
   };
 
   return (
@@ -171,13 +183,13 @@ function PoetPoemsList({ poetSlug, facets: serverFacets }: Props) {
             onApply={handleApply}
             onClearClick={handleLinkClick}
           />
-          {isFiltered && poems.pagination.totalItems > 0 && (
+          {isFiltered && poems.total > 0 && (
             <p className={`${TYPE.caption} text-text-subtle`}>{countText}</p>
           )}
         </div>
       )}
       <p role="status" className="sr-only">
-        {poems.pagination.totalItems > 0 ? countText : emptyText}
+        {poems.total > 0 ? countText : emptyText}
       </p>
       <CardList items={poetPoemItems(poems.data)} emptyText={emptyText} isBusy={isBusy} />
       <Pagination {...pag} onLinkClick={handlePageLinkClick} />

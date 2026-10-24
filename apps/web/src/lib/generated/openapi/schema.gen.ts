@@ -111,7 +111,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch. */
+        /** @description A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch. Pass the page's `next` or `prev` as `cursor` for the page after or before it. */
         get: operations["feelings.verses"];
         put?: never;
         post?: never;
@@ -196,7 +196,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error. */
+        /** @description A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Pass the page's `next` or `prev` as `cursor` for the page after or before it, with the same filters. Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error. */
         get: operations["poems.list"];
         put?: never;
         post?: never;
@@ -264,7 +264,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling. */
+        /** @description The slug of every primary poem, 45,000 a page in catalog order, oldest entries first, for sitemaps and incremental crawling. A new poem joins the last page, so a crawler that kept the last `next` it saw (or the last page's `prev`) only reads what came after. */
         get: operations["poems.listSlugs"];
         put?: never;
         post?: never;
@@ -298,7 +298,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties. */
+        /** @description A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties. Pass the page's `next` or `prev` as `cursor` for the page after or before it, with the same `era` and `q`. */
         get: operations["poets.list"];
         put?: never;
         post?: never;
@@ -315,7 +315,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in slug order, for sitemaps and incremental crawling. */
+        /** @description The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in catalog order, oldest entries first, for sitemaps and incremental crawling. */
         get: operations["poets.listSlugs"];
         put?: never;
         post?: never;
@@ -383,7 +383,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. */
+        /** @description Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `total` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400. */
         get: operations["search.search"];
         put?: never;
         post?: never;
@@ -715,9 +715,9 @@ export interface components {
                 total: number;
             };
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
+        /** @description Every item of a short list under `data`. */
         ListEnvelope_CountedStats: {
-            /** @description The items of this page. */
+            /** @description The items. */
             data: {
                 /**
                  * @description The term's name in Arabic.
@@ -742,12 +742,10 @@ export interface components {
                  */
                 slug: string;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
+        /** @description Every item of a short list under `data`. */
         ListEnvelope_FeelingItem: {
-            /** @description The items of this page. */
+            /** @description The items. */
             data: {
                 /**
                  * @description The feeling's name in Arabic, a verbal noun with its article.
@@ -776,11 +774,43 @@ export interface components {
                  */
                 wheelTerm?: string | null;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_FeelingVerseItem: {
+        /** @description Every item of a short list under `data`. */
+        ListEnvelope_PoemCountStats: {
+            /** @description The items. */
+            data: {
+                /**
+                 * @description The term's name in Arabic.
+                 * @example الحكمة
+                 */
+                name: string;
+                /**
+                 * Format: int32
+                 * @description Number of poems with this term, primary readings only.
+                 * @example 22521
+                 */
+                poemsCount: number;
+                /**
+                 * @description The term's slug.
+                 * @example alhikma
+                 */
+                slug: string;
+            }[];
+        };
+        MeterRef: {
+            /**
+             * @description The meter's name in Arabic.
+             * @example الطويل
+             */
+            name: string;
+            /**
+             * @description The meter's slug, for `GET /meters/{slug}`.
+             * @example altawil
+             */
+            slug: string;
+        };
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_FeelingVerseItem: {
             /** @description The items of this page. */
             data: {
                 /** @description The poem's era. */
@@ -800,42 +830,46 @@ export interface components {
                  */
                 position: number;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_FourLetterSlug: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_FourLetterSlug: {
             /** @description The items of this page. */
             data: string[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoemCountStats: {
-            /** @description The items of this page. */
-            data: {
-                /**
-                 * @description The term's name in Arabic.
-                 * @example الحكمة
-                 */
-                name: string;
-                /**
-                 * Format: int32
-                 * @description Number of poems with this term, primary readings only.
-                 * @example 22521
-                 */
-                poemsCount: number;
-                /**
-                 * @description The term's slug.
-                 * @example alhikma
-                 */
-                slug: string;
-            }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
-        };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoemListItem: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_PoemListItem: {
             /** @description The items of this page. */
             data: {
                 /** @description The poem's era, which is its poet's. Included in `relatedPoems`, left out in `GET /poems` lists. */
@@ -855,11 +889,25 @@ export interface components {
                  */
                 title: string;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoemResult: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_PoemResult: {
             /** @description The items of this page. */
             data: {
                 /** @description The poem's era, which is its poet's. */
@@ -892,11 +940,25 @@ export interface components {
                 /** @description Always `poem`. */
                 type: components["schemas"]["PoemKind"];
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoetListItem: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_PoetListItem: {
             /** @description The items of this page. */
             data: {
                 /**
@@ -916,11 +978,25 @@ export interface components {
                  */
                 slug: string;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoetResult: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_PoetResult: {
             /** @description The items of this page. */
             data: {
                 /** @description The poet's era. */
@@ -944,11 +1020,25 @@ export interface components {
                 /** @description Always `poet`. */
                 type: components["schemas"]["PoetKind"];
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
+            /**
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
+             */
+            next: string | null;
+            /**
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
+             */
+            prev: string | null;
+            /**
+             * Format: int32
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
+             * @example 104
+             */
+            total: number;
         };
-        /** @description A page of items under `data`, with its place in the whole list under `pagination`. */
-        ListEnvelope_PoetSlugEntry: {
+        /** @description One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page. */
+        PageEnvelope_PoetSlugEntry: {
             /** @description The items of this page. */
             data: {
                 /**
@@ -962,46 +1052,22 @@ export interface components {
                  */
                 slug: string;
             }[];
-            /** @description Where this page sits in the list. */
-            pagination: components["schemas"]["Pagination"];
-        };
-        MeterRef: {
             /**
-             * @description The meter's name in Arabic.
-             * @example الطويل
+             * @description The cursor of the next page, or null on the last page.
+             * @example eyJhZnRlciI6MTI2NH0
              */
-            name: string;
+            next: string | null;
             /**
-             * @description The meter's slug, for `GET /meters/{slug}`.
-             * @example altawil
+             * @description The cursor of the previous page, or null on the first page.
+             * @example eyJiZWZvcmUiOjEyMzV9
              */
-            slug: string;
-        };
-        Pagination: {
+            prev: string | null;
             /**
              * Format: int32
-             * @description The page returned, 1-based.
-             * @example 1
-             */
-            page: number;
-            /**
-             * Format: int32
-             * @description Items per page for this endpoint.
-             * @example 30
-             */
-            pageSize: number;
-            /**
-             * Format: int32
-             * @description Number of items across all pages. In a search section it stops at 10,000.
+             * @description Number of items in the whole list. In a search section it stops at 10,000.
              * @example 104
              */
-            totalItems: number;
-            /**
-             * Format: int32
-             * @description Number of pages, at least 1.
-             * @example 4
-             */
-            totalPages: number;
+            total: number;
         };
         PoemCountStats: {
             /**
@@ -1280,8 +1346,8 @@ export interface components {
         };
         /** @description The query as searched and the requested sections: `poems` is present when `types` includes poems, `poets` when it includes poets. */
         SearchResponse: {
-            poems?: components["schemas"]["ListEnvelope_PoemResult"] | null;
-            poets?: components["schemas"]["ListEnvelope_PoetResult"] | null;
+            poems?: components["schemas"]["PageEnvelope_PoemResult"] | null;
+            poets?: components["schemas"]["PageEnvelope_PoetResult"] | null;
             /**
              * @description The query as searched: Unicode NFKC, whitespace collapsed and trimmed. Empty when browsing.
              * @example أمن أم أوفى
@@ -2017,10 +2083,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer, 30 verses a page. Minimum 1.
-                 * @example 1
+                 * @description The `next` or `prev` value of a page of this list. Leave it out for the first page.
+                 * @example eyJhZnRlciI6MX0
                  */
-                page?: number;
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -2034,7 +2100,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of verses with pagination metadata. */
+            /** @description A page of verses, with the cursors of the pages around it. */
             200: {
                 headers: {
                     /** @description Send back in If-None-Match to get 304 while the data is unchanged */
@@ -2048,7 +2114,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListEnvelope_FeelingVerseItem"];
+                    "application/json": components["schemas"]["PageEnvelope_FeelingVerseItem"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
@@ -2611,10 +2677,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer, 30 poems a page. Minimum 1.
-                 * @example 1
+                 * @description The `next` or `prev` value of a page of this list. Leave it out for the first page.
+                 * @example eyJhZnRlciI6MX0
                  */
-                page?: number;
+                cursor?: string;
                 /**
                  * @description Filter by poet. Repeatable. Values are `slug` from GET /poets.
                  * @example [
@@ -2664,7 +2730,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of poems with pagination metadata. */
+            /** @description A page of poems, with the cursors of the pages around it. */
             200: {
                 headers: {
                     /** @description Send back in If-None-Match to get 304 while the data is unchanged */
@@ -2678,7 +2744,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListEnvelope_PoemListItem"];
+                    "application/json": components["schemas"]["PageEnvelope_PoemListItem"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
@@ -3113,10 +3179,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.
-                 * @example 1
+                 * @description The `next` or `prev` value of a page of slugs. Leave it out for the first page.
+                 * @example eyJhZnRlciI6MX0
                  */
-                page?: number;
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -3138,7 +3204,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListEnvelope_FourLetterSlug"];
+                    "application/json": components["schemas"]["PageEnvelope_FourLetterSlug"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
@@ -3365,10 +3431,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
-                 * @example 1
+                 * @description The `next` or `prev` value of a page of this list. Leave it out for the first page.
+                 * @example eyJhZnRlciI6eyJzY29yZSI6MS41LCJwb2Vtc0NvdW50IjoxMDAsIm5hbWVTb3J0Ijoi2LLZh9mK2LEiLCJpZCI6MX19
                  */
-                page?: number;
+                cursor?: string;
                 /**
                  * @description Narrow to the poets of one era. A single `slug` from GET /eras: unlike `GET /poems`, this filter takes one value.
                  * @example jahili
@@ -3386,7 +3452,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of poets with pagination metadata. */
+            /** @description A page of poets, with the cursors of the pages around it. */
             200: {
                 headers: {
                     /** @description Send back in If-None-Match to get 304 while the data is unchanged */
@@ -3400,7 +3466,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListEnvelope_PoetListItem"];
+                    "application/json": components["schemas"]["PageEnvelope_PoetListItem"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
@@ -3486,10 +3552,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.
-                 * @example 1
+                 * @description The `next` or `prev` value of a page of slugs. Leave it out for the first page.
+                 * @example eyJhZnRlciI6MX0
                  */
-                page?: number;
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -3511,7 +3577,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListEnvelope_PoetSlugEntry"];
+                    "application/json": components["schemas"]["PageEnvelope_PoetSlugEntry"];
                 };
             };
             /** @description Not modified: the If-None-Match ETag still matches, so the body is empty. */
@@ -3981,15 +4047,15 @@ export interface operations {
                  */
                 types?: components["schemas"]["SearchTypeParam"][];
                 /**
-                 * @description Page of the poems section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-                 * @example 1
+                 * @description The `next` or `prev` value of the poems section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.
+                 * @example eyJvZmZzZXQiOjIwfQ
                  */
-                poemsPage?: number;
+                poemsCursor?: string;
                 /**
-                 * @description Page of the poets section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-                 * @example 1
+                 * @description The `next` or `prev` value of the poets section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.
+                 * @example eyJvZmZzZXQiOjIwfQ
                  */
-                poetsPage?: number;
+                poetsCursor?: string;
                 /**
                  * @description Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
                  * @example [
@@ -4051,7 +4117,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The normalized query and the requested sections, each with its own results and pagination. */
+            /** @description The normalized query and the requested sections, each with its own results and cursors. */
             200: {
                 headers: {
                     /** @description Send back in If-None-Match to get 304 while the data is unchanged */

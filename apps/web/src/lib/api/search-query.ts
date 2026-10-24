@@ -3,7 +3,7 @@ import type { SearchType } from '@qafiyah/config';
 export type SearchQueryInput = {
   readonly q: string;
   readonly type: SearchType;
-  readonly page: number;
+  readonly cursor?: string | undefined;
   readonly eras: readonly string[];
   readonly meters: readonly string[];
   readonly rhymes: readonly string[];
@@ -16,8 +16,8 @@ export type SearchQueryInput = {
 export type SearchQueryParams = {
   readonly q: string;
   readonly types: SearchType[];
-  readonly poemsPage: number;
-  readonly poetsPage: number;
+  readonly poemsCursor?: string;
+  readonly poetsCursor?: string;
   readonly eraSlugs: string[];
   readonly meterSlugs: string[];
   readonly rhymeSlugs: string[];
@@ -30,11 +30,12 @@ export type SearchQueryParams = {
 
 export function searchQueryParams(input: SearchQueryInput): SearchQueryParams {
   const poems = input.type === 'poems';
+  const { cursor } = input;
   return {
     q: input.q,
     types: [input.type],
-    poemsPage: poems ? input.page : 1,
-    poetsPage: poems ? 1 : input.page,
+    ...(poems && cursor !== undefined ? { poemsCursor: cursor } : {}),
+    ...(!poems && cursor !== undefined ? { poetsCursor: cursor } : {}),
     eraSlugs: [...input.eras],
     meterSlugs: poems ? [...input.meters] : [],
     rhymeSlugs: poems ? [...input.rhymes] : [],
@@ -47,6 +48,6 @@ export function searchQueryParams(input: SearchQueryInput): SearchQueryParams {
 }
 
 export function searchQueryKey(input: SearchQueryInput): readonly unknown[] {
-  const { page: _page, ...rest } = input;
+  const { cursor: _cursor, ...rest } = input;
   return ['search', input.type, rest];
 }

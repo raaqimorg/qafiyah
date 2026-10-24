@@ -63,37 +63,39 @@ function encodedPath(path: string): string {
   return new URL(path, SITE_URL).pathname;
 }
 
-function withPage(path: string, page?: number): string {
-  return page !== undefined && page > 1 ? `${path}?page=${page}` : path;
+function withCursor(path: string, cursor?: string): string {
+  return cursor === undefined || cursor === ''
+    ? path
+    : `${path}?${new URLSearchParams({ cursor }).toString()}`;
 }
 
 export function taxonomyIndexUrl(section: TaxonomySection): string {
   return `/${section}`;
 }
 
-export function taxonomyUrl(section: TaxonomySection, slug: string, page?: number): string {
-  return withPage(encodedPath(`/${section}/${slug}`), page);
+export function taxonomyUrl(section: TaxonomySection, slug: string, cursor?: string): string {
+  return withCursor(encodedPath(`/${section}/${slug}`), cursor);
 }
 
-export function feelingUrl(slug?: string, page?: number): string {
-  return slug === undefined ? '/feelings' : withPage(encodedPath(`/feelings/${slug}`), page);
+export function feelingUrl(slug?: string, cursor?: string): string {
+  return slug === undefined ? '/feelings' : withCursor(encodedPath(`/feelings/${slug}`), cursor);
 }
 
 export function poetsUrl(opts?: {
-  page?: number | undefined;
+  cursor?: string | undefined;
   era?: string | undefined;
   q?: string | undefined;
 }): string {
   const params = new URLSearchParams();
   if (opts?.era !== undefined && opts.era !== '') params.set('era', opts.era);
   if (opts?.q !== undefined && opts.q !== '') params.set('q', opts.q);
-  if (opts?.page !== undefined && opts.page > 1) params.set('page', String(opts.page));
+  if (opts?.cursor !== undefined && opts.cursor !== '') params.set('cursor', opts.cursor);
   const query = params.toString();
   return query ? `/poets?${query}` : '/poets';
 }
 
 export type PoetUrlOptions = {
-  readonly page?: number | undefined;
+  readonly cursor?: string | undefined;
   readonly meter?: readonly string[] | undefined;
   readonly rhyme?: readonly string[] | undefined;
   readonly theme?: readonly string[] | undefined;
@@ -109,7 +111,7 @@ export function poetUrl(slug: string, opts?: PoetUrlOptions): string {
   for (const key of ['meter', 'rhyme', 'theme'] as const) {
     for (const value of filters[key]) params.append(key, value);
   }
-  if (opts?.page !== undefined && opts.page > 1) params.set('page', String(opts.page));
+  if (opts?.cursor !== undefined && opts.cursor !== '') params.set('cursor', opts.cursor);
   const query = params.toString();
   const path = encodedPath(`/poets/${slug}`);
   return query === '' ? path : `${path}?${query}`;

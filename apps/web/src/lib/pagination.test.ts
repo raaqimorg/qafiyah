@@ -1,65 +1,50 @@
 import { describe, expect, it } from 'vitest';
 
-import { derivePagination, parsePageParam, parsePageQuery } from './pagination';
+import { derivePagination, reachedFirstPage, readCursor } from './pagination';
 
-describe('parsePageParam', () => {
-  it('parses a positive integer string', () => {
-    expect(parsePageParam('1')).toBe(1);
-    expect(parsePageParam('42')).toBe(42);
+describe('readCursor', () => {
+  it('reads the cursor param', () => {
+    expect(readCursor(new URL('https://x.test/meters/altawil?cursor=eyJhZnRlciI6MzB9'))).toBe(
+      'eyJhZnRlciI6MzB9'
+    );
   });
-  it('returns null for undefined, non-numeric, zero, negative, or decimal', () => {
-    expect(parsePageParam(undefined)).toBeNull();
-    expect(parsePageParam('abc')).toBeNull();
-    expect(parsePageParam('0')).toBeNull();
-    expect(parsePageParam('-3')).toBeNull();
-    expect(parsePageParam('1.5')).toBeNull();
-  });
-});
-
-describe('parsePageQuery', () => {
-  it('treats an absent param as the first page', () => {
-    expect(parsePageQuery(null)).toBe(1);
-  });
-  it('parses a page beyond the first', () => {
-    expect(parsePageQuery('2')).toBe(2);
-    expect(parsePageQuery('42')).toBe(42);
-  });
-  it('rejects an explicit page=1 since the first page is the bare URL', () => {
-    expect(parsePageQuery('1')).toBeNull();
-  });
-  it('returns null for non-numeric, zero, negative, or decimal', () => {
-    expect(parsePageQuery('abc')).toBeNull();
-    expect(parsePageQuery('0')).toBeNull();
-    expect(parsePageQuery('-3')).toBeNull();
-    expect(parsePageQuery('2.5')).toBeNull();
+  it('treats an absent or empty cursor as the first page', () => {
+    expect(readCursor(new URL('https://x.test/meters/altawil'))).toBeUndefined();
+    expect(readCursor(new URL('https://x.test/meters/altawil?cursor='))).toBeUndefined();
   });
 });
 
 describe('derivePagination', () => {
-  const makeUrl = (page: number) => `/x?page=${page}`;
+  const makeUrl = (cursor: string) => `/x?cursor=${cursor}`;
 
-  it('marks both directions available on a middle page', () => {
-    const view = derivePagination({ page: 3, totalPages: 5 }, makeUrl);
-    expect(view.hasPrevPage).toBe(true);
-    expect(view.hasNextPage).toBe(true);
-    expect(view.prevPageUrl).toBe('/x?page=2');
-    expect(view.nextPageUrl).toBe('/x?page=4');
+  it('links both directions on a middle page', () => {
+    expect(derivePagination({ next: 'n', prev: 'p' }, makeUrl)).toStrictEqual({
+      nextUrl: '/x?cursor=n',
+      prevUrl: '/x?cursor=p',
+    });
   });
 
-  it('disables prev on the first page', () => {
-    const view = derivePagination({ page: 1, totalPages: 5 }, makeUrl);
-    expect(view.hasPrevPage).toBe(false);
-    expect(view.hasNextPage).toBe(true);
+  it('links forward only on the first page', () => {
+    expect(derivePagination({ next: 'n', prev: null }, makeUrl)).toStrictEqual({
+      nextUrl: '/x?cursor=n',
+      prevUrl: undefined,
+    });
   });
 
-  it('disables next on the last page', () => {
-    const view = derivePagination({ page: 5, totalPages: 5 }, makeUrl);
-    expect(view.hasPrevPage).toBe(true);
-    expect(view.hasNextPage).toBe(false);
+  it('links back only on the last page', () => {
+    expect(derivePagination({ next: null, prev: 'p' }, makeUrl)).toStrictEqual({
+      nextUrl: undefined,
+      prevUrl: '/x?cursor=p',
+    });
   });
+});
 
-  it('renders the header tip with Arabic digits', () => {
-    const view = derivePagination({ page: 2, totalPages: 10 }, makeUrl);
-    expect(view.headerTip).toBe('صـ ٢ من ١٠');
+describe('reachedFirstPage', () => {
+  it('is true when a cursor leads back to the first page', () => {
+    expect(reachedFirstPage('p', { next: 'n', prev: null })).toBe(true);
+  });
+  it('is false for the bare first page and for any later page', () => {
+    expect(reachedFirstPage(undefined, { next: 'n', prev: null })).toBe(false);
+    expect(reachedFirstPage('n', { next: null, prev: 'p' })).toBe(false);
   });
 });

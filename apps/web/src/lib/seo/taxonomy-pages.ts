@@ -1,9 +1,9 @@
-import { toArabicDigits, formatArabicCount } from '@/lib/arabic';
+import { formatArabicCount } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
 import { ERROR_TEXTS } from '@/lib/constants/copy';
 import { SITE_NAME_AR } from '@/lib/constants/site-meta';
 import { POEMS_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
-import { derivePagination, type PaginationView } from '@/lib/pagination';
+import { derivePagination } from '@/lib/pagination';
 import {
   type BreadcrumbItem,
   buildBreadcrumbList,
@@ -17,8 +17,8 @@ import {
   type CreativeWorkRef,
 } from '@/lib/seo/json-ld/thing-ref';
 import { websiteRef } from '@/lib/seo/json-ld/website';
-import { withBrand, withPageNumber } from '@/lib/seo/meta-text';
-import { listPoems } from '@/lib/server/poems';
+import { withBrand } from '@/lib/seo/meta-text';
+import { listPoems, type PoemsList } from '@/lib/server/poems';
 import { poemUrl, type TaxonomySection, taxonomyIndexUrl, taxonomyUrl } from '@/lib/urls';
 
 import {
@@ -27,10 +27,6 @@ import {
   type IndexTermData,
   type TermData,
 } from './taxonomy-copy';
-
-import type { Ok } from '@/lib/server/types';
-
-type PoemRow = Ok<'/poems'>['data'][number];
 
 type ListCardItem = { readonly title: string; readonly subtitle: string; readonly href: string };
 
@@ -45,33 +41,32 @@ type LayoutView = {
 
 export type TaxonomyTermLoad = {
   readonly term: TermData;
-  readonly poems: readonly PoemRow[];
-  readonly pagination: { readonly page: number; readonly totalPages: number };
+  readonly cursor: string | undefined;
+  readonly page: PoemsList;
 };
 
 export async function loadTaxonomyTerm(
   section: TaxonomySection,
   slug: string,
-  page: number
+  cursor: string | undefined
 ): Promise<TaxonomyTermLoad | null> {
   const cfg = TERM_PAGE_CONFIG[section];
-  const [term, list] = await Promise.all([cfg.get(slug), listPoems(cfg.makeFilters(slug), page)]);
-  if (!(term && list)) return null;
-  return { term, poems: list.poems, pagination: list.pagination };
+  const [term, page] = await Promise.all([cfg.get(slug), listPoems(cfg.makeFilters(slug), cursor)]);
+  if (!(term && page)) return null;
+  return { term, cursor, page };
 }
 
 export function buildTaxonomyTermView(section: TaxonomySection, load: TaxonomyTermLoad) {
   const cfg = TERM_PAGE_CONFIG[section];
-  const { term, poems, pagination } = load;
+  const { term, cursor, page } = load;
+  const poems = page.data;
   const { slug, name } = term;
-  const pageAr = toArabicDigits(pagination.page);
-  const totalAr = toArabicDigits(pagination.totalPages);
   const poemsLabel = formatArabicCount({ count: term.poemsCount, nounForms: POEMS_NOUN_FORMS });
 
   const collectionJsonLd = collectionPageNode<CreativeWorkRef>({
     name: cfg.jsonLdName(name),
-    url: `${SITE_URL}${taxonomyUrl(section, slug, pagination.page)}`,
-    description: `${cfg.jsonLdDescLead(name)} - الصفحة ${pageAr} من ${totalAr}`,
+    url: `${SITE_URL}${taxonomyUrl(section, slug, cursor)}`,
+    description: cfg.jsonLdDescLead(name),
     isPartOf: websiteRef(),
     mainEntity: buildItemList(
       poems.map((poem) =>
@@ -90,7 +85,7 @@ export function buildTaxonomyTermView(section: TaxonomySection, load: TaxonomyTe
     { name, path: taxonomyUrl(section, slug) },
   ];
 
-  const pag: PaginationView = derivePagination(pagination, (p) => taxonomyUrl(section, slug, p));
+  const pag = derivePagination(page, (c) => taxonomyUrl(section, slug, c));
 
   const items: readonly ListCardItem[] = poems.map((poem) => ({
     title: poem.title,
@@ -99,11 +94,11 @@ export function buildTaxonomyTermView(section: TaxonomySection, load: TaxonomyTe
   }));
 
   const layout: LayoutView = {
-    title: withBrand(withPageNumber(cfg.titleLead(name), pagination.page)),
+    title: withBrand(cfg.titleLead(name)),
     description: cfg.description(name, poemsLabel, poems),
-    canonical: taxonomyUrl(section, slug, pagination.page),
-    prevUrl: pag.hasPrevPage ? pag.prevPageUrl : undefined,
-    nextUrl: pag.hasNextPage ? pag.nextPageUrl : undefined,
+    canonical: taxonomyUrl(section, slug, cursor),
+    prevUrl: pag.prevUrl,
+    nextUrl: pag.nextUrl,
     jsonLd: [collectionJsonLd, buildBreadcrumbList(crumbItems)],
   };
 

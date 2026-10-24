@@ -3,7 +3,7 @@ use axum::extract::State;
 
 use crate::contract::taxonomy::{CountedStats, PoemCountStats};
 use crate::domain::taxonomy::{Counted, PoemCounted};
-use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
+use crate::envelope::{ItemEnvelope, ListEnvelope};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::openapi::{ListErrors, LookupErrors};
@@ -54,10 +54,7 @@ impl Kind for PoemCounted {
 fn listed<T>(rows: Vec<T>) -> Json<ListEnvelope<T>> {
     let count = u32::try_from(rows.len()).unwrap_or(u32::MAX);
     crate::log::record_results(u64::from(count));
-    Json(ListEnvelope {
-        data: rows,
-        pagination: build_pagination(1, count.max(1), count),
-    })
+    Json(ListEnvelope { data: rows })
 }
 
 async fn list_counted_kind(

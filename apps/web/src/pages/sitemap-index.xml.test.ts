@@ -12,7 +12,7 @@ const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 describe('GET /sitemap-index.xml', () => {
   it('lists the root, poets, and taxonomies sitemaps plus one shard per page of poems', async () => {
     get.mockResolvedValue({
-      data: { data: { total: 45001 }, pagination: {} },
+      data: { data: { total: 45001 } },
       response: new Response(null, { status: 200 }),
     });
     const response = await GET(fakeContext());

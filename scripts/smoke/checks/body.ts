@@ -79,6 +79,12 @@ export const expectOnlyEra = (section: 'poems' | 'poets', era: string): Check =>
   },
 });
 
+export const containsText = (needle: string): Check => ({
+  name: `contains ${JSON.stringify(needle)}`,
+  run: (body) =>
+    body.includes(needle) ? ok(undefined) : err(`body lacks ${JSON.stringify(needle)}`),
+});
+
 export const notContainsText = (needle: string): Check => ({
   name: `does not contain ${JSON.stringify(needle)}`,
   run: (body) =>

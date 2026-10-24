@@ -5,20 +5,20 @@ use serde::Deserialize;
 use crate::constants::FEELING_VERSES_PER_PAGE;
 use crate::contract::feelings::{FeelingItem, FeelingVerseItem};
 use crate::domain::feelings::{self, FeelingNode};
-use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
+use crate::envelope::{ItemEnvelope, ListEnvelope, PageEnvelope};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::openapi::{ListErrors, LookupErrors};
-use crate::params::{AnyPage, NoParams, TransliteratedSlug};
+use crate::params::{IdCursor, NoParams, PageCursor, TransliteratedSlug};
 use crate::state::AppState;
 
 #[derive(Deserialize, utoipa::IntoParams)]
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub(crate) struct VersesParams {
-    /// Page number as a 1-based integer, 30 verses a page. Minimum 1.
-    #[param(inline, example = 1)]
-    page: Option<AnyPage>,
+    /// The `next` or `prev` value of a page of this list. Leave it out for the first page.
+    #[param(inline, example = "eyJhZnRlciI6MX0")]
+    cursor: Option<IdCursor>,
 }
 
 async fn tree(state: &AppState) -> Result<Vec<FeelingNode>, AppError> {
@@ -55,10 +55,7 @@ pub(crate) async fn list(
     let rows: Vec<FeelingItem> = nodes.into_iter().map(FeelingItem::from).collect();
     let count = u32::try_from(rows.len()).unwrap_or(u32::MAX);
     crate::log::record_results(u64::from(count));
-    Ok(Json(ListEnvelope {
-        data: rows,
-        pagination: build_pagination(1, count.max(1), count),
-    }))
+    Ok(Json(ListEnvelope { data: rows }))
 }
 
 #[utoipa::path(
@@ -91,13 +88,13 @@ pub(crate) async fn get(
     path = "/feelings/{slug}/verses",
     tag = "feelings",
     operation_id = "feelings.verses",
-    description = "A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch.",
+    description = "A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch. Pass the page's `next` or `prev` as `cursor` for the page after or before it.",
     params(
         ("slug" = String, Path, description = "The feeling's `slug`, from its list.", pattern = "^[a-z][a-z-]*$", example = "alhuzn"),
         VersesParams,
     ),
     responses(
-        (status = 200, description = "A page of verses with pagination metadata.", body = ListEnvelope<FeelingVerseItem>),
+        (status = 200, description = "A page of verses, with the cursors of the pages around it.", body = PageEnvelope<FeelingVerseItem>),
         LookupErrors,
     ),
 )]
@@ -105,18 +102,18 @@ pub(crate) async fn verses(
     State(state): State<AppState>,
     SafePath(raw): SafePath<String>,
     SafeQuery(params): SafeQuery<VersesParams>,
-) -> Result<Json<ListEnvelope<FeelingVerseItem>>, AppError> {
+) -> Result<Json<PageEnvelope<FeelingVerseItem>>, AppError> {
     let node = find(tree(&state).await?, &raw)?;
-    let page = params.page.map_or(1, AnyPage::get);
+    let cursor = params.cursor.map(PageCursor::into_inner);
     let found = state
         .feelings
-        .verses(node.id, page, FEELING_VERSES_PER_PAGE)
+        .verses(node.id, cursor.as_ref(), FEELING_VERSES_PER_PAGE)
         .await?;
     let total = node.verse_count.cast_unsigned();
     crate::log::record_results(u64::from(total));
-    tracing::Span::current().record("page", page);
-    Ok(Json(ListEnvelope {
-        data: found.into_iter().map(FeelingVerseItem::from).collect(),
-        pagination: build_pagination(page, FEELING_VERSES_PER_PAGE, total),
-    }))
+    Ok(Json(PageEnvelope::new(
+        found,
+        total,
+        FeelingVerseItem::from,
+    )))
 }
