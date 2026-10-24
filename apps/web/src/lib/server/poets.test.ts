@@ -12,7 +12,6 @@ import { apiServer } from './client';
 import { getPoet, getPoetFacets, getPoetSlugsPage, getPoetsPage, movedPoetPath } from './poets';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
-const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
 const POET = { name: 'ش', slug: 'poet-x' as PoetSlug, poemsCount: 3 };
 
 beforeEach(() => {
@@ -20,55 +19,54 @@ beforeEach(() => {
 });
 
 describe('getPoetsPage', () => {
-  it('maps poets and pagination', async () => {
-    get.mockResolvedValue(ok({ data: [POET], pagination: PAGINATION }));
-    const result = await getPoetsPage(1);
-    expect(result?.poets).toHaveLength(1);
-    expect(result?.pagination.totalItems).toBe(1);
+  it('returns the page with its cursors', async () => {
+    const page = { data: [POET], total: 1, next: null, prev: null };
+    get.mockResolvedValue(ok(page));
+    expect(await getPoetsPage(undefined)).toEqual(page);
+    expect(get).toHaveBeenCalledWith('/poets', { params: { query: {} } });
   });
 
-  it('forwards era and q filters to the API request', async () => {
-    get.mockResolvedValue(ok({ data: [POET], pagination: PAGINATION }));
-    await getPoetsPage(1, { era: 'jahili' as EraSlug, q: 'متنبي' });
+  it('forwards the cursor and the era and q filters to the API request', async () => {
+    get.mockResolvedValue(ok({ data: [POET], total: 40, next: null, prev: 'p' }));
+    await getPoetsPage('c', { era: 'jahili' as EraSlug, q: 'متنبي' });
     expect(get).toHaveBeenCalledWith('/poets', {
-      params: { query: { page: '1', era: 'jahili', q: 'متنبي' } },
+      params: { query: { cursor: 'c', era: 'jahili', q: 'متنبي' } },
     });
   });
 
-  it('returns null when the page exceeds the last page', async () => {
-    get.mockResolvedValue(
-      ok({ data: [], pagination: { page: 999, pageSize: 30, totalPages: 5, totalItems: 150 } })
-    );
-    expect(await getPoetsPage(999)).toBeNull();
+  it('returns null when a cursor leads past the last poet', async () => {
+    get.mockResolvedValue(ok({ data: [], total: 150, next: null, prev: null }));
+    expect(await getPoetsPage('c')).toBeNull();
   });
 
-  it('treats page 1 of an empty collection as a valid empty page', async () => {
-    get.mockResolvedValue(
-      ok({ data: [], pagination: { page: 1, pageSize: 30, totalPages: 1, totalItems: 0 } })
-    );
-    const result = await getPoetsPage(1);
-    expect(result).not.toBeNull();
-    expect(result?.poets).toEqual([]);
+  it('returns null when the API refuses the cursor', async () => {
+    get.mockResolvedValue(failure(400));
+    expect(await getPoetsPage('bad')).toBeNull();
+  });
+
+  it('treats the first page of an empty list as a valid empty page', async () => {
+    get.mockResolvedValue(ok({ data: [], total: 0, next: null, prev: null }));
+    expect((await getPoetsPage(undefined))?.data).toEqual([]);
   });
 });
 
 describe('getPoetSlugsPage', () => {
-  it('maps slugs and the page count', async () => {
-    get.mockResolvedValue(ok({ data: ['aBcD', 'eFgH'], pagination: PAGINATION }));
-    const result = await getPoetSlugsPage(1);
-    expect(result?.slugs).toEqual(['aBcD', 'eFgH']);
-    expect(result?.totalPages).toBe(1);
-    expect(get).toHaveBeenCalledWith('/poets/slugs', { params: { query: { page: '1' } } });
+  it('maps slugs and the next cursor', async () => {
+    get.mockResolvedValue(ok({ data: ['aBcD', 'eFgH'], total: 4, next: 'n', prev: null }));
+    expect(await getPoetSlugsPage(undefined)).toEqual({ slugs: ['aBcD', 'eFgH'], next: 'n' });
+    expect(get).toHaveBeenCalledWith('/poets/slugs', { params: { query: {} } });
+    await getPoetSlugsPage('n');
+    expect(get).toHaveBeenLastCalledWith('/poets/slugs', { params: { query: { cursor: 'n' } } });
   });
 
   it('returns null on a 404', async () => {
     get.mockResolvedValue(failure(404));
-    expect(await getPoetSlugsPage(99)).toBeNull();
+    expect(await getPoetSlugsPage('c')).toBeNull();
   });
 
   it('rethrows on a 500', async () => {
     get.mockResolvedValue(failure(500));
-    await expect(getPoetSlugsPage(1)).rejects.toThrow();
+    await expect(getPoetSlugsPage(undefined)).rejects.toThrow();
   });
 });
 
@@ -130,19 +128,19 @@ describe('getPoetFacets', () => {
 
 describe('movedPoetPath', () => {
   it('is null when the poet answered under the slug that was asked for', () => {
-    expect(movedPoetPath('yoFB', { slug: 'yoFB' }, { page: 1 })).toBeNull();
+    expect(movedPoetPath('yoFB', { slug: 'yoFB' }, {})).toBeNull();
   });
 
   it('is the canonical path when the API followed an alias to another slug', () => {
-    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 1 })).toBe('/poets/yoFB');
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, {})).toBe('/poets/yoFB');
   });
 
-  it('keeps the page number the old URL asked for', () => {
-    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 3 })).toBe('/poets/yoFB?page=3');
+  it('keeps the cursor the old URL asked for', () => {
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { cursor: 'c' })).toBe('/poets/yoFB?cursor=c');
   });
 
   it('keeps the poem filters the old URL asked for', () => {
-    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { page: 1, meter: ['altawil'] })).toBe(
+    expect(movedPoetPath('abCD', { slug: 'yoFB' }, { meter: ['altawil'] })).toBe(
       '/poets/yoFB?meter=altawil'
     );
   });

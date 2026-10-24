@@ -12,8 +12,8 @@ export type SearchParams = {
   readonly q?: string;
   readonly types?: readonly string[];
   readonly exact?: string;
-  readonly poemsPage?: string;
-  readonly poetsPage?: string;
+  readonly poemsCursor?: string;
+  readonly poetsCursor?: string;
   readonly eraSlugs?: readonly string[];
   readonly meterSlugs?: readonly string[];
   readonly rhymeSlugs?: readonly string[];
@@ -36,8 +36,8 @@ export function searchUrl(params: SearchParams): string {
   scalar('q', params.q);
   list('types', params.types);
   scalar('exact', params.exact);
-  scalar('poemsPage', params.poemsPage);
-  scalar('poetsPage', params.poetsPage);
+  scalar('poemsCursor', params.poemsCursor);
+  scalar('poetsCursor', params.poetsCursor);
   list('eraSlugs', params.eraSlugs);
   list('meterSlugs', params.meterSlugs);
   list('rhymeSlugs', params.rhymeSlugs);
@@ -50,6 +50,10 @@ export function searchUrl(params: SearchParams): string {
   }
   return `${SEARCH}?${parts.join('&')}`;
 }
+
+export const cursorOf = (value: object): string =>
+  Buffer.from(JSON.stringify(value)).toString('base64url');
+export const offsetCursor = (offset: number): string => cursorOf({ offset });
 
 export const rawSearch = (queryString: string): string => `${SEARCH}?${queryString}`;
 export const rawSearchWithQuery = (queryString: string): string =>
@@ -113,23 +117,15 @@ export function parseJsonObject(body: string): Result<Record<string, unknown>, s
   return ok(parsed as Record<string, unknown>);
 }
 
-function numberField(obj: Record<string, unknown>, path: readonly string[]): number | undefined {
-  let cursor: unknown = obj;
-  for (const key of path) {
-    if (cursor === null || typeof cursor !== 'object' || !(key in cursor)) return undefined;
-    cursor = (cursor as Record<string, unknown>)[key];
-  }
-  return typeof cursor === 'number' ? cursor : undefined;
-}
-
 export const expectRealPage: BodyCheck = (body) => {
   const parsed = parseJsonObject(body);
   if (parsed.isErr()) return err(parsed.error);
-  const pageSize = numberField(parsed.value, ['pagination', 'pageSize']);
-  if (pageSize === undefined) return err('response has no pagination.pageSize');
-  if (pageSize !== POEMS_PER_PAGE) {
-    return err(`pageSize ${pageSize}, expected the full ${POEMS_PER_PAGE}`);
+  const data = parsed.value['data'];
+  if (!Array.isArray(data)) return err('response has no data array');
+  if (data.length !== POEMS_PER_PAGE) {
+    return err(`${data.length} poems, expected the full ${POEMS_PER_PAGE}`);
   }
+  if (typeof parsed.value['next'] !== 'string') return err('a full first page has no next');
   return ok(undefined);
 };
 

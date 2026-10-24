@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Qafiyah API",
-    "description": "Public, read-only REST API for Qafiyah, an open catalog of Arabic poetry from the pre-Islamic era to the present: poems with their full verse text, poets, and the eras, meters, rhymes, themes, verse forms, and collections that classify them, with full-text search over poems and poets.\n\nConventions:\n- Every endpoint is GET. Responses are JSON, except `GET /poems/random`, which answers in plain text.\n- No key is needed. Without one, a caller gets 60 requests an hour per address (an IPv6 /64 counts as one address, and its /48 shares ten times that). A free key from https://qafiyah.com/developers, sent in the `x-api-key` header, gives 500 an hour and 10 a second, and at most 1,500 an hour from any one address. A key the API does not recognize counts as no key, so check `x-ratelimit-limit` after adding one.\n- Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.\n- Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.\n- `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.\n- To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.\n- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.\n- JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.\n- Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.\n\nThe data is dedicated to the public domain under CC0 1.0. The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
+    "description": "Public, read-only REST API for Qafiyah, an open catalog of Arabic poetry from the pre-Islamic era to the present: poems with their full verse text, poets, and the eras, meters, rhymes, themes, verse forms, and collections that classify them, with full-text search over poems and poets.\n\nConventions:\n- Every endpoint is GET. Responses are JSON, except `GET /poems/random`, which answers in plain text.\n- No key is needed. Without one, a caller gets 60 requests an hour per address (an IPv6 /64 counts as one address, and its /48 shares ten times that). A free key from https://qafiyah.com/developers, sent in the `x-api-key` header, gives 500 an hour and 10 a second, and at most 1,500 an hour from any one address. A key the API does not recognize counts as no key, so check `x-ratelimit-limit` after adding one.\n- Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.\n- Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.\n- Paged lists (`GET /poems`, `GET /poems/slugs`, `GET /poets`, `GET /poets/slugs`, and `GET /feelings/{slug}/verses`) return `total`, `next`, and `prev`. For the next page, send `next` back as `cursor`. `next` is null on the last page and `prev` on the first. A cursor works only on the list that gave it out. `GET /search` pages its two sections with `poemsCursor` and `poetsCursor`. The taxonomy lists return every term at once.\n- To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.\n- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.\n- JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.\n- Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.\n\nThe data is dedicated to the public domain under CC0 1.0. The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
     "contact": {
       "name": "Qafiyah",
       "url": "https://qafiyah.com"
@@ -1395,7 +1395,7 @@
         "tags": [
           "feelings"
         ],
-        "description": "A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch.",
+        "description": "A page of 30 classical verses that express the feeling or a feeling below it, the strongest first. Each verse appears once and names its strongest feeling in the branch. Pass the page's `next` or `prev` as `cursor` for the page after or before it.",
         "operationId": "feelings.verses",
         "parameters": [
           {
@@ -1410,20 +1410,21 @@
             "example": "alhuzn"
           },
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 verses a page. Minimum 1.",
+            "description": "The `next` or `prev` value of a page of this list. Leave it out for the first page.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJhZnRlciI6MX0"
           }
         ],
         "responses": {
           "200": {
-            "description": "A page of verses with pagination metadata.",
+            "description": "A page of verses, with the cursors of the pages around it.",
             "headers": {
               "ETag": {
                 "schema": {
@@ -1453,7 +1454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListEnvelope_FeelingVerseItem"
+                  "$ref": "#/components/schemas/PageEnvelope_FeelingVerseItem"
                 }
               }
             }
@@ -2570,19 +2571,20 @@
         "tags": [
           "poems"
         ],
-        "description": "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error.",
+        "description": "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Pass the page's `next` or `prev` as `cursor` for the page after or before it, with the same filters. Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error.",
         "operationId": "poems.list",
         "parameters": [
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 poems a page. Minimum 1.",
+            "description": "The `next` or `prev` value of a page of this list. Leave it out for the first page.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJhZnRlciI6MX0"
           },
           {
             "name": "poet",
@@ -2689,7 +2691,7 @@
         ],
         "responses": {
           "200": {
-            "description": "A page of poems with pagination metadata.",
+            "description": "A page of poems, with the cursors of the pages around it.",
             "headers": {
               "ETag": {
                 "schema": {
@@ -2719,7 +2721,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListEnvelope_PoemListItem"
+                  "$ref": "#/components/schemas/PageEnvelope_PoemListItem"
                 }
               }
             }
@@ -3591,19 +3593,20 @@
         "tags": [
           "poems"
         ],
-        "description": "The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling.",
+        "description": "The slug of every primary poem, 45,000 a page in catalog order, oldest entries first, for sitemaps and incremental crawling. A new poem joins the last page, so a crawler that kept the last `next` it saw (or the last page's `prev`) only reads what came after.",
         "operationId": "poems.listSlugs",
         "parameters": [
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.",
+            "description": "The `next` or `prev` value of a page of slugs. Leave it out for the first page.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJhZnRlciI6MX0"
           }
         ],
         "responses": {
@@ -3638,7 +3641,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListEnvelope_FourLetterSlug"
+                  "$ref": "#/components/schemas/PageEnvelope_FourLetterSlug"
                 }
               }
             }
@@ -4090,19 +4093,20 @@
         "tags": [
           "poets"
         ],
-        "description": "A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties.",
+        "description": "A page of 30 poets with their poem counts, most poems first, then by name. Narrow to one era, or search names with `q`, which orders by relevance and keeps the same order for ties. Pass the page's `next` or `prev` as `cursor` for the page after or before it, with the same `era` and `q`.",
         "operationId": "poets.list",
         "parameters": [
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.",
+            "description": "The `next` or `prev` value of a page of this list. Leave it out for the first page.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJhZnRlciI6eyJzY29yZSI6MS41LCJwb2Vtc0NvdW50IjoxMDAsIm5hbWVTb3J0Ijoi2LLZh9mK2LEiLCJpZCI6MX19"
           },
           {
             "name": "era",
@@ -4130,7 +4134,7 @@
         ],
         "responses": {
           "200": {
-            "description": "A page of poets with pagination metadata.",
+            "description": "A page of poets, with the cursors of the pages around it.",
             "headers": {
               "ETag": {
                 "schema": {
@@ -4160,7 +4164,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListEnvelope_PoetListItem"
+                  "$ref": "#/components/schemas/PageEnvelope_PoetListItem"
                 }
               }
             }
@@ -4333,19 +4337,20 @@
         "tags": [
           "poets"
         ],
-        "description": "The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in slug order, for sitemaps and incremental crawling.",
+        "description": "The slug of every poet with at least one poem, with an avatar flag, 45,000 a page in catalog order, oldest entries first, for sitemaps and incremental crawling.",
         "operationId": "poets.listSlugs",
         "parameters": [
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.",
+            "description": "The `next` or `prev` value of a page of slugs. Leave it out for the first page.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJhZnRlciI6MX0"
           }
         ],
         "responses": {
@@ -4380,7 +4385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListEnvelope_PoetSlugEntry"
+                  "$ref": "#/components/schemas/PageEnvelope_PoetSlugEntry"
                 }
               }
             }
@@ -5289,7 +5294,7 @@
         "tags": [
           "search"
         ],
-        "description": "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400.",
+        "description": "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `total` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400.",
         "operationId": "search.search",
         "parameters": [
           {
@@ -5319,26 +5324,28 @@
             ]
           },
           {
-            "name": "poemsPage",
+            "name": "poemsCursor",
             "in": "query",
-            "description": "Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
+            "description": "The `next` or `prev` value of the poems section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJvZmZzZXQiOjIwfQ"
           },
           {
-            "name": "poetsPage",
+            "name": "poetsCursor",
             "in": "query",
-            "description": "Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
+            "description": "The `next` or `prev` value of the poets section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.",
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
             },
-            "example": "1"
+            "example": "eyJvZmZzZXQiOjIwfQ"
           },
           {
             "name": "poetSlugs",
@@ -5472,7 +5479,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The normalized query and the requested sections, each with its own results and pagination.",
+            "description": "The normalized query and the requested sections, each with its own results and cursors.",
             "headers": {
               "ETag": {
                 "schema": {
@@ -6674,10 +6681,9 @@
       },
       "ListEnvelope_CountedStats": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "Every item of a short list under `data`.",
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "properties": {
           "data": {
@@ -6716,20 +6722,15 @@
                 }
               }
             },
-            "description": "The items of this page."
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+            "description": "The items."
           }
         }
       },
       "ListEnvelope_FeelingItem": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "Every item of a short list under `data`.",
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "properties": {
           "data": {
@@ -6778,20 +6779,78 @@
                 }
               }
             },
-            "description": "The items of this page."
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+            "description": "The items."
           }
         }
       },
-      "ListEnvelope_FeelingVerseItem": {
+      "ListEnvelope_PoemCountStats": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "Every item of a short list under `data`.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "slug",
+                "poemsCount"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The term's name in Arabic.",
+                  "example": "الحكمة"
+                },
+                "poemsCount": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "Number of poems with this term, primary readings only.",
+                  "example": 22521
+                },
+                "slug": {
+                  "type": "string",
+                  "description": "The term's slug.",
+                  "example": "alhikma",
+                  "pattern": "^[a-z][a-z-]*$"
+                }
+              }
+            },
+            "description": "The items."
+          }
+        }
+      },
+      "MeterRef": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The meter's name in Arabic.",
+            "example": "الطويل"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The meter's slug, for `GET /meters/{slug}`.",
+            "example": "altawil",
+            "pattern": "^[a-z][a-z-]*$"
+          }
+        }
+      },
+      "PageEnvelope_FeelingVerseItem": {
+        "type": "object",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -6840,18 +6899,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
+          },
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_FourLetterSlug": {
+      "PageEnvelope_FourLetterSlug": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -6862,63 +6942,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
-          }
-        }
-      },
-      "ListEnvelope_PoemCountStats": {
-        "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
-        "required": [
-          "data",
-          "pagination"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "name",
-                "slug",
-                "poemsCount"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "The term's name in Arabic.",
-                  "example": "الحكمة"
-                },
-                "poemsCount": {
-                  "type": "integer",
-                  "format": "int32",
-                  "description": "Number of poems with this term, primary readings only.",
-                  "example": 22521
-                },
-                "slug": {
-                  "type": "string",
-                  "description": "The term's slug.",
-                  "example": "alhikma",
-                  "pattern": "^[a-z][a-z-]*$"
-                }
-              }
-            },
-            "description": "The items of this page."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_PoemListItem": {
+      "PageEnvelope_PoemListItem": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -6959,18 +7015,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
+          },
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_PoemResult": {
+      "PageEnvelope_PoemResult": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -7030,18 +7107,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
+          },
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_PoetListItem": {
+      "PageEnvelope_PoetListItem": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -7075,18 +7173,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
+          },
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_PoetResult": {
+      "PageEnvelope_PoetResult": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -7130,18 +7249,39 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
+          },
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
+            "example": 104,
+            "minimum": 0
           }
         }
       },
-      "ListEnvelope_PoetSlugEntry": {
+      "PageEnvelope_PoetSlugEntry": {
         "type": "object",
-        "description": "A page of items under `data`, with its place in the whole list under `pagination`.",
+        "description": "One page of a longer list under `data`. Pass `next` or `prev` as the `cursor` parameter to get the next or previous page.",
         "required": [
           "data",
-          "pagination"
+          "total",
+          "next",
+          "prev"
         ],
         "properties": {
           "data": {
@@ -7168,67 +7308,27 @@
             },
             "description": "The items of this page."
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination",
-            "description": "Where this page sits in the list."
-          }
-        }
-      },
-      "MeterRef": {
-        "type": "object",
-        "required": [
-          "name",
-          "slug"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "The meter's name in Arabic.",
-            "example": "الطويل"
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the next page, or null on the last page.",
+            "example": "eyJhZnRlciI6MTI2NH0"
           },
-          "slug": {
-            "type": "string",
-            "description": "The meter's slug, for `GET /meters/{slug}`.",
-            "example": "altawil",
-            "pattern": "^[a-z][a-z-]*$"
-          }
-        }
-      },
-      "Pagination": {
-        "type": "object",
-        "required": [
-          "page",
-          "pageSize",
-          "totalPages",
-          "totalItems"
-        ],
-        "properties": {
-          "page": {
+          "prev": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The cursor of the previous page, or null on the first page.",
+            "example": "eyJiZWZvcmUiOjEyMzV9"
+          },
+          "total": {
             "type": "integer",
             "format": "int32",
-            "description": "The page returned, 1-based.",
-            "example": 1,
-            "minimum": 0
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Items per page for this endpoint.",
-            "example": 30,
-            "minimum": 0
-          },
-          "totalItems": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Number of items across all pages. In a search section it stops at 10,000.",
+            "description": "Number of items in the whole list. In a search section it stops at 10,000.",
             "example": 104,
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Number of pages, at least 1.",
-            "example": 4,
             "minimum": 0
           }
         }
@@ -7728,7 +7828,7 @@
           "poems": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/ListEnvelope_PoemResult",
+                "$ref": "#/components/schemas/PageEnvelope_PoemResult",
                 "description": "The poems section. Left out unless `types` includes poems."
               },
               {
@@ -7739,7 +7839,7 @@
           "poets": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/ListEnvelope_PoetResult",
+                "$ref": "#/components/schemas/PageEnvelope_PoetResult",
                 "description": "The poets section. Left out unless `types` includes poets."
               },
               {

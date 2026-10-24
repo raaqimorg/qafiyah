@@ -1,7 +1,8 @@
 use serde_json::{Map, Value, json};
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
-use crate::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort};
+use crate::domain::paging::Cursor;
+use crate::domain::search::{PoemSearchParams, PoetListParams, PoetSearchParams};
 
 const RECALL_FLOOR: &str = "2<75%";
 
@@ -239,10 +240,7 @@ pub fn poem_search_body(params: &PoemSearchParams) -> Value {
     };
 
     let mut request = body(
-        params
-            .page
-            .saturating_sub(1)
-            .saturating_mul(params.page_size),
+        params.offset,
         params.page_size,
         ES_MAX_RESULT_WINDOW,
         query,
@@ -353,15 +351,13 @@ fn scored(query: Value, functions: Vec<Value>) -> Value {
     } })
 }
 
-pub fn poet_search_body(params: &PoetSearchParams) -> Value {
-    let has_text = !params.q.is_empty();
-    let filters = term_filters(&[("eraSlug", &params.era_slugs)]);
-
-    let query = if !has_text {
+fn poet_query(q: &str, exact: bool, era_slugs: &[String]) -> Value {
+    let filters = term_filters(&[("eraSlug", era_slugs)]);
+    if q.is_empty() {
         json!({ "bool": { "must": [{ "match_all": {} }], "filter": filters } })
-    } else if params.exact {
+    } else if exact {
         json!({ "bool": {
-            "must": [{ "multi_match": { "query": params.q, "type": "phrase", "fields": ["name", "nickname"] } }],
+            "must": [{ "multi_match": { "query": q, "type": "phrase", "fields": ["name", "nickname"] } }],
             "filter": filters,
         } })
     } else {
@@ -369,13 +365,13 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         gate.push(json!({ "bool": {
             "should": [
                 { "multi_match": {
-                    "query": params.q,
+                    "query": q,
                     "type": "cross_fields",
                     "operator": "and",
                     "fields": ["name.autocomplete", "name.stemmed", "nickname.autocomplete", "nickname.stemmed"],
                 } },
                 { "match": { "name": {
-                    "query": params.q,
+                    "query": q,
                     "operator": "and",
                     "fuzziness": NAME_FUZZINESS,
                     "prefix_length": 1,
@@ -386,19 +382,19 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
         json!({ "function_score": {
             "query": { "bool": {
                 "should": [
-                    { "term": { "name.exact": { "value": params.q, "boost": poet_boost::EXACT } } },
-                    { "match_phrase": { "name": { "query": params.q, "boost": poet_boost::PHRASE } } },
-                    { "match": { "name.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
-                    { "match": { "name.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
+                    { "term": { "name.exact": { "value": q, "boost": poet_boost::EXACT } } },
+                    { "match_phrase": { "name": { "query": q, "boost": poet_boost::PHRASE } } },
+                    { "match": { "name.autocomplete": { "query": q, "boost": poet_boost::PREFIX } } },
+                    { "match": { "name.stemmed": { "query": q, "boost": poet_boost::STEMMED } } },
                     { "match": { "name": {
-                        "query": params.q,
+                        "query": q,
                         "fuzziness": NAME_FUZZINESS,
                         "fuzzy_rewrite": SIMILARITY_ONLY_REWRITE,
                         "boost": poet_boost::FUZZY,
                     } } },
-                    { "match_phrase": { "nickname": { "query": params.q, "boost": poet_boost::PHRASE } } },
-                    { "match": { "nickname.autocomplete": { "query": params.q, "boost": poet_boost::PREFIX } } },
-                    { "match": { "nickname.stemmed": { "query": params.q, "boost": poet_boost::STEMMED } } },
+                    { "match_phrase": { "nickname": { "query": q, "boost": poet_boost::PHRASE } } },
+                    { "match": { "nickname.autocomplete": { "query": q, "boost": poet_boost::PREFIX } } },
+                    { "match": { "nickname.stemmed": { "query": q, "boost": poet_boost::STEMMED } } },
                 ],
                 "minimum_should_match": 1,
                 "filter": gate,
@@ -411,41 +407,69 @@ pub fn poet_search_body(params: &PoetSearchParams) -> Value {
             },
             "boost_mode": "multiply",
         } })
-    };
+    }
+}
 
-    let browse_sort = match params.sort {
-        PoetSort::PoemsCount => {
-            json!([{ "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
-        }
-        PoetSort::Id => json!([{ "id": "desc" }]),
+pub fn poet_search_body(params: &PoetSearchParams) -> Value {
+    let sort = if params.q.is_empty() {
+        json!([{ "id": "desc" }])
+    } else {
+        json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
     };
-
     body(
-        params
-            .page
-            .saturating_sub(1)
-            .saturating_mul(params.page_size),
+        params.offset,
         params.page_size,
-        params.window,
-        query,
-        Some(if has_text {
-            json!([{ "_score": "desc" }, { "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
-        } else {
-            browse_sort
-        }),
+        ES_MAX_RESULT_WINDOW,
+        poet_query(&params.q, params.exact, &params.era_slugs),
+        Some(sort),
         None,
     )
+}
+
+pub fn poet_list_body(params: &PoetListParams) -> Value {
+    let has_text = !params.q.is_empty();
+    let (larger, smaller) = if params.cursor.as_ref().is_some_and(Cursor::is_before) {
+        ("asc", "desc")
+    } else {
+        ("desc", "asc")
+    };
+    let mut sort = vec![
+        json!({ "poemsCount": larger }),
+        json!({ "nameSort": smaller }),
+        json!({ "id": smaller }),
+    ];
+    if has_text {
+        sort.insert(0, json!({ "_score": larger }));
+    }
+    let mut map = Map::new();
+    map.insert("size".into(), json!(params.page_size.saturating_add(1)));
+    map.insert("track_total_hits".into(), json!(true));
+    map.insert(
+        "query".into(),
+        poet_query(&params.q, false, &params.era_slugs),
+    );
+    map.insert("sort".into(), Value::Array(sort));
+    if let Some(cursor) = &params.cursor {
+        let key = cursor.key();
+        let mut after = vec![json!(key.poems_count), json!(key.name_sort), json!(key.id)];
+        if let Some(score) = key.score {
+            after.insert(0, json!(score));
+        }
+        map.insert("search_after".into(), Value::Array(after));
+    }
+    Value::Object(map)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::constants::SEARCH_POEMS_PER_PAGE;
+    use crate::domain::search::PoetPosition;
 
-    fn poems(q: &str, page: u32, exact: bool) -> PoemSearchParams {
+    fn poems(q: &str, offset: u32, exact: bool) -> PoemSearchParams {
         PoemSearchParams {
             q: q.into(),
-            page,
+            offset,
             exact,
             ..PoemSearchParams::default()
         }
@@ -497,7 +521,7 @@ mod tests {
     fn every_field_the_indices_can_search_or_sort_is_one_a_search_reads() {
         let every_facet = |q: &str, era: bool| PoemSearchParams {
             q: q.into(),
-            page: 1,
+            offset: 0,
             page_size: SEARCH_POEMS_PER_PAGE,
             poet_slugs: vec!["yoFB".into()],
             era_slugs: if era { vec!["abbasi".into()] } else { vec![] },
@@ -510,26 +534,21 @@ mod tests {
         };
         let mut bodies = Vec::new();
         for q in ["حب", "قفا نبك من", "ماء"] {
-            bodies.push(poem_search_body(&poems(q, 1, false)));
-            bodies.push(poem_search_body(&poems(q, 1, true)));
+            bodies.push(poem_search_body(&poems(q, 0, false)));
+            bodies.push(poem_search_body(&poems(q, 0, true)));
         }
         for (q, era) in [("", false), ("", true), ("حب", false)] {
             bodies.push(poem_search_body(&every_facet(q, era)));
         }
-        for (q, exact, sort) in [
-            ("", false, PoetSort::Id),
-            ("", false, PoetSort::PoemsCount),
-            ("المتنبي", false, PoetSort::Id),
-            ("المتنبي", true, PoetSort::Id),
-        ] {
+        for (q, exact) in [("", false), ("المتنبي", false), ("المتنبي", true)] {
             bodies.push(poet_search_body(&PoetSearchParams {
                 q: q.into(),
                 exact,
-                sort,
                 era_slugs: vec!["abbasi".into()],
                 ..PoetSearchParams::default()
             }));
         }
+        bodies.push(poet_list_body(&PoetListParams::default()));
         let mut read = std::collections::BTreeSet::new();
         for body in &bodies {
             every_name_in(body, &mut read);
@@ -553,16 +572,57 @@ mod tests {
     }
 
     #[test]
-    fn the_last_page_offsets_to_the_edge_of_the_window() {
-        let body = poem_search_body(&poems("x", 500, false));
-        assert_eq!(body["from"], 9980);
+    fn a_search_page_starts_at_its_offset() {
+        let body = poem_search_body(&poems("x", 9980, false));
+        assert_eq!(
+            (body["from"].clone(), body["size"].clone()),
+            (json!(9980), json!(20))
+        );
         let poets = poet_search_body(&PoetSearchParams {
-            page: 1666,
-            page_size: 30,
-            window: 50_000,
+            offset: 40,
             ..PoetSearchParams::default()
         });
-        assert_eq!(poets["from"], 49_950);
-        assert_eq!(poets["track_total_hits"], 50_000);
+        assert_eq!(poets["from"], 40);
+    }
+
+    fn position(score: Option<f64>) -> PoetPosition {
+        PoetPosition {
+            score,
+            poems_count: 12,
+            name_sort: "احمد".into(),
+            id: 7,
+        }
+    }
+
+    #[test]
+    fn the_poet_list_asks_for_one_extra_poet_and_counts_them_all() {
+        let body = poet_list_body(&PoetListParams::default());
+        assert_eq!(body["size"], 31);
+        assert_eq!(body["track_total_hits"], true);
+        assert!(body.get("from").is_none());
+        assert!(body.get("search_after").is_none());
+    }
+
+    #[test]
+    fn a_poet_list_cursor_continues_after_its_poet_in_either_direction() {
+        let after = poet_list_body(&PoetListParams {
+            cursor: Some(Cursor::After(position(None))),
+            ..PoetListParams::default()
+        });
+        assert_eq!(after["search_after"], json!([12, "احمد", 7]));
+        assert_eq!(
+            after["sort"],
+            json!([{ "poemsCount": "desc" }, { "nameSort": "asc" }, { "id": "asc" }])
+        );
+        let before = poet_list_body(&PoetListParams {
+            q: "احمد".into(),
+            cursor: Some(Cursor::Before(position(Some(2.5)))),
+            ..PoetListParams::default()
+        });
+        assert_eq!(before["search_after"], json!([2.5, 12, "احمد", 7]));
+        assert_eq!(
+            before["sort"],
+            json!([{ "_score": "asc" }, { "poemsCount": "asc" }, { "nameSort": "desc" }, { "id": "desc" }])
+        );
     }
 }

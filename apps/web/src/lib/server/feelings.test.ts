@@ -11,7 +11,6 @@ import { allFeelings, feelingVerses } from './feelings';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 
-const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
 const FEELING = { name: 'الحزن', slug: 'alhuzn', wheelTerm: 'Sad', verseCount: 1 };
 
 beforeEach(() => {
@@ -20,7 +19,7 @@ beforeEach(() => {
 
 describe('allFeelings', () => {
   it('returns the list data', async () => {
-    get.mockResolvedValue(ok({ data: [FEELING], pagination: PAGINATION }));
+    get.mockResolvedValue(ok({ data: [FEELING] }));
     expect(await allFeelings()).toEqual([FEELING]);
     expect(get).toHaveBeenCalledWith('/feelings');
   });
@@ -28,22 +27,29 @@ describe('allFeelings', () => {
 
 describe('feelingVerses', () => {
   it('asks for the page of the feeling', async () => {
-    get.mockResolvedValue(ok({ data: [], pagination: PAGINATION }));
-    expect(await feelingVerses('alhuzn', 1)).toEqual({ verses: [], pagination: PAGINATION });
+    const page = { data: [], total: 0, next: null, prev: null };
+    get.mockResolvedValue(ok(page));
+    expect(await feelingVerses('alhuzn', undefined)).toEqual(page);
     expect(get).toHaveBeenCalledWith('/feelings/{slug}/verses', {
-      params: { path: { slug: 'alhuzn' }, query: { page: '1' } },
+      params: { path: { slug: 'alhuzn' }, query: {} },
+    });
+    await feelingVerses('alhuzn', 'c');
+    expect(get).toHaveBeenLastCalledWith('/feelings/{slug}/verses', {
+      params: { path: { slug: 'alhuzn' }, query: { cursor: 'c' } },
     });
   });
 
-  it('returns null on a 404, and past the last page', async () => {
+  it('returns null on a 404, on a refused cursor, and past the last verse', async () => {
     get.mockResolvedValue(failure(404));
-    expect(await feelingVerses('alnothing', 1)).toBeNull();
-    get.mockResolvedValue(ok({ data: [], pagination: { ...PAGINATION, page: 9 } }));
-    expect(await feelingVerses('alhuzn', 9)).toBeNull();
+    expect(await feelingVerses('alnothing', undefined)).toBeNull();
+    get.mockResolvedValue(failure(400));
+    expect(await feelingVerses('alhuzn', 'bad')).toBeNull();
+    get.mockResolvedValue(ok({ data: [], total: 40, next: null, prev: null }));
+    expect(await feelingVerses('alhuzn', 'c')).toBeNull();
   });
 
   it('rethrows on a 500', async () => {
     get.mockResolvedValue(failure(500));
-    await expect(feelingVerses('alhuzn', 1)).rejects.toThrow();
+    await expect(feelingVerses('alhuzn', undefined)).rejects.toThrow();
   });
 });

@@ -16,7 +16,7 @@ Base URL: {BASE}
 - No key is needed. Anonymous callers get 60 requests an hour per address. A free key from {SITE}/developers, sent as the `x-api-key` header, raises this to 500 an hour, at most 10 a second, and at most 1,500 an hour from one address. A key the API does not recognize counts as no key.
 - Responses, errors included, carry `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix time in seconds when the window ends). A 429 or 503 carries `Retry-After` in seconds.
 - Poems and poets have four-letter, case-sensitive slugs (`gnNg`, `PAKT`). Eras, meters, rhymes, themes, verse forms, and collections have lowercase transliterated slugs (`jahili`, `altawil`, `meem`, `alhikma`, `amudi`, `almuallaqat`).
-- A list is `{"data": [...], "pagination": {"page", "pageSize", "totalPages", "totalItems"}}` with 1-based pages, and a single item is `{"data": {...}}`.
+- A paged list is `{"data": [...], "total", "next", "prev"}`. For the next page, send `next` back as `cursor` (in search, as `poemsCursor` or `poetsCursor`). `next` is null on the last page and `prev` on the first. A cursor works only on the list that gave it out. A short list is `{"data": [...]}`, and a single item is `{"data": {...}}`.
 - Repeat a filter to match any of its values (`?meter=altawil&meter=alkamil`). Different filters combine with AND. An unknown query param is refused with 400, and every 400 names the parameter at fault.
 - JSON responses carry an `ETag`. Send it back as `If-None-Match` to get a 304.
 - Errors are `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `code`, `instance`, and `detail`.
@@ -30,17 +30,17 @@ Base URL: {BASE}
 - [GET /v1/poems/random]({BASE}/poems/random): A random poem as plain text, never cached. The body is a poem slug, or with `?option=lines` one verse on two lines, a blank line, and the poet's name.
 - [GET /v1/poems/count]({BASE}/poems/count): The number of poems
 - [GET /v1/poems/facets]({BASE}/poems/facets?poet=PAKT): One poet's meters, rhymes, and themes with poem counts, for filtering their poems. Params: `poet` (required), then `meter`, `rhyme`, and `theme` as in GET /v1/poems.
-- [GET /v1/poems/slugs]({BASE}/poems/slugs): Every poem slug, 45,000 a page in slug order, for crawling
+- [GET /v1/poems/slugs]({BASE}/poems/slugs): Every poem slug, 45,000 a page in the order they were added, for crawling. New poems join the last page, so a crawler that keeps the last `next` it got reads only what came after.
 
 ## Poets
 
-- [GET /v1/poets]({BASE}/poets?era=jahili): Poets with their poem counts, 30 a page, most poems first. Params: `page`, `era` (one slug), and `q` to search names, e.g. `?q=%D8%B2%D9%87%D9%8A%D8%B1%20%D8%A8%D9%86%20%D8%A3%D8%A8%D9%8A%20%D8%B3%D9%84%D9%85%D9%89`.
+- [GET /v1/poets]({BASE}/poets?era=jahili): Poets with their poem counts, 30 a page, most poems first. Params: `cursor`, `era` (one slug), and `q` to search names, e.g. `?q=%D8%B2%D9%87%D9%8A%D8%B1%20%D8%A8%D9%86%20%D8%A3%D8%A8%D9%8A%20%D8%B3%D9%84%D9%85%D9%89`.
 - [GET /v1/poets/{slug}]({BASE}/poets/PAKT): One poet: name, nickname, biography, era, poem count, and whether an avatar exists (served at `https://cdn.qafiyah.com/poets/{slug}/avatar.webp`). A slug merged into another poet answers 301.
-- [GET /v1/poets/slugs]({BASE}/poets/slugs): Slugs of poets with at least one poem, 45,000 a page, for crawling
+- [GET /v1/poets/slugs]({BASE}/poets/slugs): Slugs of poets with at least one poem, 45,000 a page in the order they were added, for crawling
 
 ## Search
 
-- [GET /v1/search]({BASE}/search?q=%D8%A3%D9%85%D9%86%20%D8%A3%D9%85%20%D8%A3%D9%88%D9%81%D9%89&types=poems): Full-text search in Arabic over poems (title and verses) and poets (name and nickname), as two sections paged on their own, 20 a page. Params: `q` (up to 100 characters), `types` (`poems`, `poets`, or both, the default), `poemsPage`, `poetsPage`, `exact=true` for the literal phrase only, and the repeatable filters `poetSlugs`, `eraSlugs`, `meterSlugs`, `rhymeSlugs`, `themeSlugs`, `poemTypeSlugs`, `collectionSlugs`. `eraSlugs` narrows both sections and `poetSlugs` only the poems section. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`. Without `q` the sections are browsed instead. Each section's `totalItems` stops at 10,000.
+- [GET /v1/search]({BASE}/search?q=%D8%A3%D9%85%D9%86%20%D8%A3%D9%85%20%D8%A3%D9%88%D9%81%D9%89&types=poems): Full-text search in Arabic over poems (title and verses) and poets (name and nickname), as two sections paged on their own, 20 a page. Params: `q` (up to 100 characters), `types` (`poems`, `poets`, or both, the default), `poemsCursor`, `poetsCursor`, `exact=true` for the literal phrase only, and the repeatable filters `poetSlugs`, `eraSlugs`, `meterSlugs`, `rhymeSlugs`, `themeSlugs`, `poemTypeSlugs`, `collectionSlugs`. `eraSlugs` narrows both sections and `poetSlugs` only the poems section. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`. Without `q` the sections are browsed instead. Each section's `total` stops at 10,000, and its last page ends there.
 
 ## Classification
 
@@ -57,7 +57,7 @@ Each list returns every term with its counts. Each item takes the term's slug.
 
 - [GET /v1/feelings]({BASE}/feelings): The feelings of the Feelings Wheel in Arabic that have verses, as a flat list in tree order. Each item counts the verses of its whole branch.
 - [GET /v1/feelings/{slug}]({BASE}/feelings/alhuzn): One feeling, with the count of verses in its whole branch
-- [GET /v1/feelings/{slug}/verses]({BASE}/feelings/alhuzn/verses): Classical verses that express the feeling or a feeling below it, 30 a page, the strongest first. Params: `page`.
+- [GET /v1/feelings/{slug}/verses]({BASE}/feelings/alhuzn/verses): Classical verses that express the feeling or a feeling below it, 30 a page, the strongest first. Params: `cursor`.
 
 ## MCP
 

@@ -6,6 +6,7 @@ use axum::http::StatusCode;
 
 use crate::constants::RANDOM_POEM_MAX_ATTEMPTS;
 use crate::domain::StoreError;
+use crate::domain::paging::{Cursor, Slice};
 use crate::domain::poems::{
     FacetCounts, Facets, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
 };
@@ -76,16 +77,20 @@ impl PoemRepository for Poems {
         }
         Ok(0)
     }
-    async fn list_slugs(&self, _: u32, _: u32) -> Result<Vec<String>, StoreError> {
-        Ok(Vec::new())
+    async fn list_slugs(
+        &self,
+        _: Option<&Cursor<i32>>,
+        _: u32,
+    ) -> Result<Slice<String, i32>, StoreError> {
+        Ok(Slice::empty())
     }
     async fn list(
         &self,
         _: &Facets,
+        _: Option<&Cursor<i32>>,
         _: u32,
-        _: u32,
-    ) -> Result<(Vec<PoemSummary>, i32), StoreError> {
-        Ok((Vec::new(), 0))
+    ) -> Result<(Slice<PoemSummary, i32>, i32), StoreError> {
+        Ok((Slice::empty(), 0))
     }
     async fn facet_counts(&self, _: &Facets) -> Result<Option<FacetCounts>, StoreError> {
         Ok(None)
@@ -125,8 +130,12 @@ impl PoetRepository for Poets {
     async fn count_with_poems(&self) -> Result<i32, StoreError> {
         Ok(0)
     }
-    async fn list_slugs(&self, _: u32, _: u32) -> Result<Vec<PoetSlug>, StoreError> {
-        Ok(Vec::new())
+    async fn list_slugs(
+        &self,
+        _: Option<&Cursor<i32>>,
+        _: u32,
+    ) -> Result<Slice<PoetSlug, i32>, StoreError> {
+        Ok(Slice::empty())
     }
 }
 

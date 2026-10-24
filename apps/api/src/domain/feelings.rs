@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use crate::domain::paging::{Cursor, Slice};
 use crate::domain::poems::PoemLink;
 use crate::domain::{PoetBrief, StoreError, Term};
 
@@ -37,9 +38,9 @@ pub trait FeelingRepository: Send + Sync {
     async fn verses(
         &self,
         feeling_id: i32,
-        page: u32,
+        cursor: Option<&Cursor<i32>>,
         page_size: u32,
-    ) -> Result<Vec<FeelingVerse>, StoreError>;
+    ) -> Result<Slice<FeelingVerse, i32>, StoreError>;
 }
 
 fn depth_first<'a>(feelings: &'a [Feeling], parent: Option<i32>, out: &mut Vec<&'a Feeling>) {

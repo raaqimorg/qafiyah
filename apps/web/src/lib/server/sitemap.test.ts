@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { SITEMAP_POEMS_PER_SHARD } from '@qafiyah/config';
 
-import { collectPagedSlugs, shardCount, sitemapIndexXml, urlsetXml } from './sitemap';
+import {
+  collectPagedSlugs,
+  nthSlugPage,
+  parsePageParam,
+  shardCount,
+  sitemapIndexXml,
+  urlsetXml,
+} from './sitemap';
 
 describe('urlsetXml', () => {
   it('wraps locs in a urlset', () => {
@@ -76,40 +83,45 @@ describe('shardCount', () => {
   });
 });
 
-describe('collectPagedSlugs', () => {
-  const flush = async () => {
-    for (let i = 0; i < 5; i += 1) await Promise.resolve();
-  };
+describe('parsePageParam', () => {
+  it('parses a positive integer string', () => {
+    expect(parsePageParam('1')).toBe(1);
+    expect(parsePageParam('42')).toBe(42);
+  });
+  it('returns null for undefined, non-numeric, zero, negative, or decimal', () => {
+    expect(parsePageParam(undefined)).toBeNull();
+    expect(parsePageParam('abc')).toBeNull();
+    expect(parsePageParam('0')).toBeNull();
+    expect(parsePageParam('-3')).toBeNull();
+    expect(parsePageParam('1.5')).toBeNull();
+  });
+});
 
-  it('collects slugs across every page in page order', async () => {
-    const pages: Record<number, { slugs: string[]; totalPages: number }> = {
-      1: { slugs: ['a', 'b'], totalPages: 3 },
-      2: { slugs: ['c', 'd'], totalPages: 3 },
-      3: { slugs: ['e'], totalPages: 3 },
-    };
-    const result = await collectPagedSlugs((page) => Promise.resolve(pages[page] ?? null));
-    expect(result).toEqual(['a', 'b', 'c', 'd', 'e']);
+const PAGES: Record<string, { slugs: string[]; next: string | null }> = {
+  first: { slugs: ['a', 'b'], next: 'c2' },
+  c2: { slugs: ['c', 'd'], next: 'c3' },
+  c3: { slugs: ['e'], next: null },
+};
+
+const fetchPage = (cursor: string | undefined) => Promise.resolve(PAGES[cursor ?? 'first'] ?? null);
+
+describe('collectPagedSlugs', () => {
+  it('follows next through every page, in page order', async () => {
+    expect(await collectPagedSlugs(fetchPage)).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 
   it('returns an empty list when the first page is missing', async () => {
-    const result = await collectPagedSlugs(() => Promise.resolve(null));
-    expect(result).toEqual([]);
+    expect(await collectPagedSlugs(() => Promise.resolve(null))).toEqual([]);
+  });
+});
+
+describe('nthSlugPage', () => {
+  it('walks next to the page asked for', async () => {
+    expect((await nthSlugPage(fetchPage, 1))?.slugs).toEqual(['a', 'b']);
+    expect((await nthSlugPage(fetchPage, 3))?.slugs).toEqual(['e']);
   });
 
-  it('fetches pages 2..N concurrently, not one after another', async () => {
-    const started: number[] = [];
-    const gates = new Map<number, () => void>();
-    const fetchPage = (page: number): Promise<{ slugs: string[]; totalPages: number } | null> => {
-      started.push(page);
-      if (page === 1) return Promise.resolve({ slugs: ['a'], totalPages: 4 });
-      return new Promise((resolve) => {
-        gates.set(page, () => resolve({ slugs: [`p${page}`], totalPages: 4 }));
-      });
-    };
-    const pending = collectPagedSlugs(fetchPage);
-    await flush();
-    expect(started).toEqual([1, 2, 3, 4]);
-    for (const open of gates.values()) open();
-    await expect(pending).resolves.toEqual(['a', 'p2', 'p3', 'p4']);
+  it('is null past the last page', async () => {
+    expect(await nthSlugPage(fetchPage, 4)).toBeNull();
   });
 });

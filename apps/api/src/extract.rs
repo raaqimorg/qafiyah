@@ -55,6 +55,10 @@ pub fn invalid_path_slug(reason: &str) -> AppError {
     RouteProblem::bad_request(&format!("Invalid path parameter `slug`: {reason}")).into()
 }
 
+pub fn invalid_query_parameter(name: &str, reason: &str) -> AppError {
+    RouteProblem::bad_request(&format!("Invalid query parameter `{name}`: {reason}")).into()
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;
@@ -108,7 +112,7 @@ mod tests {
 
         let mut rng = crate::test_support::Rng::new(11);
         let alphabet = [
-            "a", "=", "&", "[", "]", "%", "0", "9", "+", "q", "page", "types", "era", "ع", "😀",
+            "a", "=", "&", "[", "]", "%", "0", "9", "+", "q", "cursor", "types", "era", "ع", "😀",
             "\u{0}",
         ];
         for _ in 0..3_000 {

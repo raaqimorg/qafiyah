@@ -6,6 +6,7 @@ pub mod config;
 pub mod constants;
 pub mod contract;
 pub mod cors;
+pub mod cursor;
 pub mod db;
 pub mod domain;
 pub mod envelope;

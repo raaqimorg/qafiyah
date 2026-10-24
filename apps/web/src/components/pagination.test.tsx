@@ -5,33 +5,32 @@ import { derivePagination } from '@/lib/pagination';
 
 import { Pagination } from './pagination';
 
-const pageUrl = (page: number) => `/meters/altawil?page=${page}`;
+const pageUrl = (cursor: string) => `/meters/altawil?cursor=${cursor}`;
 
-function render(page: number, totalPages: number): string {
-  return renderToStaticMarkup(<Pagination {...derivePagination({ page, totalPages }, pageUrl)} />);
+function render(next: string | null, prev: string | null): string {
+  return renderToStaticMarkup(<Pagination {...derivePagination({ next, prev }, pageUrl)} />);
 }
 
 describe('Pagination', () => {
   it('renders nothing when the list fits on one page', () => {
-    expect(render(1, 1)).toBe('');
+    expect(render(null, null)).toBe('');
   });
 
   it('links to the next page and disables the previous one on the first page', () => {
-    const html = render(1, 3);
-    expect(html).toContain('<a href="/meters/altawil?page=2" rel="next"');
+    const html = render('n', null);
+    expect(html).toContain('<a href="/meters/altawil?cursor=n" rel="next"');
     expect(html).toContain('aria-disabled="true">السابق</span>');
     expect(html).not.toContain('rel="prev"');
   });
 
-  it('links both ways from a middle page and shows where the reader is', () => {
-    const html = render(2, 3);
+  it('links both ways from a middle page', () => {
+    const html = render('n', 'p');
     expect(html).toContain('rel="next"');
-    expect(html).toContain('<a href="/meters/altawil?page=1" rel="prev"');
-    expect(html).toContain('صـ ٢ من ٣');
+    expect(html).toContain('<a href="/meters/altawil?cursor=p" rel="prev"');
   });
 
   it('disables the next link on the last page', () => {
-    const html = render(3, 3);
+    const html = render(null, 'p');
     expect(html).toContain('aria-disabled="true">التالي</span>');
     expect(html).not.toContain('rel="next"');
   });
