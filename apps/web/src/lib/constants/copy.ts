@@ -66,6 +66,9 @@ export const SHARE_TEXTS = {
   facebook: 'مشاركة على فيسبوك',
   whatsapp: 'مشاركة على واتس',
   telegram: 'مشاركة على تلقرام',
+  image: 'مشاركة كصورة',
+  pickVerses: 'حدد الأبيات التي تريد مشاركتها كصورة',
+  imageFile: 'قافية',
 } as const;
 
 export const SHARE_NETWORK_NAMES = {

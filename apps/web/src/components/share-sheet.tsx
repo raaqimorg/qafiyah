@@ -1,13 +1,14 @@
 'use client';
 
-import { X } from 'lucide-react';
-import { type Ref, useId } from 'react';
+import { Image as ImageIcon, X } from 'lucide-react';
+import { type Ref, useId, useState } from 'react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { captureEvent } from '@/lib/analytics/capture-event';
 import { SITE_URL } from '@/lib/constants/config';
 import { SHARE_NETWORK_NAMES, SHARE_TEXTS } from '@/lib/constants/copy';
 import { shareIntent, type ShareNetwork } from '@/lib/urls';
+import { renderVerseImage } from '@/lib/verse-image';
 
 type ShareLink = {
   readonly network: ShareNetwork;
@@ -66,16 +67,48 @@ function ShareIcon({ iconPath }: { readonly iconPath: string }) {
   );
 }
 
+type VerseImage = {
+  readonly text: string;
+  readonly poet: string;
+  readonly font: string;
+};
+
 type ShareSheetProps = {
   readonly ref: Ref<HTMLDialogElement>;
   readonly title: string;
   readonly body: string;
   readonly path: string;
+  readonly image?: VerseImage;
+  readonly onPickVerses?: (() => void) | undefined;
 };
 
-export function ShareSheet({ ref, title, body, path }: ShareSheetProps) {
+export function ShareSheet({ ref, title, body, path, image, onPickVerses }: ShareSheetProps) {
   const titleId = useId();
   const url = `${SITE_URL}${path}`;
+  const [exporting, setExporting] = useState(false);
+  const shareImage = async () => {
+    if (image === undefined || exporting) return;
+    setExporting(true);
+    try {
+      const blob = await renderVerseImage(image);
+      const file = new File([blob], `${SHARE_TEXTS.imageFile}.png`, { type: 'image/png' });
+      if ('canShare' in navigator && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = file.name;
+        link.click();
+        URL.revokeObjectURL(href);
+      }
+      captureEvent('shared', { network: 'image' });
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- a click on the backdrop closes the dialog, because Safari lacks closedby, and Escape already closes it from the keyboard
@@ -103,6 +136,32 @@ export function ShareSheet({ ref, title, body, path }: ShareSheetProps) {
           </form>
         </div>
         <ul className="flex flex-col px-3 py-2">
+          {(image !== undefined || onPickVerses !== undefined) && (
+            <li>
+              <button
+                type="button"
+                onClick={(event) => {
+                  if (image === undefined) {
+                    event.currentTarget.closest('dialog')?.close();
+                    onPickVerses?.();
+                    return;
+                  }
+                  void shareImage();
+                }}
+                disabled={exporting}
+                aria-label={SHARE_TEXTS.image}
+                className="flex min-h-12 w-full items-center gap-3 rounded-md px-2 text-text-muted focus-ring transition-colors hover:bg-surface-sunken hover:text-text disabled:opacity-50"
+              >
+                <ImageIcon
+                  className={SHARE_ICON}
+                  strokeWidth={SHARE_ICON_STROKE}
+                  aria-hidden="true"
+                  focusable="false"
+                />
+                <span>{SHARE_TEXTS.image}</span>
+              </button>
+            </li>
+          )}
           {SHARE_LINKS.map((link) => (
             <li key={link.network}>
               <a

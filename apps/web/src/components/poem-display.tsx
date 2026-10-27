@@ -110,6 +110,8 @@ export function PoemDisplay({
   const quoteSheetRef = useRef<HTMLDialogElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [quote, setQuote] = useState<string | null>(null);
+  const [quoteFont, setQuoteFont] = useState('');
+  const [pickingVerses, setPickingVerses] = useState(false);
   const [quoteTop, setQuoteTop] = useState<number | null>(null);
   const handleCopy = (event: ClipboardEvent<HTMLElement>) => {
     if (event.defaultPrevented || columnRef.current === null) return;
@@ -142,6 +144,8 @@ export function PoemDisplay({
         return;
       }
       setQuote(text);
+      setQuoteFont(getComputedStyle(column).fontFamily);
+      setPickingVerses(false);
       setQuoteTop(verse.getBoundingClientRect().bottom - wrapper.getBoundingClientRect().top);
     };
     const placeShareButtonWhenSettled = () => {
@@ -220,8 +224,12 @@ export function PoemDisplay({
             title={SHARE_TEXTS.poemTitle}
             body={formatPoemText(shownVerses.slice(0, 1), poet.name)}
             path={sharePath}
+            onPickVerses={() => setPickingVerses(true)}
           />
         </PoemToolbar>
+        <p role="status" className={pickingVerses ? 'text-poem-meta text-highlight' : 'sr-only'}>
+          {pickingVerses ? SHARE_TEXTS.pickVerses : ''}
+        </p>
       </header>
 
       <div ref={wrapperRef} className="relative flex w-full flex-col items-center justify-between">
@@ -280,6 +288,7 @@ export function PoemDisplay({
             title={SHARE_TEXTS.quoteTitle}
             body={formatPoemQuote(quote, poet.name)}
             path={sharePath}
+            image={{ text: quote, poet: poet.name, font: quoteFont }}
           />
         )}
       </div>

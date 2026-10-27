@@ -13,9 +13,10 @@ type ShareButtonProps = {
   readonly body: string;
   readonly path: string;
   readonly className?: string;
+  readonly onPickVerses?: (() => void) | undefined;
 };
 
-export function ShareButton({ title, body, path, className }: ShareButtonProps) {
+export function ShareButton({ title, body, path, className, onPickVerses }: ShareButtonProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   return (
@@ -28,7 +29,13 @@ export function ShareButton({ title, body, path, className }: ShareButtonProps) 
       >
         <Share2 className={SHARE_ICON} strokeWidth={SHARE_ICON_STROKE} />
       </IconButton>
-      <ShareSheet ref={dialogRef} title={title} body={body} path={path} />
+      <ShareSheet
+        ref={dialogRef}
+        title={title}
+        body={body}
+        path={path}
+        onPickVerses={onPickVerses}
+      />
     </>
   );
 }
