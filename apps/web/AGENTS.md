@@ -33,7 +33,7 @@ This is the frontend for the qafiyah.com Arabic poetry catalog: Astro with serve
   - `search_completed`: once for each search, with the result counts and the filter counts. It carries the search text only when the search finds nothing.
   - `random_poem_requested`: a press on the random poem button.
   - `setting_changed`: a change of the theme or the font family, or one step of the poem font size or spacing.
-  - `shared`: a press on a network in the share sheet of a poem, a poet, or selected verses, with the network.
+  - `shared`: a press on a network in the share sheet of a poem, a poet, or selected verses, with the network. A share of selected verses as an image sends `image` as the network.
 - `lib/arabic.ts` holds text helpers for Arabic: digit conversion, the agreement of singular, dual, and plural nouns, and input sanitization.
 - `lib/seo/` holds the metadata and JSON-LD builders for each route type.
 
