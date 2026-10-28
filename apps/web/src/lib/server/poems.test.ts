@@ -81,7 +81,7 @@ describe('listPoems', () => {
     expect(get).toHaveBeenCalledWith('/poems', {
       params: {
         query: {
-          page: '1',
+          page: 1,
           poet: ['poet-x'],
           era: [],
           theme: [],
