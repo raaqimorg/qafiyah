@@ -1,6 +1,11 @@
 'use client';
 
-import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  environmentManager,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { NuqsAdapter } from 'nuqs/adapters/react';
 import { useEffect, useState } from 'react';
 
@@ -43,7 +48,7 @@ export function SearchWithProviders({
         defaultOptions: {
           queries: {
             staleTime: REACT_QUERY_STALE_TIME_MS,
-            gcTime: REACT_QUERY_GC_TIME_MS,
+            gcTime: environmentManager.isServer() ? Infinity : REACT_QUERY_GC_TIME_MS,
             refetchOnWindowFocus: false,
             refetchOnMount: false,
             refetchOnReconnect: false,
