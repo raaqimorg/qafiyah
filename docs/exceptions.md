@@ -126,7 +126,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 - **What:** 29 `config.ts` values are copied into `apps/api/src/constants.rs`, and more are pinned as literals in nginx, Astro, Compose, the Elasticsearch schema, and `vps.sh`. `scripts/check/constants.ts` parses them all with regexes to catch drift.
 - **Where:** `config.ts`, `apps/api/src/constants.rs`, `scripts/check/constants.ts`, root `AGENTS.md`
-- **Why it's unusual:** there are two sources of truth, plus a third file that encodes the mapping between them, down to Rust syntax. At least eight `config.ts` values have no TypeScript consumer except the checker: `X_PROFILE_URL`, `TELEGRAM_URL`, `GITHUB_URL`, `GITHUB_DB_DUMPS_URL`, `GITHUB_AVATARS_URL`, `RAAQIM_URL`, `X_INTENT_TWEET_URL`, and `MAX_TWEET_LENGTH`. The checker also hides them from knip.
+- **Why it's unusual:** there are two sources of truth, plus a third file that encodes the mapping between them, down to Rust syntax. At least six `config.ts` values have no TypeScript consumer except the checker: `X_PROFILE_URL`, `TELEGRAM_URL`, `GITHUB_URL`, `RAAQIM_URL`, `X_INTENT_TWEET_URL`, and `MAX_TWEET_LENGTH`. The checker also hides them from knip.
 - **Normal approach:** the API publishes its contract limits through the OpenAPI document, which already generates the TypeScript types. Anything else shared lives in one JSON or TOML file that Rust reads with `include_str!` and TypeScript imports.
 - **Status:** Needs review
 
@@ -260,7 +260,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### Outbound links go through the API's `/v1/go/*` redirector
 
-- **What:** About page and footer links point to `api.qafiyah.com/v1/go/{x,github,telegram,db,avatars,raaqim}`, while the same destinations exist as web constants for JSON-LD `sameAs`.
+- **What:** About page and footer links point to `api.qafiyah.com/v1/go/{x,github,telegram,raaqim}`, while the same destinations exist as web constants for JSON-LD `sameAs`.
 - **Where:** `apps/web/src/lib/urls.ts`, `apps/web/src/pages/about.astro`, `apps/web/src/components/footer.tsx`, `apps/web/src/lib/constants/site-meta.ts`, `apps/api/src/routes/go.rs`, `apps/api/src/lib.rs`
 - **Why it's unusual:** each click is a round trip through the data API, and counts against the visitor's anonymous quota. So a spent quota gives a 429, not a redirect. There are also two sources of truth for the URLs.
 - **Normal approach:** link to the external URL directly from one web constant.

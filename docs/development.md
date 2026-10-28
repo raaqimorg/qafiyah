@@ -89,7 +89,7 @@ bun run reindex         # rebuild the indexer image, then rebuild the Elasticsea
 
 The sample dataset needs no credentials. `scripts/dev/compose.sh` and `scripts/dev/run.ts` set a default for every dev database and Elasticsearch password, so a new clone has no `.env` file at all. Two things change this:
 
-- **A real dump.** Email dumps@qafiyah.com for a read-only token (`data/README.md`). Then put its four `DATA_*` values in a root `.env` file, which git ignores. `bun run dev --dump <folder>` and `bun run db:reset --dump <folder>` then download that dump (see "Working with the full corpus").
+- **A real dump.** It needs a token for the data bucket (`data/README.md`). Put its four `DATA_*` values in a root `.env` file, which git ignores. `bun run dev --dump <folder>` and `bun run db:reset --dump <folder>` then download that dump (see "Working with the full corpus").
 - **The maintainers' age key.** With this key, `bun run secrets:pull` generates `.env` from `secrets/dev.enc.env`, which holds the maintainer token of the data bucket. On such a machine, never edit `.env` by hand. See `docs/deployment/secrets.md`. Without the key, the `secrets:*` commands do not apply, and you write `.env` yourself.
 
 ## Quality gates
@@ -122,7 +122,7 @@ The smoke runs leave your dev environment as they found it:
 
 - `smoke:dev` starts its own `bun run dev`, and stops it at the end. If the dev web and API already answer, it uses them, and leaves them running.
 - The `stack` phase of `bun run ci` (`smoke:stack`) runs the production-mode stack in the same Compose project, and removes it at the end. It then starts again the dev `db` and `elasticsearch` containers that were running before.
-- When a check fails or you press Ctrl-C, `bun run ci` stops only the tasks that it started, because each task runs in its own process group. So a running `bun run dev`, here or in another worktree, keeps running.
+- When a check fails or you press Ctrl-C, `bun run ci` stops only the tasks that it started, because each task runs in its own process group. So a running `bun run dev` keeps running.
 
 `rust:test:db` starts the dev Postgres and Elasticsearch, and runs the one-shot indexer. It then runs `apps/api/tests/db.rs` and the indexer's tests, with the same connection strings that `bun run dev` uses. Without the `QAFIYAH_TEST_*` variables, the database-backed tests skip themselves. That is why plain `cargo test` needs no infrastructure. The API under test keeps its 5 second statement timeout. The harness's own checks, some of which scan the whole corpus, run on a separate pool with 60 seconds (#233).
 

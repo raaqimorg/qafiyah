@@ -14,13 +14,13 @@ All three use the same layout, in the bucket and on disk: `{category}/{sequence}
 - A bucket lock keeps every snapshot under `db/`, `avatars/`, and `feelings/` forever. No token can delete or overwrite one, not even the maintainer's.
 - The bucket has no public URL.
 
-Everything here is public, and dedicated to the public domain under [CC0 1.0](LICENSE). This is different from the code in the rest of the repo, which is under MIT. The bucket is private so that the maintainers know where each copy went. If a record must come out, for any reason, they can then reach each person who holds a copy.
+Everything here is dedicated to the public domain under [CC0 1.0](LICENSE). This is different from the code in the rest of the repo, which is under MIT.
 
-## Get access
+## Access
 
-Email dumps@qafiyah.com for `db/` or `feelings/`, or avatars@qafiyah.com for `avatars/`. Say what you need it for: your own use, or a contribution that you plan. You get a read-only token at once. There is no vetting, and nobody has to qualify.
+The bucket is for the maintainers. To use the data, use the free public API at <https://api.qafiyah.com/v1/docs>. If you need a higher limit, write to api@qafiyah.com, and we raise it for free.
 
-A token gives four values: `DATA_R2_ENDPOINT`, `DATA_BUCKET`, `DATA_R2_ACCESS_KEY_ID`, and `DATA_R2_SECRET_ACCESS_KEY`.
+A bucket token gives four values: `DATA_R2_ENDPOINT`, `DATA_BUCKET`, `DATA_R2_ACCESS_KEY_ID`, and `DATA_R2_SECRET_ACCESS_KEY`.
 
 ## Download
 

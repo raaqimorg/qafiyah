@@ -4,7 +4,7 @@ import { INLINE_LINK, TYPE } from '@/lib/constants/design-tokens';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { organizationNode } from '@/lib/seo/json-ld/organization';
 import { withBrand } from '@/lib/seo/meta-text';
-import { avatarsUrl, dbDumpsUrl, githubUrl, raaqimUrl, telegramUrl, xProfileUrl } from '@/lib/urls';
+import { githubUrl, raaqimUrl, telegramUrl, xProfileUrl } from '@/lib/urls';
 import { CONTACT_EMAIL } from '@qafiyah/config';
 
 const TITLE = withBrand('من نحن');
@@ -44,20 +44,12 @@ const jsonLd = organizationNode();
         قتهب{' '}
       </a>
       . و
-      <a href={dbDumpsUrl()} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
-        قاعدة البيانات
-      </a>{' '}
-      و
       <a href="/developers" class={INLINE_LINK}>
         {' '}
         واجهة البرمجة{' '}
       </a>{' '}
-      و
-      <a href={avatarsUrl()} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
-        صور الشعراء
-      </a>{' '}
-      التي نعرضها متاحة كلها للجميع، فلا حاجة إلى كشط الموقع. وإن كنتم مطوّرين تبحثون عن مشروع مفتوح
-      المصدر تتعلّمون منه أو تساهمون فيه، فقافية نقطة انطلاق جيدة، ونرحّب بمساهمة أي شخص.
+      متاحة مجانًا للجميع، فلا حاجة إلى كشط الموقع. وإن كنتم مطوّرين تبحثون عن مشروع مفتوح المصدر
+      تتعلّمون منه أو تساهمون فيه، فقافية نقطة انطلاق جيدة، ونرحّب بمساهمة أي شخص.
     </p>
 
     <p class={`${TYPE.body} text-text-muted leading-[1.8]`}>

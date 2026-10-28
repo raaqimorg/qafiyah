@@ -4,8 +4,8 @@ use axum::routing::get;
 use serde::Deserialize;
 
 use crate::constants::{
-    GITHUB_AVATARS_URL, GITHUB_DB_DUMPS_URL, GITHUB_URL, NO_STORE_CACHE_CONTROL, PROD_SITE_URL,
-    RAAQIM_URL, TELEGRAM_URL, X_INTENT_TWEET_URL, X_PROFILE_URL,
+    GITHUB_URL, NO_STORE_CACHE_CONTROL, PROD_SITE_URL, RAAQIM_URL, TELEGRAM_URL,
+    X_INTENT_TWEET_URL, X_PROFILE_URL,
 };
 use crate::error::{AppError, RouteProblem};
 use crate::extract::SafeQuery;
@@ -81,14 +81,6 @@ pub fn router() -> Router<AppState> {
         .route(
             "/go/github",
             get(|| async { redirect(GITHUB_URL, Some(NO_STORE_CACHE_CONTROL)) }),
-        )
-        .route(
-            "/go/db",
-            get(|| async { redirect(GITHUB_DB_DUMPS_URL, Some(NO_STORE_CACHE_CONTROL)) }),
-        )
-        .route(
-            "/go/avatars",
-            get(|| async { redirect(GITHUB_AVATARS_URL, Some(NO_STORE_CACHE_CONTROL)) }),
         )
         .route(
             "/go/raaqim",

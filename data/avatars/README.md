@@ -4,7 +4,7 @@ These are versioned zip snapshots of the poet avatar images. They use the same d
 
 ## Where they are
 
-The snapshots live in the private R2 bucket `qafiyah-data`, under `avatars/`, not in git. They are public, and dedicated to the public domain under [CC0 1.0](../LICENSE). Every image in them is already served at `cdn.qafiyah.com/poets/<slug>/avatar.webp`. Nothing here is withheld. `../README.md` says how to get a read-only token (email avatars@qafiyah.com), and how to download a snapshot.
+The snapshots live in the private R2 bucket `qafiyah-data`, under `avatars/`, not in git. They are dedicated to the public domain under [CC0 1.0](../LICENSE). Every image in them is already served at `cdn.qafiyah.com/poets/<slug>/avatar.webp`. Nothing here is withheld. `../README.md` says how to download a snapshot.
 
 ## Directory naming
 

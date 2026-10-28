@@ -42,8 +42,6 @@ export const TELEGRAM_URL = `https://t.me/${TELEGRAM_HANDLE}`;
 
 const GITHUB_REPO = 'raaqimorg/qafiyah';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
-export const GITHUB_DB_DUMPS_URL = `${GITHUB_URL}/tree/main/data/db`;
-export const GITHUB_AVATARS_URL = `${GITHUB_URL}/tree/main/data/avatars`;
 
 export const RAAQIM_URL = 'https://raaqim.org';
 

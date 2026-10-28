@@ -67,7 +67,7 @@ The first run starts Postgres and Elasticsearch in Docker, restores a 100-poem s
 | -------- | -------------------------------------------------------------------------------- |
 | No key   | 60 requests per hour per address (an IPv6 /64 is one address)                    |
 | Free key | 500 requests per hour, at most 10 per second and 1,500 per hour from one address |
-| Higher   | write to [api@qafiyah.com](mailto:api@qafiyah.com)                               |
+| Higher   | free, write to [api@qafiyah.com](mailto:api@qafiyah.com)                         |
 
 To create a key, sign in with Google or GitHub on the [developers page](https://qafiyah.com/developers). Send the key in the `x-api-key` header. The API treats a key that it does not recognize as no key.
 
@@ -87,7 +87,7 @@ Each address can make 600 calls an hour. The [developers page](https://qafiyah.c
 
 Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. Versioned snapshots live in a private R2 bucket: database dumps ([`data/db/`](data/db/README.md)), avatar archives ([`data/avatars/`](data/avatars/README.md)), and the verse feelings ([`data/feelings/`](data/feelings/README.md)).
 
-The 100-poem sample that `bun run dev` restores is in this repo. The full snapshots are free for anyone. To get a read-only token, email [dumps@qafiyah.com](mailto:dumps@qafiyah.com) or [avatars@qafiyah.com](mailto:avatars@qafiyah.com) and say what you plan to build. The token comes back quickly, with no vetting. The private bucket only lets us withdraw a record later, because we know where each copy went. For details, see [`data/README.md`](data/README.md).
+The 100-poem sample that `bun run dev` restores is in this repo. To use the full catalog, use the free [API](#api). If you need a higher limit, write to [api@qafiyah.com](mailto:api@qafiyah.com), and we raise it for free. For the snapshots, see [`data/README.md`](data/README.md).
 
 ## How it works
 

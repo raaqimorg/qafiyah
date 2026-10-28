@@ -4,7 +4,7 @@ These are versioned snapshots of the feelings that a language model gave each cl
 
 ## Where they are
 
-The snapshots live in the private R2 bucket `qafiyah-data`, under `feelings/`, not in git. They are public, and dedicated to the public domain under [CC0 1.0](../LICENSE). The database dumps already hold the same feelings, row by row. `../README.md` says how to get a read-only token (email dumps@qafiyah.com), and how to download a snapshot.
+The snapshots live in the private R2 bucket `qafiyah-data`, under `feelings/`, not in git. They are dedicated to the public domain under [CC0 1.0](../LICENSE). The database dumps already hold the same feelings, row by row. `../README.md` says how to download a snapshot.
 
 ## Why keep them
 
