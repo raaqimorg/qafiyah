@@ -22,7 +22,7 @@ Create one when any of these is true:
 Three sets of derived rows must be current before `pg_dump`. `docs/domain.md` explains all three.
 
 - `poems.has_tashkeel`, from `refresh_poem_tashkeel()`, in about two minutes on the full corpus. It writes only the rows whose value changes.
-- `poem_relations`, from `refresh_poem_relations()`. It does a TRUNCATE and an INSERT, in under a minute on the full corpus. It drops the two foreign keys of the table around the insert, and adds them again. That locks `poems` against reads for the last 15 seconds or so. So on a live database, it briefly stops every poem query.
+- `poem_relations`, from `refresh_poem_relations()`. It does a TRUNCATE and an INSERT, in about six minutes on the full corpus on the dev stack. It drops the two foreign keys of the table around the insert, and adds them again. That locks `poems` against reads for the last part of the run. So on a live database, it briefly stops every poem query.
 - the `*_stats` count tables, from `refresh_taxonomy_stats()`, in a few seconds.
 
 There are two paths:

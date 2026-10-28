@@ -25,6 +25,13 @@ BEGIN
     AND b.recension_of_id IS NULL;
   CREATE INDEX ON tmp_pool (id);
 
+  CREATE TEMP TABLE tmp_wide ON COMMIT DROP AS
+  SELECT b.id, b.poet_id, b.era_id
+  FROM tmp_base b
+  JOIN public.poets pt ON pt.id = b.poet_id
+  WHERE NOT pt.is_anonymous
+    AND b.recension_of_id IS NULL;
+
   CREATE TEMP TABLE tmp_ranked ON COMMIT DROP AS
   SELECT 'poet'::text AS cat, poet_id AS part, id,
          (row_number() OVER (PARTITION BY poet_id  ORDER BY hashtextextended(id::text, 11)))::int AS rn
@@ -44,6 +51,20 @@ BEGIN
   UNION ALL
   SELECT 'rhyme', rhyme_id, id,
          (row_number() OVER (PARTITION BY rhyme_id ORDER BY hashtextextended(id::text, 15)))::int
+  FROM tmp_pool
+  UNION ALL
+  SELECT 'own_poet', poet_id, id,
+         (row_number() OVER (PARTITION BY poet_id  ORDER BY hashtextextended(id::text, 16)))::int
+  FROM tmp_wide
+  UNION ALL
+  SELECT 'own_era', w.era_id, w.id,
+         (row_number() OVER (PARTITION BY w.era_id ORDER BY hashtextextended(w.id::text, 17)))::int
+  FROM tmp_wide w
+  JOIN public.eras e ON e.id = w.era_id
+  WHERE e.slug <> 'ghayrmaruf'
+  UNION ALL
+  SELECT 'fill', 0, id,
+         (row_number() OVER (ORDER BY hashtextextended(id::text, 18)))::int
   FROM tmp_pool;
   CREATE INDEX ON tmp_ranked (cat, part, rn);
 
@@ -74,10 +95,15 @@ BEGIN
       ('era',         b.era_id,    16),
       ('theme',       b.theme_id,  4),
       ('meter',       b.meter_id,  4),
-      ('rhyme',       b.rhyme_id,  4)
+      ('rhyme',       b.rhyme_id,  4),
+      ('own_poet',    b.poet_id,   4),
+      ('own_era',     b.era_id,    16),
+      ('fill',        0,           10)
     ) AS x(cat, part, m)
+    LEFT JOIN tmp_pool pl ON pl.id = b.id
     JOIN tmp_sizes s ON s.cat = x.cat AND s.part = x.part
     CROSS JOIN LATERAL generate_series(0, x.m - 1) AS g(k)
+    WHERE x.cat NOT IN ('own_poet', 'own_era') OR pl.id IS NULL
   ),
 
   hits AS (
@@ -91,12 +117,12 @@ BEGIN
   home AS (
     SELECT DISTINCT ON (poem_id, related_id)
       poem_id, related_id, cat, k,
-      CASE cat WHEN 'poet' THEN 1 WHEN 'era' THEN 2 WHEN 'theme' THEN 3
-               WHEN 'meter' THEN 4 ELSE 5 END AS pri
+      CASE cat WHEN 'poet' THEN 1 WHEN 'own_poet' THEN 1 WHEN 'era' THEN 2 WHEN 'own_era' THEN 2 WHEN 'theme' THEN 3
+               WHEN 'meter' THEN 4 WHEN 'rhyme' THEN 5 ELSE 7 END AS pri
     FROM hits
     ORDER BY poem_id, related_id,
-             CASE cat WHEN 'poet' THEN 1 WHEN 'era' THEN 2 WHEN 'theme' THEN 3
-                      WHEN 'meter' THEN 4 ELSE 5 END,
+             CASE cat WHEN 'poet' THEN 1 WHEN 'own_poet' THEN 1 WHEN 'era' THEN 2 WHEN 'own_era' THEN 2 WHEN 'theme' THEN 3
+                      WHEN 'meter' THEN 4 WHEN 'rhyme' THEN 5 ELSE 7 END,
              k
   ),
 
@@ -108,10 +134,10 @@ BEGIN
 
   pool AS (
     SELECT poem_id, related_id,
-      CASE WHEN cat = 'era' AND cat_rn > 2 THEN 6 ELSE pri END AS grp,
+      CASE WHEN cat IN ('era', 'own_era') AND cat_rn > 2 THEN 6 ELSE pri END AS grp,
       cat_rn AS ord
     FROM capped
-    WHERE cat = 'era' OR cat_rn <= 2
+    WHERE cat IN ('era', 'own_era', 'fill') OR cat_rn <= 2
   ),
 
   ranked_final AS (
@@ -120,7 +146,7 @@ BEGIN
     FROM pool
   )
 
-  SELECT poem_id, related_id, (6 - grp)::smallint AS score, rank
+  SELECT poem_id, related_id, greatest(6 - grp, 0)::smallint AS score, rank
   FROM ranked_final
   WHERE rank <= 10;
 
