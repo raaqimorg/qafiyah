@@ -64,7 +64,9 @@ const resolvedOgTitle = ogTitle ?? title;
 const resolvedOgDescription = ogDescription ?? description;
 const resolvedTwitterTitle = twitterTitle ?? title;
 const resolvedTwitterDescription = twitterDescription ?? description;
-const robotsContent = robotsIndex ? 'index, follow, max-image-preview:large' : 'noindex, follow';
+const robotsContent = robotsIndex
+  ? 'index, follow, max-image-preview:large'
+  : 'noindex, noarchive, follow';
 const jsonLdRaw = jsonLd ?? [];
 const jsonLdEntries = Array.isArray(jsonLdRaw) ? jsonLdRaw : [jsonLdRaw];
 

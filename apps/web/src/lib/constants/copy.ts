@@ -60,6 +60,8 @@ export const SHARE_TEXTS = {
   close: 'إغلاق نافذة المشاركة',
   poemTitle: 'مشاركة القصيدة',
   poetTitle: 'مشاركة صفحة الشاعر',
+  quote: 'مشاركة',
+  quoteTitle: 'مشاركة الأبيات',
   x: 'مشاركة على تويتر',
   facebook: 'مشاركة على فيسبوك',
   whatsapp: 'مشاركة على واتس',
@@ -82,10 +84,11 @@ export const NOT_FOUND_TITLE = `${NOT_FOUND_CODE} | ${NOT_FOUND_MESSAGE_AR}`;
 export const SERVER_ERROR_CODE = toArabicDigits(500);
 export const SERVER_ERROR_TITLE = `${SERVER_ERROR_CODE} | ${SERVER_ERROR_MESSAGE_AR}`;
 
-export function formatPoemQuote(text: string, url: string): string {
-  return `${text.trim().replaceAll(/\s*\n\s*/gu, '\n')}\n\n${url}`;
+export function formatPoemQuote(text: string, signature: string): string {
+  return `${text.trim()}\n\n${signature}`;
 }
 
 export function formatPoemText(verses: readonly (readonly string[])[], poetName: string): string {
-  return verses.length === 0 ? poetName : `${verses.flat().join('\n')}\n\n${poetName}`;
+  const text = verses.map((parts) => parts.join('\n')).join('\n\n');
+  return verses.length === 0 ? poetName : `${text}\n\n${poetName}`;
 }

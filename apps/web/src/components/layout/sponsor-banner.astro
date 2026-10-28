@@ -1,0 +1,37 @@
+---
+import { BANNER_IMAGE_SIZE, type Sponsor } from '@/lib/constants/sponsorship';
+
+interface Props {
+  sponsor?: Sponsor | undefined;
+  class?: string | undefined;
+}
+
+const { sponsor, class: className } = Astro.props;
+---
+
+<aside aria-label="رعاية الموقع" class={className}>
+  {sponsor === undefined ? (
+    <a
+      href="/sponsorship"
+      class="flex min-h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-center text-micro text-text-subtle transition-colors hover:border-text-subtle hover:text-text focus-ring"
+    >
+      <span>هذه المساحة متاحة لراعٍ واحد يدعم قافية</span>
+      <span class="text-highlight underline underline-offset-4">اعرف المزيد</span>
+    </a>
+  ) : (
+    <a
+      href={sponsor.url}
+      target="_blank"
+      rel="sponsored noopener noreferrer"
+      class="block w-full overflow-hidden rounded-md focus-ring"
+    >
+      <img
+        src={sponsor.image}
+        width={BANNER_IMAGE_SIZE.width}
+        height={BANNER_IMAGE_SIZE.height}
+        alt={sponsor.name}
+        class="block h-12 w-full object-cover"
+      />
+    </a>
+  )}
+</aside>

@@ -19,4 +19,17 @@ describe('GET /robots.txt', () => {
     const response = await GET(fakeContext());
     expect(await response.text()).toContain('Disallow: /poems/random');
   });
+
+  it('keeps archive crawlers off the sponsorship page but lets search engines read its noindex', async () => {
+    const text = await (await GET(fakeContext())).text();
+    const groups = text.split('\n\n');
+    const everyone = groups.find((group) => group.startsWith('User-agent: *'));
+    const archives = groups.find((group) => group.startsWith('User-agent: archive.org_bot'));
+    expect(everyone).toBeDefined();
+    expect(everyone).not.toContain('/sponsorship');
+    expect(archives).toContain('User-agent: archive.org_bot');
+    expect(archives).toContain('User-agent: ia_archiver');
+    expect(archives).toContain('Disallow: /sponsorship');
+    expect(archives).toContain('Disallow: /poems/random');
+  });
 });

@@ -1,0 +1,365 @@
+---
+import Logo from '@/components/layout/logo.astro';
+import SponsorBanner from '@/components/layout/sponsor-banner.astro';
+import Layout from '@/layouts/layout.astro';
+import {
+  type ArabicNounForms,
+  countedNoun,
+  formatArabicCount,
+  formatArabicNumber,
+} from '@/lib/arabic';
+import { INLINE_LINK, TYPE } from '@/lib/constants/design-tokens';
+import { GITHUB_SPONSORS_URL } from '@/lib/constants/site-meta';
+import {
+  BANNER_IMAGE_SIZE,
+  EXAMPLE_POEM,
+  EXAMPLE_SPONSORS,
+  SPONSORSHIP_PLANS,
+} from '@/lib/constants/sponsorship';
+import SPONSORSHIP_STATS from '@/lib/constants/sponsorship-stats.json';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { withBrand } from '@/lib/seo/meta-text';
+import { cn } from '@/lib/utils';
+import { SPONSORS_EMAIL } from '@qafiyah/config';
+
+const TITLE = withBrand('الرعاية');
+const DESCRIPTION = 'شريط الراعي أعلى كل صفحات قافية.';
+
+const PARAGRAPH = `${TYPE.body} text-text-muted`;
+const NOTE = 'text-micro text-text-subtle';
+const SECTION_HEADING = `${TYPE.subheading} text-text`;
+const PANEL = 'rounded-lg border border-border bg-surface-raised';
+const BOOKING_URL = `mailto:${SPONSORS_EMAIL}?subject=${encodeURIComponent('رعاية قافية')}`;
+
+const DAY: ArabicNounForms = {
+  singular: 'يوم',
+  accusative: 'يومًا',
+  dual: 'يومان',
+  plural: 'أيام',
+};
+const WEEK: ArabicNounForms = {
+  singular: 'أسبوع',
+  accusative: 'أسبوعًا',
+  dual: 'أسبوعان',
+  plural: 'أسابيع',
+};
+const VISIT: ArabicNounForms = {
+  singular: 'زيارة',
+  accusative: 'زيارة',
+  dual: 'زيارتان',
+  plural: 'زيارات',
+};
+const DOLLAR: ArabicNounForms = {
+  singular: 'دولار',
+  accusative: 'دولارًا',
+  dual: 'دولاران',
+  plural: 'دولارات',
+};
+
+const compact = new Intl.NumberFormat('ar-SA', { notation: 'compact', maximumFractionDigits: 1 });
+const decimal = new Intl.NumberFormat('ar-SA', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+const percent = new Intl.NumberFormat('ar-SA', { style: 'percent' });
+const dollarsAndCents = new Intl.NumberFormat('ar-SA', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const dayAndMonth = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'UTC',
+});
+const year = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { year: 'numeric', timeZone: 'UTC' });
+const regionNames = new Intl.DisplayNames('ar', { type: 'region' });
+
+const roundDown = (count: number) => {
+  const step = 10 ** (Math.floor(Math.log10(count)) - 1);
+  return compact.format(Math.floor(count / step) * step);
+};
+const atLeast = (count: number) => `+${roundDown(count)}`;
+
+const { catalogPages, poems, poets, cloudflare, google, posthog } = SPONSORSHIP_STATS;
+const updatedAt = new Date(SPONSORSHIP_STATS.updatedAt);
+const statsPeriod = formatArabicCount({ count: SPONSORSHIP_STATS.days.value, nounForms: DAY });
+const pageCount = `${formatArabicNumber(catalogPages.value)} صفحة`;
+
+const pricesPerDay = SPONSORSHIP_PLANS.map((plan) => plan.priceUsd / plan.days);
+const fullPricePerDay = Math.max(...pricesPerDay);
+const bestPricePerDay = Math.min(...pricesPerDay);
+const peakWeek = Math.max(...google.weeklyClicks.value);
+const lastWeek = google.weeklyClicks.value.at(-1) ?? 0;
+const firstWeek = google.weeklyClicks.value[0] ?? lastWeek;
+const googleGrowth = lastWeek / firstWeek;
+const imageSize = `${formatArabicNumber(BANNER_IMAGE_SIZE.width * 2)} × ${formatArabicNumber(BANNER_IMAGE_SIZE.height * 2)}`;
+
+const STATS = [
+  { value: atLeast(cloudflare.requests.value), label: 'طلب' },
+  { value: atLeast(google.searchImpressions.value), label: 'ظهور في بحث قوقل' },
+  {
+    value: atLeast(posthog.pageViews.value),
+    label: 'مشاهدة صفحة',
+    trend: `${decimal.format(posthog.pageViews.value / posthog.previousPageViews.value)} ضعف الشهر السابق`,
+  },
+  { value: atLeast(posthog.visitors.value), label: 'زائر' },
+];
+
+const topCountries = posthog.topCountries.value.map((country) => ({
+  name: regionNames.of(country.code) ?? country.code,
+  share: country.visitors / posthog.arabVisitors.value,
+}));
+const topShare = topCountries[0]?.share ?? 1;
+
+const SOURCES = [
+  { name: 'كلاودفلير', url: 'https://www.cloudflare.com' },
+  { name: 'بوست هوق', url: 'https://posthog.com' },
+  { name: 'أدوات قوقل لأصحاب المواقع', url: 'https://search.google.com/search-console' },
+];
+
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout title={TITLE} description={DESCRIPTION} canonical="/sponsorship" robotsIndex={false}>
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-16 py-16" dir="rtl">
+    <header class="flex flex-col gap-3">
+      <h1 class={`${TYPE.heading} text-text`}>رعاية قافية</h1>
+      <p class={PARAGRAPH}>
+        قافية مرجع مجاني مفتوح المصدر للشعر العربي، فيها أكثر من {roundDown(poems.value)} قصيدة
+        لأكثر من {roundDown(poets.value)} شاعر، ولا إعلان فيها غير شريط راعٍ واحد يظهر أعلى صفحاتها
+        كلها، وعددها <span class="text-text">{pageCount}</span>.
+      </p>
+      <p class={PARAGRAPH}>
+        قرّاؤها جمهور منتقى: محبّو العربية وطلابها وباحثوها وكتّابها، يقصدونها بحثًا عن الشعر، فيرى
+        شريطكم قارئ حاضر الذهن لا متصفّح عابر. وتذهب عوائد الرعاية إلى تشغيل الموقع وتطويره.
+      </p>
+    </header>
+
+    <section class="flex flex-col gap-4" aria-labelledby="sponsorship-stats">
+      <div class="flex flex-col gap-1">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 id="sponsorship-stats" class={SECTION_HEADING}>
+            قافية في {statsPeriod}
+          </h2>
+          <p class={NOTE}>
+            {dayAndMonth.format(updatedAt)} {year.format(updatedAt)}
+          </p>
+        </div>
+        <p class="text-caption text-text-muted">إحصاءات زيارات قافية من ثلاثة مصادر مستقلة.</p>
+      </div>
+      <div class={cn(PANEL, 'flex flex-col divide-y divide-border overflow-hidden')}>
+        <dl class="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
+          {STATS.map((stat) => (
+            <div class="flex flex-col gap-1 bg-surface-raised p-4">
+              <dt class="order-2 text-micro text-text-subtle">{stat.label}</dt>
+              <dd class="order-1 text-interface-heading text-text">{stat.value}</dd>
+              {stat.trend && <dd class="order-3 text-micro text-highlight">{stat.trend}</dd>}
+            </div>
+          ))}
+        </dl>
+        <div class="grid gap-8 p-4 sm:p-5 md:grid-cols-2">
+          <div class="flex flex-col gap-3">
+            <h3 class="text-caption text-text">
+              زيارات قوقل {decimal.format(googleGrowth)} ضعف ما كانت قبل ثلاثة أشهر
+            </h3>
+            <div
+              role="img"
+              aria-label={`الزيارات من بحث قوقل في آخر ${formatArabicCount({ count: google.weeklyClicks.value.length, nounForms: WEEK })}، وآخرها ${compact.format(lastWeek)}`}
+              class="flex h-24 items-end gap-0.5 border-b border-border sm:gap-1"
+            >
+              {google.weeklyClicks.value.map((clicks, index) => (
+                <div
+                  class={cn(
+                    'flex-1 rounded-t-sm',
+                    index === google.weeklyClicks.value.length - 1
+                      ? 'bg-highlight'
+                      : 'bg-highlight/45'
+                  )}
+                  style={`height: ${(clicks / peakWeek) * 100}%`}
+                  title={formatArabicCount({ count: clicks, nounForms: VISIT })}
+                />
+              ))}
+            </div>
+            <div class="flex justify-between text-xxs text-text-subtle" aria-hidden="true">
+              <span>قبل ثلاثة أشهر</span>
+              <span>هذا الأسبوع</span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-3">
+            <h3 class="text-caption text-text">أكثر الدول العربية زيارة</h3>
+            <ol class="flex flex-col gap-3">
+              {topCountries.map((country) => (
+                <li class="flex flex-col gap-1.5">
+                  <div class="flex justify-between gap-4 text-micro">
+                    <span class="text-text-muted">{country.name}</span>
+                    <span class="text-text">{percent.format(country.share)}</span>
+                  </div>
+                  <div class="h-2 rounded-full bg-border">
+                    <div
+                      class="h-full rounded-full bg-highlight"
+                      style={`width: ${(country.share / topShare) * 100}%`}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
+      <p class={NOTE}>
+        المصادر:{' '}
+        {SOURCES.map((source, index) => (
+          <>
+            {index > 0 && '، '}
+            <a href={source.url} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
+              {source.name}
+            </a>
+          </>
+        ))}
+        .
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-4" aria-labelledby="sponsorship-placement">
+      <div class="flex flex-col gap-1">
+        <h2 id="sponsorship-placement" class={SECTION_HEADING}>
+          شريطكم على قافية
+        </h2>
+        <p class="text-caption text-text-muted">
+          في أعلى كل صفحة من صفحات قافية، وعددها {pageCount}.
+        </p>
+      </div>
+      <div class={cn(PANEL, 'overflow-hidden bg-surface shadow-sm')} inert>
+        <div class="flex items-center gap-1.5 border-b border-border bg-surface-sunken px-3 py-2.5">
+          <span class="size-2.5 rounded-full bg-border"></span>
+          <span class="size-2.5 rounded-full bg-border"></span>
+          <span class="size-2.5 rounded-full bg-border"></span>
+        </div>
+        <div class="flex flex-col gap-4 px-3 pt-2 pb-8 sm:px-5">
+          <div class="grid" data-sponsor-examples>
+            {EXAMPLE_SPONSORS.map((sponsor, index) => (
+              <SponsorBanner
+                sponsor={sponsor}
+                class={cn(
+                  'col-start-1 row-start-1 transition-[opacity,filter] duration-1000 ease-in-out',
+                  index > 0 && 'opacity-0 blur-sm'
+                )}
+              />
+            ))}
+          </div>
+          <div class="flex items-center justify-between" aria-hidden="true">
+            <Logo class="size-9" />
+            <span class="hidden gap-3 sm:flex">
+              <span class="h-2 w-10 rounded-full bg-surface-sunken"></span>
+              <span class="h-2 w-12 rounded-full bg-surface-sunken"></span>
+              <span class="h-2 w-10 rounded-full bg-surface-sunken"></span>
+              <span class="h-2 w-14 rounded-full bg-surface-sunken"></span>
+            </span>
+          </div>
+          <div class="flex flex-col items-center gap-1 pt-2 text-center">
+            <p class="text-subheading text-text">{EXAMPLE_POEM.title}</p>
+            <p class="text-micro text-text-subtle">{EXAMPLE_POEM.poet}</p>
+          </div>
+          <div class="mx-auto flex w-full max-w-md flex-col gap-4 text-caption text-text-muted">
+            {EXAMPLE_POEM.verses.map(([first, second]) => (
+              <p class="flex flex-col items-center gap-1 sm:flex-row sm:justify-between sm:gap-6">
+                <span>{first}</span>
+                <span>{second}</span>
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-4" aria-labelledby="sponsorship-plans">
+      <div class="flex flex-col gap-1">
+        <h2 id="sponsorship-plans" class={SECTION_HEADING}>
+          الفرص المتاحة
+        </h2>
+        <p class="text-caption text-text-muted">
+          راعٍ واحد في كل مرة، فيبقى الشريط لكم وحدكم طوال المدة.
+        </p>
+      </div>
+      <ul class="grid gap-3 md:grid-cols-3">
+        {SPONSORSHIP_PLANS.map((plan) => {
+          const pricePerDay = plan.priceUsd / plan.days;
+          const bestValue = pricePerDay === bestPricePerDay;
+          const saving = 1 - pricePerDay / fullPricePerDay;
+          return (
+            <li
+              class={cn(
+                PANEL,
+                'flex flex-col gap-3 p-5',
+                bestValue && 'border-highlight ring-1 ring-highlight'
+              )}
+            >
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-caption text-text">
+                  {formatArabicCount({ count: plan.days, nounForms: DAY })}
+                </h3>
+                {bestValue && (
+                  <span class="rounded-full bg-highlight px-2.5 py-0.5 text-xxs text-surface">
+                    أفضل قيمة
+                  </span>
+                )}
+              </div>
+              <div class="flex flex-col gap-1">
+                <p class="flex items-baseline gap-1.5">
+                  <span class="text-title text-text">{formatArabicNumber(plan.priceUsd)}</span>
+                  <span class={NOTE}>{countedNoun(plan.priceUsd, DOLLAR)}</span>
+                </p>
+                <p class="text-micro text-text-subtle">
+                  {dollarsAndCents.format(pricePerDay)} {countedNoun(pricePerDay, DOLLAR)} في اليوم
+                  {bestValue && (
+                    <>
+                      {' · '}
+                      <span class="text-highlight">توفير {percent.format(saving)}</span>
+                    </>
+                  )}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p class={NOTE}>
+        تُدفع مرة واحدة عبر{' '}
+        <a href={GITHUB_SPONSORS_URL} target="_blank" rel="noopener noreferrer" class={INLINE_LINK}>
+          قتهب
+        </a>
+        .
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-4" aria-labelledby="sponsorship-steps">
+      <h2 id="sponsorship-steps" class={SECTION_HEADING}>
+        التقدّم للرعاية
+      </h2>
+      <ol class="flex list-[arabic-indic] flex-col gap-2 ps-6 text-caption text-text-muted">
+        <li>
+          راسلونا على{' '}
+          <a href={BOOKING_URL} class={INLINE_LINK}>
+            {SPONSORS_EMAIL}
+          </a>{' '}
+          بنوع منتجكم، وتصميم الشريط بمقاس {imageSize}، والرابط الذي يوجّه إليه.
+        </li>
+        <li>نراجع طلبكم، فإن ناسب قافية وافقنا عليه.</li>
+        <li>بعد الموافقة تدفعون، فيظهر شريطكم فورًا على {pageCount} دفعة واحدة، دون أي تأخير.</li>
+      </ol>
+    </section>
+  </div>
+</Layout>
+
+<script>
+  const SLIDE_MS = 4000;
+  const slides = document.querySelectorAll('[data-sponsor-examples] > aside');
+  if (slides.length > 1) {
+    let current = 0;
+    window.setInterval(() => {
+      slides[current]?.classList.add('opacity-0', 'blur-sm');
+      current = (current + 1) % slides.length;
+      slides[current]?.classList.remove('opacity-0', 'blur-sm');
+    }, SLIDE_MS);
+  }
+</script>

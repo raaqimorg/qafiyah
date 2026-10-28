@@ -1,0 +1,63 @@
+{
+  "updatedAt": "2026-10-23",
+  "days": {
+    "value": 30,
+    "source": "The length of the range for the Cloudflare numbers, the PostHog numbers, and the Search Console impressions."
+  },
+  "catalogPages": {
+    "value": 351806,
+    "source": "Qafiyah API totals on 2026-10-23: 334,248 poems + 17,340 poets + 218 feeling, meter, rhyme, theme, and collection pages."
+  },
+  "poems": {
+    "value": 334248,
+    "source": "Qafiyah API total of poems on 2026-10-23."
+  },
+  "poets": {
+    "value": 17340,
+    "source": "Qafiyah API total of poets on 2026-10-23."
+  },
+  "cloudflare": {
+    "requests": {
+      "value": 11046509,
+      "source": "Cloudflare GraphQL Analytics API, zone qafiyah.com, httpRequests1dGroups: the sum of sum.requests from 2026-09-23 to 2026-10-22."
+    }
+  },
+  "posthog": {
+    "visitors": {
+      "value": 109588,
+      "source": "PostHog Web analytics overview, Visitors, 2026-09-23 to 2026-10-22, test accounts filtered out. The page shows it as the visitors."
+    },
+    "arabVisitors": {
+      "value": 71261,
+      "source": "PostHog SQL: count(DISTINCT person_id) of $pageview events from the 22 Arab League countries (properties.$geoip_country_code), 2026-09-23 to 2026-10-22. The page uses it as the base of the country shares."
+    },
+    "pageViews": {
+      "value": 250218,
+      "source": "PostHog Web analytics overview, Page views, 2026-09-23 to 2026-10-22, test accounts filtered out."
+    },
+    "previousPageViews": {
+      "value": 107463,
+      "source": "PostHog Web analytics overview, Page views, 2026-08-24 to 2026-09-22, test accounts filtered out."
+    },
+    "topCountries": {
+      "value": [
+        { "code": "SA", "visitors": 22006 },
+        { "code": "EG", "visitors": 9083 },
+        { "code": "IQ", "visitors": 6001 }
+      ],
+      "source": "PostHog SQL: count(DISTINCT person_id) of $pageview events grouped by properties.$geoip_country_code, 2026-09-23 to 2026-10-22, the top 3 of the 22 Arab League countries."
+    }
+  },
+  "google": {
+    "searchImpressions": {
+      "value": 2849668,
+      "source": "Google Search Console, Performance on Search results, export of the last 3 months: the sum of the daily Impressions in Chart.csv from 2026-09-22 to 2026-10-21."
+    },
+    "weeklyClicks": {
+      "value": [
+        5911, 6379, 6840, 8265, 10677, 12641, 14259, 16841, 15297, 19776, 20843, 20526, 25164
+      ],
+      "source": "The same export, Chart.csv: the daily Clicks summed into 13 weeks of 7 days, the last week ending 2026-10-21. Keep 13 weeks, because the page labels the first one three months ago."
+    }
+  }
+}

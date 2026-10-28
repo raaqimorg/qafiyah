@@ -60,6 +60,7 @@ export const TWITTER_HANDLE = '@qafiyahx';
 export const TWITTER_ID = '2063826482560974848';
 export const X_HANDLE_URL = 'https://x.com/qafiyahx';
 export const GITHUB_REPO_URL = 'https://github.com/raaqimorg/qafiyah';
+export const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/raaqimorg';
 export const TELEGRAM_HANDLE_URL = 'https://t.me/qafiyahx';
 
 export const POEM_LANGUAGE = 'ar';

@@ -1,12 +1,27 @@
 'use client';
 
-import { Fragment, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { getPoemSelectionText } from '@/components/poem-copy';
+import {
+  getPoemSelectionRange,
+  lastSelectedVerse,
+  rangeInside,
+  selectedVerses,
+} from '@/components/poem-copy';
 import { PoemToolbar } from '@/components/poem-toolbar';
+import { QuoteShareButton } from '@/components/quote-share-button';
 import { ShareButton } from '@/components/share-button';
+import { ShareSheet } from '@/components/share-sheet';
 import { formatArabicCount, stripTashkeel } from '@/lib/arabic';
-import { SITE_URL } from '@/lib/constants/config';
+import { SHARE_BUTTON_DELAY_MS, SHARE_QUOTE_MAX_LENGTH, SITE_URL } from '@/lib/constants/config';
 import { formatPoemQuote, formatPoemText, SHARE_TEXTS } from '@/lib/constants/copy';
 import {
   CLASSICAL_LAYOUT_POEM_TYPES,
@@ -91,14 +106,58 @@ export function PoemDisplay({
   poemType,
   sharePath,
 }: PoemDisplayProps) {
+  const columnRef = useRef<HTMLDivElement>(null);
+  const quoteSheetRef = useRef<HTMLDialogElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [quote, setQuote] = useState<string | null>(null);
+  const [quoteTop, setQuoteTop] = useState<number | null>(null);
   const handleCopy = (event: ClipboardEvent<HTMLElement>) => {
-    if (event.defaultPrevented) return;
+    if (event.defaultPrevented || columnRef.current === null) return;
     const container = event.currentTarget;
-    const text = getPoemSelectionText(container.ownerDocument.getSelection(), container);
-    if (text === null) return;
-    event.clipboardData.setData('text/plain', formatPoemQuote(text, `${SITE_URL}${sharePath}`));
+    const range = getPoemSelectionRange(container.ownerDocument.getSelection(), container);
+    const text = range === null ? '' : selectedVerses(range, columnRef.current);
+    if (text === '') return;
+    event.clipboardData.setData(
+      'text/plain',
+      formatPoemQuote(text, `${poet.name}\n${SITE_URL}${sharePath}`)
+    );
     event.preventDefault();
   };
+
+  useEffect(() => {
+    const column = columnRef.current;
+    const wrapper = wrapperRef.current;
+    if (column === null || wrapper === null) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const placeShareButton = () => {
+      const selection = document.getSelection();
+      const range =
+        selection === null || selection.isCollapsed
+          ? null
+          : rangeInside(selection.getRangeAt(0), column);
+      const text = range === null ? '' : selectedVerses(range, column);
+      const verse = range === null ? null : lastSelectedVerse(range, column);
+      if (verse === null || text === '' || text.length > SHARE_QUOTE_MAX_LENGTH) {
+        setQuoteTop(null);
+        return;
+      }
+      setQuote(text);
+      setQuoteTop(verse.getBoundingClientRect().bottom - wrapper.getBoundingClientRect().top);
+    };
+    const placeShareButtonWhenSettled = () => {
+      clearTimeout(timer);
+      setQuoteTop(null);
+      timer = setTimeout(placeShareButton, SHARE_BUTTON_DELAY_MS);
+    };
+    const resizeObserver = new ResizeObserver(placeShareButton);
+    resizeObserver.observe(column);
+    document.addEventListener('selectionchange', placeShareButtonWhenSettled);
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+      document.removeEventListener('selectionchange', placeShareButtonWhenSettled);
+    };
+  }, []);
   const isClassical = CLASSICAL_LAYOUT_POEM_TYPES.has(poemType.slug);
   const lineByLine =
     poemType.slug === FREE_VERSE_POEM_TYPE || verses.every((entry) => entry.length === 1);
@@ -165,9 +224,10 @@ export function PoemDisplay({
         </PoemToolbar>
       </header>
 
-      <div className="relative flex w-full flex-col items-center justify-between">
+      <div ref={wrapperRef} className="relative flex w-full flex-col items-center justify-between">
         <article className="flex w-full flex-col items-center p-6 md:p-8" onCopy={handleCopy}>
           <div
+            ref={columnRef}
             className={cn(
               'flex w-full flex-col text-verse font-normal',
               lineByLine ? HEMISTICH_GAP : VERSE_GAP,
@@ -211,6 +271,17 @@ export function PoemDisplay({
             })}
           </div>
         </article>
+        {quoteTop !== null && (
+          <QuoteShareButton top={quoteTop} onShare={() => quoteSheetRef.current?.showModal()} />
+        )}
+        {quote !== null && (
+          <ShareSheet
+            ref={quoteSheetRef}
+            title={SHARE_TEXTS.quoteTitle}
+            body={formatPoemQuote(quote, poet.name)}
+            path={sharePath}
+          />
+        )}
       </div>
     </>
   );

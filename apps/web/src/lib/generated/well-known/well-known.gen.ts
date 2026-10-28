@@ -4,7 +4,7 @@
 export const ROBOTS_WEB_TEMPLATE = `# Qafiyah robots.txt
 #
 # Every crawler is welcome: search engines, AI assistants, link previews,
-# archives, and SEO tools.
+# archives, and SEO tools. Archives skip the sponsorship page.
 #
 # Sitemap:  {SITE}/sitemap-index.xml
 # LLMs:     {SITE}/llms.txt
@@ -12,6 +12,16 @@ export const ROBOTS_WEB_TEMPLATE = `# Qafiyah robots.txt
 
 User-agent: *
 Allow: /
+Disallow: /account
+Disallow: /auth/
+Disallow: /login
+Disallow: /api/
+Disallow: /poems/random
+
+User-agent: archive.org_bot
+User-agent: ia_archiver
+Allow: /
+Disallow: /sponsorship
 Disallow: /account
 Disallow: /auth/
 Disallow: /login

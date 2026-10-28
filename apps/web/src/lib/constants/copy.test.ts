@@ -9,10 +9,14 @@ describe('formatPoemQuote', () => {
     );
   });
 
-  it('puts each selected line on its own line, with no blank lines between them', () => {
+  it('keeps the blank line between the selected verses', () => {
     expect(
-      formatPoemQuote('صدر الأول\n\nعجز الأول\n\n\nصدر الثاني', 'https://qafiyah.com/poems/rHUD')
-    ).toBe('صدر الأول\nعجز الأول\nصدر الثاني\n\nhttps://qafiyah.com/poems/rHUD');
+      formatPoemQuote('صدر الأول\nعجز الأول\n\nصدر الثاني', 'https://qafiyah.com/poems/rHUD')
+    ).toBe('صدر الأول\nعجز الأول\n\nصدر الثاني\n\nhttps://qafiyah.com/poems/rHUD');
+  });
+
+  it('puts the poet under the selected text for sharing', () => {
+    expect(formatPoemQuote('صدر البيت\nعجز البيت', 'شاعر')).toBe('صدر البيت\nعجز البيت\n\nشاعر');
   });
 
   it('trims the blank space a selection carries at its ends', () => {
@@ -23,7 +27,7 @@ describe('formatPoemQuote', () => {
 });
 
 describe('formatPoemText', () => {
-  it('puts each half on its own line, then the poet after a blank line', () => {
+  it('puts each half on its own line, a blank line between verses, then the poet', () => {
     expect(
       formatPoemText(
         [
@@ -33,12 +37,12 @@ describe('formatPoemText', () => {
         'طرفة الجذيمي العبسي'
       )
     ).toBe(
-      'أَيَا رَاكِبًا إِمَّا عَرَضْتَ فَبَلِّغَنْ\nمُغَلْغَلَةً قَوْلَ امْرِئٍ نَاخِلِ الصَّدْرِ\nفَوَ اللهِ مَا فَارَقْتُكُمْ عَنْ كُشَاحَةٍ\nوَلَا طِيْبِ نَفْسٍ عَنْكُمُ آخِرَ الدَّهْرِ\n\nطرفة الجذيمي العبسي'
+      'أَيَا رَاكِبًا إِمَّا عَرَضْتَ فَبَلِّغَنْ\nمُغَلْغَلَةً قَوْلَ امْرِئٍ نَاخِلِ الصَّدْرِ\n\nفَوَ اللهِ مَا فَارَقْتُكُمْ عَنْ كُشَاحَةٍ\nوَلَا طِيْبِ نَفْسٍ عَنْكُمُ آخِرَ الدَّهْرِ\n\nطرفة الجذيمي العبسي'
     );
   });
 
   it('keeps a one-line verse on one line', () => {
-    expect(formatPoemText([['سطر أول'], ['سطر ثان']], 'شاعر')).toBe('سطر أول\nسطر ثان\n\nشاعر');
+    expect(formatPoemText([['سطر أول'], ['سطر ثان']], 'شاعر')).toBe('سطر أول\n\nسطر ثان\n\nشاعر');
   });
 
   it('gives the poet alone when there is no verse', () => {
