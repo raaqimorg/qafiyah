@@ -154,17 +154,22 @@ The poem type has no unknown value. A poem that fails a structural validation pa
 
 Each poem has a list of up to 10 related poems, computed in advance (the `poem_relations` table: `poem_id`, `related_id`, `rank`). `refresh_poem_relations()` refreshes it before every database dump snapshot (see `data/db/MAINTAINERS_GUIDE.md`).
 
-The generator takes its candidates from a pool (`tmp_pool` in `scripts/db/sql/refresh-poem-relations.sql`). So a poem is _suggested_ only if it meets all of these conditions:
+The generator takes its candidates from a pool (`tmp_pool` in `scripts/db/sql/refresh-poem-relations.sql`). A poem is in the pool only if it meets all of these conditions:
 
 - It is a primary عمودي (`amudi`) poem.
 - Its meter is known.
 - Its poet is not anonymous.
 - Its era is in the pool: from jahili to mamluki.
 
-A poem outside that pool still _gets_ its own list, but a shorter one, because a group that points outside the pool adds nothing.
+A pool poem gets only pool poems: up to 2 by its poet, its era, its theme, its meter, and its rhyme, and then more from its era.
 
-- An Ottoman, modern, contemporary, or unknown-era poem gets only classical poems that share its theme, meter, or rhyme.
-- A poem of unknown meter gets no matches by meter.
+A poem outside the pool (an Ottoman, modern, contemporary, or unknown-era poem, or one that is not amudi) also gets primary poems of named poets outside the pool:
+
+- up to 2 by its own poet, ranked with the poet group
+- poems of its own era, ranked with the era group, unless its era is unknown
+- the pool poems that share its theme, meter, or rhyme, as before
+
+Every list then fills its last slots with pool poems picked by a seeded hash, so every visible poem gets 10, and the list stays the same from one dump to the next.
 
 ## Random poem
 
