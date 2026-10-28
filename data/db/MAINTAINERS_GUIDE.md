@@ -22,7 +22,7 @@ Create one when any of these is true:
 Three sets of derived rows must be current before `pg_dump`. `docs/domain.md` explains all three.
 
 - `poems.has_tashkeel`, from `refresh_poem_tashkeel()`, in about two minutes on the full corpus. It writes only the rows whose value changes.
-- `poem_relations`, from `refresh_poem_relations()`. It does a TRUNCATE and an INSERT, in under a minute on the full corpus. It drops the two foreign keys of the table around the insert, and adds them again. That locks `poems` against reads for the last 15 seconds or so. So on a live database, it briefly stops every poem query.
+- `poem_relations`, from `refresh_poem_relations()`. It does a TRUNCATE and an INSERT, in about six minutes on the full corpus on the dev stack. It drops the two foreign keys of the table around the insert, and adds them again. That locks `poems` against reads for the last part of the run. So on a live database, it briefly stops every poem query.
 - the `*_stats` count tables, from `refresh_taxonomy_stats()`, in a few seconds.
 
 There are two paths:
@@ -34,7 +34,7 @@ There are two paths:
 
 - [ ] The directory holds the dump: `ls -lh data/db/{new-dir}/`.
 - [ ] It restores correctly: run `bun run db:reset`, then `./scripts/dev/compose.sh exec db psql -U qafiyah -d qafiyah -c "SELECT count(*) FROM poems;"`.
-- [ ] The fallback sample and its `manifest.json` are generated again from it: run `scripts/db/create-fallback-dump.sh`, then `bun test scripts/smoke/fixtures.test.ts`. Commit them.
+- [ ] If the dump changes the schema (it adds, removes, or renames a table or a column, or changes the type of a column), the fallback sample and its `manifest.json` are generated again from it: run `scripts/db/create-fallback-dump.sh`, then `bun test scripts/smoke/fixtures.test.ts`. Commit them. A dump that only adds, changes, or deletes rows leaves the sample as it is (see "Fallback sample dataset" in `README.md`).
 - [ ] It is uploaded: `bun run data:push data/db/{new-dir}`. Git ignores the folder, so the dump itself is never committed.
 - [ ] It is shipped. A deploy keeps the data volume, so production gets a new dump only in this way, and only when the maintainer asks:
   1. Release the version that holds the code for the new dump into `main` (step 0 of `.claude/skills/deploy/SKILL.md`).
