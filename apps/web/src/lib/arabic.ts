@@ -74,22 +74,22 @@ const INVISIBLE_FORMATTING_REGEX = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\u06
 export function sanitizeArabicInput(raw: string): string {
   return raw
     .normalize('NFKC')
-    .replace(INVISIBLE_FORMATTING_REGEX, '')
-    .replace(NON_ARABIC_AND_SPACE_REGEX, ' ')
-    .replace(WHITESPACE_RUN_REGEX, ' ')
+    .replaceAll(INVISIBLE_FORMATTING_REGEX, '')
+    .replaceAll(NON_ARABIC_AND_SPACE_REGEX, ' ')
+    .replaceAll(WHITESPACE_RUN_REGEX, ' ')
     .replace(LEADING_WHITESPACE_REGEX, '');
 }
 
 export function stripInputNoise(raw: string): string {
   return raw
     .normalize('NFKC')
-    .replace(INVISIBLE_FORMATTING_REGEX, '')
-    .replace(WHITESPACE_RUN_REGEX, ' ')
+    .replaceAll(INVISIBLE_FORMATTING_REGEX, '')
+    .replaceAll(WHITESPACE_RUN_REGEX, ' ')
     .replace(LEADING_WHITESPACE_REGEX, '');
 }
 
 const TASHKEEL_REGEX = /[ؐ-ًؚ-ٰٟۖ-ۭـ]/g;
 
 export function stripTashkeel(text: string): string {
-  return text.replace(TASHKEEL_REGEX, '');
+  return text.replaceAll(TASHKEEL_REGEX, '');
 }

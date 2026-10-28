@@ -3,7 +3,7 @@ const MARK_SPLIT_REGEX = /<\/?mark>/;
 const ADJACENT_MARKS_REGEX = /<\/mark>(\s+)<mark>/g;
 
 export function mergeAdjacentMarks(text: string): string {
-  return text.replace(ADJACENT_MARKS_REGEX, '$1');
+  return text.replaceAll(ADJACENT_MARKS_REGEX, '$1');
 }
 
 export function highlightedTerms(snippet: string): readonly string[] {

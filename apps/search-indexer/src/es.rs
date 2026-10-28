@@ -366,6 +366,8 @@ mod tests {
         let address = listener.local_addr().expect("a bound address");
         tokio::spawn(async move {
             while let Ok((mut socket, _)) = listener.accept().await {
+                let mut head = vec![0u8; 1024];
+                let _unused = tokio::io::AsyncReadExt::read(&mut socket, &mut head).await;
                 let response = format!(
                     "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()
