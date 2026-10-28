@@ -34,7 +34,7 @@ There are two paths:
 
 - [ ] The directory holds the dump: `ls -lh data/db/{new-dir}/`.
 - [ ] It restores correctly: run `bun run db:reset`, then `./scripts/dev/compose.sh exec db psql -U qafiyah -d qafiyah -c "SELECT count(*) FROM poems;"`.
-- [ ] The fallback sample and its `manifest.json` are generated again from it: run `scripts/db/create-fallback-dump.sh`, then `bun test scripts/smoke/fixtures.test.ts`. Commit them.
+- [ ] If the dump changes the schema (it adds, removes, or renames a table or a column, or changes the type of a column), the fallback sample and its `manifest.json` are generated again from it: run `scripts/db/create-fallback-dump.sh`, then `bun test scripts/smoke/fixtures.test.ts`. Commit them. A dump that only adds, changes, or deletes rows leaves the sample as it is (see "Fallback sample dataset" in `README.md`).
 - [ ] It is uploaded: `bun run data:push data/db/{new-dir}`. Git ignores the folder, so the dump itself is never committed.
 - [ ] It is shipped. A deploy keeps the data volume, so production gets a new dump only in this way, and only when the maintainer asks:
   1. Release the version that holds the code for the new dump into `main` (step 0 of `.claude/skills/deploy/SKILL.md`).
