@@ -69,4 +69,4 @@ scripts/db/diff-state.sh "$BEFORE" "$AFTER" data/db/{new-dir}/CHANGES.md
 ./scripts/dev/compose.sh exec -T db pg_dump -U qafiyah -d qafiyah --schema=public --no-owner --no-privileges --no-tablespaces -Fc >data/db/{new-dir}/qafiyah_public_$(date +%Y%m%d_%H%M%S).dump
 ```
 
-Then do the rest of the "Post-dump checklist" in `data/db/MAINTAINERS_GUIDE.md`. It covers the restore check, the fallback sample, the upload (`bun run data:push data/db/{new-dir}`), and shipping to production.
+Then do the rest of the "Post-dump checklist" in `data/db/MAINTAINERS_GUIDE.md`. It covers the restore check, the fallback sample (only when the schema changed), the upload (`bun run data:push data/db/{new-dir}`), and shipping to production.
