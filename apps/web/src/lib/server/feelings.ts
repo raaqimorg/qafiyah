@@ -17,7 +17,7 @@ export async function feelingVerses(
 ): Promise<{ verses: VersesPage['data']; pagination: VersesPage['pagination'] } | null> {
   const result = await safeCall(() =>
     apiServer.GET('/feelings/{slug}/verses', {
-      params: { path: { slug }, query: { page: String(page) } },
+      params: { path: { slug }, query: { page } },
     })
   );
   if (result.data === undefined) {

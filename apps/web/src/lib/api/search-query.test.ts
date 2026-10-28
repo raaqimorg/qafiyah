@@ -19,8 +19,8 @@ describe('searchQueryParams', () => {
     expect(searchQueryParams({ ...base, type: 'poems', page: 2, eras: ['jahili'] })).toStrictEqual({
       q: 'حب',
       types: ['poems'],
-      poemsPage: '2',
-      poetsPage: '1',
+      poemsPage: 2,
+      poetsPage: 1,
       eraSlugs: ['jahili'],
       meterSlugs: [],
       rhymeSlugs: [],
@@ -40,8 +40,8 @@ describe('searchQueryParams', () => {
 
   it('pages the poets section on its own param', () => {
     const params = searchQueryParams({ ...base, type: 'poets', page: 3 });
-    expect(params.poetsPage).toBe('3');
-    expect(params.poemsPage).toBe('1');
+    expect(params.poetsPage).toBe(3);
+    expect(params.poemsPage).toBe(1);
     expect(params.types).toStrictEqual(['poets']);
   });
 

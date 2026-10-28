@@ -26,8 +26,8 @@ use crate::state::AppState;
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub(crate) struct PoemsParams {
-    /// Page number as a 1-based integer string, 30 poems a page. Minimum 1.
-    #[param(inline, example = "1")]
+    /// Page number as a 1-based integer, 30 poems a page. Minimum 1.
+    #[param(inline, example = 1)]
     page: Option<AnyPage>,
     /// Filter by poet. Repeatable. Values are `slug` from GET /poets.
     #[serde(default)]

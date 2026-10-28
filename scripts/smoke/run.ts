@@ -634,10 +634,25 @@ async function main() {
     conformanceCode = await conformance.exited;
   }
 
+  let fuzzCode = 0;
+  if (SURFACE.name === 'origin' && conformanceCode === 0) {
+    console.log(`\n${cyan('\u2014')} ${bold('openapi fuzz')} ${cyan('\u2014')}`);
+    const fuzz = Bun.spawn(['bun', 'scripts/api/conformance.ts', 'dev', '--fuzz'], {
+      cwd: ROOT,
+      stdout: 'inherit',
+      stderr: 'inherit',
+    });
+    fuzzCode = await fuzz.exited;
+  }
+
   await teardown();
 
   if (conformanceCode !== 0) {
     console.error(red('\nopenapi conformance failed'));
+    process.exit(1);
+  }
+  if (fuzzCode !== 0) {
+    console.error(red('\nopenapi fuzz failed'));
     process.exit(1);
   }
 

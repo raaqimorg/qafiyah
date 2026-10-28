@@ -1,0 +1,25 @@
+# Read by scripts/api/conformance.ts --fuzz, see scripts/AGENTS.md ("api/").
+
+[generation]
+max-examples = 100
+
+[phases.examples]
+fill-missing = true
+
+[phases.examples.extra-data-sources]
+responses = false
+
+[checks]
+max_response_time = 5.0
+
+[checks.positive_data_acceptance]
+expected-statuses = ["2xx", "404"]
+
+[checks.ignored_auth]
+enabled = false
+
+[[operations]]
+include-path = "/search"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]

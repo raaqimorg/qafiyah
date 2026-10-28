@@ -16,8 +16,8 @@ export type SearchQueryInput = {
 export type SearchQueryParams = {
   readonly q: string;
   readonly types: SearchType[];
-  readonly poemsPage: string;
-  readonly poetsPage: string;
+  readonly poemsPage: number;
+  readonly poetsPage: number;
   readonly eraSlugs: string[];
   readonly meterSlugs: string[];
   readonly rhymeSlugs: string[];
@@ -33,8 +33,8 @@ export function searchQueryParams(input: SearchQueryInput): SearchQueryParams {
   return {
     q: input.q,
     types: [input.type],
-    poemsPage: poems ? String(input.page) : '1',
-    poetsPage: poems ? '1' : String(input.page),
+    poemsPage: poems ? input.page : 1,
+    poetsPage: poems ? 1 : input.page,
     eraSlugs: [...input.eras],
     meterSlugs: poems ? [...input.meters] : [],
     rhymeSlugs: poems ? [...input.rhymes] : [],

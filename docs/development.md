@@ -116,7 +116,7 @@ bun run ci                # the full gate; --no-docker skips the diagram, db, an
 
 The "Static checks" section of `docs/exceptions.md` explains the deliberate, non-obvious behavior of the static checks.
 
-`smoke:dev` ends with `bun run api:conformance`. This sends every documented API example to the dev API through Schemathesis in Docker.
+`smoke:dev` ends with `bun run api:conformance` and `bun run api:fuzz`. The first sends every documented API example to the dev API through Schemathesis in Docker. The second sends it generated input, valid and invalid (`scripts/AGENTS.md`, "api/").
 
 The smoke runs leave your dev environment as they found it:
 
