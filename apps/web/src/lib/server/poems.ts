@@ -32,7 +32,7 @@ export const getPoemCount = async (): Promise<number> =>
   (await unwrap(() => apiServer.GET('/poems/count'))).total;
 
 export const getPoemSlugsPage = (page: number): Promise<readonly string[] | null> =>
-  getOrNull(() => apiServer.GET('/poems/slugs', { params: { query: { page: String(page) } } }));
+  getOrNull(() => apiServer.GET('/poems/slugs', { params: { query: { page } } }));
 
 export const getPoem = (slug: PoemSlug): Promise<Poem | null> =>
   getOrNull(() => apiServer.GET('/poems/{slug}', { params: { path: { slug } } }));
@@ -49,7 +49,7 @@ export async function listPoems(
     apiServer.GET('/poems', {
       params: {
         query: {
-          page: String(page),
+          page,
           poet: [...(filters.poetSlugs ?? [])],
           era: [...(filters.eraSlugs ?? [])],
           theme: [...(filters.themeSlugs ?? [])],

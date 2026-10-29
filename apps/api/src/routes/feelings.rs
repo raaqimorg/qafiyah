@@ -16,8 +16,8 @@ use crate::state::AppState;
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub(crate) struct VersesParams {
-    /// Page number as a 1-based integer string, 30 verses a page. Minimum 1.
-    #[param(inline, example = "1")]
+    /// Page number as a 1-based integer, 30 verses a page. Minimum 1.
+    #[param(inline, example = 1)]
     page: Option<AnyPage>,
 }
 

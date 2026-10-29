@@ -31,7 +31,7 @@ describe('getPoetsPage', () => {
     get.mockResolvedValue(ok({ data: [POET], pagination: PAGINATION }));
     await getPoetsPage(1, { era: 'jahili' as EraSlug, q: 'متنبي' });
     expect(get).toHaveBeenCalledWith('/poets', {
-      params: { query: { page: '1', era: 'jahili', q: 'متنبي' } },
+      params: { query: { page: 1, era: 'jahili', q: 'متنبي' } },
     });
   });
 
@@ -58,7 +58,7 @@ describe('getPoetSlugsPage', () => {
     const result = await getPoetSlugsPage(1);
     expect(result?.slugs).toEqual(['aBcD', 'eFgH']);
     expect(result?.totalPages).toBe(1);
-    expect(get).toHaveBeenCalledWith('/poets/slugs', { params: { query: { page: '1' } } });
+    expect(get).toHaveBeenCalledWith('/poets/slugs', { params: { query: { page: 1 } } });
   });
 
   it('returns null on a 404', async () => {

@@ -57,6 +57,10 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
   - On the stack surface, `observability.ts` also checks the Prometheus and Grafana chain from end to end.
 - `api/` holds two tools:
   - `conformance.ts` runs Schemathesis in Docker (its image is pinned there, and its settings are in `schemathesis.toml`). It sends the documented examples to every OpenAPI operation. It fails unless each one answers 2xx and matches the spec.
+  - `conformance.ts --fuzz` (`bun run api:fuzz`) runs Schemathesis against the dev API only, with the settings in `schemathesis-fuzz.toml`.
+    - It runs the examples, coverage, and fuzzing phases, with valid and invalid input, and every check except `ignored_auth` (a key is optional).
+    - Invalid input must answer 4xx. Valid input must answer 2xx, or 404 for a slug that does not exist. `/search` may also answer 400, because some filters need `types=poems`, which OpenAPI cannot express.
+    - The seed is fixed (`--seed=<n>` changes it). The default is 100 examples for each operation, about 30 seconds on the sample. `--max-examples=1000` runs a deeper pass, about 7 minutes.
   - `compare.ts` compares two running API builds across every endpoint, byte for byte and by latency. It is for refactors such as #138.
 - `corpus/` reads the dev database, and writes under `reports/`, which git ignores.
   - The classical-form validation: `export-corpus.sh`, `verify-classical.ts`, and `apply-verdicts.ts`.

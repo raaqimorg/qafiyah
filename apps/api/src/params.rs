@@ -102,8 +102,9 @@ impl<'de, const MAX: u32> Deserialize<'de> for Page<MAX> {
 impl<const MAX: u32> utoipa::PartialSchema for Page<MAX> {
     fn schema() -> RefOr<Schema> {
         ObjectBuilder::new()
-            .schema_type(Type::String)
-            .pattern(Some("^[1-9][0-9]*$"))
+            .schema_type(Type::Integer)
+            .minimum(Some(1))
+            .maximum(Some(MAX))
             .into()
     }
 }
@@ -242,8 +243,8 @@ pub struct NoParams {}
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub struct SlugsParams {
-    /// Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
-    #[param(inline, example = "1")]
+    /// Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.
+    #[param(inline, example = 1)]
     pub page: Option<AnyPage>,
 }
 
@@ -382,7 +383,7 @@ mod tests {
     fn each_value_type_documents_the_rule_it_checks() {
         assert_eq!(
             serde_json::to_value(Page::<500>::schema()).unwrap(),
-            json!({ "type": "string", "pattern": "^[1-9][0-9]*$" })
+            json!({ "type": "integer", "minimum": 1, "maximum": 500 })
         );
         assert_eq!(
             serde_json::to_value(SearchText::schema()).unwrap(),
