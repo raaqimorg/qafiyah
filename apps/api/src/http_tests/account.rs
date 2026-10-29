@@ -20,30 +20,78 @@ fn keyed(method: &str, path: &str, key: &str) -> Request<Body> {
         .expect("a well-formed test request")
 }
 
+const ACCOUNT_ROUTES: [(&str, &str); 8] = [
+    ("POST", "/account/users"),
+    ("GET", "/account/users/1/keys"),
+    ("POST", "/account/keys"),
+    ("POST", "/account/keys/revoke"),
+    ("POST", "/account/sessions"),
+    ("DELETE", "/account/sessions"),
+    ("GET", "/account/sessions/abc"),
+    ("DELETE", "/account/sessions/abc"),
+];
+
 #[tokio::test]
-async fn without_the_internal_key_the_account_api_is_unauthorized_at_its_full_path() {
+async fn without_the_internal_key_every_account_route_is_unauthorized_at_its_full_path() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
-    for (key, path) in [
-        (None, "/account/users/1/keys"),
-        (Some("full"), "/account/users/1/keys"),
-        (Some("mcp"), "/account/users/1/keys"),
-        (Some("qaf_users_own_key"), "/account/sessions/abc"),
-        (Some(""), "/account/keys"),
-    ] {
-        let mut builder = Request::builder().method("GET").uri(path);
-        if let Some(key) = key {
-            builder = builder.header("x-api-key", key);
+    let keys = [
+        None,
+        Some(""),
+        Some("wrong"),
+        Some("full"),
+        Some("mcp"),
+        Some("qaf_0123456789abcdef0123456789abcdef"),
+        Some("Internal"),
+        Some("internal "),
+        Some(" internal"),
+        Some("internalx"),
+        Some("interna"),
+    ];
+    for (method, path) in ACCOUNT_ROUTES {
+        for key in keys {
+            let mut builder = Request::builder()
+                .method(method)
+                .uri(path)
+                .header("content-type", "application/json");
+            if let Some(key) = key {
+                builder = builder.header("x-api-key", key);
+            }
+            let body = Body::from(json!({ "user_id": 1, "key_id": 1 }).to_string());
+            let sent = send(app_with(&es), builder.body(body).expect("a request")).await;
+            assert_eq!(
+                sent.status,
+                StatusCode::UNAUTHORIZED,
+                "{method} {path} {key:?}"
+            );
+            assert_eq!(sent.header("cache-control"), Some("no-store"));
+            let problem = sent.json();
+            assert_eq!(problem["code"], "UNAUTHORIZED");
+            assert_eq!(
+                problem["instance"], path,
+                "the instance must be the full path"
+            );
         }
-        let sent = send(
-            app_with(&es),
-            builder.body(Body::empty()).expect("a request"),
-        )
-        .await;
-        assert_eq!(sent.status, StatusCode::UNAUTHORIZED, "{key:?} {path}");
-        assert_eq!(sent.header("cache-control"), Some("no-store"));
-        let body = sent.json();
-        assert_eq!(body["code"], "UNAUTHORIZED");
-        assert_eq!(body["instance"], path, "the instance must be the full path");
+    }
+}
+
+#[tokio::test]
+async fn the_internal_key_in_a_query_string_or_another_header_is_not_accepted() {
+    let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
+    for (method, path) in ACCOUNT_ROUTES {
+        for request in [
+            Request::builder()
+                .method(method)
+                .uri(format!("{path}?api_key=internal"))
+                .body(Body::empty()),
+            Request::builder()
+                .method(method)
+                .uri(path)
+                .header("authorization", "Bearer internal")
+                .body(Body::empty()),
+        ] {
+            let sent = send(app_with(&es), request.expect("a request")).await;
+            assert_eq!(sent.status, StatusCode::UNAUTHORIZED, "{method} {path}");
+        }
     }
 }
 
