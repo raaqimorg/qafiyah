@@ -61,6 +61,7 @@ const code = await run(
     'reports/mutants',
     '--no-shuffle',
     ...scope,
+    ...(all ? ['--jobs', '4'] : []),
     ...passthrough,
   ],
   {
