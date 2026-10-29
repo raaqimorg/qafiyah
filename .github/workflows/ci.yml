@@ -58,7 +58,6 @@ jobs:
                 - "!**/CLAUDE.md"
                 - "!**/GEMINI.md"
                 - "!docs/**"
-                - "!data/LICENSE"
                 - "!data/**/*.md"
                 - "!secrets/**"
                 - "!.sops.yaml"

@@ -238,8 +238,8 @@ Conventions:
 - JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.
 - Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.
 
-The data is dedicated to the public domain under CC0 1.0. The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
-        license(name = "CC0 1.0 (data)", identifier = "CC0-1.0"),
+The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
+        license(name = "MIT", identifier = "MIT"),
     ),
     paths(crate::routes::poems::random),
     tags(
