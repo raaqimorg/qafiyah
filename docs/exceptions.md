@@ -20,7 +20,7 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 
 ### The quality gate is a custom runner
 
-- **What:** the gate is `scripts/ci.ts`, a 340-line orchestrator with phases, a worker pool, and output scrubbing. GitHub Actions runs it on every push and pull request. The non-Docker phases run in one job. Each Docker phase (`--phase db`, `origin`, `stack`) runs in its own job, when the change touches what that phase uses.
+- **What:** the gate is `scripts/ci.ts`, a 340-line orchestrator with phases, a worker pool, and output scrubbing. GitHub Actions runs it on every push and pull request. The non-Docker phases run in one job. Each Docker phase (`--phase db`, `origin`, `stack`) runs in its own job, when the change touches what that phase uses. `stack` runs only for `main`.
 - **Where:** `scripts/ci.ts`, `scripts/ci/phases.ts`, `.github/workflows/ci.yml`
 - **Why it's unusual:** the runner re-does turbo's parallelism and log prefixing, then filters turbo's banners with a hard-coded prefix list.
 - **Normal approach:** root tasks become turbo tasks, and the workflow calls them directly as separate jobs.

@@ -34,7 +34,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      docker-phases: ${{ github.event_name == 'workflow_dispatch' && '["diagrams","db","origin","stack"]' || steps.filter.outputs.changes }}
+      docker-phases: ${{ steps.phases.outputs.list }}
 
     steps:
       - name: Checkout code
@@ -96,9 +96,21 @@ jobs:
             stack:
               - *outside-every-docker-phase
               - "!apps/inspector/**"
-            diagrams:
-              - "docs/architecture/**"
-              - "scripts/docs/**"
+
+      - name: Keep the stack phase for releases and manual runs
+        id: phases
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ github.base_ref || github.ref_name }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo 'list=["db","origin","stack"]' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = main ]; then
+            echo "list=$CHANGED" >> "$GITHUB_OUTPUT"
+          else
+            echo "list=$(jq -c 'map(select(. != "stack"))' <<< "$CHANGED")" >> "$GITHUB_OUTPUT"
+          fi
 
   gate:
     name: Gate

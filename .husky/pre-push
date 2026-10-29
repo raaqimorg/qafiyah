@@ -7,5 +7,6 @@ if [ -n "$refs" ]; then
   printf '%s\n' "$refs" | ./scripts/check/forbidden-terms.sh pre-push
 fi
 
-echo "Running the non-Docker gate (GitHub Actions runs the Docker phases)..."
-bun run ci --no-docker
+echo "Running lint, format, and type checks (GitHub Actions runs the full gate)..."
+bun run ci --phase static
+bun run ci --phase checks
