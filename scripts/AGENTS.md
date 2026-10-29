@@ -50,7 +50,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
 
   Compose mounts most of these scripts, or the `dev/` scripts and the `local-db-edit` skill call them. `data/db/MAINTAINERS_GUIDE.md` documents the dump scripts.
 
-- `docs/` exports `docs/architecture/workspace.dsl` with Structurizr, and renders it with PlantUML into `docs/architecture/generated/structurizr/`. `diagrams.ts` pins both images. `diagram-files.ts` holds the rules for names, headers, and stale files.
+- `docs/` exports `docs/architecture/workspace.dsl` with Structurizr, and renders it with PlantUML into `docs/architecture/generated/structurizr/`. `diagrams.ts` pins both images. `diagram-files.ts` holds the rules for names, headers, and stale files. CI does not run `docs:diagrams:check`. Run it after you change `docs/architecture/` or `scripts/docs/`.
 - `smoke/` probes a dev or prod stack from outside.
   - A run that starts or reuses its own server sends three searches first. So the warm-up of Elasticsearch after a restart does not count against the probes.
   - Every real poem or poet that a probe names comes from `smoke/fixtures.ts`, which the fallback sample is built from. The `llms.txt` link probes use the examples in the API docs, and `fixtures.test.ts` keeps those in the sample.

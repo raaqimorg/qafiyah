@@ -142,7 +142,7 @@ Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/is
 
 [`scripts/ci.ts`](scripts/ci.ts) runs lint and format, type and repo checks, unit tests, and contract snapshots (OpenAPI, the generated client, Elasticsearch queries). With Docker, it then runs the database-backed tests and the smoke tests against the built stack.
 
-The pre-commit hook checks only the staged files. The pre-push hook runs the gate without Docker. GitHub Actions runs the gate and gitleaks on every push and pull request. It runs each Docker phase only when the change touches what that phase uses ([`docs/topology.md`](docs/topology.md), "CI/CD topology"). Clippy refuses `unwrap`, `expect`, `panic`, indexing, and lossy casts in production code. For more, see [`docs/testing.md`](docs/testing.md).
+The pre-commit hook checks only the staged files. The pre-push hook runs the lint, format, and type checks. GitHub Actions runs the gate and gitleaks on every push and pull request. It runs each Docker phase only when the change touches what that phase uses, and the stack phase only for releases ([`docs/topology.md`](docs/topology.md), "CI/CD topology"). Clippy refuses `unwrap`, `expect`, `panic`, indexing, and lossy casts in production code. For more, see [`docs/testing.md`](docs/testing.md).
 
 </details>
 

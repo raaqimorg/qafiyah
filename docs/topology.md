@@ -2,7 +2,7 @@
 
 This is a diagram-first map of the whole system. It shows who uses the system, what runs where, and what talks to what. This page gives the big picture. Each section links to the doc that has the details.
 
-The diagrams follow the [C4 model](https://c4model.com). They all come from one model, `docs/architecture/workspace.dsl`. `bun run docs:diagrams` renders each view of the model to an SVG in `docs/architecture/generated/structurizr/`. Change the model, never the SVGs. CI fails when the SVGs no longer match the model (the `diagrams` phase, in "CI/CD topology" below).
+The diagrams follow the [C4 model](https://c4model.com). They all come from one model, `docs/architecture/workspace.dsl`. `bun run docs:diagrams` renders each view of the model to an SVG in `docs/architecture/generated/structurizr/`. Change the model, never the SVGs. After a change to `docs/architecture/` or `scripts/docs/`, run `bun run docs:diagrams:check` (it needs Docker). CI does not run it.
 
 > The rule of `docs/deployment/README.md` applies here too: keep this file and the model free of secrets. Write no credentials, tokens, real IP addresses, or Cloudflare account or tunnel IDs.
 
@@ -125,12 +125,11 @@ The conventions are in `docs/code-conventions.md`, `docs/typescript-conventions.
 - Each Docker phase runs as its own job, only when the change touches something that the phase uses:
   - `db`: the database-backed tests.
   - `origin`: the dev smoke, with its Schemathesis run of every documented API example.
-  - `stack`: the stack smoke.
-- A fourth phase, `diagrams` (`bun run docs:diagrams:check`), runs only when `docs/architecture/` or `scripts/docs/` changes. It renders the diagrams on this page again, and compares them with the committed SVGs.
+  - `stack`: the stack smoke. It runs only on pull requests and pushes to `main` (so on the release pull request), and on a manual run. It mirrors a deploy, and only a release deploys.
 - A `changes` job compares the changed files with a skip list for each phase, with `dorny/paths-filter`.
   - A push that touches only these files runs the gate alone: docs, agent guides, repo templates, lint configuration that only the gate reads, or the encrypted secrets.
   - A change to the website only skips `db`.
-  - A path on no skip list runs every phase. A manual run (`workflow_dispatch`) runs them all.
+  - A path on no skip list runs every phase that its branch allows. A manual run (`workflow_dispatch`) runs them all.
 - The Docker phases run on the committed 100-poem sample, so they need no secrets and no R2 token.
 - The Rust images build their dependencies in a layer of their own, with cargo-chef (`apps/*/Dockerfile`). The GitHub Actions cache keeps that layer, so a code change compiles only the workspace crates. Only a change to `Cargo.lock` or a manifest builds the dependencies again.
 - CI builds the dev profile without debug info (`CARGO_PROFILE_DEV_DEBUG=0`), so its `target/` and its cache stay small.

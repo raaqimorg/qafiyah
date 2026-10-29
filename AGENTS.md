@@ -58,6 +58,7 @@ This monorepo holds qafiyah.com, an Arabic poetry catalog. It has a Rust/axum AP
 - Work goes on the open version branch (`v2`, `v3`, and so on). Branch off it and open pull requests into it, never into `main`. `main` changes only when a version is released, or for an urgent production fix that the user asks to ship on its own. See `docs/pull-requests.md` ("Versions and releases").
 - Hard rule: never deploy unless the user asks for that deploy. This covers production deploys, `reindex:prod`, reseeds, and anything else that changes a live environment. Approval for one deploy does not carry over to the next.
 - To carry out a written implementation plan, prefer `superpowers:executing-plans`. It works inline, in batches with checkpoints, in the current session. Use `superpowers:subagent-driven-development` (a new subagent for each task) only if the user asks for it.
+- After a change to `docs/architecture/` or `scripts/docs/`, run `bun run docs:diagrams:check` (it needs Docker). CI does not run it.
 - When the user asks for a review, use the `reviewing` skill (`.claude/skills/reviewing/SKILL.md`). It is one light sanity pass that you do yourself in the current session. Never use a subagent, a workflow, `/code-review`, or `superpowers:requesting-code-review` for it, unless the user names them.
 - When a local setup step fails because the repo assumes a tool, a step, or a setting that is missing, report it:
   1. Finish the workaround, so the user can keep working.
