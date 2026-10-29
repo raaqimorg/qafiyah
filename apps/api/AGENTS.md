@@ -91,6 +91,12 @@ So a 503 from one of those routes proves that the request tried to use the datab
 
 Request examples are only in the `example` of each parameter, never in description text. `bun run api:conformance`, which the origin smoke run calls, sends them through Schemathesis. It fails unless every operation answers 2xx. So an example must exist in the 100-poem sample, and in the full dump. The same run then calls `bun run api:fuzz`, which sends generated input to every operation. So each parameter's schema must state the bounds that its parser checks (for example, the `minimum` and `maximum` of a page).
 
+Before a pull request that changes the API, run three checks that CI leaves out because they are slow or need judgment (`scripts/AGENTS.md`, "api/"):
+
+- `bun run api:fuzz --max-examples=1000`: the deep fuzz pass.
+- `bun run api:breaking`: the breaking changes in the OpenAPI document since `origin/main`.
+- `bun run api:mutants`: the edits to the changed code that no test catches.
+
 Tests check what a caller sees (responses, rows, pages), not how the code produces it. There is one exception: the two SQL-shape tests in `db/poems.rs`. They require `= $n` for one id and `= ANY` for several, because that shape is the planner requirement in `docs/exceptions.md`.
 
 ## Everything else
