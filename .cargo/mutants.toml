@@ -1,0 +1,5 @@
+exclude_globs = ["apps/api/src/main.rs", "apps/api/src/bin/**"]
+exclude_re = ["replace (serve|shutdown_signal)\\b"]
+timeout_multiplier = 3.0
+profile = "mutants"
+gitignore = true

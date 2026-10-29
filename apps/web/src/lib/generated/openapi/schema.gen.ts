@@ -2017,10 +2017,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string, 30 verses a page. Minimum 1.
+                 * @description Page number as a 1-based integer, 30 verses a page. Minimum 1.
                  * @example 1
                  */
-                page?: string;
+                page?: number;
             };
             header?: never;
             path: {
@@ -2611,10 +2611,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string, 30 poems a page. Minimum 1.
+                 * @description Page number as a 1-based integer, 30 poems a page. Minimum 1.
                  * @example 1
                  */
-                page?: string;
+                page?: number;
                 /**
                  * @description Filter by poet. Repeatable. Values are `slug` from GET /poets.
                  * @example [
@@ -3113,10 +3113,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
+                 * @description Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.
                  * @example 1
                  */
-                page?: string;
+                page?: number;
             };
             header?: never;
             path?: never;
@@ -3365,10 +3365,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
+                 * @description Page number as a 1-based integer, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
                  * @example 1
                  */
-                page?: string;
+                page?: number;
                 /**
                  * @description Narrow to the poets of one era. A single `slug` from GET /eras: unlike `GET /poems`, this filter takes one value.
                  * @example jahili
@@ -3486,10 +3486,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.
+                 * @description Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.
                  * @example 1
                  */
-                page?: string;
+                page?: number;
             };
             header?: never;
             path?: never;
@@ -3981,15 +3981,15 @@ export interface operations {
                  */
                 types?: components["schemas"]["SearchTypeParam"][];
                 /**
-                 * @description Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+                 * @description Page of the poems section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
                  * @example 1
                  */
-                poemsPage?: string;
+                poemsPage?: number;
                 /**
-                 * @description Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+                 * @description Page of the poets section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
                  * @example 1
                  */
-                poetsPage?: string;
+                poetsPage?: number;
                 /**
                  * @description Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
                  * @example [

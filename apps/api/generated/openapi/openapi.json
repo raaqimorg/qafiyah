@@ -2,14 +2,14 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Qafiyah API",
-    "description": "Public, read-only REST API for Qafiyah, an open catalog of Arabic poetry from the pre-Islamic era to the present: poems with their full verse text, poets, and the eras, meters, rhymes, themes, verse forms, and collections that classify them, with full-text search over poems and poets.\n\nConventions:\n- Every endpoint is GET. Responses are JSON, except `GET /poems/random`, which answers in plain text.\n- No key is needed. Without one, a caller gets 60 requests an hour per address (an IPv6 /64 counts as one address, and its /48 shares ten times that). A free key from https://qafiyah.com/developers, sent in the `x-api-key` header, gives 500 an hour and 10 a second, and at most 1,500 an hour from any one address. A key the API does not recognize counts as no key, so check `x-ratelimit-limit` after adding one.\n- Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.\n- Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.\n- `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.\n- To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.\n- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.\n- JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.\n- Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.\n\nThe data is dedicated to the public domain under CC0 1.0. The API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
+    "description": "Public, read-only REST API for Qafiyah, an open catalog of Arabic poetry from the pre-Islamic era to the present: poems with their full verse text, poets, and the eras, meters, rhymes, themes, verse forms, and collections that classify them, with full-text search over poems and poets.\n\nConventions:\n- Every endpoint is GET. Responses are JSON, except `GET /poems/random`, which answers in plain text.\n- No key is needed. Without one, a caller gets 60 requests an hour per address (an IPv6 /64 counts as one address, and its /48 shares ten times that). A free key from https://qafiyah.com/developers, sent in the `x-api-key` header, gives 500 an hour and 10 a second, and at most 1,500 an hour from any one address. A key the API does not recognize counts as no key, so check `x-ratelimit-limit` after adding one.\n- Every rate-limited response, errors included, carries `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` (Unix seconds). Past the limit the answer is 429 with `Retry-After`. When the API is briefly overloaded or a backing store does not answer in time, it is 503 with `Retry-After`.\n- Poems and poets are addressed by four-letter, case-sensitive slugs (`gnNg`, `PAKT`), and eras, meters, rhymes, themes, verse forms, and collections by lowercase transliterated slugs (`jahili`, `altawil`). Take them from list responses.\n- `GET /poems`, `GET /poems/slugs`, `GET /poets`, and `GET /poets/slugs` page with a 1-based `page` and return a `pagination` block. `GET /search` pages its two sections with `poemsPage` and `poetsPage`. The taxonomy lists return every term at once.\n- To select several values of one filter, repeat the parameter once per value. `GET /poets` takes a single `era`.\n- Unknown query parameters are refused with 400, and every 400's `detail` names the parameter at fault, so a misspelled filter fails instead of returning unfiltered results.\n- JSON responses carry an `ETag`. Send it back in `If-None-Match` to get 304 Not Modified while the data is unchanged.\n- Errors are RFC 9457 problem details served as `application/problem+json`, with a stable `code`.\n\nThe API's code is MIT licensed: https://github.com/raaqimorg/qafiyah",
     "contact": {
       "name": "Qafiyah",
       "url": "https://qafiyah.com"
     },
     "license": {
-      "name": "CC0 1.0 (data)",
-      "identifier": "CC0-1.0"
+      "name": "MIT",
+      "identifier": "MIT"
     },
     "version": "1.0.0"
   },
@@ -1412,13 +1412,14 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 verses a page. Minimum 1.",
+            "description": "Page number as a 1-based integer, 30 verses a page. Minimum 1.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 4294967295,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           }
         ],
         "responses": {
@@ -2576,13 +2577,14 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 poems a page. Minimum 1.",
+            "description": "Page number as a 1-based integer, 30 poems a page. Minimum 1.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 4294967295,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           },
           {
             "name": "poet",
@@ -3597,13 +3599,14 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.",
+            "description": "Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 4294967295,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           }
         ],
         "responses": {
@@ -4096,13 +4099,14 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.",
+            "description": "Page number as a 1-based integer, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 1666,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           },
           {
             "name": "era",
@@ -4339,13 +4343,14 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Page number as a 1-based integer string, 45,000 slugs a page. Minimum 1.",
+            "description": "Page number as a 1-based integer, 45,000 slugs a page. Minimum 1.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 4294967295,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           }
         ],
         "responses": {
@@ -5321,24 +5326,26 @@
           {
             "name": "poemsPage",
             "in": "query",
-            "description": "Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
+            "description": "Page of the poems section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           },
           {
             "name": "poetsPage",
             "in": "query",
-            "description": "Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
+            "description": "Page of the poets section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1
             },
-            "example": "1"
+            "example": 1
           },
           {
             "name": "poetSlugs",

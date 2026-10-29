@@ -48,6 +48,10 @@ allow_attributes_without_reason = "deny"
 [profile.dev]
 debug = "line-tables-only"
 
+[profile.mutants]
+inherits = "test"
+debug = "none"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

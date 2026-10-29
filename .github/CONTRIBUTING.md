@@ -58,7 +58,4 @@ For details and limits, see [`docs/development.md`](../docs/development.md) ("Co
 
 ## License
 
-By contributing, you agree to these terms:
-
-- Your code and documentation contributions are licensed under the project's [MIT license](../LICENSE).
-- Your data contributions (poems, poets, and corrections to them) are dedicated to the public domain under [CC0 1.0](../data/LICENSE).
+By contributing, you agree that your code and documentation contributions are licensed under the project's [MIT license](../LICENSE).

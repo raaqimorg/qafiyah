@@ -39,11 +39,11 @@ pub(crate) struct SearchParams {
     /// Sections to include: `poems`, `poets`, or both, which is the default. Repeat it to send both. Send `types=poems` alone to use any poem-only filter.
     #[param(example = json!(["poems"]))]
     types: Option<Vec<SearchTypeParam>>,
-    /// Page of the poems section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-    #[param(inline, example = "1")]
+    /// Page of the poems section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+    #[param(inline, example = 1)]
     poems_page: Option<Page<{ SEARCH_POEMS_MAX_PAGE }>>,
-    /// Page of the poets section as a 1-based integer string, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-    #[param(inline, example = "1")]
+    /// Page of the poets section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
+    #[param(inline, example = 1)]
     poets_page: Option<Page<{ SEARCH_POETS_MAX_PAGE }>>,
     /// Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
     #[serde(default)]

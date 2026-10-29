@@ -21,7 +21,7 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
 | `well-known/` | renders the `well-known/*` templates into the web app's generated module                                    | `well-known:generate*`                                                                                               |
 | `secrets/`    | the SOPS and age wrappers, and the secrets schema (`schema.ts` is the single list of allowed keys)          | `secrets:*`                                                                                                          |
 | `smoke/`      | black-box HTTP probes against a dev or prod stack (see below)                                               | `smoke:dev`, `smoke:prod`                                                                                            |
-| `api/`        | the Schemathesis conformance run, and the comparison of two API builds (see below)                          | `api:conformance`, `api:compare`                                                                                     |
+| `api/`        | the Schemathesis runs, the breaking-change and mutation checks, and the comparison of two API builds        | `api:conformance`, `api:fuzz`, `api:breaking`, `api:mutants`, `api:compare`                                          |
 | `deploy/`     | the VPS deploy, and the image build for each service that the Images workflow uses                          | `deploy`, `build:images`                                                                                             |
 | `ci/`         | phase selection for `ci.ts` (`--phase`, `--no-docker`, `--docker-only`)                                     | `ci`                                                                                                                 |
 | `accounts/`   | the accounts-database backup, and the systemd timer that runs it on the VPS                                 | none (a systemd timer, see `docs/deployment/services.md`)                                                            |
@@ -50,13 +50,20 @@ This directory holds the repo tooling and the CI checks: Bun and TypeScript, wit
 
   Compose mounts most of these scripts, or the `dev/` scripts and the `local-db-edit` skill call them. `data/db/MAINTAINERS_GUIDE.md` documents the dump scripts.
 
-- `docs/` exports `docs/architecture/workspace.dsl` with Structurizr, and renders it with PlantUML into `docs/architecture/generated/structurizr/`. `diagrams.ts` pins both images. `diagram-files.ts` holds the rules for names, headers, and stale files.
+- `docs/` exports `docs/architecture/workspace.dsl` with Structurizr, and renders it with PlantUML into `docs/architecture/generated/structurizr/`. `diagrams.ts` pins both images. `diagram-files.ts` holds the rules for names, headers, and stale files. CI does not run `docs:diagrams:check`. Run it after you change `docs/architecture/` or `scripts/docs/`.
 - `smoke/` probes a dev or prod stack from outside.
   - A run that starts or reuses its own server sends three searches first. So the warm-up of Elasticsearch after a restart does not count against the probes.
   - Every real poem or poet that a probe names comes from `smoke/fixtures.ts`, which the fallback sample is built from. The `llms.txt` link probes use the examples in the API docs, and `fixtures.test.ts` keeps those in the sample.
   - On the stack surface, `observability.ts` also checks the Prometheus and Grafana chain from end to end.
-- `api/` holds two tools:
+- `api/` holds these tools:
   - `conformance.ts` runs Schemathesis in Docker (its image is pinned there, and its settings are in `schemathesis.toml`). It sends the documented examples to every OpenAPI operation. It fails unless each one answers 2xx and matches the spec.
+  - `conformance.ts --fuzz` (`bun run api:fuzz`) runs Schemathesis against the dev API only, with the settings in `schemathesis-fuzz.toml`.
+    - It runs the examples, coverage, and fuzzing phases, with valid and invalid input, and every check except `ignored_auth` (a key is optional).
+    - Invalid input must answer 4xx. Valid input must answer 2xx, or 404 for a slug that does not exist. `/search` may also answer 400, because some filters need `types=poems`, which OpenAPI cannot express.
+    - The seed is fixed (`--seed=<n>` changes it). The default is 100 examples for each operation, about 30 seconds on the sample. `--max-examples=1000` runs a deeper pass, about 7 minutes.
+  - `breaking.ts` (`bun run api:breaking`) compares the committed OpenAPI document with the one at `origin/main` (`--base=<ref>` changes it), through oasdiff in Docker (its image is pinned there). It lists every breaking change and fails if there is one. A deliberate break, or a bound that the API already checked, is fine. Say so in the pull request. It takes a few seconds.
+  - `mutants.ts` (`bun run api:mutants`) runs cargo-mutants on the API (`cargo install cargo-mutants --locked`). It changes the code that differs from `origin/main` one small edit at a time (`--base=<ref>`, or `--all` for every line; arguments after `--` go to cargo-mutants, such as `--all -- --file apps/api/src/accounts/keys.rs`), and runs the tests, the database tests too, after each edit. An edit that no test fails on is `MISSED` in `reports/mutants/mutants.out/missed.txt`: add a test, or say why it does not matter. It takes minutes for a small change, and hours with `--all`. `.cargo/mutants.toml` skips the startup code (`main.rs`, `src/bin/`, `serve`, `shutdown_signal`) that no test can reach, stops a test run at 3 times the clean run's time, and builds with the `mutants` profile (no debug info) for faster builds, and copies only the files that git tracks. With `--all` it tests 4 edits at a time: each one builds its own copy first, so a small run stays at one.
+  - CI runs only the short fuzz pass, to stay short. Run the deep fuzz pass, `api:breaking`, and `api:mutants` before a pull request that changes the API.
   - `compare.ts` compares two running API builds across every endpoint, byte for byte and by latency. It is for refactors such as #138.
 - `corpus/` reads the dev database, and writes under `reports/`, which git ignores.
   - The classical-form validation: `export-corpus.sh`, `verify-classical.ts`, and `apply-verdicts.ts`.

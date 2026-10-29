@@ -439,6 +439,14 @@ pub fn sweeper(limiter: Arc<Limiter>) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn usage_is_counted_by_the_whole_hours_since_the_epoch() {
+        assert_eq!(hour_of(0), 0);
+        assert_eq!(hour_of(SECONDS_PER_HOUR - 1), 0);
+        assert_eq!(hour_of(SECONDS_PER_HOUR), 1);
+        assert_eq!(hour_of(SECONDS_PER_HOUR * 500_000 + 7), 500_000);
+    }
+
     const HOUR: i64 = 3_600;
 
     fn ip(last: u8) -> Bucket {

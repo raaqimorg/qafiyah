@@ -24,8 +24,8 @@ use crate::state::AppState;
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub(crate) struct PoetsParams {
-    /// Page number as a 1-based integer string, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
-    #[param(inline, example = "1")]
+    /// Page number as a 1-based integer, 30 poets a page. Minimum 1, maximum 1666: Elasticsearch stops paging after 50,000 results.
+    #[param(inline, example = 1)]
     page: Option<Page<{ LIST_POETS_MAX_PAGE }>>,
     /// Narrow to the poets of one era. A single `slug` from GET /eras: unlike `GET /poems`, this filter takes one value.
     #[param(inline, example = "jahili")]

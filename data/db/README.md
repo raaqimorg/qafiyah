@@ -4,7 +4,7 @@ These are PostgreSQL custom-format (`pg_dump -Fc`) snapshots of the `public` sch
 
 ## Where they are
 
-The dumps live in the private R2 bucket `qafiyah-data`, under `db/`, not in git. They are dedicated to the public domain under [CC0 1.0](../LICENSE). `../README.md` says how to download a dump.
+The dumps live in the private R2 bucket `qafiyah-data`, under `db/`, not in git. `../README.md` says how to download a dump.
 
 Without a bucket token, there are two options:
 

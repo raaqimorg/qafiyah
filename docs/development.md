@@ -111,12 +111,12 @@ bun run rust:test         # cargo test on the workspace
 bun run rust:test:db      # the database-backed API and indexer tests against the dev stack (needs Docker)
 bun run smoke:dev         # black-box HTTP probes against a dev server that the run manages
 bun run docs:diagrams     # render docs/architecture/workspace.dsl to the C4 SVGs (needs Docker); docs:diagrams:check compares them
-bun run ci                # the full gate; --no-docker skips the diagram, db, and smoke phases, --docker-only runs only those
+bun run ci                # the full gate; --no-docker skips the db and smoke phases, --docker-only runs only those
 ```
 
 The "Static checks" section of `docs/exceptions.md` explains the deliberate, non-obvious behavior of the static checks.
 
-`smoke:dev` ends with `bun run api:conformance`. This sends every documented API example to the dev API through Schemathesis in Docker.
+`smoke:dev` ends with `bun run api:conformance` and `bun run api:fuzz`. The first sends every documented API example to the dev API through Schemathesis in Docker. The second sends it generated input, valid and invalid (`scripts/AGENTS.md`, "api/").
 
 The smoke runs leave your dev environment as they found it:
 
@@ -126,15 +126,15 @@ The smoke runs leave your dev environment as they found it:
 
 `rust:test:db` starts the dev Postgres and Elasticsearch, and runs the one-shot indexer. It then runs `apps/api/tests/db.rs` and the indexer's tests, with the same connection strings that `bun run dev` uses. Without the `QAFIYAH_TEST_*` variables, the database-backed tests skip themselves. That is why plain `cargo test` needs no infrastructure. The API under test keeps its 5 second statement timeout. The harness's own checks, some of which scan the whole corpus, run on a separate pool with 60 seconds (#233).
 
-Run `bun run ci` before you open a pull request, because it is the full gate. GitHub Actions runs the same gate, and skips a Docker phase when the change touches nothing that the phase uses (`docs/topology.md`, "CI/CD topology"). If Docker is not available, `bun run ci --no-docker` skips the Docker steps: the diagram check, the database-backed tests, and both smoke runs. `bun run ci --docker-only` runs only those steps. The stack smoke builds the three images through `compose up --build`, so a full run also proves that every image builds.
+Run `bun run ci` before you open a pull request, because it is the full gate. GitHub Actions runs the same gate, and skips a Docker phase when the change touches nothing that the phase uses (`docs/topology.md`, "CI/CD topology"). If Docker is not available, `bun run ci --no-docker` skips the Docker steps: the database-backed tests and both smoke runs. `bun run ci --docker-only` runs only those steps. The stack smoke builds the three images through `compose up --build`, so a full run also proves that every image builds.
 
 ## Committing
 
 Commit messages follow `docs/pull-requests.md`: one subject line, and nothing else.
 
 - The pre-commit hook (`.husky/pre-commit`) runs lint-staged on the staged files only, in about a second. It runs oxlint, oxfmt, prettier for `.astro` files, rustfmt, and ShellCheck, as the `lint-staged` block in `package.json` sets.
-- The pre-push hook (`.husky/pre-push`) runs `bun run ci --no-docker`, usually in less than a minute.
-- GitHub Actions runs the gate on every push and pull request to `main` or a version branch. It runs each Docker phase only when the change touches what that phase uses.
+- The pre-push hook (`.husky/pre-push`) runs the `static` and `checks` phases of `bun run ci` (lint, format, types, and repo checks), in about 20 seconds. GitHub Actions runs the full gate, with the tests.
+- GitHub Actions runs the gate on every push and pull request to `main` or a version branch. It runs each Docker phase only when the change touches what that phase uses. The `stack` phase runs only for `main`, so on the release pull request.
 - `bun run deploy` refuses a commit whose CI run did not pass. A skipped phase is not a failure. After a release, it accepts the release pull request's passed run, because `main` then has exactly the same files.
 - The Docker jobs keep image layers in the GitHub Actions cache (`docker-compose.ci.yml`, which `scripts/dev/compose.sh` adds when `COMPOSE_CI_FILE` is set). So a job rebuilds only the images whose files changed. The runs on version branches fill the cache that pull requests into them read.
 - If you already ran the gate, `HUSKY=0 git commit ...` or `HUSKY=0 git push ...` skips the hook.

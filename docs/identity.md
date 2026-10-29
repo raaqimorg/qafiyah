@@ -30,7 +30,7 @@ review and improve.
 
 ## License
 
-The code and the documentation are under the [MIT](../LICENSE) license. The data is in the public domain, under [CC0 1.0](../data/LICENSE).
+The code and the documentation are under the [MIT](../LICENSE) license.
 
 ## Links
 

@@ -23,6 +23,7 @@ Closes #
 - [ ] The linked issue covers the impact, root cause, proposed fix, reasoning, and trade-offs. For a larger change, the maintainers agreed on the approach there.
 - [ ] This PR does one thing.
 - [ ] `bun run ci` passes locally (CI runs the same gate).
+- [ ] For an API change: `bun run api:breaking`, `bun run api:mutants`, and `bun run api:fuzz --max-examples=1000` pass, or the notes explain each finding.
 - [ ] The commit messages follow [`docs/pull-requests.md`](../docs/pull-requests.md).
 - [ ] The changed code follows the conventions in [`docs/`](../docs).
 - [ ] The docs that describe what changed are updated, if any.

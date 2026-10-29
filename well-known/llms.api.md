@@ -21,7 +21,7 @@ Base URL: {BASE}
 - JSON responses carry an `ETag`. Send it back as `If-None-Match` to get a 304.
 - Errors are `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `code`, `instance`, and `detail`.
 - Lists and counts hold primary readings only. A poem known in several readings (recensions) is listed once, and each reading links the others.
-- The data is public domain (CC0 1.0) and the code is MIT.
+- The code is MIT.
 
 ## Poems
 
@@ -67,4 +67,4 @@ Each list returns every term with its counts. Each item takes the term's slug.
 ## Links
 
 - [Website]({SITE})
-- [Source code]({BASE}/go/github): MIT-licensed code and CC0 data, on GitHub
+- [Source code]({BASE}/go/github): MIT-licensed code, on GitHub
