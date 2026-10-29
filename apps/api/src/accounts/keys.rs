@@ -140,6 +140,20 @@ mod tests {
     }
 
     #[test]
+    fn generated_keys_draw_on_every_character_of_the_alphabet() {
+        let used: HashSet<char> = (0..200)
+            .flat_map(|_| {
+                generate()
+                    .value
+                    .chars()
+                    .skip(API_KEY_PREFIX.len())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        assert_eq!(used.len(), ALPHABET.len());
+    }
+
+    #[test]
     fn the_prefix_is_the_leading_slice_of_the_raw_key() {
         let key = generate();
         assert_eq!(
