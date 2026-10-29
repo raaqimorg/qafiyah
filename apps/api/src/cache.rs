@@ -125,6 +125,37 @@ mod tests {
         assert!(!if_none_match_satisfied(Some(""), &etag));
     }
 
+    #[tokio::test]
+    async fn a_json_body_of_several_megabytes_is_passed_through_whole() {
+        use axum::Router;
+        use axum::middleware::from_fn;
+        use axum::routing::get;
+        use tower::ServiceExt;
+
+        let large = format!("[\"{}\"]", "a".repeat(8 * 1024 * 1024));
+        let expected = large.len();
+        let app = Router::new()
+            .route(
+                "/",
+                get(move || async move { ([(header::CONTENT_TYPE, JSON)], large) }),
+            )
+            .layer(from_fn(layer));
+        let response = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/")
+                    .body(Body::empty())
+                    .expect("a request"),
+            )
+            .await
+            .expect("a response");
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("a body");
+        assert_eq!(bytes.len(), expected);
+    }
+
     #[test]
     fn if_none_match_never_panics_on_arbitrary_input() {
         let mut rng = crate::test_support::Rng::new(4);

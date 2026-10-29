@@ -5,7 +5,7 @@ use axum::extract::ConnectInfo;
 use axum::http::{HeaderValue, Request, StatusCode};
 
 use crate::auth::Keys;
-use crate::constants::VISITOR_REQUESTS;
+use crate::constants::{VISITOR_REQUESTS, WINDOW_SECONDS};
 use crate::http_tests::empty_hits;
 use crate::rate_limit::McpLimits;
 use crate::state::AppState;
@@ -53,7 +53,22 @@ async fn anonymous_callers_are_counted_per_address_and_refused_at_the_ceiling() 
     assert_eq!(first.status, StatusCode::OK);
     assert_eq!(first.header("x-ratelimit-limit"), Some("2"));
     assert_eq!(first.header("x-ratelimit-remaining"), Some("1"));
-    assert!(first.header("x-ratelimit-reset").is_some());
+    let reset: i64 = first
+        .header("x-ratelimit-reset")
+        .expect("x-ratelimit-reset")
+        .parse()
+        .expect("seconds");
+    let now = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("after the epoch")
+            .as_secs(),
+    )
+    .expect("fits i64");
+    assert!(
+        reset > now && reset <= now.saturating_add(WINDOW_SECONDS),
+        "the reset is within one window of now: {reset} against {now}"
+    );
     let second = send(app.clone(), from("/v1/openapi.json", "203.0.113.1", None)).await;
     assert_eq!(second.header("x-ratelimit-remaining"), Some("0"));
     let third = send(app.clone(), from("/v1/openapi.json", "203.0.113.1", None)).await;

@@ -598,3 +598,23 @@ async fn parallel_key_creations_for_one_user_never_pass_the_cap() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn an_accounts_connection_carries_the_statement_and_lock_timeouts() {
+    let Some(h) = harness().await else { return };
+    let mut conn = h.accounts.get().await.expect("an accounts connection");
+    let settings = diesel::sql_query(
+        "SELECT current_setting('statement_timeout') || ' ' || current_setting('lock_timeout') AS value",
+    )
+    .get_result::<crate::TextRow>(&mut conn)
+    .await
+    .expect("the settings");
+    assert_eq!(
+        settings.value,
+        format!(
+            "{}s {}s",
+            qafiyah_api::constants::PG_STATEMENT_TIMEOUT_SECONDS,
+            qafiyah_api::constants::PG_LOCK_TIMEOUT_SECONDS
+        )
+    );
+}

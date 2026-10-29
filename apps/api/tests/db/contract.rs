@@ -440,6 +440,25 @@ async fn a_poets_facets_partition_its_poems_and_narrow_under_each_other() {
         i64::try_from(matching).expect("fits i64")
     );
 
+    for (param, kind) in [("rhyme", "rhymes"), ("theme", "themes")] {
+        let last = facets[kind]
+            .as_array()
+            .and_then(|list| list.last())
+            .expect(kind)
+            .clone();
+        let slug = last["slug"].as_str().expect("slug");
+        let narrowed = h
+            .get(&format!("/v1/poems/facets?poet={poet}&{param}={slug}"))
+            .await
+            .json()["data"]
+            .clone();
+        assert_eq!(
+            facet_total(&narrowed["meters"]),
+            last["poemsCount"].as_i64().expect("poemsCount"),
+            "{param}={slug} narrows the meters"
+        );
+    }
+
     let unused: Option<String> = h
         .text(
             "SELECT m.slug AS value FROM public.meters m WHERE NOT EXISTS \
@@ -484,6 +503,11 @@ async fn the_poet_slug_stream_leaves_out_poets_without_a_primary_poem() {
     assert_eq!(
         total_items(&stream),
         u64::try_from(with_poems).expect("fits u64")
+    );
+    assert_eq!(
+        stream["data"].as_array().expect("slugs").len(),
+        usize::try_from(with_poems).expect("fits usize"),
+        "the first page lists every poet with poems"
     );
     let empty: Option<String> = h
         .text(

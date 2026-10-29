@@ -225,6 +225,14 @@ mod tests {
     }
 
     #[test]
+    fn a_mark_that_opens_after_a_closed_one_is_carried_into_the_next_half() {
+        assert_eq!(
+            balanced_rows("<mark>a</mark> b <mark>c*d</mark> e"),
+            ["<mark>a</mark> b <mark>c</mark>*<mark>d</mark> e"]
+        );
+    }
+
+    #[test]
     fn measures_a_span_in_utf16_code_units() {
         assert_eq!(longest_mark_span(Some(&"<mark>ab</mark>")), 2);
         assert_eq!(longest_mark_span(Some(&"<mark>عربي</mark>")), 4);
