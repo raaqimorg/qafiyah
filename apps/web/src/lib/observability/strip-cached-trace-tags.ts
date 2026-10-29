@@ -14,7 +14,7 @@ export const stripCachedTraceTags = (async (_context, next) => {
   const html = await response.text();
   const headers = new Headers(response.headers);
   headers.delete('content-length');
-  return new Response(html.replace(TRACE_META_TAGS, ''), {
+  return new Response(html.replaceAll(TRACE_META_TAGS, ''), {
     status: response.status,
     statusText: response.statusText,
     headers,

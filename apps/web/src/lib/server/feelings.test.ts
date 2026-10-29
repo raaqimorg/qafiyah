@@ -31,7 +31,7 @@ describe('feelingVerses', () => {
     get.mockResolvedValue(ok({ data: [], pagination: PAGINATION }));
     expect(await feelingVerses('alhuzn', 1)).toEqual({ verses: [], pagination: PAGINATION });
     expect(get).toHaveBeenCalledWith('/feelings/{slug}/verses', {
-      params: { path: { slug: 'alhuzn' }, query: { page: '1' } },
+      params: { path: { slug: 'alhuzn' }, query: { page: 1 } },
     });
   });
 

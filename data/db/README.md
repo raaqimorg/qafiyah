@@ -4,12 +4,12 @@ These are PostgreSQL custom-format (`pg_dump -Fc`) snapshots of the `public` sch
 
 ## Where they are
 
-The dumps live in the private R2 bucket `qafiyah-data`, under `db/`, not in git. They are public, and dedicated to the public domain under [CC0 1.0](../LICENSE). `../README.md` says how to get a read-only token, and how to download a dump.
+The dumps live in the private R2 bucket `qafiyah-data`, under `db/`, not in git. `../README.md` says how to download a dump.
 
-If you do not want to wait for a token, there are two options:
+Without a bucket token, there are two options:
 
 - `data/db/0000_default/` is committed, and needs no token (see "Fallback sample dataset" below).
-- The read-only public API at <https://api.qafiyah.com/v1/docs> serves the same corpus, with none of these steps.
+- The free public API at <https://api.qafiyah.com/v1/docs> serves the same corpus.
 
 ## Directory naming
 
@@ -30,7 +30,15 @@ The selection is fixed, not random, so the smoke tests pass without a token:
 
 `manifest.json` next to the dump lists what it holds. `scripts/smoke/fixtures.test.ts` fails if the sample is missing a fixture, or if a probe writes a real slug directly instead of using the fixtures.
 
-After you change the fixtures, generate both files again with `scripts/db/create-fallback-dump.sh`. It restores the newest local dump into a scratch Postgres, which takes about seven minutes.
+The sample is frozen. A new dump that only adds, changes, or deletes rows does not change it. `manifest.json` names the dump that it came from (`source`), which can be older than the newest dump. Generate it again only in these cases:
+
+- A dump changes the schema: it adds, removes, or renames a table or a column, or changes the type of a column.
+- The fixtures in `scripts/smoke/fixtures.ts` change.
+- A maintainer decides to refresh it.
+
+CI restores the sample and runs the tests against it. So if code needs a table or a column that the sample does not have, CI fails, and that is the sign to generate it again.
+
+To generate both files again, run `scripts/db/create-fallback-dump.sh`. It restores the newest local dump into a scratch Postgres, which takes about seven minutes.
 
 ## Requirements
 

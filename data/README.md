@@ -14,13 +14,11 @@ All three use the same layout, in the bucket and on disk: `{category}/{sequence}
 - A bucket lock keeps every snapshot under `db/`, `avatars/`, and `feelings/` forever. No token can delete or overwrite one, not even the maintainer's.
 - The bucket has no public URL.
 
-Everything here is public, and dedicated to the public domain under [CC0 1.0](LICENSE). This is different from the code in the rest of the repo, which is under MIT. The bucket is private so that the maintainers know where each copy went. If a record must come out, for any reason, they can then reach each person who holds a copy.
+## Access
 
-## Get access
+The bucket is for the maintainers. To use the data, use the free public API at <https://api.qafiyah.com/v1/docs>. If you need a higher limit, write to api@qafiyah.com, and we raise it for free.
 
-Email dumps@qafiyah.com for `db/` or `feelings/`, or avatars@qafiyah.com for `avatars/`. Say what you need it for: your own use, or a contribution that you plan. You get a read-only token at once. There is no vetting, and nobody has to qualify.
-
-A token gives four values: `DATA_R2_ENDPOINT`, `DATA_BUCKET`, `DATA_R2_ACCESS_KEY_ID`, and `DATA_R2_SECRET_ACCESS_KEY`.
+A bucket token gives four values: `DATA_R2_ENDPOINT`, `DATA_BUCKET`, `DATA_R2_ACCESS_KEY_ID`, and `DATA_R2_SECRET_ACCESS_KEY`.
 
 ## Download
 
@@ -33,18 +31,6 @@ bun run data:pull avatars/0001_09_10_2026      # one avatar snapshot
 ```
 
 It checks `SHA256SUMS` after each download. `bun run dev --dump <folder>` and `bun run db:reset --dump <folder>` run the second command for you.
-
-Without a clone, use [rclone](https://rclone.org), then check the files:
-
-```bash
-export RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare RCLONE_CONFIG_R2_REGION=auto
-export RCLONE_CONFIG_R2_ENDPOINT="<DATA_R2_ENDPOINT>"
-export RCLONE_CONFIG_R2_ACCESS_KEY_ID="<DATA_R2_ACCESS_KEY_ID>"
-export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="<DATA_R2_SECRET_ACCESS_KEY>"
-rclone lsf r2:qafiyah-data/db/                 # list the dumps
-rclone copy r2:qafiyah-data/db/0046_15_10_2026 0046_15_10_2026
-cd 0046_15_10_2026 && sha256sum -c SHA256SUMS
-```
 
 ## Upload (maintainers)
 

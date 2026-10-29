@@ -23,14 +23,6 @@ export function githubUrl(): string {
   return `${API_URL}${API_V1_PREFIX}/go/github`;
 }
 
-export function dbDumpsUrl(): string {
-  return `${API_URL}${API_V1_PREFIX}/go/db`;
-}
-
-export function avatarsUrl(): string {
-  return `${API_URL}${API_V1_PREFIX}/go/avatars`;
-}
-
 export function raaqimUrl(): string {
   return `${API_URL}${API_V1_PREFIX}/go/raaqim`;
 }

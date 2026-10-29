@@ -129,3 +129,24 @@ async fn the_length_limit_counts_the_query_as_sent() {
     .await;
     assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
 }
+
+#[tokio::test]
+async fn the_poets_section_keeps_its_page_era_and_exact_flag() {
+    let es = FakeEs::serving(StatusCode::OK, one_poem_and_one_poet()).await;
+    let sent = send(
+        app_with(&es),
+        request(
+            "GET",
+            "/v1/search?q=x&types=poets&poetsPage=3&eraSlugs=abbasi&exact=true",
+        ),
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.body);
+    let asked = es.requests().await;
+    assert_eq!(asked[0].0, "poets");
+    assert_eq!(asked[0].1["from"], 40);
+    assert_eq!(asked[0].1["size"], 20);
+    let query = &asked[0].1["query"]["bool"];
+    assert_eq!(query["must"][0]["multi_match"]["type"], "phrase");
+    assert_eq!(query["filter"][0]["terms"]["eraSlug"], json!(["abbasi"]));
+}

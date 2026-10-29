@@ -24,10 +24,19 @@ export function buildRandomPoemUrl(baseUrl: string, option: RandomPoemOption): s
   return `${baseUrl}${API_RANDOM_POEM_PATH}?option=${option}`;
 }
 
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(
+    () => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
+    ms
+  );
+  return controller.signal;
+}
+
 export async function fetchRandomPoemText(
   baseUrl: string,
   option: RandomPoemOption,
-  signal: AbortSignal = AbortSignal.timeout(RANDOM_POEM_TIMEOUT_MS),
+  signal: AbortSignal = timeoutSignal(RANDOM_POEM_TIMEOUT_MS),
   headers?: Readonly<Record<string, string>>
 ): Promise<Result<string, RandomPoemTransportError>> {
   const url = buildRandomPoemUrl(baseUrl, option);
@@ -119,9 +128,9 @@ export async function fetchRandomPoemSlugWithRetry(
   } = options;
 
   const startedAt = Date.now();
-  const deadline = AbortSignal.timeout(totalBudgetMs);
+  const deadline = timeoutSignal(totalBudgetMs);
   const attemptSignal = () =>
-    AbortSignal.timeout(
+    timeoutSignal(
       Math.max(0, Math.min(attemptTimeoutMs, totalBudgetMs - (Date.now() - startedAt)))
     );
 

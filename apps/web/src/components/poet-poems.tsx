@@ -59,7 +59,7 @@ async function fetchPoems(slug: string, { filters, page }: PoetListState): Promi
         meter: [...filters.meter],
         rhyme: [...filters.rhyme],
         theme: [...filters.theme],
-        page: String(page),
+        page,
       },
     },
   });

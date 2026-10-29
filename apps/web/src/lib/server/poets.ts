@@ -19,7 +19,7 @@ export async function getPoetsPage(
     apiServer.GET('/poets', {
       params: {
         query: {
-          page: String(page),
+          page,
           ...(opts?.era !== undefined && opts.era !== '' ? { era: opts.era } : {}),
           ...(opts?.q !== undefined && opts.q !== '' ? { q: opts.q } : {}),
         },
@@ -40,7 +40,7 @@ export async function getPoetSlugsPage(
   page: number
 ): Promise<{ slugs: readonly PoetSlugEntry[]; totalPages: number } | null> {
   const result = await safeCall(() =>
-    apiServer.GET('/poets/slugs', { params: { query: { page: String(page) } } })
+    apiServer.GET('/poets/slugs', { params: { query: { page } } })
   );
   if (result.data === undefined) {
     if (isNotFoundStatus(result.status)) return null;

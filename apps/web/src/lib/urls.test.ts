@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { serializePoetSearch } from './poet-search-params';
 import {
-  dbDumpsUrl,
   feelingUrl,
   githubUrl,
   poemUrl,
@@ -152,7 +151,6 @@ describe('go builders', () => {
   it('point at the versioned go endpoints on the API host', () => {
     expect(xProfileUrl()).toBe('https://api.qafiyah.com/v1/go/x');
     expect(githubUrl()).toBe('https://api.qafiyah.com/v1/go/github');
-    expect(dbDumpsUrl()).toBe('https://api.qafiyah.com/v1/go/db');
   });
 });
 

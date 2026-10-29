@@ -1,8 +1,6 @@
 use axum::http::StatusCode;
 
-use crate::constants::{
-    GITHUB_AVATARS_URL, GITHUB_DB_DUMPS_URL, GITHUB_URL, RAAQIM_URL, TELEGRAM_URL, X_PROFILE_URL,
-};
+use crate::constants::{GITHUB_URL, RAAQIM_URL, TELEGRAM_URL, X_PROFILE_URL};
 use crate::http_tests::{app_with, empty_hits};
 use crate::test_support::{FakeEs, request, send};
 
@@ -19,8 +17,6 @@ async fn every_fixed_go_link_is_an_uncached_redirect() {
         ("/v1/go/x", X_PROFILE_URL),
         ("/v1/go/telegram", TELEGRAM_URL),
         ("/v1/go/github", GITHUB_URL),
-        ("/v1/go/db", GITHUB_DB_DUMPS_URL),
-        ("/v1/go/avatars", GITHUB_AVATARS_URL),
         ("/v1/go/raaqim", RAAQIM_URL),
     ] {
         let sent = send(app_with(&es), request("GET", path)).await;

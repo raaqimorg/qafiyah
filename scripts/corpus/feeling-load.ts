@@ -17,7 +17,7 @@ export type FeelingRow = {
 
 export function cleanVerse(text: string): string {
   return text
-    .replace(MARKS, '')
+    .replaceAll(MARKS, '')
     .replaceAll('*', ' ')
     .split(/\s+/)
     .filter((word) => word !== '')

@@ -15,12 +15,10 @@
 <p align="center">
   <a href="https://qafiyah.com"><img alt="Live site" src="https://img.shields.io/website?url=https%3A%2F%2Fqafiyah.com&label=qafiyah.com"></a>
   <a href="https://api.qafiyah.com/v1/docs"><img alt="API docs" src="https://img.shields.io/badge/api-docs-green.svg"></a>
-  <a href="data/db"><img alt="Data snapshot 0046, 15 October 2026" src="https://img.shields.io/badge/data%20snapshot-0046%20(2026--10--15)-lightgrey.svg"></a>
   <a href="LICENSE"><img alt="Code: MIT" src="https://img.shields.io/badge/code-MIT-blue.svg"></a>
-  <a href="data/LICENSE"><img alt="Data: CC0 1.0" src="https://img.shields.io/badge/data-CC0%201.0-blue.svg"></a>
 </p>
 
-Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://qafiyah.com), you can search every verse for a word or a phrase. You can also browse by poet, meter, rhyme, era, and theme. The code, the data, a free JSON API, and an MCP server for AI assistants are all public, and [contributions are welcome](#contributing).
+Qafiyah is an open-source reference for Arabic poetry. At [qafiyah.com](https://qafiyah.com), you can search every verse for a word or a phrase. You can also browse by poet, meter, rhyme, era, and theme. The code, a free JSON API, and an MCP server for AI assistants are all public, and [contributions are welcome](#contributing).
 
 |   Poems |    Verses |  Poets | Meters | Rhymes | Eras | Themes | Collections |
 | ------: | --------: | -----: | -----: | -----: | ---: | -----: | ----------: |
@@ -67,7 +65,7 @@ The first run starts Postgres and Elasticsearch in Docker, restores a 100-poem s
 | -------- | -------------------------------------------------------------------------------- |
 | No key   | 60 requests per hour per address (an IPv6 /64 is one address)                    |
 | Free key | 500 requests per hour, at most 10 per second and 1,500 per hour from one address |
-| Higher   | write to [api@qafiyah.com](mailto:api@qafiyah.com)                               |
+| Higher   | free, write to [api@qafiyah.com](mailto:api@qafiyah.com)                         |
 
 To create a key, sign in with Google or GitHub on the [developers page](https://qafiyah.com/developers). Send the key in the `x-api-key` header. The API treats a key that it does not recognize as no key.
 
@@ -87,7 +85,7 @@ Each address can make 600 calls an hour. The [developers page](https://qafiyah.c
 
 Postgres is the source of truth. Elasticsearch is a search index that is rebuilt from it. Poet avatars come from Cloudflare R2 at `cdn.qafiyah.com`. Versioned snapshots live in a private R2 bucket: database dumps ([`data/db/`](data/db/README.md)), avatar archives ([`data/avatars/`](data/avatars/README.md)), and the verse feelings ([`data/feelings/`](data/feelings/README.md)).
 
-The 100-poem sample that `bun run dev` restores is in this repo. The full snapshots are free for anyone. To get a read-only token, email [dumps@qafiyah.com](mailto:dumps@qafiyah.com) or [avatars@qafiyah.com](mailto:avatars@qafiyah.com) and say what you plan to build. The token comes back quickly, with no vetting. The private bucket only lets us withdraw a record later, because we know where each copy went. For details, see [`data/README.md`](data/README.md).
+The 100-poem sample that `bun run dev` restores is in this repo. To use the full catalog, use the free [API](#api). If you need a higher limit, write to [api@qafiyah.com](mailto:api@qafiyah.com), and we raise it for free. The snapshots are for the maintainers ([`data/README.md`](data/README.md)).
 
 ## How it works
 
@@ -142,7 +140,7 @@ Report bugs and ideas in [GitHub issues](https://github.com/raaqimorg/qafiyah/is
 
 [`scripts/ci.ts`](scripts/ci.ts) runs lint and format, type and repo checks, unit tests, and contract snapshots (OpenAPI, the generated client, Elasticsearch queries). With Docker, it then runs the database-backed tests and the smoke tests against the built stack.
 
-The pre-commit hook checks only the staged files. The pre-push hook runs the gate without Docker. GitHub Actions runs the gate and gitleaks on every push and pull request. It runs each Docker phase only when the change touches what that phase uses ([`docs/topology.md`](docs/topology.md), "CI/CD topology"). Clippy refuses `unwrap`, `expect`, `panic`, indexing, and lossy casts in production code. For more, see [`docs/testing.md`](docs/testing.md).
+The pre-commit hook checks only the staged files. The pre-push hook runs the lint, format, and type checks. GitHub Actions runs the gate and gitleaks on every push and pull request. It runs each Docker phase only when the change touches what that phase uses, and the stack phase only for releases ([`docs/topology.md`](docs/topology.md), "CI/CD topology"). Clippy refuses `unwrap`, `expect`, `panic`, indexing, and lossy casts in production code. For more, see [`docs/testing.md`](docs/testing.md).
 
 </details>
 
@@ -166,7 +164,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 
 ## Contact
 
-[Raaqim](https://raaqim.org) maintains Qafiyah, together with its contributors. Raaqim is an open-source organization behind several Arabic-language projects. The site's [about page](https://qafiyah.com/about) tells the story. To reach us, write to the address below that fits. API and data requests have their own addresses in the sections above.
+[Raaqim](https://raaqim.org) maintains Qafiyah, together with its contributors. Raaqim is an open-source organization behind several Arabic-language projects. The site's [about page](https://qafiyah.com/about) tells the story. To reach us, write to the address below that fits. API requests have their own address in the sections above.
 
 | For                                                              | Write to             |
 | ---------------------------------------------------------------- | -------------------- |
@@ -179,7 +177,7 @@ The pre-commit hook checks only the staged files. The pre-push hook runs the gat
 
 ## License
 
-The code and documentation are released under the [MIT license](LICENSE). The data is dedicated to the public domain under [CC0 1.0](data/LICENSE). The data is the poem catalog that the site and the API serve, and the snapshots in `data/`. The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/Amiri-OFL.txt). It also offers [Thmanyah Serif Text](https://font.thmanyah.com) by Thmanyah, and [Scheherazade New](https://software.sil.org/scheherazade/) by SIL Global, under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/ScheherazadeNew-OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
+The code and documentation are released under the [MIT license](LICENSE). The site uses the [Amiri](https://github.com/aliftype/amiri) typeface under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/Amiri-OFL.txt). It also offers [Thmanyah Serif Text](https://font.thmanyah.com) by Thmanyah, and [Scheherazade New](https://software.sil.org/scheherazade/) by SIL Global, under the [SIL Open Font License 1.1](apps/web/src/assets/fonts/ScheherazadeNew-OFL.txt). The code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org) 2.1. The edge gateway runs the stock `owasp/modsecurity-crs` nginx image.
 
 <br>
 

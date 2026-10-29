@@ -165,7 +165,7 @@ async function targets(): Promise<Target[]> {
     '/favicon.ico'
   );
   add('site', '/v1/openapi.json', '/v1/docs', '/nope');
-  add('go redirect', '/go/x', '/go/telegram', '/go/github', '/go/db', '/go/avatars', '/go/raaqim');
+  add('go redirect', '/go/x', '/go/telegram', '/go/github', '/go/raaqim');
   for (const kind of TAXONOMIES) {
     const list = await page(`/v1/${kind}`);
     add('taxonomy list', `/v1/${kind}`);

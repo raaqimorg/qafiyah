@@ -33,14 +33,6 @@ function hangUntilAborted(init?: FetchInit): Promise<Response> {
 
 function useFakeClock() {
   vi.useFakeTimers();
-  vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
-    const controller = new AbortController();
-    setTimeout(
-      () => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
-      ms
-    );
-    return controller.signal;
-  });
 }
 
 afterEach(() => {
@@ -273,6 +265,18 @@ describe('fetchRandomPoemSlugWithRetry backoff', () => {
 });
 
 describe('fetchRandomPoemSlugWithRetry timeout and budget', () => {
+  it('times out without AbortSignal.timeout, which Safari 15 lacks', async () => {
+    useFakeClock();
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => {
+      throw new TypeError('AbortSignal.timeout is not a function');
+    });
+    const { mock } = stubFetchSteps([hang(), ok('abcd')]);
+    const pending = fetchRandomPoemSlugWithRetry(BASE, FAST);
+    await vi.runAllTimersAsync();
+    expect((await pending)._unsafeUnwrap()).toBe('abcd');
+    expect(mock).toHaveBeenCalledTimes(2);
+  });
+
   it('times out a single hung attempt and maps it to a network error', async () => {
     const startedAt = Date.now();
     const { mock } = stubFetchSteps([hang()]);

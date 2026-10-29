@@ -30,7 +30,7 @@ review and improve.
 
 ## License
 
-The code and the documentation are under the [MIT](../LICENSE) license. The data is in the public domain, under [CC0 1.0](../data/LICENSE).
+The code and the documentation are under the [MIT](../LICENSE) license.
 
 ## Links
 
@@ -47,7 +47,5 @@ The code and the documentation are under the [MIT](../LICENSE) license. The data
 - Sponsorship: sponsors@qafiyah.com
 - Security contact: security@qafiyah.com
 - Code of conduct concerns: conduct@qafiyah.com
-- Dump and feelings snapshot tokens: dumps@qafiyah.com (see `data/db/README.md` and `data/feelings/README.md`)
-- Avatar snapshot tokens: avatars@qafiyah.com (see `data/avatars/README.md`)
 
-The code reads these URLs and addresses from the root `config.ts`. The dump, avatar, and conduct mailboxes are the exception: only the docs have them. When you change a link, change it in both places.
+The code reads these URLs and addresses from the root `config.ts`. The conduct mailbox is the exception: only the docs have it. When you change a link, change it in both places.

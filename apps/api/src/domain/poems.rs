@@ -374,6 +374,26 @@ mod tests {
     }
 
     #[test]
+    fn a_reading_links_to_its_primary_poem_in_the_family() {
+        let mut poem = sample_record(rows(&["a*b"]));
+        poem.recension_of_id = Some(3);
+        poem.family = [(2, "abcd"), (3, "efgh")]
+            .into_iter()
+            .map(|(id, slug)| Recension {
+                id,
+                title: format!("Title {slug}"),
+                slug: slug.into(),
+                verse_count: 1,
+                source: None,
+            })
+            .collect();
+        let detail = detail("wxyz", poem).expect("a poem");
+        let primary = detail.recension_of.expect("a primary poem");
+        assert_eq!(primary.slug, "efgh");
+        assert_eq!(primary.title, "Title efgh");
+    }
+
+    #[test]
     fn each_stored_row_is_one_entry_holding_its_parts() {
         let parsed = parse_poem_rows(&rows(&["a*b", "c", "d*e"]));
         assert_eq!(

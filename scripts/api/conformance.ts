@@ -15,7 +15,36 @@ const CHECKS = [
   'positive_data_acceptance',
 ];
 
+const FUZZ_SEED = '407';
+
 const target = process.argv.includes('prod') ? 'prod' : 'dev';
+function option(name: string): string | undefined {
+  return process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+}
+
+const fuzz = process.argv.includes('--fuzz');
+const seed = option('seed') ?? FUZZ_SEED;
+const maxExamples = option('max-examples');
+
+if (fuzz && target === 'prod') {
+  console.error('api:fuzz runs only against the dev stack');
+  process.exit(2);
+}
+
+const config = fuzz ? 'schemathesis-fuzz.toml' : 'schemathesis.toml';
+const run = fuzz
+  ? [
+      '--phases',
+      'examples,coverage,fuzzing',
+      '--mode',
+      'all',
+      '--checks',
+      'all',
+      '--seed',
+      seed,
+      ...(maxExamples ? ['--max-examples', maxExamples] : []),
+    ]
+  : ['--phases', 'examples', '--checks', CHECKS.join(',')];
 
 const base =
   target === 'prod'
@@ -32,7 +61,7 @@ const schemathesis = Bun.spawn(
     '--volume',
     `${ROOT}/apps/api/generated/openapi/openapi.json:/spec/openapi.json:ro`,
     '--volume',
-    `${ROOT}/scripts/api/schemathesis.toml:/spec/schemathesis.toml:ro`,
+    `${ROOT}/scripts/api/${config}:/spec/schemathesis.toml:ro`,
     SCHEMATHESIS_IMAGE,
     '--config-file',
     '/spec/schemathesis.toml',
@@ -40,10 +69,7 @@ const schemathesis = Bun.spawn(
     '/spec/openapi.json',
     '--url',
     base,
-    '--phases',
-    'examples',
-    '--checks',
-    CHECKS.join(','),
+    ...run,
     ...(apiKey ? ['--header', `${API_KEY_HEADER}: ${apiKey}`] : []),
   ],
   { stdout: 'inherit', stderr: 'inherit' }
