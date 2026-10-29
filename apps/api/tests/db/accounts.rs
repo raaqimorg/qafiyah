@@ -470,3 +470,131 @@ async fn the_issue_key_command_normalizes_the_email_issues_working_keys_and_stop
     })
     .await;
 }
+
+#[tokio::test]
+async fn one_user_cannot_see_revoke_or_end_the_keys_and_sessions_of_another() {
+    let Some(h) = harness().await else { return };
+    h.isolated("owner", |h, owner_email| async move {
+        h.clone()
+            .isolated("other", |h, other_email| async move {
+                let owner = users::upsert(h.state.users.as_ref(), &identity(&owner_email))
+                    .await
+                    .expect("the owner");
+                let other = users::upsert(h.state.users.as_ref(), &identity(&other_email))
+                    .await
+                    .expect("the other user");
+                let created = h
+                    .call(
+                        "POST",
+                        "/account/keys",
+                        Some(INTERNAL),
+                        Some(json!({ "user_id": owner.id, "label": "owner" })),
+                    )
+                    .await;
+                assert_eq!(created.status, StatusCode::OK, "{}", created.body);
+                let raw = created.json()["value"].as_str().expect("value").to_string();
+                let owner_keys = h
+                    .call(
+                        "GET",
+                        &format!("/account/users/{}/keys", owner.id),
+                        Some(INTERNAL),
+                        None,
+                    )
+                    .await
+                    .json();
+                let key_id = owner_keys["keys"][0]["id"].as_i64().expect("id");
+                let other_keys = h
+                    .call(
+                        "GET",
+                        &format!("/account/users/{}/keys", other.id),
+                        Some(INTERNAL),
+                        None,
+                    )
+                    .await
+                    .json();
+                assert_eq!(other_keys["keys"], json!([]));
+                let stolen = h
+                    .call(
+                        "POST",
+                        "/account/keys/revoke",
+                        Some(INTERNAL),
+                        Some(json!({ "user_id": other.id, "key_id": key_id })),
+                    )
+                    .await;
+                assert_eq!(stolen.status, StatusCode::NOT_FOUND);
+                assert_eq!(stolen.json()["detail"], "API key not found");
+                let caller = keys::lookup(h.state.api_keys.as_ref(), &raw)
+                    .await
+                    .expect("lookup")
+                    .expect("the owner's key is still live");
+                assert_eq!(caller.user_id, owner.id);
+                let session = sessions::create(h.state.sessions.as_ref(), owner.id)
+                    .await
+                    .expect("a session");
+                assert_eq!(
+                    h.call(
+                        "DELETE",
+                        "/account/sessions",
+                        Some(INTERNAL),
+                        Some(json!({ "user_id": other.id }))
+                    )
+                    .await
+                    .status,
+                    StatusCode::NO_CONTENT
+                );
+                let resolved = sessions::resolve(h.state.sessions.as_ref(), &session)
+                    .await
+                    .expect("resolve")
+                    .expect("the owner's session is still live");
+                assert_eq!(resolved.id, owner.id);
+            })
+            .await;
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn parallel_key_creations_for_one_user_never_pass_the_cap() {
+    let Some(h) = harness().await else { return };
+    h.isolated("parallel-keys", |h, email| async move {
+        let profile = users::upsert(h.state.users.as_ref(), &identity(&email))
+            .await
+            .expect("a user");
+        let attempts: Vec<_> = (0..10)
+            .map(|n| {
+                let h = h.clone();
+                tokio::spawn(async move {
+                    h.call(
+                        "POST",
+                        "/account/keys",
+                        Some(INTERNAL),
+                        Some(json!({ "user_id": profile.id, "label": format!("key {n}") })),
+                    )
+                    .await
+                    .status
+                })
+            })
+            .collect();
+        let mut statuses = Vec::new();
+        for attempt in attempts {
+            statuses.push(attempt.await.expect("an attempt"));
+        }
+        let created = statuses.iter().filter(|s| **s == StatusCode::OK).count();
+        let refused = statuses
+            .iter()
+            .filter(|s| **s == StatusCode::CONFLICT)
+            .count();
+        assert_eq!((created, refused), (2, 8), "{statuses:?}");
+        let view = h
+            .call(
+                "GET",
+                &format!("/account/users/{}/keys", profile.id),
+                Some(INTERNAL),
+                None,
+            )
+            .await
+            .json();
+        assert_eq!(view["keys"].as_array().expect("keys").len(), 2);
+    })
+    .await;
+}
