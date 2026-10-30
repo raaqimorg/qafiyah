@@ -1,6 +1,7 @@
-import { errAsync, okAsync, ResultAsync } from 'neverthrow';
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from 'neverthrow';
 
 import { SHARE_TEXTS } from '@/lib/constants/copy';
+import { SITE_WORDMARK_PATH } from '@/lib/constants/site-meta';
 import { PROD_DOMAIN } from '@qafiyah/config';
 
 export type VerseCardText = {
@@ -27,6 +28,8 @@ const LINE_RATIO = 1.65;
 const FOOTER_FONT = 30;
 const MAX_PIXEL_RATIO = 2;
 const MAX_HEIGHT = 1920;
+const LOGO_HEIGHT = 72;
+const LOGO_GAP = 70;
 
 function wrapLine(line: string, fontSize: number, measure: MeasureLine): readonly string[] {
   if (measure(line, fontSize) <= CONTENT_WIDTH) return [line];
@@ -51,7 +54,9 @@ function cardHeight(lines: readonly string[], fontSize: number): number {
     (sum, line) => sum + (line === '' ? lineHeight / 2 : lineHeight),
     0
   );
-  return Math.round(PADDING * 2 + bodyHeight + FOOTER_FONT * 2 * LINE_RATIO);
+  return Math.round(
+    PADDING * 2 + LOGO_HEIGHT + LOGO_GAP + bodyHeight + FOOTER_FONT * 2 * LINE_RATIO
+  );
 }
 
 export function layoutVerseCard(
@@ -78,6 +83,10 @@ function themeColor(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 function canvasBlob(canvas: HTMLCanvasElement): ResultAsync<Blob, Error> {
   return ResultAsync.fromPromise(
     new Promise<Blob>((resolve, reject) => {
@@ -86,12 +95,39 @@ function canvasBlob(canvas: HTMLCanvasElement): ResultAsync<Blob, Error> {
         else resolve(blob);
       }, 'image/png');
     }),
-    (error) => (error instanceof Error ? error : new Error(String(error)))
+    toError
   );
+}
+
+function loadLogo(): ResultAsync<HTMLImageElement, Error> {
+  const logo = new Image();
+  logo.src = SITE_WORDMARK_PATH;
+  return ResultAsync.fromPromise(logo.decode(), toError).map(() => logo);
+}
+
+function drawLogo(
+  ctx: CanvasRenderingContext2D,
+  logo: HTMLImageElement,
+  color: string,
+  pixelRatio: number
+): Result<void, Error> {
+  const width = (LOGO_HEIGHT * logo.naturalWidth) / logo.naturalHeight;
+  const tint = document.createElement('canvas');
+  tint.width = Math.ceil(width * pixelRatio);
+  tint.height = Math.ceil(LOGO_HEIGHT * pixelRatio);
+  const tintCtx = tint.getContext('2d');
+  if (tintCtx === null) return err(new Error('the logo canvas has no 2d context'));
+  tintCtx.drawImage(logo, 0, 0, tint.width, tint.height);
+  tintCtx.globalCompositeOperation = 'source-in';
+  tintCtx.fillStyle = color;
+  tintCtx.fillRect(0, 0, tint.width, tint.height);
+  ctx.drawImage(tint, (WIDTH - width) / 2, PADDING, width, LOGO_HEIGHT);
+  return ok(undefined);
 }
 
 function drawCard(
   canvas: HTMLCanvasElement,
+  logo: HTMLImageElement,
   { text, poet, font }: VerseCardText
 ): ResultAsync<Blob | null, Error> {
   const ctx = canvas.getContext('2d');
@@ -113,9 +149,11 @@ function drawCard(
   ctx.textBaseline = 'alphabetic';
   const center = WIDTH / 2;
   const lineHeight = fontSize * LINE_RATIO;
+  const logoDrawn = drawLogo(ctx, logo, themeColor('--text'), pixelRatio);
+  if (logoDrawn.isErr()) return errAsync(logoDrawn.error);
   ctx.fillStyle = themeColor('--text');
   ctx.font = `${fontSize}px ${font}`;
-  let y = PADDING + fontSize;
+  let y = PADDING + LOGO_HEIGHT + LOGO_GAP + fontSize;
   for (const line of lines) {
     if (line === '') {
       y += lineHeight / 2;
@@ -134,7 +172,8 @@ function drawCard(
 
 export function drawVerseCard(card: VerseCardText): ResultAsync<File | null, Error> {
   return ResultAsync.fromSafePromise(document.fonts.ready)
-    .andThen(() => drawCard(document.createElement('canvas'), card))
+    .andThen(loadLogo)
+    .andThen((logo) => drawCard(document.createElement('canvas'), logo, card))
     .map((blob) =>
       blob === null ? null : new File([blob], `${SHARE_TEXTS.imageFile}.png`, { type: 'image/png' })
     );
