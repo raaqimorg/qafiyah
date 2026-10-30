@@ -66,6 +66,9 @@ export const SHARE_TEXTS = {
   facebook: 'مشاركة على فيسبوك',
   whatsapp: 'مشاركة على واتس',
   telegram: 'مشاركة على تلقرام',
+  image: 'مشاركة كصورة',
+  imageFile: 'قافية',
+  imageFailed: 'تعذر إنشاء الصورة',
 } as const;
 
 export const SHARE_NETWORK_NAMES = {
@@ -73,6 +76,7 @@ export const SHARE_NETWORK_NAMES = {
   whatsapp: 'واتس',
   facebook: 'فيسبوك',
   telegram: 'تلقرام',
+  image: 'صورة',
 } as const;
 
 export const NOT_FOUND_MESSAGE_AR = 'الصفحة غير موجودة';

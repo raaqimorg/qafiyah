@@ -1,0 +1,59 @@
+---
+import Layout from '@/layouts/layout.astro';
+import { INLINE_LINK, TYPE } from '@/lib/constants/design-tokens';
+import { CACHE_HTML } from '@/lib/server/cache';
+import { withBrand } from '@/lib/seo/meta-text';
+import { PRIVACY_EMAIL } from '@qafiyah/config';
+
+const TITLE = withBrand('سياسة الخصوصية');
+const DESCRIPTION = 'ما تجمعه قافية عند زيارة الموقع واستخدام واجهة البرمجة وخادم MCP، ولماذا.';
+
+const PARAGRAPH = `${TYPE.body} text-text-muted leading-[1.8]`;
+const SECTION_HEADING = `${TYPE.subheading} text-text mt-4`;
+
+Astro.response.headers.set('Cache-Control', CACHE_HTML);
+---
+
+<Layout title={TITLE} description={DESCRIPTION} canonical="/privacy">
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-4 py-16" dir="rtl">
+    <h1 class={`${TYPE.heading} text-text`}>سياسة الخصوصية</h1>
+
+    <p class={PARAGRAPH}>
+      قافية لا تبيع بيانات أحد، ولا تعرض إعلانات تتبّع. تصفّح الموقع لا يحتاج إلى حساب.
+    </p>
+
+    <h2 class={SECTION_HEADING}>الموقع</h2>
+    <p class={PARAGRAPH}>
+      نقيس استخدام الموقع بأداة PostHog: الصفحات التي تُزار، والبحث وعدد نتائجه، وتغيير إعدادات
+      القراءة، والمشاركة. لا نحفظ نص البحث إلا إذا لم يجد شيئًا. وقد نسجّل بعض الزيارات لنفهم طريقة
+      استخدام الموقع، مع إخفاء كل ما يُكتب في الحقول. ونرسل الأخطاء التقنية إلى Sentry لإصلاحها.
+    </p>
+    <p class={PARAGRAPH}>يُحفظ اختيارك للمظهر والخط في متصفحك فقط، ولا يصلنا.</p>
+
+    <h2 class={SECTION_HEADING}>الحساب ومفاتيح واجهة البرمجة</h2>
+    <p class={PARAGRAPH}>
+      الحساب اختياري، ولا يلزم إلا لمفتاح واجهة البرمجة. عند الدخول بحساب قوقل أو قتهب نحفظ بريدك
+      واسمك ورابط صورتك. ولا نحفظ المفاتيح نفسها، بل بصمة لكل مفتاح، مع وقت آخر استخدام له.
+    </p>
+
+    <h2 class={SECTION_HEADING}>واجهة البرمجة وخادم MCP</h2>
+    <p class={PARAGRAPH}>
+      لا يحفظ خادم MCP شيئًا من طلباتك. يمرّر عنوان IP إلى واجهة البرمجة لتطبيق حدود الاستخدام فقط.
+    </p>
+
+    <h2 class={SECTION_HEADING}>الاستضافة</h2>
+    <p class={PARAGRAPH}>
+      يمرّ الموقع وواجهة البرمجة عبر Cloudflare، الذي يرى عنوان IP لكل زيارة لحماية الموقع من
+      الهجمات.
+    </p>
+
+    <h2 class={SECTION_HEADING}>التواصل</h2>
+    <p class={PARAGRAPH}>
+      لحذف حسابك وبياناته، أو لأي سؤال عن الخصوصية، راسلنا على{' '}
+      <a href={`mailto:${PRIVACY_EMAIL}`} class={INLINE_LINK}>
+        {PRIVACY_EMAIL}
+      </a>
+      .
+    </p>
+  </div>
+</Layout>

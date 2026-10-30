@@ -12,13 +12,17 @@ if (dumped.isErr()) {
 }
 
 const rendered = dumped.value;
-const vectors = JSON.parse(rendered) as { poems: unknown[]; poets: unknown[] };
+const vectors = JSON.parse(rendered) as {
+  poems: unknown[];
+  poets: unknown[];
+  poetList: unknown[];
+};
 
 process.exit(
   await snapshot({
     out: OUT,
     rendered,
-    summary: `${vectors.poems.length} poem and ${vectors.poets.length} poet bodies`,
+    summary: `${vectors.poems.length} poem, ${vectors.poets.length} poet search, and ${vectors.poetList.length} poet list bodies`,
     remedy: [
       'The Elasticsearch query builders changed. Run `bun run es:query:snapshot`',
       'and read the diff before committing it.',

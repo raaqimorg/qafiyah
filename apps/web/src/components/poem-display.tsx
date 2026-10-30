@@ -110,6 +110,7 @@ export function PoemDisplay({
   const quoteSheetRef = useRef<HTMLDialogElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [quote, setQuote] = useState<string | null>(null);
+  const [quoteFont, setQuoteFont] = useState('');
   const [quoteTop, setQuoteTop] = useState<number | null>(null);
   const handleCopy = (event: ClipboardEvent<HTMLElement>) => {
     if (event.defaultPrevented || columnRef.current === null) return;
@@ -142,6 +143,7 @@ export function PoemDisplay({
         return;
       }
       setQuote(text);
+      setQuoteFont(getComputedStyle(column).fontFamily);
       setQuoteTop(verse.getBoundingClientRect().bottom - wrapper.getBoundingClientRect().top);
     };
     const placeShareButtonWhenSettled = () => {
@@ -280,6 +282,7 @@ export function PoemDisplay({
             title={SHARE_TEXTS.quoteTitle}
             body={formatPoemQuote(quote, poet.name)}
             path={sharePath}
+            image={{ text: quote, poet: poet.name, font: quoteFont }}
           />
         )}
       </div>

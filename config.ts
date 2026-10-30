@@ -10,11 +10,6 @@ export const SITEMAP_POETS_PER_SHARD = 45_000;
 export const SEARCH_POETS_PER_PAGE = 20;
 
 export const ES_MAX_RESULT_WINDOW = 10_000;
-export const SEARCH_POEMS_MAX_PAGE = Math.floor(ES_MAX_RESULT_WINDOW / SEARCH_POEMS_PER_PAGE);
-export const SEARCH_POETS_MAX_PAGE = Math.floor(ES_MAX_RESULT_WINDOW / SEARCH_POETS_PER_PAGE);
-
-export const POETS_LIST_MAX_RESULT_WINDOW = 50_000;
-export const LIST_POETS_MAX_PAGE = Math.floor(POETS_LIST_MAX_RESULT_WINDOW / POEMS_PER_PAGE);
 
 export const MAX_FILTER_SLUGS = 100;
 export const MAX_QUERY_LENGTH = 100;
@@ -50,6 +45,7 @@ export const CONTACT_EMAIL = `mail@${PROD_DOMAIN}`;
 export const SECURITY_EMAIL = `security@${PROD_DOMAIN}`;
 export const API_EMAIL = `api@${PROD_DOMAIN}`;
 export const SPONSORS_EMAIL = `sponsors@${PROD_DOMAIN}`;
+export const PRIVACY_EMAIL = `privacy@${PROD_DOMAIN}`;
 
 export const API_V1_PREFIX = '/v1';
 export const API_RANDOM_POEM_PATH = `${API_V1_PREFIX}/poems/random`;

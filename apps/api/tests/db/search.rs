@@ -2,7 +2,10 @@ use axum::http::StatusCode;
 use reqwest::Method;
 use serde_json::{Value, json};
 
-use qafiyah_api::domain::search::{PoemSearchParams, PoetSearchParams, PoetSort, SearchIndex};
+use qafiyah_api::cursor;
+use qafiyah_api::domain::search::{
+    PoemSearchParams, PoetListParams, PoetPosition, PoetSearchParams, SearchIndex,
+};
 use qafiyah_api::es::client::Es;
 use qafiyah_api::es::query::poem_search_body;
 
@@ -27,7 +30,6 @@ async fn poem_hits(es: &Es, index: &str, q: &str) -> Vec<Value> {
 async fn searched_poems(es: &Es, index: &str, q: &str, exact: bool) -> Vec<Value> {
     let body = poem_search_body(&PoemSearchParams {
         q: q.into(),
-        page: 1,
         exact,
         ..PoemSearchParams::default()
     });
@@ -240,7 +242,6 @@ fn searching(es: Es, index: String) -> Es {
 async fn shown_snippets(es: &Es, q: &str, exact: bool) -> Vec<String> {
     es.search_poems(&PoemSearchParams {
         q: q.into(),
-        page: 1,
         exact,
         ..PoemSearchParams::default()
     })
@@ -659,7 +660,7 @@ async fn an_exact_search_finds_a_poem_by_a_title_that_is_not_in_its_text() {
 async fn browsed_eras(h: &Harness, section: &str) -> Vec<String> {
     let sent = h
         .get(&format!(
-            "/v1/search?q=&types={section}&poemsPage=1&poetsPage=1&eraSlugs=jahili&exact=false"
+            "/v1/search?q=&types={section}&eraSlugs=jahili&exact=false"
         ))
         .await;
     assert_eq!(sent.status, StatusCode::OK, "{section}: {}", sent.body);
@@ -1034,15 +1035,75 @@ async fn the_poets_list_puts_more_poems_first_then_orders_by_name_then_by_id() {
     admin
         .with_poets(&poets(), |es, index| async move {
             let es = searching_poets(es, index);
-            let page = es
-                .list_poets(&PoetSearchParams {
-                    sort: PoetSort::PoemsCount,
-                    ..PoetSearchParams::default()
-                })
+            let (page, total) = es
+                .list_poets(&PoetListParams::default())
                 .await
                 .expect("a list");
-            let slugs: Vec<&str> = page.hits.iter().map(|poet| poet.slug.as_str()).collect();
+            let slugs: Vec<&str> = page.items.iter().map(|poet| poet.slug.as_str()).collect();
             assert_eq!(slugs, ["Mtnb", "Zayd", "Ahm5", "Ahm2", "Ahm4", "Bakr"]);
+            assert_eq!(total, 6);
+            assert!(page.next.is_none() && page.prev.is_none());
+        })
+        .await;
+}
+
+#[expect(clippy::expect_used, reason = "a failed list is a failed test")]
+async fn poet_pages(
+    es: &Es,
+    q: &str,
+    raw: Option<String>,
+) -> (Vec<String>, Option<String>, Option<String>) {
+    let (page, _) = es
+        .list_poets(&PoetListParams {
+            q: q.into(),
+            cursor: raw.map(|raw| cursor::decode::<PoetPosition>(&raw).expect("a cursor")),
+            page_size: 2,
+            ..PoetListParams::default()
+        })
+        .await
+        .expect("a list");
+    (
+        page.items.into_iter().map(|poet| poet.slug).collect(),
+        page.next.map(cursor::encode),
+        page.prev.map(cursor::encode),
+    )
+}
+
+#[tokio::test]
+async fn following_the_poets_list_cursors_forward_and_back_visits_the_same_pages() {
+    let Some(admin) = admin() else { return };
+    admin
+        .with_poets(&poets(), |es, index| async move {
+            let es = searching_poets(es, index);
+            for (q, expected) in [
+                (
+                    "",
+                    vec![
+                        vec!["Mtnb", "Zayd"],
+                        vec!["Ahm5", "Ahm2"],
+                        vec!["Ahm4", "Bakr"],
+                    ],
+                ),
+                ("أحمد", vec![vec!["Ahm5", "Ahm2"], vec!["Ahm4"]]),
+            ] {
+                let (slugs, mut next, mut prev) = poet_pages(&es, q, None).await;
+                let mut forward = vec![slugs];
+                while let Some(raw) = next {
+                    let (slugs, following, before) = poet_pages(&es, q, Some(raw)).await;
+                    forward.push(slugs);
+                    next = following;
+                    prev = before;
+                }
+                assert_eq!(forward, expected, "{q}");
+                let mut back = vec![forward.last().cloned().unwrap_or_default()];
+                while let Some(raw) = prev {
+                    let (slugs, _, before) = poet_pages(&es, q, Some(raw)).await;
+                    back.push(slugs);
+                    prev = before;
+                }
+                back.reverse();
+                assert_eq!(back, forward, "{q}");
+            }
         })
         .await;
 }

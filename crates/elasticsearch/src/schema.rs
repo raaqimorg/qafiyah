@@ -417,12 +417,10 @@ mod tests {
     }
 
     #[test]
-    fn the_poets_result_window_matches_the_api_constant_pinned_in_the_constants_check() {
-        assert_eq!(load().poets["settings"]["max_result_window"], 50_000);
-        assert!(
-            load().poems["settings"]["max_result_window"].is_null(),
-            "poems rely on the Elasticsearch default of 10000"
-        );
+    fn both_indices_keep_the_elasticsearch_result_window_of_10000() {
+        for body in [&load().poems, &load().poets] {
+            assert!(body["settings"]["max_result_window"].is_null());
+        }
     }
 
     const NAME_ANALYZERS: [&str; 3] = [

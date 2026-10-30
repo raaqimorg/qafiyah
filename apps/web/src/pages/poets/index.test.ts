@@ -29,8 +29,8 @@ beforeEach(() => {
 describe('GET /poets', () => {
   it.each([
     ['/poets?q=%D8%AD%D8%A8&utm_source=x', '/poets?q=%D8%AD%D8%A8'],
-    ['/poets?page=02', '/poets?page=2'],
-    ['/poets?page=2&era=abbasi', '/poets?era=abbasi&page=2'],
+    ['/poets?page=2', '/poets'],
+    ['/poets?cursor=c&era=abbasi', '/poets?era=abbasi&cursor=c'],
     ['/poets?era=%20abbasi%20', '/poets?era=abbasi'],
   ])('redirects %s to %s without calling the API', async (requested, canonical) => {
     const response = await render(`https://qafiyah.com${requested}`);
@@ -40,7 +40,9 @@ describe('GET /poets', () => {
   });
 
   it('sends the canonical URL itself on to the API', async () => {
-    await render('https://qafiyah.com/poets?era=abbasi&page=2').catch(() => undefined);
-    expect(get).toHaveBeenCalledWith('/poets', expect.anything());
+    await render('https://qafiyah.com/poets?era=abbasi&cursor=c').catch(() => undefined);
+    expect(get).toHaveBeenCalledWith('/poets', {
+      params: { query: { cursor: 'c', era: 'abbasi' } },
+    });
   });
 });

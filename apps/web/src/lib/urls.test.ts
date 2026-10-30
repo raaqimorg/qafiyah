@@ -26,28 +26,32 @@ describe('taxonomyIndexUrl', () => {
 describe('taxonomyUrl', () => {
   it('returns the bare term URL for the first page', () => {
     expect(taxonomyUrl('meters', 'tawil')).toBe('/meters/tawil');
-    expect(taxonomyUrl('meters', 'tawil', 1)).toBe('/meters/tawil');
+    expect(taxonomyUrl('meters', 'tawil', '')).toBe('/meters/tawil');
   });
-  it('appends ?page=N for pages beyond the first', () => {
-    expect(taxonomyUrl('rhymes', 'meem', 3)).toBe('/rhymes/meem?page=3');
+  it('appends ?cursor= for any other page', () => {
+    expect(taxonomyUrl('rhymes', 'meem', 'eyJhZnRlciI6MzB9')).toBe(
+      '/rhymes/meem?cursor=eyJhZnRlciI6MzB9'
+    );
   });
   it('percent-encodes a slug with non-ASCII letters, as the request URL does', () => {
-    const url = new URL('https://qafiyah.com/meters/الطويل?page=2');
-    expect(taxonomyUrl('meters', 'الطويل', 2)).toBe(`${url.pathname}${url.search}`);
+    const url = new URL('https://qafiyah.com/meters/الطويل?cursor=eyJhZnRlciI6MzB9');
+    expect(taxonomyUrl('meters', 'الطويل', 'eyJhZnRlciI6MzB9')).toBe(
+      `${url.pathname}${url.search}`
+    );
   });
 });
 
 describe('poetsUrl', () => {
   it('returns bare /poets with no options', () => {
     expect(poetsUrl()).toBe('/poets');
-    expect(poetsUrl({ page: 1 })).toBe('/poets');
+    expect(poetsUrl({ cursor: '' })).toBe('/poets');
   });
-  it('appends ?page=N beyond the first page', () => {
-    expect(poetsUrl({ page: 2 })).toBe('/poets?page=2');
+  it('appends ?cursor= for any other page', () => {
+    expect(poetsUrl({ cursor: 'eyJhZnRlciI6MzB9' })).toBe('/poets?cursor=eyJhZnRlciI6MzB9');
   });
-  it('adds era and page, omitting empties, in era→q→page order', () => {
+  it('adds era and cursor, omitting empties, in era→q→cursor order', () => {
     expect(poetsUrl({ era: 'jahili' })).toBe('/poets?era=jahili');
-    expect(poetsUrl({ era: 'jahili', page: 3 })).toBe('/poets?era=jahili&page=3');
+    expect(poetsUrl({ era: 'jahili', cursor: 'c' })).toBe('/poets?era=jahili&cursor=c');
   });
   it('encodes an Arabic q and round-trips it', () => {
     const url = poetsUrl({ q: 'متنبي' });
@@ -57,17 +61,17 @@ describe('poetsUrl', () => {
 });
 
 describe('poetUrl', () => {
-  it('builds the poet URL and omits page 1', () => {
+  it('builds the poet URL and omits an empty cursor', () => {
     expect(poetUrl('mutanabbi')).toBe('/poets/mutanabbi');
-    expect(poetUrl('mutanabbi', { page: 1 })).toBe('/poets/mutanabbi');
+    expect(poetUrl('mutanabbi', { cursor: '' })).toBe('/poets/mutanabbi');
   });
-  it('appends ?page=N beyond the first page', () => {
-    expect(poetUrl('mutanabbi', { page: 4 })).toBe('/poets/mutanabbi?page=4');
+  it('appends ?cursor= for any other page', () => {
+    expect(poetUrl('mutanabbi', { cursor: 'c' })).toBe('/poets/mutanabbi?cursor=c');
   });
-  it('repeats each poem filter per value, sorted, in meter, rhyme, theme, page order', () => {
+  it('repeats each poem filter per value, sorted, in meter, rhyme, theme, cursor order', () => {
     expect(
-      poetUrl('mutanabbi', { theme: ['alnasib'], meter: ['altawil', 'alkamil'], page: 2 })
-    ).toBe('/poets/mutanabbi?meter=alkamil&meter=altawil&theme=alnasib&page=2');
+      poetUrl('mutanabbi', { theme: ['alnasib'], meter: ['altawil', 'alkamil'], cursor: 'c' })
+    ).toBe('/poets/mutanabbi?meter=alkamil&meter=altawil&theme=alnasib&cursor=c');
     expect(poetUrl('mutanabbi', { meter: [], rhyme: [], theme: [] })).toBe('/poets/mutanabbi');
   });
   it('gives every selection one URL, whatever the order or repeats of its values', () => {
@@ -77,14 +81,16 @@ describe('poetUrl', () => {
   });
   it('writes the same query the poet page list writes to the address bar', () => {
     const states = [
-      { meter: [], rhyme: [], theme: [], page: 1 },
-      { meter: [], rhyme: [], theme: [], page: 3 },
-      { meter: ['altawil'], rhyme: [], theme: [], page: 1 },
-      { meter: ['alkamil', 'altawil'], rhyme: ['alef-maqsura'], theme: ['alnasib'], page: 2 },
-      { meter: [], rhyme: ['meem', 'noon'], theme: ['alhikma'], page: 5 },
+      { meter: [], rhyme: [], theme: [], cursor: null },
+      { meter: [], rhyme: [], theme: [], cursor: 'eyJhZnRlciI6MzB9' },
+      { meter: ['altawil'], rhyme: [], theme: [], cursor: null },
+      { meter: ['alkamil', 'altawil'], rhyme: ['alef-maqsura'], theme: ['alnasib'], cursor: 'c' },
+      { meter: [], rhyme: ['meem', 'noon'], theme: ['alhikma'], cursor: 'eyJiZWZvcmUiOjMxfQ' },
     ];
     for (const state of states) {
-      expect(poetUrl('mutanabbi', state)).toBe(`/poets/mutanabbi${serializePoetSearch(state)}`);
+      expect(poetUrl('mutanabbi', { ...state, cursor: state.cursor ?? undefined })).toBe(
+        `/poets/mutanabbi${serializePoetSearch(state)}`
+      );
     }
   });
   it('encodes a slug the way the request URL encodes its path, so a canonical slug never redirects', () => {
@@ -120,18 +126,21 @@ describe('poemUrl', () => {
 describe('isCanonical', () => {
   it('accepts the canonical URL exactly', () => {
     expect(
-      isCanonical(new URL('https://qafiyah.com/meters/altawil?page=2'), '/meters/altawil?page=2')
+      isCanonical(
+        new URL('https://qafiyah.com/meters/altawil?cursor=c'),
+        '/meters/altawil?cursor=c'
+      )
     ).toBe(true);
     expect(isCanonical(new URL('https://qafiyah.com/meters/altawil'), '/meters/altawil')).toBe(
       true
     );
   });
-  it('refuses an extra parameter, a padded number, or another parameter order', () => {
-    const canonical = '/poets/oNbs?meter=altawil&page=2';
+  it('refuses an extra parameter, an old page number, or another parameter order', () => {
+    const canonical = '/poets/oNbs?meter=altawil&cursor=c';
     for (const href of [
-      'https://qafiyah.com/poets/oNbs?meter=altawil&page=2&utm_source=x',
-      'https://qafiyah.com/poets/oNbs?meter=altawil&page=02',
-      'https://qafiyah.com/poets/oNbs?page=2&meter=altawil',
+      'https://qafiyah.com/poets/oNbs?meter=altawil&cursor=c&utm_source=x',
+      'https://qafiyah.com/poets/oNbs?meter=altawil&cursor=c&page=2',
+      'https://qafiyah.com/poets/oNbs?cursor=c&meter=altawil',
     ]) {
       expect(isCanonical(new URL(href), canonical)).toBe(false);
     }
@@ -143,7 +152,9 @@ describe('retryUrl', () => {
     expect(retryUrl('/poems/random', new URL('https://qafiyah.com/500'))).toBe('/poems/random');
   });
   it('keeps the query string of the failed request', () => {
-    expect(retryUrl('/poets', new URL('https://qafiyah.com/poets?page=2'))).toBe('/poets?page=2');
+    expect(retryUrl('/poets', new URL('https://qafiyah.com/poets?cursor=c'))).toBe(
+      '/poets?cursor=c'
+    );
   });
 });
 
@@ -182,6 +193,6 @@ describe('feelingUrl', () => {
   it('builds the wheel, a feeling, and a later page', () => {
     expect(feelingUrl()).toBe('/feelings');
     expect(feelingUrl('alhuzn')).toBe('/feelings/alhuzn');
-    expect(feelingUrl('alhuzn', 2)).toBe('/feelings/alhuzn?page=2');
+    expect(feelingUrl('alhuzn', 'c')).toBe('/feelings/alhuzn?cursor=c');
   });
 });

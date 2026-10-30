@@ -10,7 +10,9 @@ describe('isFeelingNavigation', () => {
   });
 
   it('morphs between two pages of a feeling', () => {
-    expect(isFeelingNavigation(at('/feelings/alhuzn'), at('/feelings/alhuzn?page=2'))).toBe(true);
+    expect(
+      isFeelingNavigation(at('/feelings/alhuzn'), at('/feelings/alhuzn?cursor=eyJhZnRlciI6MzB9'))
+    ).toBe(true);
   });
 
   it('leaves a navigation to another section to the default swap', () => {

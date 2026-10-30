@@ -25,7 +25,7 @@ export const proxyProbes: readonly Probe[] = [
     surfaces: ALL,
   },
   {
-    url: `${WEB}/api/v1/search?q=&types=poets&poemsPage=1&poetsPage=1&eraSlugs=jahili&exact=false`,
+    url: `${WEB}/api/v1/search?q=&types=poets&eraSlugs=jahili&exact=false`,
     note: 'proxy era-only search in the form the search island sends',
     expect: 'ok',
     checks: [expectJsonObject, expectOnlyEra('poets', 'jahili')],
@@ -39,7 +39,7 @@ export const proxyProbes: readonly Probe[] = [
     surfaces: ALL,
   },
   {
-    url: `${WEB}/api/v1/poems?poet=${FIXTURE_POET.slug}&page=1`,
+    url: `${WEB}/api/v1/poems?poet=${FIXTURE_POET.slug}`,
     note: "proxy one poet's poem list, as the poet page sends it",
     expect: 'ok',
     checks: [expectJsonObject],

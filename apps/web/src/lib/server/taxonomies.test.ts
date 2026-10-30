@@ -13,7 +13,6 @@ import { allEras, getMeter, getRhyme, getTheme } from './taxonomies';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 
-const PAGINATION = { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 };
 const ERA = { name: 'الجاهلي', slug: 'jahili' as EraSlug, poemsCount: 31, poetsCount: 12 };
 const METER = { name: 'الطويل', slug: 'altawil' as MeterSlug, poemsCount: 12, poetsCount: 9 };
 
@@ -23,7 +22,7 @@ beforeEach(() => {
 
 describe('allEras', () => {
   it('returns the list data', async () => {
-    get.mockResolvedValue(ok({ data: [ERA], pagination: PAGINATION }));
+    get.mockResolvedValue(ok({ data: [ERA] }));
     const eras = await allEras();
     expect(eras).toHaveLength(1);
     expect(eras[0]?.poetsCount).toBe(12);

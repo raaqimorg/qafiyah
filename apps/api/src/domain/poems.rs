@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use crate::constants::{MAX_TWEET_LENGTH, RANDOM_POEM_MAX_ATTEMPTS};
 use crate::domain::StoreError;
+use crate::domain::paging::{Cursor, Slice};
 use crate::domain::taxonomy::TermCount;
 use crate::domain::{PoetBrief, Term};
 use crate::js;
@@ -146,13 +147,17 @@ pub enum PoemError {
 #[async_trait]
 pub trait PoemRepository: Send + Sync {
     async fn count(&self) -> Result<i32, StoreError>;
-    async fn list_slugs(&self, page: u32, page_size: u32) -> Result<Vec<String>, StoreError>;
+    async fn list_slugs(
+        &self,
+        cursor: Option<&Cursor<i32>>,
+        page_size: u32,
+    ) -> Result<Slice<String, i32>, StoreError>;
     async fn list(
         &self,
         facets: &Facets,
-        page: u32,
+        cursor: Option<&Cursor<i32>>,
         page_size: u32,
-    ) -> Result<(Vec<PoemSummary>, i32), StoreError>;
+    ) -> Result<(Slice<PoemSummary, i32>, i32), StoreError>;
     async fn facet_counts(&self, facets: &Facets) -> Result<Option<FacetCounts>, StoreError>;
     async fn find(&self, slug: &str) -> Result<Option<PoemRecord>, StoreError>;
     async fn alias_target(&self, slug: &str) -> Result<Option<String>, StoreError>;

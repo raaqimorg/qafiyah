@@ -1,13 +1,15 @@
 import {
   MAX_FILTER_SLUGS,
   MAX_QUERY_LENGTH,
-  SEARCH_POEMS_MAX_PAGE,
-  SEARCH_POETS_MAX_PAGE,
+  ES_MAX_RESULT_WINDOW,
+  SEARCH_POEMS_PER_PAGE,
+  SEARCH_POETS_PER_PAGE,
   SEARCH_TYPE_VALUES,
 } from '@qafiyah/config';
 
 import {
   ar,
+  cursorOf,
   BIDI_OVERRIDE,
   BOM_PREFIXED,
   COMBINING_OVERFLOW,
@@ -16,6 +18,7 @@ import {
   HARAKAT_AR,
   HARAKAT_ONLY,
   NUL_QUERY,
+  offsetCursor,
   PHRASE_AR,
   POET_QUERY_AR,
   PRESENTATION_FORM,
@@ -114,23 +117,34 @@ export const searchOkProbes: readonly Probe[] = [
       meterSlugs: ['albasit'],
       rhymeSlugs: ['meem'],
       themeSlugs: ['almadih'],
-      poemsPage: '2',
+      poemsCursor: offsetCursor(SEARCH_POEMS_PER_PAGE),
     }),
     expect: 'ok',
     note: 'kitchen-sink: query + every filter + page 2',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '3', poetsPage: '2' }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poemsCursor: offsetCursor(2 * SEARCH_POEMS_PER_PAGE),
+      poetsCursor: offsetCursor(SEARCH_POETS_PER_PAGE),
+    }),
     expect: 'ok',
     note: 'independent section pagination',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: String(SEARCH_POEMS_MAX_PAGE) }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poemsCursor: offsetCursor(ES_MAX_RESULT_WINDOW - SEARCH_POEMS_PER_PAGE),
+    }),
     expect: 'ok',
     note: 'poems page at ES window boundary',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poetsPage: String(SEARCH_POETS_MAX_PAGE), types: ['poets'] }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poetsCursor: offsetCursor(ES_MAX_RESULT_WINDOW - SEARCH_POETS_PER_PAGE),
+      types: ['poets'],
+    }),
     expect: 'ok',
     note: 'poets page at ES window boundary',
   },
@@ -193,9 +207,13 @@ export const searchSemanticEdgeProbes: readonly Probe[] = [
     note: 'uppercase exact rejected (picklist is case-sensitive)',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poetsPage: '2', types: ['poems'] }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poetsCursor: offsetCursor(SEARCH_POETS_PER_PAGE),
+      types: ['poems'],
+    }),
     expect: 'ok',
-    note: 'valid poetsPage present but section excluded',
+    note: 'valid poetsCursor present but section excluded',
   },
   {
     url: searchUrl({ q: QUERY_AR, eraSlugs: ['jahili', 'jahili'] }),
@@ -297,39 +315,37 @@ export const searchArrayDecoderProbes: readonly Probe[] = [
   },
 ];
 
-export const searchPageCoercionProbes: readonly Probe[] = [
-  { url: searchUrl({ q: QUERY_AR, poemsPage: '007' }), expect: 'healthy', note: 'leading zeros' },
+export const searchCursorShapeProbes: readonly Probe[] = [
+  { url: searchUrl({ q: QUERY_AR, poemsCursor: '' }), expect: 'healthy', note: 'empty cursor' },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '+5' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: `${offsetCursor(20)}==` }),
     expect: 'healthy',
-    note: 'leading plus sign',
+    note: 'padded base64',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '5.0' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: Buffer.from('{"offset":20}').toString('base64') }),
     expect: 'healthy',
-    note: 'integer-valued float (vs. fractional 1.5 → reject)',
+    note: 'standard base64 alphabet',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '1e2' }),
-    expect: 'healthy',
-    note: 'scientific notation',
-  },
-  { url: searchUrl({ q: QUERY_AR, poemsPage: '0x10' }), expect: 'healthy', note: 'hex literal' },
-  {
-    url: searchUrl({ q: QUERY_AR, poemsPage: ' 5 ' }),
-    expect: 'healthy',
-    note: 'whitespace-padded',
-  },
-  {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '٢' }),
-    expect: 'healthy',
-    note: 'Arabic-Indic digit (Number()→NaN)',
-  },
-  { url: searchUrl({ q: QUERY_AR, poemsPage: '-0' }), expect: 'healthy', note: 'negative zero' },
-  {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '99999999999999999999' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: cursorOf({ offset: 20, extra: 1 }) }),
     expect: 'client-error',
-    note: 'value past Number.MAX_SAFE_INTEGER and past cap',
+    note: 'unknown field in the cursor',
+  },
+  {
+    url: searchUrl({ q: QUERY_AR, poemsCursor: cursorOf({ offset: 20.5 }) }),
+    expect: 'client-error',
+    note: 'fractional offset',
+  },
+  {
+    url: searchUrl({ q: QUERY_AR, poemsCursor: 'A'.repeat(2048) }),
+    expect: 'client-error',
+    note: 'cursor past max length',
+  },
+  {
+    url: searchUrl({ q: QUERY_AR, poemsCursor: offsetCursor(7) }),
+    expect: 'healthy',
+    note: 'offset off the page grid',
   },
 ];
 
@@ -364,34 +380,41 @@ export const searchAbsentSlugProbes: readonly Probe[] = [
 
 export const searchRejectProbes: readonly Probe[] = [
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '0' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: '2' }),
     expect: 'client-error',
-    note: 'page below min',
+    note: 'a page number is not a cursor',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: String(SEARCH_POEMS_MAX_PAGE + 1) }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poemsCursor: offsetCursor(ES_MAX_RESULT_WINDOW - SEARCH_POEMS_PER_PAGE + 1),
+    }),
     expect: 'client-error',
-    note: 'poems page past ES window (would 500 ES)',
+    note: 'poems cursor past ES window (would 500 ES)',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poetsPage: String(SEARCH_POETS_MAX_PAGE + 1), types: ['poets'] }),
+    url: searchUrl({
+      q: QUERY_AR,
+      poetsCursor: offsetCursor(ES_MAX_RESULT_WINDOW - SEARCH_POETS_PER_PAGE + 1),
+      types: ['poets'],
+    }),
     expect: 'client-error',
-    note: 'poets page past ES window (would 500 ES)',
+    note: 'poets cursor past ES window (would 500 ES)',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: 'abc' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: cursorOf({ after: 1 }) }),
     expect: 'client-error',
-    note: 'non-numeric page',
+    note: 'a cursor of another list',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poemsPage: '1.5' }),
+    url: searchUrl({ q: QUERY_AR, poemsCursor: cursorOf({ offset: -20 }) }),
     expect: 'client-error',
-    note: 'fractional page',
+    note: 'negative offset',
   },
   {
-    url: searchUrl({ q: QUERY_AR, poetsPage: '-5' }),
+    url: searchUrl({ q: QUERY_AR, extra: { poemsPage: '2' } }),
     expect: 'client-error',
-    note: 'negative page',
+    note: 'the old page parameter is refused',
   },
   {
     url: searchUrl({ q: QUERY_AR, types: ['banana'] }),
@@ -422,10 +445,10 @@ export const searchRejectProbes: readonly Probe[] = [
     url: searchUrl({
       q: QUERY_AR,
       types: ['poets'],
-      poemsPage: String(SEARCH_POEMS_MAX_PAGE + 1),
+      poemsCursor: offsetCursor(ES_MAX_RESULT_WINDOW),
     }),
     expect: 'client-error',
-    note: 'unused section page still validated',
+    note: 'unused section cursor still validated',
   },
   {
     url: searchUrl({

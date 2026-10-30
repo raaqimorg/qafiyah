@@ -4,6 +4,7 @@ export const SITE_LANGUAGE = 'ar';
 
 const OPEN_GRAPH_URL_PATH = '/open-graph.png';
 export const SITE_LOGO_PATH = '/organization-logo.png';
+export const SITE_WORDMARK_PATH = '/logo.svg';
 
 export const SITE_TAGLINE_AR = 'مرجع الشعر العربي';
 export const SITE_TITLE = `${SITE_NAME_AR} | ${SITE_TAGLINE_AR}`;

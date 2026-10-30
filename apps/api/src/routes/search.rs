@@ -3,16 +3,14 @@ use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::constants::{
-    SEARCH_POEMS_MAX_PAGE, SEARCH_POEMS_PER_PAGE, SEARCH_POETS_MAX_PAGE, SEARCH_POETS_PER_PAGE,
-};
+use crate::constants::{SEARCH_POEMS_PER_PAGE, SEARCH_POETS_PER_PAGE};
 use crate::contract::search::{PoemResult, PoetResult};
 use crate::domain::search::{self, PoemSearchParams, PoetSearchParams};
-use crate::envelope::{ListEnvelope, build_pagination};
+use crate::envelope::PageEnvelope;
 use crate::error::{AppError, RouteProblem};
 use crate::extract::SafeQuery;
 use crate::openapi::ListErrors;
-use crate::params::{ExactFlag, Page, PoetSlugs, SearchText, SearchTypeParam, TermSlugs};
+use crate::params::{ExactFlag, PoetSlugs, SearchCursor, SearchText, SearchTypeParam, TermSlugs};
 use crate::state::AppState;
 
 #[derive(Serialize, ToSchema)]
@@ -24,9 +22,9 @@ pub(crate) struct SearchResponse {
     #[schema(example = "أمن أم أوفى")]
     q: String,
     /// The poems section. Left out unless `types` includes poems.
-    poems: Option<ListEnvelope<PoemResult>>,
+    poems: Option<PageEnvelope<PoemResult>>,
     /// The poets section. Left out unless `types` includes poets.
-    poets: Option<ListEnvelope<PoetResult>>,
+    poets: Option<PageEnvelope<PoetResult>>,
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -39,12 +37,12 @@ pub(crate) struct SearchParams {
     /// Sections to include: `poems`, `poets`, or both, which is the default. Repeat it to send both. Send `types=poems` alone to use any poem-only filter.
     #[param(example = json!(["poems"]))]
     types: Option<Vec<SearchTypeParam>>,
-    /// Page of the poems section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-    #[param(inline, example = 1)]
-    poems_page: Option<Page<{ SEARCH_POEMS_MAX_PAGE }>>,
-    /// Page of the poets section as a 1-based integer, 20 results a page. Maximum 500: Elasticsearch stops paging after 10,000 results.
-    #[param(inline, example = 1)]
-    poets_page: Option<Page<{ SEARCH_POETS_MAX_PAGE }>>,
+    /// The `next` or `prev` value of the poems section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.
+    #[param(inline, example = "eyJvZmZzZXQiOjIwfQ")]
+    poems_cursor: Option<SearchCursor<{ SEARCH_POEMS_PER_PAGE }>>,
+    /// The `next` or `prev` value of the poets section, 20 results a page, with the same query and filters. Leave it out for the first page. Paging stops after 10,000 results.
+    #[param(inline, example = "eyJvZmZzZXQiOjIwfQ")]
+    poets_cursor: Option<SearchCursor<{ SEARCH_POETS_PER_PAGE }>>,
     /// Narrow the poems section to these poets. The poets section ignores it. Repeatable. Values are `slug` from GET /poets.
     #[serde(default)]
     #[param(inline, example = json!(["PAKT"]))]
@@ -83,10 +81,10 @@ pub(crate) struct SearchParams {
     path = "/search",
     tag = "search",
     operation_id = "search.search",
-    description = "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `totalItems` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400.",
+    description = "Full-text search over poems and poets, in two sections paged on their own. Poems match by title and verse text, poets by name and nickname. Without `q` the sections are browsed instead: poems newest first, with the classical eras first unless an era is chosen, and poets newest first, all narrowed by the filters. A poem found in several readings appears once, as its best-matching reading. Each section's `total` stops at 10,000, so 10,000 means 10,000 or more, and the poems total counts poems, not readings. `relevance` is the raw search score, comparable only within one section. Repeat a filter to match any of its values. The meter, rhyme, theme, verse form, and collection filters apply to poems only and need `types=poems`: with the default `types`, which includes poets, a request using them is refused with 400.",
     params(SearchParams),
     responses(
-        (status = 200, description = "The normalized query and the requested sections, each with its own results and pagination.", body = SearchResponse),
+        (status = 200, description = "The normalized query and the requested sections, each with its own results and cursors.", body = SearchResponse),
         ListErrors,
     ),
 )]
@@ -104,8 +102,8 @@ pub(crate) async fn search(
             types.contains(&SearchTypeParam::Poets),
         )
     });
-    let poems_page = params.poems_page.map_or(1, Page::get);
-    let poets_page = params.poets_page.map_or(1, Page::get);
+    let poems_offset = params.poems_cursor.map_or(0, SearchCursor::offset);
+    let poets_offset = params.poets_cursor.map_or(0, SearchCursor::offset);
     let exact = params.exact == Some(ExactFlag::True);
 
     let poem_only = [
@@ -125,7 +123,7 @@ pub(crate) async fn search(
     let era_slugs = params.era_slugs.into_strings();
     let poem_params = PoemSearchParams {
         q: q.clone(),
-        page: poems_page,
+        offset: poems_offset,
         page_size: SEARCH_POEMS_PER_PAGE,
         poet_slugs: params.poet_slugs.into_strings(),
         era_slugs: era_slugs.clone(),
@@ -138,11 +136,10 @@ pub(crate) async fn search(
     };
     let poet_params = PoetSearchParams {
         q: q.clone(),
-        page: poets_page,
+        offset: poets_offset,
         page_size: SEARCH_POETS_PER_PAGE,
         era_slugs,
         exact,
-        ..PoetSearchParams::default()
     };
     let poems = async {
         if !want_poems {
@@ -178,13 +175,21 @@ pub(crate) async fn search(
     crate::log::record_results(found);
     Ok(Json(SearchResponse {
         q,
-        poems: poems.map(|page| ListEnvelope {
-            data: page.hits.into_iter().map(PoemResult::from).collect(),
-            pagination: build_pagination(poems_page, poem_params.page_size, page.total),
+        poems: poems.map(|page| {
+            PageEnvelope::at_offset(
+                page.hits.into_iter().map(PoemResult::from).collect(),
+                page.total,
+                poems_offset,
+                SEARCH_POEMS_PER_PAGE,
+            )
         }),
-        poets: poets.map(|page| ListEnvelope {
-            data: page.hits.into_iter().map(PoetResult::from).collect(),
-            pagination: build_pagination(poets_page, poet_params.page_size, page.total),
+        poets: poets.map(|page| {
+            PageEnvelope::at_offset(
+                page.hits.into_iter().map(PoetResult::from).collect(),
+                page.total,
+                poets_offset,
+                SEARCH_POETS_PER_PAGE,
+            )
         }),
     }))
 }
