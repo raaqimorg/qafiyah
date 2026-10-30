@@ -23,3 +23,33 @@ include-path = "/search"
 
 [operations.checks.positive_data_acceptance]
 expected-statuses = ["2xx", "400", "404"]
+
+[[operations]]
+include-path = "/poems"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]
+
+[[operations]]
+include-path = "/poems/slugs"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]
+
+[[operations]]
+include-path = "/poets"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]
+
+[[operations]]
+include-path = "/poets/slugs"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]
+
+[[operations]]
+include-path = "/feelings/{slug}/verses"
+
+[operations.checks.positive_data_acceptance]
+expected-statuses = ["2xx", "400", "404"]

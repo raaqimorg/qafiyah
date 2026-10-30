@@ -52,11 +52,17 @@ pub struct SearchInput {
     #[schemars(description = "Which sections to search: poems, poets, or both.")]
     pub types: Vec<SearchType>,
     #[serde(default)]
-    #[schemars(with = "u32", description = "The page of poem results, from 1.")]
-    pub poems_page: Option<u32>,
+    #[schemars(
+        with = "String",
+        description = "The `next` or `prev` of an earlier poems section, for the page after or before it. Send the same search with it."
+    )]
+    pub poems_cursor: Option<String>,
     #[serde(default)]
-    #[schemars(with = "u32", description = "The page of poet results, from 1.")]
-    pub poets_page: Option<u32>,
+    #[schemars(
+        with = "String",
+        description = "The `next` or `prev` of an earlier poets section, for the page after or before it. Send the same search with it."
+    )]
+    pub poets_cursor: Option<String>,
     #[serde(default)]
     #[schemars(description = "Poet slugs to filter by.")]
     pub poet_slugs: Vec<String>,
@@ -89,8 +95,11 @@ pub struct SearchInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListPoemsInput {
     #[serde(default)]
-    #[schemars(with = "u32", description = "The page, from 1.")]
-    pub page: Option<u32>,
+    #[schemars(
+        with = "String",
+        description = "The `next` or `prev` of an earlier result, for the page after or before it. Send the same filters with it."
+    )]
+    pub cursor: Option<String>,
     #[serde(default)]
     #[schemars(description = "Poet slugs to filter by.")]
     pub poet: Vec<String>,
@@ -123,8 +132,11 @@ pub struct PoemInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListPoetsInput {
     #[serde(default)]
-    #[schemars(with = "u32", description = "The page, from 1.")]
-    pub page: Option<u32>,
+    #[schemars(
+        with = "String",
+        description = "The `next` or `prev` of an earlier result, for the page after or before it. Send the same filters with it."
+    )]
+    pub cursor: Option<String>,
     #[serde(default)]
     #[schemars(with = "String", description = "An era slug to filter by.")]
     pub era: Option<String>,
@@ -181,8 +193,11 @@ pub struct FeelingVersesInput {
     )]
     pub slug: String,
     #[serde(default)]
-    #[schemars(with = "u32", description = "The page, from 1.")]
-    pub page: Option<u32>,
+    #[schemars(
+        with = "String",
+        description = "The `next` or `prev` of an earlier result, for the page after or before it."
+    )]
+    pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
@@ -319,16 +334,8 @@ impl Catalog {
         for kind in &input.types {
             query.push(("types", kind.wire().to_string()));
         }
-        push(
-            &mut query,
-            "poemsPage",
-            input.poems_page.map(|page| page.to_string()),
-        );
-        push(
-            &mut query,
-            "poetsPage",
-            input.poets_page.map(|page| page.to_string()),
-        );
+        push(&mut query, "poemsCursor", input.poems_cursor);
+        push(&mut query, "poetsCursor", input.poets_cursor);
         push_all(&mut query, "poetSlugs", &input.poet_slugs);
         push_all(&mut query, "eraSlugs", &input.era_slugs);
         push_all(&mut query, "meterSlugs", &input.meter_slugs);
@@ -364,7 +371,7 @@ impl Catalog {
         Extension(parts): Extension<Parts>,
     ) -> Result<CallToolResult, ErrorData> {
         let mut query = Query::new();
-        push(&mut query, "page", input.page.map(|page| page.to_string()));
+        push(&mut query, "cursor", input.cursor);
         push_all(&mut query, "poet", &input.poet);
         push_all(&mut query, "era", &input.era);
         push_all(&mut query, "theme", &input.theme);
@@ -446,7 +453,7 @@ impl Catalog {
         Extension(parts): Extension<Parts>,
     ) -> Result<CallToolResult, ErrorData> {
         let mut query = Query::new();
-        push(&mut query, "page", input.page.map(|page| page.to_string()));
+        push(&mut query, "cursor", input.cursor);
         push(&mut query, "era", input.era);
         push(&mut query, "q", input.q);
         Ok(self
@@ -543,7 +550,7 @@ impl Catalog {
             return Ok(self.refuse(Tool::FeelingVerses, &input.slug, Subject::Feeling));
         }
         let mut query = Query::new();
-        push(&mut query, "page", input.page.map(|page| page.to_string()));
+        push(&mut query, "cursor", input.cursor);
         Ok(self
             .run(
                 Tool::FeelingVerses,
@@ -658,8 +665,8 @@ mod tests {
         let input = SearchInput {
             q: Some("سلام".into()),
             types: vec![SearchType::Poems, SearchType::Poets],
-            poems_page: Some(2),
-            poets_page: None,
+            poems_cursor: Some("eyJvZmZzZXQiOjIwfQ".into()),
+            poets_cursor: None,
             poet_slugs: vec![],
             era_slugs: vec!["jahili".into()],
             meter_slugs: vec![],
@@ -699,7 +706,7 @@ mod tests {
             ("q", "سلام"),
             ("types", "poems"),
             ("types", "poets"),
-            ("poemsPage", "2"),
+            ("poemsCursor", "eyJvZmZzZXQiOjIwfQ"),
             ("eraSlugs", "jahili"),
             ("exact", "true"),
         ]
@@ -714,7 +721,7 @@ mod tests {
         let fake =
             serving(json!({ "data": [{ "slug": "Abcd", "poet": { "slug": "Wxyz" } }] })).await;
         let input = ListPoemsInput {
-            page: Some(2),
+            cursor: Some("eyJhZnRlciI6MTI2NH0".into()),
             poet: vec![],
             era: vec!["jahili".into(), "abbasi".into()],
             theme: vec![],
@@ -734,7 +741,7 @@ mod tests {
         );
         assert_eq!(
             only_request(&fake).await.path_and_query,
-            "/v1/poems?page=2&era=jahili&era=abbasi"
+            "/v1/poems?cursor=eyJhZnRlciI6MTI2NH0&era=jahili&era=abbasi"
         );
     }
 
@@ -795,7 +802,7 @@ mod tests {
     async fn the_poet_tools_call_their_paths_and_link_each_poet() {
         let list = serving(json!({ "data": [{ "slug": "Wxyz" }] })).await;
         let input = ListPoetsInput {
-            page: Some(1),
+            cursor: None,
             era: Some("abbasi".into()),
             q: Some("x".into()),
         };
@@ -809,7 +816,7 @@ mod tests {
         );
         assert_eq!(
             only_request(&list).await.path_and_query,
-            "/v1/poets?page=1&era=abbasi&q=x"
+            "/v1/poets?era=abbasi&q=x"
         );
 
         let one = serving(json!({ "data": { "slug": "Wxyz" } })).await;
@@ -862,7 +869,7 @@ mod tests {
         .await;
         let input = FeelingVersesInput {
             slug: "longing".into(),
-            page: Some(3),
+            cursor: Some("eyJhZnRlciI6NjB9".into()),
         };
         let result = catalog(&fake)
             .feeling_verses(Parameters(input), parts())
@@ -879,7 +886,7 @@ mod tests {
         );
         assert_eq!(
             only_request(&fake).await.path_and_query,
-            "/v1/feelings/longing/verses?page=3"
+            "/v1/feelings/longing/verses?cursor=eyJhZnRlciI6NjB9"
         );
     }
 
@@ -900,7 +907,7 @@ mod tests {
             .feeling_verses(
                 Parameters(FeelingVersesInput {
                     slug: "A/b".into(),
-                    page: None,
+                    cursor: None,
                 }),
                 parts(),
             )

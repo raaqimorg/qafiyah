@@ -1,4 +1,6 @@
-import { PHRASE_AR, QUERY_AR, searchUrl } from '../checks';
+import { SEARCH_POEMS_PER_PAGE } from '@qafiyah/config';
+
+import { offsetCursor, PHRASE_AR, QUERY_AR, searchUrl } from '../checks';
 import { OPENAPI_SPEC, SEARCH, WEB } from '../target';
 
 import type { Probe } from '../types';
@@ -76,10 +78,14 @@ export type Differential = {
 
 export const differentials: readonly Differential[] = [
   {
-    note: 'poems page 1 vs page 2 (pagination is wired)',
-    a: searchUrl({ q: QUERY_AR, types: ['poems'], poemsPage: '1' }),
-    b: searchUrl({ q: QUERY_AR, types: ['poems'], poemsPage: '2' }),
-    because: 'identical bytes mean poemsPage is parsed, validated, then dropped before ES',
+    note: 'poems first page vs the next one (paging is wired)',
+    a: searchUrl({ q: QUERY_AR, types: ['poems'] }),
+    b: searchUrl({
+      q: QUERY_AR,
+      types: ['poems'],
+      poemsCursor: offsetCursor(SEARCH_POEMS_PER_PAGE),
+    }),
+    because: 'identical bytes mean poemsCursor is parsed, validated, then dropped before ES',
   },
   {
     note: 'unfiltered vs era-filtered poems (the era filter filters)',

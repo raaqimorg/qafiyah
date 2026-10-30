@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 
+import { ES_MAX_RESULT_WINDOW } from '@qafiyah/config';
+
 import { ROOT } from '../../lib/root';
+import { offsetCursor } from '../checks';
 import { expectJsonObject, expectProblemJson, expectSomeResults } from '../checks/body';
 import { isStatus } from '../checks/status';
 import { API } from '../target';
@@ -51,14 +54,14 @@ export const apiContractProbes: readonly Probe[] = [
     surfaces: ALL,
   },
   {
-    url: `${API}/v1/poems?page=0`,
-    note: 'page zero is 400',
+    url: `${API}/v1/poems?cursor=0`,
+    note: 'a cursor no page gave out is 400',
     checks: [expectProblemJson('BAD_REQUEST')],
     surfaces: ALL,
   },
   {
-    url: `${API}/v1/search?q=%D8%AD%D8%A8&poemsPage=999999`,
-    note: 'search page past window is 400',
+    url: `${API}/v1/search?q=%D8%AD%D8%A8&poemsCursor=${offsetCursor(ES_MAX_RESULT_WINDOW)}`,
+    note: 'search cursor past window is 400',
     checks: [expectProblemJson('BAD_REQUEST')],
     surfaces: ALL,
   },

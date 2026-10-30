@@ -3,13 +3,14 @@ use serde::Deserialize;
 
 use crate::constants::ES_MAX_RESULT_WINDOW;
 use crate::domain::StoreError;
+use crate::domain::paging::{self, Slice};
 use crate::domain::search::{
-    Page, PoemHit, PoemSearchParams, PoetHit, PoetListing, PoetSearchParams, SearchIndex,
-    poem_snippet,
+    Page, PoemHit, PoemSearchParams, PoetHit, PoetListParams, PoetListing, PoetPosition,
+    PoetSearchParams, SearchIndex, poem_snippet,
 };
 use crate::domain::{PoetBrief, Term};
 use crate::es::client::Es;
-use crate::es::query::{poem_search_body, poet_search_body};
+use crate::es::query::{poem_search_body, poet_list_body, poet_search_body};
 
 #[derive(Deserialize)]
 struct Response<S> {
@@ -66,7 +67,9 @@ struct PoemSource {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PoetSource {
+    id: i32,
     name_display: String,
+    name_sort: String,
     slug: String,
     era_name: String,
     era_slug: String,
@@ -157,24 +160,34 @@ impl SearchIndex for Es {
         })
     }
 
-    async fn list_poets(&self, params: &PoetSearchParams) -> Result<Page<PoetListing>, StoreError> {
+    async fn list_poets(
+        &self,
+        params: &PoetListParams,
+    ) -> Result<(Slice<PoetListing, PoetPosition>, u32), StoreError> {
         let response: Response<PoetSource> = self
-            .search(&self.poets_alias, &poet_search_body(params))
+            .search(&self.poets_alias, &poet_list_body(params))
             .await?;
-        let hits = response
-            .hits
-            .hits
-            .into_iter()
-            .map(|hit| PoetListing {
+        let rows = response.hits.hits.into_iter().map(|hit| {
+            let position = PoetPosition {
+                score: hit.score.filter(|_| !params.q.is_empty()),
+                poems_count: hit.source.poems_count,
+                name_sort: hit.source.name_sort,
+                id: hit.source.id,
+            };
+            let listing = PoetListing {
                 name: hit.source.name_display,
                 slug: hit.source.slug,
                 poems_count: hit.source.poems_count,
-            })
-            .collect();
-        Ok(Page {
-            hits,
-            total: response.hits.total.value,
-        })
+            };
+            (position, listing)
+        });
+        let page = paging::slice(
+            rows.collect(),
+            params.cursor.as_ref(),
+            params.page_size,
+            |(position, _)| position.clone(),
+        );
+        Ok((page.map(|(_, listing)| listing), response.hits.total.value))
     }
 }
 
@@ -186,6 +199,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
+    use crate::domain::paging::Cursor;
     use crate::metrics::Metrics;
     use crate::test_support::FakeEs;
 
@@ -220,8 +234,8 @@ mod tests {
     }
 
     fn poet_source(slug: &str) -> Value {
-        json!({ "slug": slug, "name": "plain", "nameDisplay": "vocalized", "eraName": "e",
-                "eraSlug": "abbasi", "poemsCount": 12 })
+        json!({ "id": 7, "slug": slug, "name": "plain", "nameDisplay": "vocalized",
+                "nameSort": "plain", "eraName": "e", "eraSlug": "abbasi", "poemsCount": 12 })
     }
 
     fn found(total: u32, hits: Vec<Value>) -> Value {
@@ -279,15 +293,42 @@ mod tests {
         );
         assert_eq!(searched.hits[0].era.slug, "abbasi");
         let (_fake, es) = answering(found(1, hits)).await;
-        let listed = es
-            .list_poets(&PoetSearchParams::default())
+        let (listed, total) = es
+            .list_poets(&PoetListParams::default())
             .await
             .expect("a page of poets");
         assert_eq!(
-            (listed.hits[0].name.as_str(), listed.hits[0].poems_count),
+            (listed.items[0].name.as_str(), listed.items[0].poems_count),
             ("vocalized", 12)
         );
-        assert_eq!(listed.total, 1);
+        assert_eq!((total, listed.next, listed.prev), (1, None, None));
+    }
+
+    #[tokio::test]
+    async fn a_listed_page_with_a_poet_to_spare_points_past_its_last_poet() {
+        let hits = (1..=31)
+            .map(|id| {
+                let mut source = poet_source("yoFB");
+                source["id"] = json!(id);
+                json!({ "_source": source, "_score": null })
+            })
+            .collect();
+        let (_fake, es) = answering(found(40, hits)).await;
+        let (listed, total) = es
+            .list_poets(&PoetListParams::default())
+            .await
+            .expect("a page of poets");
+        assert_eq!((listed.items.len(), total), (30, 40));
+        assert_eq!(
+            listed.next,
+            Some(Cursor::After(PoetPosition {
+                score: None,
+                poems_count: 12,
+                name_sort: "plain".into(),
+                id: 30,
+            }))
+        );
+        assert_eq!(listed.prev, None);
     }
 
     #[tokio::test]
@@ -328,7 +369,7 @@ mod tests {
         ));
         let (_fake, es) = answering(found(1, vec![json!({ "_source": { "slug": "yoFB" } })])).await;
         assert!(matches!(
-            es.list_poets(&PoetSearchParams::default()).await,
+            es.list_poets(&PoetListParams::default()).await,
             Err(StoreError::Search(_))
         ));
     }

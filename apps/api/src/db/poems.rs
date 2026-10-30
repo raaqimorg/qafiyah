@@ -16,6 +16,7 @@ use crate::db::corpus::{
 };
 use crate::db::{PgPool, Uncached, int};
 use crate::domain::StoreError;
+use crate::domain::paging::{self, Cursor, Slice};
 use crate::domain::poems::{
     FacetCounts, Facets, Filter, PoemLink, PoemRecord, PoemRepository, PoemSummary, RandomPoem,
     Recension,
@@ -231,41 +232,51 @@ fn matching(filter: &FilterIds) -> Condition {
 
 fn page_ids(
     filters: &[FilterIds],
-    page: u32,
+    cursor: Option<&Cursor<i32>>,
     page_size: u32,
 ) -> poems::BoxedQuery<'static, Pg, Integer> {
     let mut query = poems::table.select(poems::id).filter(shown()).into_boxed();
     for filter in filters {
         query = query.filter(matching(filter));
     }
-    query
-        .order(poems::id.asc())
-        .limit(i64::from(page_size))
-        .offset(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
+    let query = match cursor {
+        None => query.order(poems::id.asc()),
+        Some(Cursor::After(id)) => query.filter(poems::id.gt(*id)).order(poems::id.asc()),
+        Some(Cursor::Before(id)) => query.filter(poems::id.lt(*id)).order(poems::id.desc()),
+    };
+    query.limit(paging::fetch_limit(page_size))
 }
 
 async fn page_rows(
     mut conn: &AsyncPgConnection,
     filters: &[FilterIds],
-    page: u32,
+    cursor: Option<&Cursor<i32>>,
     page_size: u32,
-) -> Result<Vec<PoemListRow>, StoreError> {
+) -> Result<Vec<(i32, PoemListRow)>, StoreError> {
     let rows = poems::table
         .inner_join(poets::table.on(poets::id.eq(poems::poet_id)))
         .inner_join(meters::table.on(meters::id.eq(poems::meter_id)))
-        .filter(poems::id.eq_any(page_ids(filters, page, page_size)))
-        .order(poems::id.asc())
+        .filter(poems::id.eq_any(page_ids(filters, cursor, page_size)))
         .select((
-            poems::title,
-            poems::slug,
-            poets::name,
-            poets::slug,
-            poets::has_avatar,
-            poets::is_anonymous,
-            meters::name,
-            meters::slug,
-        ));
-    Ok(Uncached(rows).load::<PoemListRow>(&mut conn).await?)
+            poems::id,
+            (
+                poems::title,
+                poems::slug,
+                poets::name,
+                poets::slug,
+                poets::has_avatar,
+                poets::is_anonymous,
+                meters::name,
+                meters::slug,
+            ),
+        ))
+        .into_boxed();
+    let rows = if cursor.is_some_and(Cursor::is_before) {
+        rows.order(poems::id.desc())
+    } else {
+        rows.order(poems::id.asc())
+    };
+    Ok(Uncached(rows).load::<(i32, PoemListRow)>(&mut conn).await?)
 }
 
 async fn stats_total(mut conn: &AsyncPgConnection, filter: &FilterIds) -> Result<i32, StoreError> {
@@ -568,36 +579,45 @@ impl PoemRepository for PgPoems {
         )
     }
 
-    async fn list_slugs(&self, page: u32, page_size: u32) -> Result<Vec<String>, StoreError> {
+    async fn list_slugs(
+        &self,
+        cursor: Option<&Cursor<i32>>,
+        page_size: u32,
+    ) -> Result<Slice<String, i32>, StoreError> {
         let mut conn = self.pool.get().await?;
-        Ok(poems::table
+        let query = poems::table
             .filter(poems::recension_of_id.is_null())
             .filter(poems::is_hidden.eq(false))
-            .order(poems::slug.asc())
-            .select(poems::slug)
-            .limit(i64::from(page_size))
-            .offset(i64::from(page.saturating_sub(1)).saturating_mul(i64::from(page_size)))
-            .load::<String>(&mut conn)
-            .await?)
+            .select((poems::id, poems::slug))
+            .limit(paging::fetch_limit(page_size))
+            .into_boxed();
+        let query = match cursor {
+            None => query.order(poems::id.asc()),
+            Some(Cursor::After(id)) => query.filter(poems::id.gt(*id)).order(poems::id.asc()),
+            Some(Cursor::Before(id)) => query.filter(poems::id.lt(*id)).order(poems::id.desc()),
+        };
+        let rows = query.load::<(i32, String)>(&mut conn).await?;
+        Ok(paging::slice(rows, cursor, page_size, |(id, _)| *id).map(|(_, slug)| slug))
     }
 
     async fn list(
         &self,
         facets: &Facets,
-        page: u32,
+        cursor: Option<&Cursor<i32>>,
         page_size: u32,
-    ) -> Result<(Vec<PoemSummary>, i32), StoreError> {
+    ) -> Result<(Slice<PoemSummary, i32>, i32), StoreError> {
         let pooled = self.pool.get().await?;
         let conn: &AsyncPgConnection = &pooled;
         let filters = resolve_ids(conn, facets).await?;
         if filters.iter().any(|filter| filter.ids.is_empty()) {
-            return Ok((Vec::new(), 0));
+            return Ok((Slice::empty(), 0));
         }
         let (rows, total) = tokio::try_join!(
-            page_rows(conn, &filters, page, page_size),
+            page_rows(conn, &filters, cursor, page_size),
             total(conn, &filters)
         )?;
-        Ok((rows.into_iter().map(list_item).collect(), total))
+        let page = paging::slice(rows, cursor, page_size, |(id, _)| *id);
+        Ok((page.map(|(_, row)| list_item(row)), total))
     }
 
     async fn facet_counts(&self, facets: &Facets) -> Result<Option<FacetCounts>, StoreError> {
@@ -779,20 +799,20 @@ mod tests {
         }
     }
 
-    fn page_sql(filters: &[FilterIds], page: u32) -> String {
-        diesel::debug_query::<Pg, _>(&page_ids(filters, page, 30)).to_string()
+    fn page_sql(filters: &[FilterIds]) -> String {
+        diesel::debug_query::<Pg, _>(&page_ids(filters, Some(&Cursor::After(9)), 30)).to_string()
     }
 
     #[test]
     fn one_id_is_matched_as_a_scalar_so_the_planner_walks_the_filter_index() {
-        let sql = page_sql(&[ids(Filter::Meter, &[5])], 1);
+        let sql = page_sql(&[ids(Filter::Meter, &[5])]);
         assert!(sql.contains(r#""poems"."meter_id" = $2"#), "{sql}");
         assert!(!sql.contains("ANY"), "{sql}");
     }
 
     #[test]
     fn several_ids_are_matched_as_a_set() {
-        let sql = page_sql(&[ids(Filter::Meter, &[5, 9])], 1);
+        let sql = page_sql(&[ids(Filter::Meter, &[5, 9])]);
         assert!(sql.contains(r#""poems"."meter_id" = ANY($2)"#), "{sql}");
     }
 }

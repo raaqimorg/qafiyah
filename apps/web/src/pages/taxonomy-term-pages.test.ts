@@ -8,7 +8,7 @@ vi.mock('@/lib/server/cache', () => ({ CACHE_HTML: 'cache-html', CACHE_NONE: 'ca
 vi.mock('@/lib/observability/report-error', () => ({ reportError: vi.fn() }));
 
 import { apiServer } from '@/lib/server/client';
-import { failure } from '@/test/api-results';
+import { failure, ok } from '@/test/api-results';
 
 import CollectionPage from './collections/[slug].astro';
 import MeterPage from './meters/[slug].astro';
@@ -44,8 +44,9 @@ describe.each(PAGES)('GET /%s/[slug]', (section, page) => {
 
   it.each([
     ['?utm_source=x', `/${section}/altawil`],
-    ['?page=02', `/${section}/altawil?page=2`],
-    ['?page=2&page=3', `/${section}/altawil?page=2`],
+    ['?page=2', `/${section}/altawil`],
+    ['?cursor=', `/${section}/altawil`],
+    ['?cursor=a&cursor=b', `/${section}/altawil?cursor=a`],
   ])('redirects %s to the canonical URL without calling the API', async (query, canonical) => {
     const response = await render(page, `${base}${query}`);
     expect(response.status).toBe(301);
@@ -54,7 +55,32 @@ describe.each(PAGES)('GET /%s/[slug]', (section, page) => {
   });
 
   it('sends the canonical URL itself on to the API', async () => {
-    await render(page, `${base}?page=2`).catch(() => undefined);
-    expect(get).toHaveBeenCalled();
+    await render(page, `${base}?cursor=a`).catch(() => undefined);
+    expect(get).toHaveBeenCalledWith('/poems', {
+      params: { query: expect.objectContaining({ cursor: 'a' }) },
+    });
+  });
+
+  it('redirects a cursor that leads back to the first page to the bare URL', async () => {
+    get.mockImplementation((path: string) =>
+      path === '/poems'
+        ? ok({
+            data: [
+              {
+                title: 'ت',
+                slug: 'p1',
+                poet: { name: 'ش', slug: 'poet-x', hasAvatar: false, isAnonymous: false },
+                meter: { name: 'الطويل', slug: 'altawil' },
+              },
+            ],
+            total: 31,
+            next: 'n',
+            prev: null,
+          })
+        : ok({ data: { name: 'الطويل', slug: 'altawil', poemsCount: 31 } })
+    );
+    const response = await render(page, `${base}?cursor=b`);
+    expect(response.status).toBe(301);
+    expect(response.headers.get('location')).toBe(`/${section}/altawil`);
   });
 });

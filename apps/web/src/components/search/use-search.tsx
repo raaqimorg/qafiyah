@@ -115,10 +115,13 @@ export function useSearch() {
   const canSearchPoems = hasCommittedQuery || hasFilters;
   const canSearchPoets = hasCommittedQuery || hasPoetFilters;
 
-  const searchInput = (type: SearchQueryInput['type'], page: number): SearchQueryInput => ({
+  const searchInput = (
+    type: SearchQueryInput['type'],
+    cursor: string | undefined
+  ): SearchQueryInput => ({
     q: query,
     type,
-    page,
+    cursor,
     eras: selectedEras,
     meters: selectedMeters,
     rhymes: selectedRhymes,
@@ -129,26 +132,20 @@ export function useSearch() {
   });
 
   const poemsInfiniteQuery = useInfiniteQuery({
-    queryKey: searchQueryKey(searchInput('poems', 1)),
+    queryKey: searchQueryKey(searchInput('poems', undefined)),
     queryFn: ({ pageParam }) => fetchSearch(searchInput('poems', pageParam)),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage: SearchResponse) => {
-      const p = lastPage.poems?.pagination;
-      return p && p.page < p.totalPages ? p.page + 1 : undefined;
-    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: SearchResponse) => lastPage.poems?.next ?? undefined,
     enabled: canSearchPoems && wantPoems,
     staleTime: SEARCH_RESULTS_STALE_TIME_MS,
     refetchOnWindowFocus: false,
   });
 
   const poetsInfiniteQuery = useInfiniteQuery({
-    queryKey: searchQueryKey(searchInput('poets', 1)),
+    queryKey: searchQueryKey(searchInput('poets', undefined)),
     queryFn: ({ pageParam }) => fetchSearch(searchInput('poets', pageParam)),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage: SearchResponse) => {
-      const p = lastPage.poets?.pagination;
-      return p && p.page < p.totalPages ? p.page + 1 : undefined;
-    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: SearchResponse) => lastPage.poets?.next ?? undefined,
     enabled: canSearchPoets && wantPoets,
     staleTime: SEARCH_RESULTS_STALE_TIME_MS,
     refetchOnWindowFocus: false,
@@ -156,11 +153,11 @@ export function useSearch() {
 
   const poemItems: readonly PoemSearchResult[] =
     poemsInfiniteQuery.data?.pages.flatMap((p) => p.poems?.data ?? []) ?? [];
-  const poemsTotal = poemsInfiniteQuery.data?.pages[0]?.poems?.pagination.totalItems ?? 0;
+  const poemsTotal = poemsInfiniteQuery.data?.pages[0]?.poems?.total ?? 0;
 
   const poetItems: readonly PoetSearchResult[] =
     poetsInfiniteQuery.data?.pages.flatMap((p) => p.poets?.data ?? []) ?? [];
-  const poetsTotal = poetsInfiniteQuery.data?.pages[0]?.poets?.pagination.totalItems ?? 0;
+  const poetsTotal = poetsInfiniteQuery.data?.pages[0]?.poets?.total ?? 0;
 
   const poemsStatus = deriveSectionStatus({
     canSearch: canSearchPoems && wantPoems,

@@ -13,7 +13,6 @@ import { allCollections, getCollection } from './collections';
 
 const get = apiServer.GET as unknown as ReturnType<typeof vi.fn>;
 
-const PAGINATION = { page: 1, pageSize: 50, totalPages: 1, totalItems: 10 };
 const COLLECTION = { name: 'المعلقات', slug: 'almuallaqat' as CollectionSlug, poemsCount: 10 };
 
 beforeEach(() => {
@@ -22,7 +21,7 @@ beforeEach(() => {
 
 describe('allCollections', () => {
   it('returns the list data', async () => {
-    get.mockResolvedValue(ok({ data: [COLLECTION], pagination: PAGINATION }));
+    get.mockResolvedValue(ok({ data: [COLLECTION] }));
     const collections = await allCollections();
     expect(collections).toHaveLength(1);
     expect(collections[0]?.name).toBe('المعلقات');

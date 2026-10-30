@@ -7,7 +7,7 @@ import { poetAvatarUrl, poetsUrl, poetUrl } from '@/lib/urls';
 import type { APIRoute } from 'astro';
 
 export const GET: APIRoute = async () => {
-  const poets = await collectPagedSlugs((page) => getPoetSlugsPage(page));
+  const poets = await collectPagedSlugs(getPoetSlugsPage);
   const entries: readonly SitemapEntry[] = [
     { loc: `${SITE_URL}${poetsUrl()}` },
     ...poets.map((poet) => ({

@@ -25,7 +25,7 @@ type Target = {
 
 type Page = {
   readonly data: readonly Record<string, unknown>[];
-  readonly pagination?: { readonly totalPages: number };
+  readonly next?: string | null;
 };
 
 const TAXONOMIES = ['meters', 'rhymes', 'eras', 'themes', 'collections', 'poem-types'] as const;
@@ -75,6 +75,16 @@ async function send(
 async function page(path: string): Promise<Page> {
   const response = await fetch(`${A}${path}`, { headers: { 'x-api-key': KEY } });
   return response.ok ? ((await response.json()) as Page) : { data: [] };
+}
+
+const cursorOf = (value: object): string =>
+  Buffer.from(JSON.stringify(value)).toString('base64url');
+const LAST_BY_ID = cursorOf({ before: 2_147_483_647 });
+const LAST_POETS = cursorOf({ before: { poemsCount: -1, nameSort: '', id: 0 } });
+
+function withCursor(path: string, cursor: string | null | undefined): string[] {
+  if (!cursor) return [];
+  return [`${path}${path.includes('?') ? '&' : '?'}cursor=${cursor}`];
 }
 
 const slugsOf = (rows: readonly Record<string, unknown>[], take: number): string[] =>
@@ -129,21 +139,17 @@ async function specialSlugs(): Promise<Target[]> {
       readonly data?: { readonly meters?: readonly { readonly slug: string }[] };
     };
     const meter = meters.data?.meters?.[0]?.slug;
+    const filtered = `/v1/poems?poet=${slug}&meter=${meter}`;
+    const second = meter === undefined ? [] : withCursor(filtered, (await page(filtered)).next);
     found.push(
       { path: `/v1/poems?poet=${slug}`, group: 'poems list: largest poets' },
       { path: `/v1/poems/facets?poet=${slug}`, group: 'poem facets: largest poets' }
     );
     if (meter !== undefined) {
-      found.push(
-        {
-          path: `/v1/poems?poet=${slug}&meter=${meter}&page=2`,
-          group: 'poems list: largest poets',
-        },
-        {
-          path: `/v1/poems/facets?poet=${slug}&meter=${meter}`,
-          group: 'poem facets: largest poets',
-        }
-      );
+      found.push(...second.map((path) => ({ path, group: 'poems list: largest poets' })), {
+        path: `/v1/poems/facets?poet=${slug}&meter=${meter}`,
+        group: 'poem facets: largest poets',
+      });
     }
   }
   await sql.close();
@@ -174,34 +180,36 @@ async function targets(): Promise<Target[]> {
   }
 
   const poems = await page('/v1/poems');
-  const lastPoems = poems.pagination?.totalPages ?? 1;
+  const secondPoems = await page(withCursor('/v1/poems', poems.next)[0] ?? '/v1/poems');
   add(
     'poems list, no filter',
     '/v1/poems',
-    '/v1/poems?page=2',
-    `/v1/poems?page=${Math.ceil(lastPoems / 2)}`,
-    `/v1/poems?page=${lastPoems}`
+    ...withCursor('/v1/poems', poems.next),
+    ...withCursor('/v1/poems', secondPoems.next),
+    ...withCursor('/v1/poems', LAST_BY_ID)
   );
   add('poems count', '/v1/poems/count');
-  add('poem slugs', '/v1/poems/slugs', '/v1/poems/slugs?page=2', '/v1/poems/slugs?page=8');
-  add('poems list, bad input', '/v1/poems?page=0', '/v1/poems?meter=BAD', '/v1/poems?page=abc');
+  const slugs = await page('/v1/poems/slugs');
+  add(
+    'poem slugs',
+    '/v1/poems/slugs',
+    ...withCursor('/v1/poems/slugs', slugs.next),
+    ...withCursor('/v1/poems/slugs', LAST_BY_ID)
+  );
+  add('poems list, bad input', '/v1/poems?cursor=0', '/v1/poems?meter=BAD', '/v1/poems?page=2');
   for (const [param, list] of POEM_FILTERS) {
     const terms = slugsOf((await page(`/v1/${list}`)).data, 3);
     for (const term of terms) {
-      const last = (await page(`/v1/poems?${param}=${term}`)).pagination?.totalPages ?? 1;
-      add('poems list, one value, first page', `/v1/poems?${param}=${term}`);
-      add(
-        'poems list, one value, middle page',
-        `/v1/poems?${param}=${term}&page=${Math.max(1, Math.ceil(last / 2))}`
-      );
-      add('poems list, one value, last page', `/v1/poems?${param}=${term}&page=${last}`);
+      const path = `/v1/poems?${param}=${term}`;
+      add('poems list, one value, first page', path);
+      add('poems list, one value, second page', ...withCursor(path, (await page(path)).next));
+      add('poems list, one value, last page', ...withCursor(path, LAST_BY_ID));
     }
     const [first, second, third] = terms;
     if (first !== undefined && second !== undefined) {
       const both = `${param}=${first}&${param}=${second}`;
-      const last = (await page(`/v1/poems?${both}`)).pagination?.totalPages ?? 1;
       add('poems list, two values, first page', `/v1/poems?${both}`);
-      add('poems list, two values, last page', `/v1/poems?${both}&page=${last}`);
+      add('poems list, two values, last page', ...withCursor(`/v1/poems?${both}`, LAST_BY_ID));
       if (third !== undefined)
         add('poems list, two values, first page', `/v1/poems?${both}&${param}=${third}`);
     }
@@ -224,11 +232,15 @@ async function targets(): Promise<Target[]> {
   );
 
   const poets = await page('/v1/poets');
-  const lastPoets = poets.pagination?.totalPages ?? 1;
-  add('poets list', '/v1/poets', '/v1/poets?page=2', `/v1/poets?page=${lastPoets}`);
+  add(
+    'poets list',
+    '/v1/poets',
+    ...withCursor('/v1/poets', poets.next),
+    ...withCursor('/v1/poets', LAST_POETS)
+  );
   for (const era of slugsOf((await page('/v1/eras')).data, 20))
     add('poets list', `/v1/poets?era=${era}`);
-  add('poet slugs', '/v1/poets/slugs', '/v1/poets/slugs?page=2');
+  add('poet slugs', '/v1/poets/slugs', ...withCursor('/v1/poets/slugs', LAST_BY_ID));
   add('poet unknown', '/v1/poets/zzzz');
   for (const poet of slugsOf(poets.data, 30)) {
     add('poet detail', `/v1/poets/${poet}`);
@@ -241,13 +253,8 @@ async function targets(): Promise<Target[]> {
     '/v1/poems/facets?poet=Zzzz',
     '/v1/poems/facets?poet=abc'
   );
-  for (const pageNumber of [1, 2, Math.ceil(lastPoems / 2)]) {
-    add(
-      'poem detail',
-      ...slugsOf((await page(`/v1/poems?page=${pageNumber}`)).data, 30).map(
-        (slug) => `/v1/poems/${slug}`
-      )
-    );
+  for (const list of [poems, secondPoems, await page(`/v1/poems?cursor=${LAST_BY_ID}`)]) {
+    add('poem detail', ...slugsOf(list.data, 30).map((slug) => `/v1/poems/${slug}`));
   }
   add('poem unknown', '/v1/poems/zzzz');
   add(

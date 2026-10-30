@@ -40,8 +40,7 @@ describe('buildFeelingSeo', () => {
       feeling: sadness,
       parents: [],
       verses: [verse('aaaa', 'ابن الرومي'), verse('bbbb', 'المتنبي'), verse('cccc', 'البحتري')],
-      page: 1,
-      totalPages: 2,
+      cursor: undefined,
     });
     expect(seo.description).toBe(
       'تصفح ٤٨٬٨٥٧ بيتا في الحزن من الشعر الجاهلي إلى الأندلسي، من شعرائها ابن الرومي والمتنبي، ضمن أرشيف قافية الشامل للشعر العربي.'
@@ -53,8 +52,7 @@ describe('buildFeelingSeo', () => {
       feeling: grief,
       parents: [],
       verses: [verse('aaaa', 'غير معروف', true)],
-      page: 1,
-      totalPages: 1,
+      cursor: undefined,
     });
     expect(seo.description).toBe(
       'تصفح ١٢٠ بيتا في الأسى من الشعر الجاهلي إلى الأندلسي، ضمن أرشيف قافية الشامل للشعر العربي.'
@@ -66,12 +64,11 @@ describe('buildFeelingSeo', () => {
       feeling: grief,
       parents: [sadness],
       verses: [verse('aaaa', 'ابن الرومي'), verse('aaaa', 'ابن الرومي'), verse('bbbb', 'المتنبي')],
-      page: 2,
-      totalPages: 3,
+      cursor: 'c',
     });
     const [page, crumbs] = seo.jsonLd;
-    expect(seo.title).toBe('أبيات في الأسى، الصفحة ٢ | قافية');
-    expect(page.url).toBe(`${SITE_URL}/feelings/alasa?page=2`);
+    expect(seo.title).toBe('أبيات في الأسى | قافية');
+    expect(page.url).toBe(`${SITE_URL}/feelings/alasa?cursor=c`);
     expect(page.mainEntity.itemListElement.map((entry) => entry.item.url)).toEqual([
       `${SITE_URL}/poems/aaaa`,
       `${SITE_URL}/poems/bbbb`,

@@ -11,7 +11,7 @@ describe('extractInternalHrefs', () => {
   });
 
   it('strips query strings and hash fragments', () => {
-    const html = '<a href="/poets?page=2">a</a><a href="/poems/x#h=term">b</a>';
+    const html = '<a href="/poets?cursor=eyJhZnRlciI6MX0">a</a><a href="/poems/x#h=term">b</a>';
     expect(extractInternalHrefs(html)).toEqual(['/poets', '/poems/x']);
   });
 

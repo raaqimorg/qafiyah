@@ -331,7 +331,7 @@ async fn a_refused_request_does_not_touch_the_backend() {
 async fn a_refused_request_still_reports_the_quota_it_spent() {
     let es = FakeEs::serving(StatusCode::OK, empty_hits()).await;
     for path in [
-        "/v1/poems?page=0",
+        "/v1/poems?cursor=0",
         "/v1/meters/ALTAWIL",
         "/v1/search?types=bogus",
     ] {
@@ -341,7 +341,11 @@ async fn a_refused_request_still_reports_the_quota_it_spent() {
         assert!(sent.header("x-ratelimit-remaining").is_some(), "{path}");
         assert!(sent.header("x-ratelimit-reset").is_some(), "{path}");
     }
-    let last = send(app(&es, 5), from("/v1/poems?page=0", "203.0.113.10", None)).await;
+    let last = send(
+        app(&es, 5),
+        from("/v1/poems?cursor=0", "203.0.113.10", None),
+    )
+    .await;
     assert_eq!(last.header("x-ratelimit-remaining"), Some("4"));
 }
 

@@ -1,4 +1,4 @@
-import { formatArabicCount, toArabicDigits } from '@/lib/arabic';
+import { formatArabicCount } from '@/lib/arabic';
 import { SITE_URL } from '@/lib/constants/config';
 import { SITE_NAME_AR } from '@/lib/constants/site-meta';
 import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
@@ -15,7 +15,7 @@ import {
   type CreativeWorkRef,
 } from '@/lib/seo/json-ld/thing-ref';
 import { websiteRef } from '@/lib/seo/json-ld/website';
-import { sanitizeMetaText, withBrand, withPageNumber } from '@/lib/seo/meta-text';
+import { sanitizeMetaText, withBrand } from '@/lib/seo/meta-text';
 import { feelingUrl, poemUrl } from '@/lib/urls';
 
 import type { Feeling } from '@/lib/feelings/feeling-tree';
@@ -85,10 +85,9 @@ export function buildFeelingSeo(input: {
   readonly feeling: FeelingSummary;
   readonly parents: readonly FeelingSummary[];
   readonly verses: readonly FeelingVerseRow[];
-  readonly page: number;
-  readonly totalPages: number;
+  readonly cursor: string | undefined;
 }): FeelingsSeo<CreativeWorkRef> {
-  const { feeling, parents, verses, page, totalPages } = input;
+  const { feeling, parents, verses, cursor } = input;
   const lead = `أبيات في ${feeling.name}`;
   const count = versesLabel(feeling.verseCount);
   const poets = knownPoetNames(verses, 2);
@@ -96,8 +95,8 @@ export function buildFeelingSeo(input: {
 
   const collectionJsonLd = collectionPageNode({
     name: lead,
-    url: `${SITE_URL}${feelingUrl(feeling.slug, page)}`,
-    description: `${lead} (${count}) - الصفحة ${toArabicDigits(page)} من ${toArabicDigits(totalPages)}`,
+    url: `${SITE_URL}${feelingUrl(feeling.slug, cursor)}`,
+    description: `${lead} (${count})`,
     isPartOf: websiteRef(),
     mainEntity: buildItemList(
       uniquePoems(verses).map((poem) =>
@@ -117,7 +116,7 @@ export function buildFeelingSeo(input: {
   ];
 
   return {
-    title: withBrand(withPageNumber(lead, page)),
+    title: withBrand(lead),
     description: `تصفح ${count} في ${feeling.name} ${ERAS_SPAN}${poetsClause}، ${ARCHIVE_TAIL}`,
     jsonLd: [collectionJsonLd, buildBreadcrumbList(crumbItems)],
   };

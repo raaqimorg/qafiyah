@@ -5,6 +5,7 @@ use axum::http::StatusCode;
 
 use crate::domain::StoreError;
 use crate::domain::feelings::{Feeling, FeelingRepository, FeelingVerse};
+use crate::domain::paging::{Cursor, Slice};
 use crate::domain::poems::PoemLink;
 use crate::domain::{PoetBrief, Term};
 use crate::http_tests::empty_hits;
@@ -73,13 +74,18 @@ impl FeelingRepository for Feelings {
     async fn verses(
         &self,
         feeling_id: i32,
+        _: Option<&Cursor<i32>>,
         _: u32,
-        _: u32,
-    ) -> Result<Vec<FeelingVerse>, StoreError> {
-        Ok(match (self.with_verses, feeling_id) {
+    ) -> Result<Slice<FeelingVerse, i32>, StoreError> {
+        let items = match (self.with_verses, feeling_id) {
             (true, 1) => vec![verse("sad"), verse("lonely"), verse("lonely")],
             (true, 2) => vec![verse("lonely"), verse("lonely")],
             _ => Vec::new(),
+        };
+        Ok(Slice {
+            items,
+            next: None,
+            prev: None,
         })
     }
 }
@@ -112,7 +118,8 @@ async fn a_core_lists_the_verses_of_its_whole_branch() {
     let body = send(crate::app(state), request("GET", "/v1/feelings/sad/verses"))
         .await
         .json();
-    assert_eq!(body["pagination"]["totalItems"], 3);
+    assert_eq!(body["total"], 3);
+    assert!(body["next"].is_null() && body["prev"].is_null());
     assert_eq!(body["data"][1]["feeling"]["slug"], "lonely");
     assert_eq!(body["data"][0]["parts"], serde_json::json!(["a", "b"]));
     assert_eq!(body["data"][0]["poem"]["slug"], "TnKK");

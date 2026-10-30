@@ -111,14 +111,14 @@ nginx also does these things:
 **The nginx cache key** keeps the query string only where the page reads one:
 
 - the API proxy under `/api/`
-- the taxonomy term pages (`/collections`, `/meters`, `/rhymes`, and `/themes`, which read `page`)
-- the feeling pages (`/feelings/{slug}`, which read `page`)
-- `/poets` (`page`, `era`, `q`)
-- `/poets/{slug}` (`page`, `meter`, `rhyme`, `theme`)
+- the taxonomy term pages (`/collections`, `/meters`, `/rhymes`, and `/themes`, which read `cursor`)
+- the feeling pages (`/feelings/{slug}`, which read `cursor`)
+- `/poets` (`cursor`, `era`, `q`)
+- `/poets/{slug}` (`cursor`, `meter`, `rhyme`, `theme`)
 
 Every other page uses only its path as the key. This includes the home page, whose search state is only in the browser. So a stray query string gets the one cached entry, and never forces a render.
 
-The pages that read a query string accept only one spelling of it. They answer every other spelling with a 301 to their canonical URL, before they call the API. Examples are an unknown parameter, `page=02`, or filters out of order or repeated. `poetUrl` writes poet filters sorted and without repeats. So each page has one URL.
+The pages that read a query string accept only one spelling of it. They answer every other spelling with a 301 to their canonical URL, before they call the API. Examples are an unknown parameter (the old `page` among them), a repeated `cursor`, or filters out of order or repeated. A cursor that leads back to the first page also gets a 301, to the bare URL. `poetUrl` writes poet filters sorted and without repeats. So each page has one URL.
 
 A poet name search on `/poets?q=` is the one input with an unlimited number of values. So while `q` is present, nginx limits it for each visitor: 60 a minute with a burst of 30, then the 429 page. The stack smoke run checks all three behaviors (`scripts/smoke/probes/page-cache.ts` and the caching suite).
 
