@@ -69,6 +69,7 @@ export const SHARE_TEXTS = {
   image: 'مشاركة كصورة',
   pickVerses: 'حدد الأبيات التي تريد مشاركتها كصورة',
   imageFile: 'قافية',
+  imageFailed: 'تعذر إنشاء الصورة',
 } as const;
 
 export const SHARE_NETWORK_NAMES = {

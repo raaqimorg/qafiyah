@@ -1,14 +1,15 @@
 'use client';
 
 import { Image as ImageIcon, X } from 'lucide-react';
-import { type Ref, useId, useState } from 'react';
+import { type Ref, useEffect, useId, useState } from 'react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { captureEvent } from '@/lib/analytics/capture-event';
 import { SITE_URL } from '@/lib/constants/config';
 import { SHARE_NETWORK_NAMES, SHARE_TEXTS } from '@/lib/constants/copy';
+import { reportError } from '@/lib/observability/report-error';
 import { shareIntent, type ShareNetwork } from '@/lib/urls';
-import { renderVerseImage } from '@/lib/verse-image';
+import { drawVerseCard, type VerseCardText } from '@/lib/verse-image';
 
 type ShareLink = {
   readonly network: ShareNetwork;
@@ -67,48 +68,78 @@ function ShareIcon({ iconPath }: { readonly iconPath: string }) {
   );
 }
 
-type VerseImage = {
-  readonly text: string;
-  readonly poet: string;
-  readonly font: string;
-};
+type VerseCard =
+  | { readonly status: 'drawing' }
+  | { readonly status: 'ready'; readonly file: File }
+  | { readonly status: 'failed' };
+
+const DOWNLOAD_URL_LIFETIME_MS = 40_000;
+
+function useVerseCard(image: VerseCardText | undefined): VerseCard {
+  const [drawn, setDrawn] = useState<{ readonly key: string; readonly card: VerseCard } | null>(
+    null
+  );
+  const text = image?.text;
+  const poet = image?.poet;
+  const font = image?.font;
+  const key = `${font}\n${poet}\n${text}`;
+  useEffect(() => {
+    if (text === undefined || poet === undefined || font === undefined) return;
+    let isCurrent = true;
+    void drawVerseCard({ text, poet, font }).match(
+      (file) => {
+        if (isCurrent) setDrawn({ key, card: { status: 'ready', file } });
+      },
+      (error) => {
+        reportError('drawVerseCard failed', error, {
+          feature: 'share-image',
+          tags: { surface: 'client' },
+        });
+        if (isCurrent) setDrawn({ key, card: { status: 'failed' } });
+      }
+    );
+    return () => {
+      isCurrent = false;
+    };
+  }, [key, text, poet, font]);
+  return drawn?.key === key ? drawn.card : { status: 'drawing' };
+}
+
+function downloadFile(file: File) {
+  const href = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = file.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(href), DOWNLOAD_URL_LIFETIME_MS);
+}
+
+async function shareFile(file: File) {
+  if (!('canShare' in navigator) || !navigator.canShare({ files: [file] })) {
+    downloadFile(file);
+    return;
+  }
+  try {
+    await navigator.share({ files: [file] });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    downloadFile(file);
+  }
+}
 
 type ShareSheetProps = {
   readonly ref: Ref<HTMLDialogElement>;
   readonly title: string;
   readonly body: string;
   readonly path: string;
-  readonly image?: VerseImage;
+  readonly image?: VerseCardText;
   readonly onPickVerses?: (() => void) | undefined;
 };
 
 export function ShareSheet({ ref, title, body, path, image, onPickVerses }: ShareSheetProps) {
   const titleId = useId();
   const url = `${SITE_URL}${path}`;
-  const [exporting, setExporting] = useState(false);
-  const shareImage = async () => {
-    if (image === undefined || exporting) return;
-    setExporting(true);
-    try {
-      const blob = await renderVerseImage(image);
-      const file = new File([blob], `${SHARE_TEXTS.imageFile}.png`, { type: 'image/png' });
-      if ('canShare' in navigator && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else {
-        const href = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = href;
-        link.download = file.name;
-        link.click();
-        URL.revokeObjectURL(href);
-      }
-      captureEvent('shared', { network: 'image' });
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
-    } finally {
-      setExporting(false);
-    }
-  };
+  const card = useVerseCard(image);
 
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- a click on the backdrop closes the dialog, because Safari lacks closedby, and Escape already closes it from the keyboard
@@ -146,9 +177,11 @@ export function ShareSheet({ ref, title, body, path, image, onPickVerses }: Shar
                     onPickVerses?.();
                     return;
                   }
-                  void shareImage();
+                  if (card.status !== 'ready') return;
+                  captureEvent('shared', { network: 'image' });
+                  void shareFile(card.file);
                 }}
-                disabled={exporting}
+                disabled={image !== undefined && card.status !== 'ready'}
                 aria-label={SHARE_TEXTS.image}
                 className="flex min-h-12 w-full items-center gap-3 rounded-md px-2 text-text-muted focus-ring transition-colors hover:bg-surface-sunken hover:text-text disabled:opacity-50"
               >
@@ -158,7 +191,11 @@ export function ShareSheet({ ref, title, body, path, image, onPickVerses }: Shar
                   aria-hidden="true"
                   focusable="false"
                 />
-                <span>{SHARE_TEXTS.image}</span>
+                <span>
+                  {image !== undefined && card.status === 'failed'
+                    ? SHARE_TEXTS.imageFailed
+                    : SHARE_TEXTS.image}
+                </span>
               </button>
             </li>
           )}
