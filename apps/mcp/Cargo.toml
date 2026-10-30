@@ -15,7 +15,7 @@ prometheus-client = { version = "0.25.1", default-features = false, features = [
   "protobuf-protox",
 ] }
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
-rmcp = { version = "3.5.1", features = [
+rmcp = { version = "3.8.0", features = [
   "server",
   "macros",
   "schemars",

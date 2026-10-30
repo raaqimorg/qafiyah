@@ -43,7 +43,7 @@ curl "https://api.qafiyah.com/v1/poems/random?option=lines"
 
 **Ask an AI assistant.** Add the [MCP server](#mcp-server) to Claude, ChatGPT, or any other MCP client.
 
-**Run it locally.** You need [Bun](https://bun.sh) 1.4.2, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), [rustup](https://rustup.rs), and Bash 4 or later. Install Bun first, then run:
+**Run it locally.** You need [Bun](https://bun.sh) 1.4.3, a Docker engine ([OrbStack](https://orbstack.dev) or Docker Desktop), [rustup](https://rustup.rs), and Bash 4 or later. Install Bun first, then run:
 
 ```bash
 git clone https://github.com/raaqimorg/qafiyah.git

@@ -12,7 +12,7 @@ const HEALTHY: Readonly<Record<string, string>> = {
   'docker compose version --short': '5.1.2',
   'rustup --version': 'rustup 1.29.1 (d95a37b6a 2026-08-13)',
   'rustup toolchain list':
-    'stable-aarch64-apple-darwin (default)\n1.99.0-aarch64-apple-darwin (active)',
+    'stable-aarch64-apple-darwin (default)\n1.99.1-aarch64-apple-darwin (active)',
   'shellcheck --version': 'ShellCheck - shell script analysis tool\nversion: 0.11.0',
   'actionlint --version': '1.7.12\ninstalled from Homebrew',
   'hadolint --version': 'Haskell Dockerfile Linter 2.15.1',
@@ -30,9 +30,9 @@ function fakeEnv({ outputs = {}, failing = [], env = {} }: Fake): DoctorEnv {
   const all = { ...HEALTHY, ...outputs };
   return {
     platform: 'darwin',
-    bunVersion: '1.4.2',
+    bunVersion: '1.4.3',
     bunMinimum: '>=1',
-    rustChannel: '1.99.0',
+    rustChannel: '1.99.1',
     hasNodeModules: true,
     which: (name) => name === 'sops' || name === 'age' || name === 'cargo',
     probe: async (command) => {
@@ -128,7 +128,7 @@ describe('runChecks', () => {
       outputs: { 'rustup toolchain list': 'stable-aarch64-apple-darwin (default)' },
     });
     expect(toolchain.status).toBe('warn');
-    expect(toolchain.detail).toBe('1.99.0 not installed yet');
+    expect(toolchain.detail).toBe('1.99.1 not installed yet');
   });
 
   test('fails when bun install has not run', async () => {
