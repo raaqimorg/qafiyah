@@ -19,7 +19,8 @@ The database and the search index are behind traits, so the dependencies point i
   - The account routes keep their request and response bodies (`IdentityBody`, `ProfileView`, `KeySummary`) in `routes/account.rs`, in the same way.
 - `params.rs` and `extract.rs` are the request side.
   - `SafeQuery<T>` (`serde_html_form` and `serde_path_to_error`) decodes every query into one `#[derive(Deserialize, utoipa::IntoParams)]` struct for each endpoint. That struct also generates the endpoint's spec parameters.
-  - Each value type in `params.rs` (`FourLetterSlug`, `TransliteratedSlug`, `Page<MAX>`, `SearchText`, `PoetSlugs`, `TermSlugs`) pairs its check with its schema.
+  - Each value type in `params.rs` (`FourLetterSlug`, `TransliteratedSlug`, `PageCursor<K>`, `SearchCursor<PAGE_SIZE>`, `SearchText`, `PoetSlugs`, `TermSlugs`) pairs its check with its schema.
+  - Lists page by cursor. `domain/paging.rs` holds `Cursor` (after or before a key) and `Slice`, a page with its `next` and `prev` keys. `cursor.rs` writes a cursor as base64url JSON. The search sections use an offset cursor (`{"offset"}`), because Elasticsearch ranks by score.
   - Unknown parameters are refused (`deny_unknown_fields`, and `NoParams` on operations that take none). The `detail` of every 400 names the parameter.
   - Derive `utoipa::IntoParams` and implement `utoipa::PartialSchema` by their full path. Do not import the traits. utoipa's macros write those paths with the span of the field, and `unused_qualifications` refuses them when the trait is imported.
 - `accounts/` does the same for the separate `qafiyah_accounts` database.
@@ -86,7 +87,7 @@ So a 503 from one of those routes proves that the request tried to use the datab
 - It returns early unless all three `QAFIYAH_TEST_*` variables are set. So plain `cargo test` needs no infrastructure. `bun run rust:test:db` sets them from the dev stack.
 - The search guards in `tests/db/search.rs` also need `QAFIYAH_TEST_ELASTICSEARCH_ADMIN_URL`, which `bun run rust:test:db` sets. They build a throwaway index from `schema.json` with prepared poems or poets, and delete it after.
 - Every search rule is tested there by what a search returns: recall, ranking and its tie-breaks, the classical-era and typed-hamza boosts, alternate readings, browse order, facets, and poet order.
-- `es/query.rs` keeps only two checks: that every field a query names exists in the mappings, and the paging arithmetic. `generated/es/query.vectors.json` catches any change to the request bodies.
+- `es/query.rs` keeps only two kinds of checks: that every field a query names exists in the mappings, and the paging of the search and the poet list. `generated/es/query.vectors.json` catches any change to the request bodies.
 - Each accounts test runs inside `Harness::isolated`, which deletes its user even when the test panics.
 
 Request examples are only in the `example` of each parameter, never in description text. `bun run api:conformance`, which the origin smoke run calls, sends them through Schemathesis. It fails unless every operation answers 2xx. So an example must exist in the 100-poem sample, and in the full dump. The same run then calls `bun run api:fuzz`, which sends generated input to every operation. So each parameter's schema must state the bounds that its parser checks (for example, the `minimum` and `maximum` of a page).

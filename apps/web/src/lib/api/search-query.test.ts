@@ -4,7 +4,6 @@ import { searchQueryKey, searchQueryParams } from './search-query';
 
 const base = {
   q: 'حب',
-  page: 1,
   eras: [],
   meters: [],
   rhymes: [],
@@ -15,12 +14,13 @@ const base = {
 } as const;
 
 describe('searchQueryParams', () => {
-  it('sends only the requested section and pages it', () => {
-    expect(searchQueryParams({ ...base, type: 'poems', page: 2, eras: ['jahili'] })).toStrictEqual({
+  it('sends only the requested section and its cursor', () => {
+    expect(
+      searchQueryParams({ ...base, type: 'poems', cursor: 'c', eras: ['jahili'] })
+    ).toStrictEqual({
       q: 'حب',
       types: ['poems'],
-      poemsPage: 2,
-      poetsPage: 1,
+      poemsCursor: 'c',
       eraSlugs: ['jahili'],
       meterSlugs: [],
       rhymeSlugs: [],
@@ -39,10 +39,16 @@ describe('searchQueryParams', () => {
   });
 
   it('pages the poets section on its own param', () => {
-    const params = searchQueryParams({ ...base, type: 'poets', page: 3 });
-    expect(params.poetsPage).toBe(3);
-    expect(params.poemsPage).toBe(1);
+    const params = searchQueryParams({ ...base, type: 'poets', cursor: 'c' });
+    expect(params.poetsCursor).toBe('c');
+    expect(params).not.toHaveProperty('poemsCursor');
     expect(params.types).toStrictEqual(['poets']);
+  });
+
+  it('sends no cursor for the first page', () => {
+    const params = searchQueryParams({ ...base, type: 'poems' });
+    expect(params).not.toHaveProperty('poemsCursor');
+    expect(params).not.toHaveProperty('poetsCursor');
   });
 
   it('blanks the poem-only facets for a poets request, which the API rejects', () => {
@@ -76,9 +82,9 @@ describe('searchQueryKey', () => {
     );
   });
 
-  it('does not vary with the page, which useInfiniteQuery manages', () => {
-    expect(searchQueryKey({ ...base, type: 'poems', page: 1 })).toStrictEqual(
-      searchQueryKey({ ...base, type: 'poems', page: 5 })
+  it('does not vary with the cursor, which useInfiniteQuery manages', () => {
+    expect(searchQueryKey({ ...base, type: 'poems' })).toStrictEqual(
+      searchQueryKey({ ...base, type: 'poems', cursor: 'c' })
     );
   });
 });

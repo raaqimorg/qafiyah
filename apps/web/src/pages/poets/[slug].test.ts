@@ -27,7 +27,9 @@ const POEMS = {
       meter: { name: 'الطويل', slug: 'altawil' },
     },
   ],
-  pagination: { page: 1, pageSize: 30, totalPages: 1, totalItems: 1 },
+  total: 1,
+  next: null,
+  prev: null,
 };
 const FACETS = {
   data: {

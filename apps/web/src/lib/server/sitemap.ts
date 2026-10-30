@@ -1,20 +1,36 @@
+const POSITIVE_INTEGER_RE = /^\d+$/;
+
+export function parsePageParam(raw: string | undefined): number | null {
+  if (raw === undefined || !POSITIVE_INTEGER_RE.test(raw)) return null;
+  const page = Number(raw);
+  return Number.isInteger(page) && page >= 1 ? page : null;
+}
+
 export function shardCount(total: number, perShard: number): number {
   return Math.max(1, Math.ceil(total / perShard));
 }
 
-type PageResult<T> = { readonly slugs: readonly T[]; readonly totalPages: number };
+type SlugPage<T> = { readonly slugs: readonly T[]; readonly next: string | null };
 
-export async function collectPagedSlugs<T>(
-  fetchPage: (page: number) => Promise<PageResult<T> | null>
-): Promise<T[]> {
-  const first = await fetchPage(1);
-  if (!first) return [];
-  const rest = await Promise.all(
-    Array.from({ length: Math.max(0, first.totalPages - 1) }, (_, i) => fetchPage(i + 2))
-  );
-  const slugs: T[] = [...first.slugs];
-  for (const page of rest) {
-    if (page) slugs.push(...page.slugs);
+type FetchSlugPage<T> = (cursor: string | undefined) => Promise<SlugPage<T> | null>;
+
+export async function nthSlugPage<T>(
+  fetchPage: FetchSlugPage<T>,
+  n: number
+): Promise<SlugPage<T> | null> {
+  let page = await fetchPage(undefined);
+  for (let index = 1; index < n && page !== null; index += 1) {
+    page = page.next === null ? null : await fetchPage(page.next);
+  }
+  return page;
+}
+
+export async function collectPagedSlugs<T>(fetchPage: FetchSlugPage<T>): Promise<T[]> {
+  const slugs: T[] = [];
+  let page = await fetchPage(undefined);
+  while (page !== null) {
+    slugs.push(...page.slugs);
+    page = page.next === null ? null : await fetchPage(page.next);
   }
   return slugs;
 }

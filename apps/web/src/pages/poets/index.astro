@@ -11,32 +11,30 @@ import { buildPoetsIndexView } from '@/lib/seo/poets-page';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { getPoetsPage } from '@/lib/server/poets';
 import { allEras } from '@/lib/server/taxonomies';
-import { parsePageQuery } from '@/lib/pagination';
+import { reachedFirstPage, readCursor } from '@/lib/pagination';
 import { isCanonical, poetsUrl } from '@/lib/urls';
 
-const page = parsePageQuery(Astro.url.searchParams.get('page'));
-if (page === null) return Astro.rewrite('/404');
-
+const cursor = readCursor(Astro.url);
 const rawEra = (Astro.url.searchParams.get('era') ?? '').trim();
 const rawQuery = sanitizeArabicInput(Astro.url.searchParams.get('q') ?? '')
   .trim()
   .slice(0, MAX_QUERY_LENGTH);
 const queryFilter = rawQuery || undefined;
-const canonical = poetsUrl({ page, era: rawEra || undefined, q: queryFilter });
+const eraParam = rawEra || undefined;
+const canonical = poetsUrl({ era: eraParam, q: queryFilter, cursor });
 if (!isCanonical(Astro.url, canonical)) return Astro.redirect(canonical, 301);
 
 const [eras, data] = await Promise.all([
   allEras(),
-  getPoetsPage(page, { era: (rawEra || undefined) as EraSlug | undefined, q: queryFilter }),
+  getPoetsPage(cursor, { era: eraParam as EraSlug | undefined, q: queryFilter }),
 ]);
 const activeEra = rawEra ? eras.find((era) => era.slug === rawEra) : undefined;
 if (rawEra && !activeEra) return Astro.rewrite('/404');
 if (!data) return Astro.rewrite('/404');
+if (reachedFirstPage(cursor, data)) {
+  return Astro.redirect(poetsUrl({ era: eraParam, q: queryFilter }), 301);
+}
 Astro.response.headers.set('Cache-Control', CACHE_HTML);
-
-const { poets, pagination } = data;
-const pageNumber = pagination.page;
-const eraParam = rawEra || undefined;
 
 const {
   title,
@@ -49,7 +47,7 @@ const {
   heading,
   emptyText,
   items,
-} = buildPoetsIndexView({ poets, pagination, activeEra, queryFilter, eraParam });
+} = buildPoetsIndexView({ page: data, cursor, activeEra, queryFilter, eraParam });
 
 const chipBase =
   'focus-ring shrink-0 whitespace-nowrap rounded-md border px-4 py-2.5 text-base md:px-6 md:text-lg transition-colors duration-200 hover:cursor-pointer';
@@ -69,15 +67,15 @@ const chips = [
 <Layout
   title={title}
   description={description}
-  canonical={poetsUrl({ page: pageNumber, era: eraParam, q: queryFilter })}
+  canonical={canonical}
   robotsIndex={!isFiltered}
-  prevUrl={pag.hasPrevPage ? pag.prevPageUrl : undefined}
-  nextUrl={pag.hasNextPage ? pag.nextPageUrl : undefined}
-  jsonLd={pageNumber > 1 ? [collectionJsonLd, crumbsJsonLd] : [collectionJsonLd]}
+  prevUrl={pag.prevUrl}
+  nextUrl={pag.nextUrl}
+  jsonLd={cursor === undefined ? [collectionJsonLd] : [collectionJsonLd, crumbsJsonLd]}
 >
   <ListPageBody
     heading={heading}
-    crumbItems={pageNumber > 1 ? crumbItems : undefined}
+    crumbItems={cursor === undefined ? undefined : crumbItems}
     items={items}
     emptyText={emptyText}
     pagination={pag}

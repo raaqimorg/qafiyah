@@ -26,13 +26,23 @@ export type PoemFilters = {
   readonly collectionSlugs?: readonly CollectionSlug[];
 };
 
-type PoemsList = Ok<'/poems'>;
+export type PoemsList = Ok<'/poems'>;
 
 export const getPoemCount = async (): Promise<number> =>
   (await unwrap(() => apiServer.GET('/poems/count'))).total;
 
-export const getPoemSlugsPage = (page: number): Promise<readonly string[] | null> =>
-  getOrNull(() => apiServer.GET('/poems/slugs', { params: { query: { page } } }));
+export async function getPoemSlugsPage(
+  cursor: string | undefined
+): Promise<{ slugs: readonly string[]; next: string | null } | null> {
+  const result = await safeCall(() =>
+    apiServer.GET('/poems/slugs', { params: { query: cursor === undefined ? {} : { cursor } } })
+  );
+  if (result.data === undefined) {
+    if (isNotFoundStatus(result.status)) return null;
+    throw apiFailure(result);
+  }
+  return { slugs: result.data.data, next: result.data.next };
+}
 
 export const getPoem = (slug: PoemSlug): Promise<Poem | null> =>
   getOrNull(() => apiServer.GET('/poems/{slug}', { params: { path: { slug } } }));
@@ -43,13 +53,13 @@ export function movedPoemPath(requested: string, poem: Pick<Poem, 'slug'>): stri
 
 export async function listPoems(
   filters: PoemFilters,
-  page: number
-): Promise<{ poems: PoemsList['data']; pagination: PoemsList['pagination'] } | null> {
+  cursor: string | undefined
+): Promise<PoemsList | null> {
   const result = await safeCall(() =>
     apiServer.GET('/poems', {
       params: {
         query: {
-          page,
+          ...(cursor === undefined ? {} : { cursor }),
           poet: [...(filters.poetSlugs ?? [])],
           era: [...(filters.eraSlugs ?? [])],
           theme: [...(filters.themeSlugs ?? [])],
@@ -64,6 +74,6 @@ export async function listPoems(
     if (isNotFoundStatus(result.status)) return null;
     throw apiFailure(result);
   }
-  if (page > result.data.pagination.totalPages) return null;
-  return { poems: result.data.data, pagination: result.data.pagination };
+  if (cursor !== undefined && result.data.data.length === 0) return null;
+  return result.data;
 }

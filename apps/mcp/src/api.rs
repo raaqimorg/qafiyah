@@ -259,8 +259,10 @@ mod tests {
             (
                 StatusCode::BAD_REQUEST,
                 &[],
-                r#"{"detail":"page must be a positive integer"}"#,
-                Failure::BadRequest(Some("page must be a positive integer".into())),
+                r#"{"detail":"must be the `next` or `prev` value of a page of this list"}"#,
+                Failure::BadRequest(Some(
+                    "must be the `next` or `prev` value of a page of this list".into(),
+                )),
             ),
             (
                 StatusCode::BAD_REQUEST,

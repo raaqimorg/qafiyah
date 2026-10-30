@@ -2,7 +2,6 @@ import {
   createLoader,
   createSerializer,
   type inferParserType,
-  parseAsInteger,
   parseAsNativeArrayOf,
   parseAsString,
 } from 'nuqs';
@@ -13,7 +12,7 @@ export const poetSearchParsers = {
   meter: parseAsSlugs,
   rhyme: parseAsSlugs,
   theme: parseAsSlugs,
-  page: parseAsInteger.withDefault(1),
+  cursor: parseAsString,
 };
 
 export type PoetSearchValues = inferParserType<typeof poetSearchParsers>;

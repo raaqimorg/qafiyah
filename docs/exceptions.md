@@ -165,8 +165,8 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 ### Arabic digits are converted two ways
 
 - **What:** digits are converted both by a lookup table (`toArabicDigits`) and by `Intl.NumberFormat('ar-SA')` (`formatArabicNumber`).
-- **Where:** `apps/web/src/lib/arabic.ts`, `apps/web/src/lib/pagination.ts`
-- **Why it's unusual:** pagination shows ungrouped digits ("١٢٣٤") while counts show grouped ones ("١٬٣٣٨").
+- **Where:** `apps/web/src/lib/arabic.ts`, `apps/web/src/lib/constants/copy.ts`
+- **Why it's unusual:** two helpers do one job. Only the 404 and 500 codes use the lookup table.
 - **Normal approach:** format every number with one `Intl.NumberFormat`.
 - **Status:** Needs review
 
@@ -328,14 +328,6 @@ These departures are not approved yet. A full scan found them on 2026-09-24. The
 - **Where:** `apps/web/src/components/layout/nav.astro`, `apps/web/src/components/layout/account-control.tsx`, `apps/web/src/lib/viewer-session.ts`
 - **Why it's unusual:** one control is two islands, and they share the request through a module-level promise. The promise lasts one page, because the site has no client-side router. A signed-out visitor still sends the request: when the accounts API fails, `/api/me` answers 204 and the hint cookie is cleared, so only the request on the next page can bring the control back.
 - **Normal approach:** one island styled responsively.
-- **Status:** Needs review
-
-### An explicit `?page=1` returns 404
-
-- **What:** `parsePageQuery('1')` returns `null`, so `/poets?page=1` and every taxonomy term page with `?page=1` render the 404 page. A second parser, `parsePageParam`, accepts 1.
-- **Where:** `apps/web/src/lib/pagination.ts`, `apps/web/src/pages/poets/`, `apps/web/src/pages/{meters,rhymes,themes,collections}/[slug].astro`
-- **Why it's unusual:** users and crawlers expect a non-canonical URL to lead to the canonical one, not to disappear.
-- **Normal approach:** a 301 to the bare URL, or accept it and rely on `rel=canonical`.
 - **Status:** Needs review
 
 ### The home page carries text hidden from everyone but crawlers
@@ -832,7 +824,7 @@ Paths are relative to `apps/web/src/` unless they start at the repo root.
   - The morph does not run the new page's scripts. So a script that a feelings page needs goes on both pages, like the verse copy button's (`components/feelings/verse-copy.astro`).
 - **Where:** `components/feelings/feeling-navigation.astro`, `components/feelings/verse-copy.astro`, `lib/feelings/morph-feeling-page.ts`, `components/feelings/feeling-wheel.tsx`, the `head` slot in `layouts/layout.astro`
 - **Why:** a full page load shows the tree already at the new feeling, so the move between feelings is a jump. The morph keeps the tree on screen and animates its zoom and fades. So the reader sees where they moved. Astro's own swap replaces the whole body, and a view transition cannot animate elements inside an SVG.
-  - PostHog's `capture_pageview: 'history_change'` compares only the path, so a change of only `?page=` is not a pageview.
+  - PostHog's `capture_pageview: 'history_change'` compares only the path, so a change of only `?cursor=` is not a pageview.
 - **Normal approach:** links that load each page in full, or Astro's `<ClientRouter />` with its default swap.
 - **Date:** 2026-10-15
 

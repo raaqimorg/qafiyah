@@ -9,21 +9,19 @@ import { formatArabicCount } from '@/lib/arabic';
 import { TYPE } from '@/lib/constants/design-tokens';
 import { VERSES_NOUN_FORMS } from '@/lib/constants/taxonomy-data';
 import { buildFeelingTree, pathOf, type Feeling } from '@/lib/feelings/feeling-tree';
-import { derivePagination, parsePageQuery } from '@/lib/pagination';
+import { derivePagination, reachedFirstPage, readCursor } from '@/lib/pagination';
 import { CACHE_HTML } from '@/lib/server/cache';
 import { allFeelings, feelingVerses } from '@/lib/server/feelings';
 import { buildFeelingSeo } from '@/lib/seo/feelings-page';
 import { feelingUrl, isCanonical } from '@/lib/urls';
 import { cn } from '@/lib/utils';
 
-const page = parsePageQuery(Astro.url.searchParams.get('page'));
+const cursor = readCursor(Astro.url);
 const { slug } = Astro.params;
-const canonical = page === null || !slug ? null : feelingUrl(slug, page);
-if (canonical !== null && !isCanonical(Astro.url, canonical)) {
-  return Astro.redirect(canonical, 301);
-}
-if (page === null || !slug) return Astro.rewrite('/404');
-const [rows, found] = await Promise.all([allFeelings(), feelingVerses(slug, page)]);
+if (!slug) return Astro.rewrite('/404');
+const canonical = feelingUrl(slug, cursor);
+if (!isCanonical(Astro.url, canonical)) return Astro.redirect(canonical, 301);
+const [rows, found] = await Promise.all([allFeelings(), feelingVerses(slug, cursor)]);
 const tree = buildFeelingTree(rows);
 const path = pathOf(tree, slug);
 if (!found || !path) return Astro.rewrite('/404');
@@ -34,14 +32,14 @@ const chain = path.reduce<readonly Feeling[]>((acc, index, depth) => {
 }, []);
 const feeling = chain.at(-1);
 if (!feeling) return Astro.rewrite('/404');
-const pagination = derivePagination(found.pagination, (n) => feelingUrl(slug, n));
+if (reachedFirstPage(cursor, found)) return Astro.redirect(feelingUrl(slug), 301);
+const pagination = derivePagination(found, (c) => feelingUrl(slug, c));
 const count = formatArabicCount({ count: feeling.verseCount, nounForms: VERSES_NOUN_FORMS });
 const seo = buildFeelingSeo({
   feeling,
   parents: chain.slice(0, -1),
-  verses: found.verses,
-  page,
-  totalPages: found.pagination.totalPages,
+  verses: found.data,
+  cursor,
 });
 Astro.response.headers.set('Cache-Control', CACHE_HTML);
 ---
@@ -49,10 +47,10 @@ Astro.response.headers.set('Cache-Control', CACHE_HTML);
 <Layout
   title={seo.title}
   description={seo.description}
-  canonical={feelingUrl(slug, page)}
+  canonical={canonical}
   jsonLd={seo.jsonLd}
-  prevUrl={pagination.hasPrevPage ? pagination.prevPageUrl : undefined}
-  nextUrl={pagination.hasNextPage ? pagination.nextPageUrl : undefined}
+  prevUrl={pagination.prevUrl}
+  nextUrl={pagination.nextUrl}
 >
   <FeelingNavigation slot="head" />
   <VerseCopy slot="head" />
@@ -64,7 +62,7 @@ Astro.response.headers.set('Cache-Control', CACHE_HTML);
         <p class={cn(TYPE.micro, 'text-text-subtle')}>{count}</p>
       </div>
       <ul class="grid grid-cols-1 md:grid-cols-2 md:gap-x-10">
-        {found.verses.map((verse) => (
+        {found.data.map((verse) => (
           <FeelingVerseItem verse={verse} />
         ))}
       </ul>

@@ -8,7 +8,7 @@ import Layout from '@/layouts/layout.astro';
 import { SHARE_TEXTS } from '@/lib/constants/copy';
 import { TYPE } from '@/lib/constants/design-tokens';
 import { buildPoetLayout } from '@/lib/seo/poets-page';
-import { parsePageQuery } from '@/lib/pagination';
+import { reachedFirstPage, readCursor } from '@/lib/pagination';
 import {
   everyPoetFilterListed,
   hasPoetFilters,
@@ -22,39 +22,39 @@ import { getPoet, getPoetFacets, movedPoetPath } from '@/lib/server/poets';
 import { isCanonical, poetUrl } from '@/lib/urls';
 import { CDN_URL } from '@qafiyah/config';
 
-const page = parsePageQuery(Astro.url.searchParams.get('page'));
+const cursor = readCursor(Astro.url);
 const { meter, rhyme, theme } = loadPoetSearchParams(Astro.url.searchParams);
 const filters: PoetFilterSelection = { meter, rhyme, theme };
 const { slug: slugParam } = Astro.params;
 const poetSlug = slugParam as PoetSlug | undefined;
-const canonical = page === null || !poetSlug ? null : poetUrl(poetSlug, { page, ...filters });
+const canonical = poetSlug ? poetUrl(poetSlug, { ...filters, cursor }) : null;
 if (canonical !== null && !isCanonical(Astro.url, canonical)) {
   return Astro.redirect(canonical, 301);
 }
-const [poet, list, facetsResult] =
-  page === null || !poetSlug
-    ? [null, null, null]
-    : await Promise.all([
-        getPoet(poetSlug),
-        listPoems(
-          {
-            poetSlugs: [poetSlug],
-            meterSlugs: filters.meter as readonly MeterSlug[],
-            rhymeSlugs: filters.rhyme as readonly RhymeSlug[],
-            themeSlugs: filters.theme as readonly ThemeSlug[],
-          },
-          page
-        ),
-        ResultAsync.fromPromise(getPoetFacets(poetSlug, filters), (error) => error),
-      ]);
+const [poet, list, facetsResult] = poetSlug
+  ? await Promise.all([
+      getPoet(poetSlug),
+      listPoems(
+        {
+          poetSlugs: [poetSlug],
+          meterSlugs: filters.meter as readonly MeterSlug[],
+          rhymeSlugs: filters.rhyme as readonly RhymeSlug[],
+          themeSlugs: filters.theme as readonly ThemeSlug[],
+        },
+        cursor
+      ),
+      ResultAsync.fromPromise(getPoetFacets(poetSlug, filters), (error) => error),
+    ])
+  : [null, null, null];
 if (!poet) return Astro.rewrite('/404');
-const moved = movedPoetPath(slugParam as string, poet, { page: page ?? 1, ...filters });
+const moved = movedPoetPath(slugParam as string, poet, { ...filters, cursor });
 if (moved) {
   const redirect = Astro.redirect(moved, 301);
   redirect.headers.set('Cache-Control', CACHE_HTML);
   return redirect;
 }
 if (!list || !facetsResult) return Astro.rewrite('/404');
+if (reachedFirstPage(cursor, list)) return Astro.redirect(poetUrl(poet.slug, filters), 301);
 const facets = facetsResult.match(
   (value) => value,
   (error) => {
@@ -69,9 +69,7 @@ if (facets === null || (facets !== undefined && !everyPoetFilterListed(filters, 
   return Astro.rewrite('/404');
 }
 Astro.response.headers.set('Cache-Control', facets === undefined ? CACHE_NONE : CACHE_HTML);
-const { poems, pagination } = list;
 const slug = poet.slug;
-const pageNumber = pagination.page;
 const isFiltered = hasPoetFilters(filters);
 
 const BIO_CLASS = `${TYPE.body} text-text-muted leading-[1.8]`;
@@ -94,16 +92,16 @@ const {
   worksJsonLd,
   crumbItems,
   crumbsJsonLd,
-} = buildPoetLayout({ poet, poems, pagination, filters });
+} = buildPoetLayout({ poet, page: list, filters });
 ---
 
 <Layout
   title={title}
   description={description}
-  canonical={poetUrl(slug, { page: pageNumber, ...filters })}
+  canonical={poetUrl(slug, { ...filters, cursor })}
   robotsIndex={!isFiltered}
-  prevUrl={pag.hasPrevPage ? pag.prevPageUrl : undefined}
-  nextUrl={pag.hasNextPage ? pag.nextPageUrl : undefined}
+  prevUrl={pag.prevUrl}
+  nextUrl={pag.nextUrl}
   ogType="profile"
   ogTitle={title}
   ogDescription={description}
@@ -169,7 +167,7 @@ const {
       client:load
       poetSlug={slug}
       serverSearch={Astro.url.search}
-      poems={{ data: poems, pagination }}
+      poems={list}
       facets={facets}
     />
   </ListPageBody>

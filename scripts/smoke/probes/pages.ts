@@ -1,4 +1,5 @@
-import { ar, BIDI_OVERRIDE, POET_QUERY_AR, QUERY_AR } from '../checks';
+import { ar, BIDI_OVERRIDE, cursorOf, POET_QUERY_AR, QUERY_AR } from '../checks';
+import { containsText } from '../checks/body';
 import { FIXTURE_POET } from '../fixtures';
 import { WEB } from '../target';
 
@@ -17,39 +18,56 @@ export const pageProbes: readonly Probe[] = [
   { url: `${WEB}/poets/${FIXTURE_POET.slug}`, expect: 'ok', note: 'poet detail' },
 ];
 
+const AFTER_TOP_POET = cursorOf({ after: { poemsCount: 1_000_000, nameSort: '', id: 0 } });
+const BEFORE_TOP_POET = cursorOf({ before: { poemsCount: 1_000_000, nameSort: '', id: 0 } });
+const AFTER_LAST_POET = cursorOf({ after: { poemsCount: -1, nameSort: '', id: 0 } });
+const AFTER_LAST_ID = cursorOf({ after: 2_147_483_647 });
+
 export const poetsSsrProbes: readonly Probe[] = [
-  { url: `${WEB}/poets`, expect: 'ok', note: 'all poets' },
-  { url: `${WEB}/poets?page=2`, expect: 'ok', note: 'page 2' },
-  { url: `${WEB}/poets?page=3`, expect: 'ok', note: 'page 3' },
+  {
+    url: `${WEB}/poets`,
+    expect: 'ok',
+    checks: [containsText('/poets?cursor=')],
+    note: 'all poets, linking the next page by cursor',
+  },
+  { url: `${WEB}/poets?cursor=${AFTER_TOP_POET}`, expect: 'ok', note: 'a cursor page' },
+  { url: `${WEB}/poets?page=2`, expect: 'ok', note: 'an old page link lands on the list' },
   { url: `${WEB}/poets?era=jahili`, expect: 'ok', note: 'era filter' },
-  { url: `${WEB}/poets?era=jahili&page=2`, expect: 'ok', note: 'era + page' },
+  { url: `${WEB}/poets?era=jahili&cursor=${AFTER_TOP_POET}`, expect: 'ok', note: 'era + cursor' },
   { url: `${WEB}/poets?q=${ar(POET_QUERY_AR)}`, expect: 'ok', note: 'name search' },
   { url: `${WEB}/poets?era=jahili&q=${ar(QUERY_AR)}`, expect: 'ok', note: 'era + query combo' },
   { url: `${WEB}/poets?q=${ar('zzz')}`, expect: 'ok', note: 'non-Arabic query sanitized to empty' },
   { url: `${WEB}/poets?q=${ar('   ')}`, expect: 'ok', note: 'whitespace-only query' },
-  { url: `${WEB}/poets?page=1`, expect: 'not-found', note: 'page=1 canonicalizes to bare list' },
-  { url: `${WEB}/poets?page=0`, expect: 'not-found', note: 'page below minimum' },
+  { url: `${WEB}/poets?cursor=2`, expect: 'not-found', note: 'a page number is not a cursor' },
   {
-    url: `${WEB}/poets?page=999999`,
+    url: `${WEB}/poets?cursor=${AFTER_LAST_ID}`,
     expect: 'not-found',
-    note: 'page past API MAX_PAGE → 400→404',
+    note: 'a poems cursor on the poets list',
   },
   {
-    url: `${WEB}/poets?era=jahili&page=500`,
+    url: `${WEB}/poets?cursor=${BEFORE_TOP_POET}`,
     expect: 'not-found',
-    note: 'in-range page past filtered last',
+    note: 'a cursor before the first page',
   },
-  { url: `${WEB}/poets?page=abc`, expect: 'not-found', note: 'non-numeric page' },
+  {
+    url: `${WEB}/poets?era=jahili&cursor=${AFTER_LAST_POET}`,
+    expect: 'not-found',
+    note: 'a cursor past the filtered last page',
+  },
   { url: `${WEB}/poets?era=nope`, expect: 'not-found', note: 'unknown era slug' },
   {
     url: `${WEB}/poets?era=JAHILI`,
     expect: 'not-found',
     note: 'uppercase era rejected by SSR list',
   },
-  { url: `${WEB}/poets?page=2&page=3`, expect: 'healthy', note: 'duplicated page param (SSR)' },
-  { url: `${WEB}/poets?page=2.0`, expect: 'healthy', note: 'integer-valued float page (SSR)' },
+  {
+    url: `${WEB}/poets?cursor=${AFTER_TOP_POET}&cursor=x`,
+    expect: 'healthy',
+    note: 'duplicated cursor param (SSR)',
+  },
+  { url: `${WEB}/poets?cursor=${'A'.repeat(2048)}`, expect: 'healthy', note: 'oversized cursor' },
   { url: `${WEB}/poets?era=jahili&era=abbasi`, expect: 'healthy', note: 'duplicated era param' },
-  { url: `${WEB}/poets?page[]=2`, expect: 'healthy', note: 'array-shaped scalar page' },
+  { url: `${WEB}/poets?cursor[]=x`, expect: 'healthy', note: 'array-shaped scalar cursor' },
   {
     url: `${WEB}/poets?q=${ar(BIDI_OVERRIDE)}`,
     expect: 'healthy',
@@ -64,14 +82,14 @@ export const detailBoundaryProbes: readonly Probe[] = [
   { url: `${WEB}/themes/zzz`, expect: 'not-found', note: 'well-formed but absent taxonomy slug' },
   { url: `${WEB}/feelings/zzz`, expect: 'not-found', note: 'well-formed but absent feeling slug' },
   {
-    url: `${WEB}/feelings/alhuzn?page=9999`,
+    url: `${WEB}/feelings/alhuzn?cursor=${AFTER_LAST_ID}`,
     expect: 'not-found',
-    note: 'feeling page past last',
+    note: 'feeling cursor past last',
   },
   {
-    url: `${WEB}/collections/almuallaqat?page=2`,
+    url: `${WEB}/collections/almuallaqat?cursor=${AFTER_LAST_ID}`,
     expect: 'not-found',
-    note: 'term page past last',
+    note: 'term cursor past last',
   },
   { url: `${WEB}/poems/${ar('حبيب')}`, expect: 'not-found', note: 'non-ASCII poem slug' },
   {

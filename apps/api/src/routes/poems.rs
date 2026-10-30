@@ -12,12 +12,13 @@ use crate::constants::{
 };
 use crate::contract::poems::{PoemDetail, PoemFacets, PoemListItem, Total};
 use crate::domain::poems::{self, Facets, RandomPoemOption};
-use crate::envelope::{ItemEnvelope, ListEnvelope, build_pagination};
+use crate::envelope::{ItemEnvelope, PageEnvelope};
 use crate::error::{AppError, Resource};
 use crate::extract::{SafePath, SafeQuery, invalid_path_slug};
 use crate::openapi::{ListErrors, LookupErrors};
 use crate::params::{
-    AnyPage, FourLetterSlug, NoParams, PoetSlugs, RandomPoemOptionParam, SlugsParams, TermSlugs,
+    FourLetterSlug, IdCursor, NoParams, PageCursor, PoetSlugs, RandomPoemOptionParam, SlugsParams,
+    TermSlugs,
 };
 use crate::routes::permanent_redirect;
 use crate::state::AppState;
@@ -26,9 +27,9 @@ use crate::state::AppState;
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub(crate) struct PoemsParams {
-    /// Page number as a 1-based integer, 30 poems a page. Minimum 1.
-    #[param(inline, example = 1)]
-    page: Option<AnyPage>,
+    /// The `next` or `prev` value of a page of this list. Leave it out for the first page.
+    #[param(inline, example = "eyJhZnRlciI6MX0")]
+    cursor: Option<IdCursor>,
     /// Filter by poet. Repeatable. Values are `slug` from GET /poets.
     #[serde(default)]
     #[param(inline, example = json!(["PAKT"]))]
@@ -60,18 +61,18 @@ pub(crate) struct PoemsParams {
     path = "/poems",
     tag = "poems",
     operation_id = "poems.list",
-    description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error.",
+    description = "A page of 30 poems in catalog order, oldest entries first, holding primary readings only (a poem's alternate readings are listed on the poem). Pass the page's `next` or `prev` as `cursor` for the page after or before it, with the same filters. Filter by poet, era, theme, meter, rhyme, and collection: values of one filter combine with OR and different filters with AND. A slug that matches nothing gives an empty page rather than an error.",
     params(PoemsParams),
     responses(
-        (status = 200, description = "A page of poems with pagination metadata.", body = ListEnvelope<PoemListItem>),
+        (status = 200, description = "A page of poems, with the cursors of the pages around it.", body = PageEnvelope<PoemListItem>),
         ListErrors,
     ),
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
     SafeQuery(params): SafeQuery<PoemsParams>,
-) -> Result<Json<ListEnvelope<PoemListItem>>, AppError> {
-    let page = params.page.map_or(1, AnyPage::get);
+) -> Result<Json<PageEnvelope<PoemListItem>>, AppError> {
+    let cursor = params.cursor.map(PageCursor::into_inner);
     let facets = Facets {
         poet: params.poet.into_strings(),
         era: params.era.into_strings(),
@@ -80,16 +81,16 @@ pub(crate) async fn list(
         rhyme: params.rhyme.into_strings(),
         collection: params.collection.into_strings(),
     };
-    let (poems, total) = state.poems.list(&facets, page, POEMS_PER_PAGE).await?;
-    let envelope = ListEnvelope {
-        data: poems.into_iter().map(PoemListItem::from).collect(),
-        pagination: build_pagination(page, POEMS_PER_PAGE, total.cast_unsigned()),
-    };
+    let (poems, total) = state
+        .poems
+        .list(&facets, cursor.as_ref(), POEMS_PER_PAGE)
+        .await?;
     crate::log::record_results(u64::try_from(total).unwrap_or(0));
-    tracing::Span::current().record("page", page);
-    tracing::Span::current().record("page_size", POEMS_PER_PAGE);
-    tracing::Span::current().record("total_pages", envelope.pagination.total_pages);
-    Ok(Json(envelope))
+    Ok(Json(PageEnvelope::new(
+        poems,
+        total.cast_unsigned(),
+        PoemListItem::from,
+    )))
 }
 
 #[utoipa::path(
@@ -97,29 +98,30 @@ pub(crate) async fn list(
     path = "/poems/slugs",
     tag = "poems",
     operation_id = "poems.listSlugs",
-    description = "The slug of every primary poem, 45,000 a page in slug order, for sitemaps and incremental crawling.",
+    description = "The slug of every primary poem, 45,000 a page in catalog order, oldest entries first, for sitemaps and incremental crawling. A new poem joins the last page, so a crawler that kept the last `next` it saw (or the last page's `prev`) only reads what came after.",
     params(SlugsParams),
     responses(
-        (status = 200, description = "A page of poem slugs.", body = ListEnvelope<FourLetterSlug>),
+        (status = 200, description = "A page of poem slugs.", body = PageEnvelope<FourLetterSlug>),
         ListErrors,
     ),
 )]
 pub(crate) async fn list_slugs(
     State(state): State<AppState>,
     SafeQuery(params): SafeQuery<SlugsParams>,
-) -> Result<Json<ListEnvelope<String>>, AppError> {
-    let page = params.page.map_or(1, AnyPage::get);
-    let (data, total) = tokio::try_join!(
-        state.poems.list_slugs(page, SITEMAP_POEMS_PER_SHARD),
+) -> Result<Json<PageEnvelope<String>>, AppError> {
+    let cursor = params.cursor.map(PageCursor::into_inner);
+    let (slugs, total) = tokio::try_join!(
+        state
+            .poems
+            .list_slugs(cursor.as_ref(), SITEMAP_POEMS_PER_SHARD),
         state.poems.count()
     )?;
-    crate::log::record_results(u64::try_from(data.len()).unwrap_or(u64::MAX));
-    tracing::Span::current().record("page", page);
-    let envelope = ListEnvelope {
-        data,
-        pagination: build_pagination(page, SITEMAP_POEMS_PER_SHARD, total.cast_unsigned()),
-    };
-    Ok(Json(envelope))
+    crate::log::record_results(u64::try_from(slugs.items.len()).unwrap_or(u64::MAX));
+    Ok(Json(PageEnvelope::new(
+        slugs,
+        total.cast_unsigned(),
+        |slug| slug,
+    )))
 }
 
 #[utoipa::path(
