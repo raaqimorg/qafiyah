@@ -56,7 +56,7 @@ describe('formatReport', () => {
           group: 'run',
           name: 'Rust toolchain',
           status: 'warn',
-          detail: '1.99.0 not installed yet',
+          detail: '1.99.1 not installed yet',
         },
       ],
       STYLE
