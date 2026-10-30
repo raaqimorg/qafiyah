@@ -71,6 +71,7 @@ function ShareIcon({ iconPath }: { readonly iconPath: string }) {
 type VerseCard =
   | { readonly status: 'drawing' }
   | { readonly status: 'ready'; readonly file: File }
+  | { readonly status: 'too-long' }
   | { readonly status: 'failed' };
 
 const DOWNLOAD_URL_LIFETIME_MS = 40_000;
@@ -88,7 +89,8 @@ function useVerseCard(image: VerseCardText | undefined): VerseCard {
     let isCurrent = true;
     void drawVerseCard({ text, poet, font }).match(
       (file) => {
-        if (isCurrent) setDrawn({ key, card: { status: 'ready', file } });
+        if (!isCurrent) return;
+        setDrawn({ key, card: file === null ? { status: 'too-long' } : { status: 'ready', file } });
       },
       (error) => {
         reportError('drawVerseCard failed', error, {
@@ -167,7 +169,8 @@ export function ShareSheet({ ref, title, body, path, image, onPickVerses }: Shar
           </form>
         </div>
         <ul className="flex flex-col px-3 py-2">
-          {(image !== undefined || onPickVerses !== undefined) && (
+          {((image !== undefined && card.status !== 'too-long') ||
+            (image === undefined && onPickVerses !== undefined)) && (
             <li>
               <button
                 type="button"

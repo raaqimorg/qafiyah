@@ -1,4 +1,4 @@
-import { errAsync, ResultAsync } from 'neverthrow';
+import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 
 import { SHARE_TEXTS } from '@/lib/constants/copy';
 import { PROD_DOMAIN } from '@qafiyah/config';
@@ -26,6 +26,7 @@ const MIN_FONT = 28;
 const LINE_RATIO = 1.65;
 const FOOTER_FONT = 30;
 const MAX_PIXEL_RATIO = 2;
+const MAX_HEIGHT = 1920;
 
 function wrapLine(line: string, fontSize: number, measure: MeasureLine): readonly string[] {
   if (measure(line, fontSize) <= CONTENT_WIDTH) return [line];
@@ -44,29 +45,33 @@ function wrapLine(line: string, fontSize: number, measure: MeasureLine): readonl
   return wrapped;
 }
 
-function fittingFontSize(lines: readonly string[], measure: MeasureLine): number {
-  for (let size = MAX_FONT; size > MIN_FONT; size -= 1) {
-    if (lines.every((line) => measure(line, size) <= CONTENT_WIDTH)) return size;
-  }
-  return MIN_FONT;
+function cardHeight(lines: readonly string[], fontSize: number): number {
+  const lineHeight = fontSize * LINE_RATIO;
+  const bodyHeight = lines.reduce(
+    (sum, line) => sum + (line === '' ? lineHeight / 2 : lineHeight),
+    0
+  );
+  return Math.round(PADDING * 2 + bodyHeight + FOOTER_FONT * 2 * LINE_RATIO);
 }
 
 export function layoutVerseCard(
   text: string,
   measure: MeasureLine,
   devicePixelRatio: number
-): VerseCardLayout {
+): VerseCardLayout | null {
   const source = text.split('\n');
-  const fontSize = fittingFontSize(source, measure);
-  const lines = source.flatMap((line) => (line === '' ? [''] : wrapLine(line, fontSize, measure)));
-  const lineHeight = fontSize * LINE_RATIO;
-  const bodyHeight = lines.reduce(
-    (sum, line) => sum + (line === '' ? lineHeight / 2 : lineHeight),
-    0
-  );
-  const height = Math.round(PADDING * 2 + bodyHeight + FOOTER_FONT * 2 * LINE_RATIO);
   const pixelRatio = Math.min(devicePixelRatio, MAX_PIXEL_RATIO);
-  return { fontSize, lines, height, pixelRatio };
+  for (let fontSize = MAX_FONT; fontSize >= MIN_FONT; fontSize -= 1) {
+    const fitsWidth =
+      fontSize === MIN_FONT || source.every((line) => measure(line, fontSize) <= CONTENT_WIDTH);
+    if (!fitsWidth) continue;
+    const lines = source.flatMap((line) =>
+      line === '' ? [''] : wrapLine(line, fontSize, measure)
+    );
+    const height = cardHeight(lines, fontSize);
+    if (height <= MAX_HEIGHT) return { fontSize, lines, height, pixelRatio };
+  }
+  return null;
 }
 
 function themeColor(name: string): string {
@@ -88,18 +93,16 @@ function canvasBlob(canvas: HTMLCanvasElement): ResultAsync<Blob, Error> {
 function drawCard(
   canvas: HTMLCanvasElement,
   { text, poet, font }: VerseCardText
-): ResultAsync<Blob, Error> {
+): ResultAsync<Blob | null, Error> {
   const ctx = canvas.getContext('2d');
   if (ctx === null) return errAsync(new Error('the canvas has no 2d context'));
   const measure: MeasureLine = (line, fontSize) => {
     ctx.font = `${fontSize}px ${font}`;
     return ctx.measureText(line).width;
   };
-  const { fontSize, lines, height, pixelRatio } = layoutVerseCard(
-    text,
-    measure,
-    window.devicePixelRatio
-  );
+  const layout = layoutVerseCard(text, measure, window.devicePixelRatio);
+  if (layout === null) return okAsync(null);
+  const { fontSize, lines, height, pixelRatio } = layout;
   canvas.width = Math.floor(WIDTH * pixelRatio);
   canvas.height = Math.floor(height * pixelRatio);
   ctx.scale(pixelRatio, pixelRatio);
@@ -129,8 +132,10 @@ function drawCard(
   return canvasBlob(canvas);
 }
 
-export function drawVerseCard(card: VerseCardText): ResultAsync<File, Error> {
+export function drawVerseCard(card: VerseCardText): ResultAsync<File | null, Error> {
   return ResultAsync.fromSafePromise(document.fonts.ready)
     .andThen(() => drawCard(document.createElement('canvas'), card))
-    .map((blob) => new File([blob], `${SHARE_TEXTS.imageFile}.png`, { type: 'image/png' }));
+    .map((blob) =>
+      blob === null ? null : new File([blob], `${SHARE_TEXTS.imageFile}.png`, { type: 'image/png' })
+    );
 }
