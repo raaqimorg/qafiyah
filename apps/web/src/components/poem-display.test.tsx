@@ -144,10 +144,11 @@ describe('PoemDisplay', () => {
     expect(rows.map((row) => row[1])).toEqual(['تلقرام', 'واتس', 'فيسبوك', 'تويتر']);
   });
 
-  it('offers sharing the verses as an image in the share dialog', () => {
+  it('leaves the image option out of the share dialog of the whole poem', () => {
     const { html } = render([['صدر', 'عجز']]);
     const dialog = /<dialog[\s\S]*<\/dialog>/.exec(html)?.[0] ?? '';
-    expect(dialog).toMatch(/<button[^>]*aria-label="مشاركة كصورة"/);
+    expect(dialog).toContain('aria-label="مشاركة على تلقرام"');
+    expect(dialog).not.toContain('aria-label="مشاركة كصورة"');
   });
 
   it('renders one share dialog and no share button for selected verses before a selection', () => {

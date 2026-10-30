@@ -135,10 +135,9 @@ type ShareSheetProps = {
   readonly body: string;
   readonly path: string;
   readonly image?: VerseCardText;
-  readonly onPickVerses?: (() => void) | undefined;
 };
 
-export function ShareSheet({ ref, title, body, path, image, onPickVerses }: ShareSheetProps) {
+export function ShareSheet({ ref, title, body, path, image }: ShareSheetProps) {
   const titleId = useId();
   const url = `${SITE_URL}${path}`;
   const card = useVerseCard(image);
@@ -169,22 +168,16 @@ export function ShareSheet({ ref, title, body, path, image, onPickVerses }: Shar
           </form>
         </div>
         <ul className="flex flex-col px-3 py-2">
-          {((image !== undefined && card.status !== 'too-long') ||
-            (image === undefined && onPickVerses !== undefined)) && (
+          {image !== undefined && card.status !== 'too-long' && (
             <li>
               <button
                 type="button"
-                onClick={(event) => {
-                  if (image === undefined) {
-                    event.currentTarget.closest('dialog')?.close();
-                    onPickVerses?.();
-                    return;
-                  }
+                onClick={() => {
                   if (card.status !== 'ready') return;
                   captureEvent('shared', { network: 'image' });
                   void shareFile(card.file);
                 }}
-                disabled={image !== undefined && card.status !== 'ready'}
+                disabled={card.status !== 'ready'}
                 aria-label={SHARE_TEXTS.image}
                 className="flex min-h-12 w-full items-center gap-3 rounded-md px-2 text-text-muted focus-ring transition-colors hover:bg-surface-sunken hover:text-text disabled:opacity-50"
               >
@@ -195,9 +188,7 @@ export function ShareSheet({ ref, title, body, path, image, onPickVerses }: Shar
                   focusable="false"
                 />
                 <span>
-                  {image !== undefined && card.status === 'failed'
-                    ? SHARE_TEXTS.imageFailed
-                    : SHARE_TEXTS.image}
+                  {card.status === 'failed' ? SHARE_TEXTS.imageFailed : SHARE_NETWORK_NAMES.image}
                 </span>
               </button>
             </li>
