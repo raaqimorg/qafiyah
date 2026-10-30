@@ -144,6 +144,7 @@ pub struct PoetInput {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
+#[schemars(inline)]
 pub enum TermKind {
     Eras,
     Meters,
@@ -306,7 +307,7 @@ impl Catalog {
     #[tool(
         name = "search",
         description = "Search Qafiyah's catalog of Arabic poetry for poems and poets, in Arabic, with optional filters by slug. Get valid filter slugs from list_terms or list_poets first. Quote verses exactly as the result gives them, and give each poem's and poet's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "Search poems and poets", read_only_hint = true)
     )]
     async fn search(
         &self,
@@ -355,7 +356,7 @@ impl Catalog {
     #[tool(
         name = "list_poems",
         description = "List poems in Qafiyah's catalog, filtered by poet, era, theme, meter, rhyme, or collection slugs. Get valid slugs from list_terms, list_poets, or search first. Give each poem's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "List poems", read_only_hint = true)
     )]
     async fn list_poems(
         &self,
@@ -385,7 +386,7 @@ impl Catalog {
     #[tool(
         name = "get_poem",
         description = "Get one poem of Qafiyah's catalog by its four-letter slug, with its verses, poet, era, meter, rhyme, and theme. Get valid slugs from search, list_poems, or random_poem first. Quote verses exactly as the result gives them, and give the poem's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "Get poem", read_only_hint = true)
     )]
     async fn get_poem(
         &self,
@@ -411,7 +412,7 @@ impl Catalog {
     #[tool(
         name = "random_poem",
         description = "Pick a random poem from Qafiyah's catalog. It answers the poem's slug and url: call get_poem with the slug for its verses, and quote them exactly.",
-        annotations(read_only_hint = true)
+        annotations(title = "Random poem", read_only_hint = true)
     )]
     async fn random_poem(
         &self,
@@ -437,7 +438,7 @@ impl Catalog {
     #[tool(
         name = "list_poets",
         description = "List poets in Qafiyah's catalog, optionally by era slug or by part of the name in Arabic. Get valid era slugs from list_terms first. Give each poet's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "List poets", read_only_hint = true)
     )]
     async fn list_poets(
         &self,
@@ -463,7 +464,7 @@ impl Catalog {
     #[tool(
         name = "get_poet",
         description = "Get one poet of Qafiyah's catalog by the four-letter slug: name, era, biography, and poem count. Get valid slugs from list_poets or search first. Give the poet's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "Get poet", read_only_hint = true)
     )]
     async fn get_poet(
         &self,
@@ -488,7 +489,7 @@ impl Catalog {
     #[tool(
         name = "list_terms",
         description = "List one kind of term in Qafiyah's catalog (eras, meters, rhymes, themes, poem types, or collections), with each term's slug and counts. Use the slugs to filter list_poems, list_poets, and search.",
-        annotations(read_only_hint = true)
+        annotations(title = "List terms", read_only_hint = true)
     )]
     async fn list_terms(
         &self,
@@ -510,7 +511,7 @@ impl Catalog {
     #[tool(
         name = "list_feelings",
         description = "List the feelings that Qafiyah classifies verses by, with each feeling's slug. Use a slug with feeling_verses.",
-        annotations(read_only_hint = true)
+        annotations(title = "List feelings", read_only_hint = true)
     )]
     async fn list_feelings(
         &self,
@@ -531,7 +532,7 @@ impl Catalog {
     #[tool(
         name = "feeling_verses",
         description = "List verses of Qafiyah's catalog that express one feeling, by the feeling's slug. Get valid slugs from list_feelings first. Quote verses exactly as the result gives them, and give each poem's url.",
-        annotations(read_only_hint = true)
+        annotations(title = "Feeling verses", read_only_hint = true)
     )]
     async fn feeling_verses(
         &self,
@@ -1056,6 +1057,31 @@ mod tests {
             found.is_empty(),
             "single-type dialects reject these: {found:?}"
         );
+    }
+
+    #[test]
+    fn every_input_property_has_a_type() {
+        let mut found = Vec::new();
+        for tool in Catalog::tool_router().list_all() {
+            let schema = serde_json::to_value(tool.input_schema.as_ref()).expect("a schema");
+            for (name, property) in schema["properties"].as_object().into_iter().flatten() {
+                if property.get("type").is_none() {
+                    found.push(format!("{}/{name}", tool.name));
+                }
+            }
+        }
+        assert!(found.is_empty(), "directories flag these: {found:?}");
+    }
+
+    #[test]
+    fn every_tool_has_a_title() {
+        for tool in Catalog::tool_router().list_all() {
+            assert!(
+                tool.annotations.and_then(|a| a.title).is_some(),
+                "{}",
+                tool.name
+            );
+        }
     }
 
     #[test]
