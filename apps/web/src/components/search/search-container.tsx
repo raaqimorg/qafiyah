@@ -105,6 +105,10 @@ export function SearchContainer({
                   onKeyDown={handlers.onKeyDown}
                   onInputChange={handlers.onInputChange}
                   onInputBlur={handlers.onInputBlur}
+                  visibleSearchHistory={input.visibleSearchHistory}
+                  onSelectHistoryEntry={handlers.onSelectHistoryEntry}
+                  onRemoveHistoryEntry={handlers.onRemoveHistoryEntry}
+                  onClearSearchHistory={handlers.onClearSearchHistory}
                   onClearInput={handlers.onClearInput}
                   onSearch={handlers.onSearch}
                   hasQueryToShow={flags.hasQueryToShow}
