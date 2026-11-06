@@ -21,6 +21,7 @@ export const MAX_QUERY_LENGTH = 100;
 
 export const SEARCH_TYPE_VALUES = ['poems', 'poets'] as const;
 export type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
+export const MAX_SEARCH_HISTORY = 10;
 
 export const PROD_DOMAIN = 'qafiyah.com';
 export const PROD_SITE_URL = `https://${PROD_DOMAIN}`;
