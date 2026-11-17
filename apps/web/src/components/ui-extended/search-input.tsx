@@ -5,16 +5,24 @@ import {
   type ChangeEventHandler,
   type KeyboardEventHandler,
   type MouseEventHandler,
+  useId,
   useRef,
+  useState,
 } from 'react';
 
+import { SearchHistory } from '@/components/ui-extended/search-history';
 import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
+import { SEARCH_TEXTS } from '@/lib/constants/copy';
 import { cn } from '@/lib/utils';
 import { MAX_QUERY_LENGTH } from '@qafiyah/config';
 
 type Props = {
   readonly inputValue: string;
+  readonly visibleSearchHistory: readonly string[];
+  readonly onSelectHistoryEntry: (entry: string) => void;
+  readonly onRemoveHistoryEntry: (entry: string) => void;
+  readonly onClearSearchHistory: () => void;
   readonly validationError: string | null;
   readonly searchLabel: string;
   readonly onKeyDown: KeyboardEventHandler<HTMLInputElement>;
@@ -32,6 +40,10 @@ const preventInputBlur: MouseEventHandler = (event) => {
 
 export function SearchInput({
   inputValue,
+  visibleSearchHistory,
+  onSelectHistoryEntry,
+  onRemoveHistoryEntry,
+  onClearSearchHistory,
   validationError,
   searchLabel,
   onKeyDown,
@@ -44,6 +56,47 @@ export function SearchInput({
 }: Props) {
   const wasFocusedRef = useRef(false);
 
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const listboxId = useId();
+  const isListVisible = isOpen && visibleSearchHistory.length > 0;
+
+  const handleHistoryKeyDown: KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (!isListVisible) return;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % visibleSearchHistory.length);
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(
+          (prev) => (prev - 1 + visibleSearchHistory.length) % visibleSearchHistory.length
+        );
+        break;
+
+      case 'Enter': {
+        setIsOpen(false);
+        const entry = visibleSearchHistory[highlightedIndex];
+        if (entry !== undefined) {
+          e.preventDefault();
+          onSelectHistoryEntry(entry);
+        }
+        break;
+      }
+
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        break;
+    }
+  };
+
+  const handleInputFocus = () => {
+    setIsOpen(true);
+    setHighlightedIndex(-1);
+  };
   const handleInputMouseDown: MouseEventHandler<HTMLInputElement> = (event) => {
     wasFocusedRef.current = event.currentTarget === document.activeElement;
   };
@@ -68,6 +121,15 @@ export function SearchInput({
       </div>
       <div tabIndex={-1} className="relative">
         <Input
+          role="combobox"
+          aria-expanded={isListVisible}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
+          aria-activedescendant={
+            isListVisible && highlightedIndex >= 0
+              ? `${listboxId}-option-${highlightedIndex}`
+              : undefined
+          }
           tabIndex={0}
           placeholder={placeholder}
           maxLength={MAX_QUERY_LENGTH}
@@ -78,10 +140,19 @@ export function SearchInput({
           autoSave="off"
           spellCheck={false}
           onChange={onInputChange}
-          onKeyDown={onKeyDown}
-          onBlur={onInputBlur}
+          onKeyDown={(e) => {
+            handleHistoryKeyDown(e);
+            if (e.defaultPrevented) return;
+            if (e.key === 'Enter') setIsOpen(false);
+            onKeyDown(e);
+          }}
+          onBlur={() => {
+            setIsOpen(false);
+            onInputBlur();
+          }}
           onMouseDown={handleInputMouseDown}
           onClick={handleInputClick}
+          onFocus={handleInputFocus}
           enterKeyHint="search"
           aria-label={searchLabel}
           className={cn(
@@ -90,6 +161,22 @@ export function SearchInput({
           )}
           dir="rtl"
         />
+        {isListVisible && (
+          <div
+            role="presentation"
+            className="absolute top-full left-0 z-50 w-full"
+            onMouseDown={preventInputBlur}
+          >
+            <SearchHistory
+              searchHistory={[...visibleSearchHistory]}
+              highlightedIndex={highlightedIndex}
+              listboxId={listboxId}
+              onSelect={onSelectHistoryEntry}
+              onRemove={onRemoveHistoryEntry}
+              onClear={onClearSearchHistory}
+            />
+          </div>
+        )}
         <IconButton
           onClick={onSearch}
           aria-label={searchLabel}
@@ -103,7 +190,7 @@ export function SearchInput({
               tabIndex={0}
               onMouseDown={preventInputBlur}
               onClick={onClearInput}
-              aria-label="مسح البحث"
+              aria-label={SEARCH_TEXTS.deleteSearchHistoryEntryAria}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </IconButton>

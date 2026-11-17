@@ -2,6 +2,8 @@ import * as v from 'valibot';
 
 export const SETTINGS_STORAGE_KEY = 'qafiyah:settings';
 
+export const SEARCH_HISTORY_STORAGE_KEY = 'qafiyah:search-history';
+
 export const SETTINGS_VERSION = 1;
 
 export type Theme = 'system' | 'light' | 'dark';

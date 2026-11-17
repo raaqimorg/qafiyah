@@ -34,6 +34,9 @@ export const SEARCH_TEXTS = {
   exactToggleEnableAria: 'تفعيل التطابق الحرفي في نتائج البحث',
   exactToggleDisableAria: 'إلغاء التطابق الحرفي في نتائج البحث',
   feelingsLabel: 'البحث بالمشاعر',
+  searchHistory: 'سجل البحث',
+  deleteSearchHistory: 'حذف الجميع',
+  deleteSearchHistoryEntryAria: 'حذف البحث',
 } as const;
 
 export const FEELING_TEXTS = {

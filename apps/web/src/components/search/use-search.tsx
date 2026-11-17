@@ -7,8 +7,16 @@ import { useEffect, useState } from 'react';
 import { apiBrowser } from '@/lib/api/browser-client';
 import { searchQueryKey, searchQueryParams } from '@/lib/api/search-query';
 import { sanitizeArabicInput, stripInputNoise } from '@/lib/arabic';
+import { browserStorage } from '@/lib/browser-storage';
 import { SEARCH_TEXTS } from '@/lib/constants/copy';
 import { createCsvFilterSetter, splitCsvIds, validateText } from '@/lib/search/csv-filters';
+import {
+  addToSearchHistory,
+  removeFromSearchHistory,
+  clearSearchHistory,
+  readSearchHistory,
+  filterSearchHistory,
+} from '@/lib/search/search-history';
 
 import { useSearchCompletedEvent } from './search-completed-event';
 import { deriveSearchStatus, deriveSectionStatus } from './search-status';
@@ -86,7 +94,7 @@ export function useSearch() {
   const [syncedQuery, setSyncedQuery] = useState(query);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [filtersVisible, setFiltersVisible] = useState(false);
-
+  const [searchHistory, setSearchHistory] = useState(() => readSearchHistory(browserStorage()));
   if (query !== syncedQuery) {
     setSyncedQuery(query);
     setInputValue(query);
@@ -112,6 +120,7 @@ export function useSearch() {
   const hasPoetFilters = selectedEras.length > 0;
   const hasCommittedQuery = query.trim().length > 0;
   const hasInputText = inputValue.trim().length > 0;
+  const visibleSearchHistory = filterSearchHistory(searchHistory, inputValue);
   const canSearchPoems = hasCommittedQuery || hasFilters;
   const canSearchPoets = hasCommittedQuery || hasPoetFilters;
 
@@ -216,6 +225,12 @@ export function useSearch() {
     setValidationError(validateText(sanitized));
   };
 
+  const recordSearch = (text: string) => {
+    const storage = browserStorage();
+    if (storage === undefined) return;
+    setSearchHistory(addToSearchHistory(storage, text));
+  };
+
   const handleSearch = () => {
     const trimmed = inputValue.trim();
     const error = validateText(trimmed);
@@ -225,7 +240,27 @@ export function useSearch() {
     }
     setValidationError(null);
     if (filtersVisible) setFiltersVisible(false);
+    recordSearch(trimmed);
     if (trimmed !== query.trim()) void setQuery(trimmed, { history: 'push' });
+  };
+
+  const handleSelectHistoryEntry = (entry: string) => {
+    setInputValue(entry);
+    setValidationError(null);
+    if (filtersVisible) setFiltersVisible(false);
+    recordSearch(entry);
+    void setQuery(entry, { history: 'push' });
+  };
+
+  const handleRemoveHistoryEntry = (entry: string) => {
+    const storage = browserStorage();
+    if (storage === undefined) return;
+    setSearchHistory(removeFromSearchHistory(storage, entry));
+  };
+  const handleClearSearchHistory = () => {
+    const storage = browserStorage();
+    if (storage === undefined) return;
+    setSearchHistory(clearSearchHistory(storage));
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -284,6 +319,7 @@ export function useSearch() {
       inputValue,
       validationError,
       query,
+      visibleSearchHistory,
     },
     sections: {
       poems,
@@ -312,6 +348,9 @@ export function useSearch() {
       onKeyDown: handleKeyDown,
       onInputBlur: handleInputBlur,
       onSearch: handleSearch,
+      onSelectHistoryEntry: handleSelectHistoryEntry,
+      onRemoveHistoryEntry: handleRemoveHistoryEntry,
+      onClearSearchHistory: handleClearSearchHistory,
       onErasChange: handleErasChange,
       onMetersChange: handleMetersChange,
       onThemesChange: handleThemesChange,
