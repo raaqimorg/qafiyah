@@ -46,6 +46,13 @@ export function Footer({ className }: { className?: string }) {
           >
             من نحن
           </a>
+          <Separator />
+          <a
+            href="/sponsorship"
+            className="inline-flex min-h-11 items-center rounded-md px-1 transition-colors hover:text-text focus-visible:ring-1 focus-visible:ring-text focus-visible:outline-none md:px-2"
+          >
+            الرعاية
+          </a>
           <Separator className="hidden lg:inline" />
           <a
             href="/developers"

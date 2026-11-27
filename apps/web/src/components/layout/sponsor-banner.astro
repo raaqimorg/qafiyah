@@ -1,8 +1,8 @@
 ---
-import { BANNER_IMAGE_SIZE, type Sponsor } from '@/lib/constants/sponsorship';
+import { BANNER_IMAGE_SIZE, type Sponsor, type TextSponsor } from '@/lib/constants/sponsorship';
 
 interface Props {
-  sponsor?: Sponsor | undefined;
+  sponsor?: Sponsor | TextSponsor | undefined;
   class?: string | undefined;
 }
 
@@ -17,6 +17,26 @@ const { sponsor, class: className } = Astro.props;
     >
       <span>هذه المساحة متاحة لراعٍ واحد يدعم قافية</span>
       <span class="text-highlight underline underline-offset-4">اعرف المزيد</span>
+    </a>
+  ) : 'logo' in sponsor ? (
+    <a
+      href={sponsor.url}
+      target="_blank"
+      rel="sponsored noopener noreferrer"
+      aria-label={`${sponsor.name}، ${sponsor.line}، ${sponsor.action}`}
+      class="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-center text-micro text-text-subtle transition-colors hover:border-text-subtle hover:text-text focus-ring"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        class="size-4 shrink-0"
+        set:html={sponsor.logo}
+      />
+      <span>
+        {sponsor.name}، {sponsor.line}
+      </span>
+      <span class="text-highlight underline underline-offset-4">{sponsor.action}</span>
     </a>
   ) : (
     <a
