@@ -12,6 +12,7 @@ import ViewerInit from '@/components/layout/viewer-init.astro';
 import LayoutDebug from '@/components/layout/layout-debug.astro';
 import { isDev, isRelease, POSTHOG_HOST } from '@/lib/constants/config';
 import { SITE_LANGUAGE } from '@/lib/constants/site-meta';
+import { SPONSOR } from '@/lib/constants/sponsorship';
 import '@/styles/globals.css';
 
 interface Props extends SeoProps {
@@ -57,7 +58,7 @@ const htmlClass = isDev ? 'debug-screens' : '';
       >
         تخطَّ إلى المحتوى
       </a>
-      <SponsorBanner class="pt-2" />
+      <SponsorBanner sponsor={SPONSOR} class="pt-2" />
       <Nav />
       <main
         id="main"
