@@ -4,12 +4,30 @@ export type Sponsor = {
   readonly url: string;
 };
 
+export type TextSponsor = {
+  readonly name: string;
+  readonly line: string;
+  readonly action: string;
+  readonly logo: string;
+  readonly url: string;
+};
+
 export type SponsorshipPlan = {
   readonly days: number;
   readonly priceUsd: number;
 };
 
-export const BANNER_IMAGE_SIZE = { width: 992, height: 48 } as const;
+export const BANNER_IMAGE_SIZE = { width: 992, height: 40 } as const;
+
+const WIRDY_LOGO = `<g fill="currentColor"><circle cx="32.00" cy="10.50" r="6.4"/><circle cx="42.75" cy="13.38" r="6.4"/><circle cx="50.62" cy="21.25" r="6.4"/><circle cx="53.50" cy="32.00" r="6.4"/><circle cx="50.62" cy="42.75" r="6.4"/><circle cx="42.75" cy="50.62" r="6.4"/><circle cx="32.00" cy="53.50" r="6.4"/><circle cx="21.25" cy="50.62" r="6.4"/><circle cx="13.38" cy="42.75" r="6.4"/><circle cx="10.50" cy="32.00" r="6.4"/><circle cx="13.38" cy="21.25" r="6.4"/><circle cx="21.25" cy="13.38" r="6.4"/></g><circle cx="32" cy="32" r="12.5" fill="currentColor" fill-opacity="0.4"/>`;
+
+export const SPONSOR: Sponsor | TextSponsor | undefined = {
+  name: 'وِردي',
+  line: 'أذكار صحيحة بتخريجها',
+  action: 'زوروا الموقع',
+  logo: WIRDY_LOGO,
+  url: 'https://wirdy.site',
+};
 
 export const EXAMPLE_SPONSORS: readonly Sponsor[] = [
   {
