@@ -13,7 +13,7 @@ const { sponsor, class: className } = Astro.props;
   {sponsor === undefined ? (
     <a
       href="/sponsorship"
-      class="flex min-h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-center text-micro text-text-subtle transition-colors hover:border-text-subtle hover:text-text focus-ring"
+      class="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-center text-micro text-text-subtle transition-colors hover:border-text-subtle hover:text-text focus-ring"
     >
       <span>هذه المساحة متاحة لراعٍ واحد يدعم قافية</span>
       <span class="text-highlight underline underline-offset-4">اعرف المزيد</span>
@@ -30,7 +30,7 @@ const { sponsor, class: className } = Astro.props;
         width={BANNER_IMAGE_SIZE.width}
         height={BANNER_IMAGE_SIZE.height}
         alt={sponsor.name}
-        class="block h-12 w-full object-cover"
+        class="block h-10 w-full object-cover"
       />
     </a>
   )}

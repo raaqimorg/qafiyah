@@ -9,7 +9,13 @@ export type SponsorshipPlan = {
   readonly priceUsd: number;
 };
 
-export const BANNER_IMAGE_SIZE = { width: 992, height: 48 } as const;
+export const BANNER_IMAGE_SIZE = { width: 992, height: 40 } as const;
+
+export const SPONSOR: Sponsor | undefined = {
+  name: 'وِردي، أذكار صحيحة بتخريجها',
+  image: '/sponsorship/wirdy.png',
+  url: 'https://wirdy.site',
+};
 
 export const EXAMPLE_SPONSORS: readonly Sponsor[] = [
   {
